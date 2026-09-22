@@ -6276,11 +6276,11 @@ function peindreLive() {
       : 'block ' + (Number.isFinite(e.bloc) ? e.bloc.toLocaleString('en-US') : '?');
     /* tip 2358: unhooked ACHAT/VENTE → Launch hooked beside (fee capture); hooked/TBGAS → Buy/Sell */
     /* tip 0028 : une seule invitation, sans jargon */
-    /* tip 20260922-fee-funnel: Created unhooked row — primary V8 CTA, Open profile secondary (same profile path) */
+    /* tip 20260922-2135: unhooked Created rows must offer free Create, never a false V8 birth CTA */
     const unhookedCreate = e.type === 'CREATION' && CHAINE === 8453 && e.paidCreate !== true
       && poolDecouvertPour(e.jeton) && !poolDecouvertPour(e.jeton).isTbFeeHook;
     const openHint = unhookedCreate
-      ? (' · <button type="button" class="puce on" data-v8-cta="' + enTexte(e.jeton) + '">Launch hooked V8 — 0.001 ETH once</button>'
+      ? (' · <button type="button" class="puce on" data-tf-act="create-here">Create here (free)</button>'
         + ' · <span class="filOpen">Open profile</span>')
       : ((e.type === 'CREATION' || e.type === 'ACHAT' || e.type === 'VENTE' || e.type === 'SWAP')
         ? ' · <span class="filOpen">tap to open</span>' : '');
@@ -6348,7 +6348,14 @@ $('#sfLive').addEventListener('click', (ev) => {
     peindreLive();
     return;
   }
-  /* tip 20260922-fee-funnel + 20260922-2112: Created V8 CTA — gate on porteLeLabel before Give birth */
+  /* tip 20260922-2135: Created unhooked rows go to the free Create screen, not V8 birth. */
+  const createHere = ev.target.closest('[data-tf-act="create-here"]');
+  if (createHere) {
+    ev.preventDefault(); ev.stopPropagation();
+    try { allerA('creer'); } catch (_) { location.hash = '#creer'; }
+    return;
+  }
+  /* tip 20260922-fee-funnel + 20260922-2112: legacy V8 CTA — gate on porteLeLabel before Give birth */
   const v8 = ev.target.closest('[data-v8-cta]');
   if (v8) {
     ev.preventDefault(); ev.stopPropagation();
