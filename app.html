@@ -858,7 +858,20 @@ details[open] > summary::before{transform:rotate(90deg)}
 @media (max-width:520px){.creaChoix{grid-template-columns:1fr}}
 .creaSticky[hidden],.stadeLigne[hidden],#cModeBlock[hidden],#cModeToken[hidden]{display:none!important}
 /* tip 0041 — le block au centre, comme un personnage */
-.creaSticky.creaHeros{position:sticky;top:4px;display:flex;flex-direction:column;align-items:center;text-align:center;
+/* ⛔⛔ LE HEROS N EST PLUS COLLE (Phil, 2026-09-23, capture a l appui : « bug toujours visible »).
+ *    `.creaHeros` heritait `position:sticky` de `.creaSticky` — la classe d une BARRE D OUTILS — et
+ *    la redeclarait. L intention ecrite juste au-dessus est « le block au centre, comme un
+ *    personnage » : centrer, pas coller. Le sticky etait recopie, pas voulu.
+ *    ⛔ CE QUE CA COUTAIT, MESURE A 375x812 (le format de la capture) : le heros fait 484 px, soit
+ *      60 % de la hauteur d ecran, avec `z-index:6`. Des qu on defile, le contenu passe DESSOUS.
+ *      Textes de contenu reellement recouverts (enfants du heros exclus du compte) :
+ *          scroll 0 -> 0 · 600 -> 6 · 900 -> 11 · 1400 -> 11 · 2000 -> 8
+ *      Et parmi eux « Name », « Symbol », « Image file » : les champs qu on est en train de
+ *      remplir etaient caches derriere le heros.
+ *    ⛔ UN HEROS EST FAIT POUR DEFILER. Une barre collee se justifie quand elle porte une action
+ *      permanente ; celle-ci ne porte qu une presentation. La rendre statique ne retire aucune
+ *      information — elle la rend atteignable. */
+.creaSticky.creaHeros{position:static;display:flex;flex-direction:column;align-items:center;text-align:center;
   gap:0;padding:26px 16px 18px;background:radial-gradient(ellipse at 50% 38%, rgb(var(--accentRgb) / .16), transparent 62%), rgb(var(--fondRgb) / .55);
   border:1px solid rgb(var(--accentRgb) / .18);backdrop-filter:none}
 .creaScene{position:relative;width:200px;height:236px;display:grid;place-items:center;margin-bottom:10px}
@@ -986,7 +999,8 @@ details[open] > summary::before{transform:rotate(90deg)}
         <p class="note" id="mapHookedPath" style="margin:8px 0 0" hidden>
           <b>Hooked markets</b> · example
           <button type="button" class="puce" id="mapOpenTbgas">Open TBGAS</button>
-          · Buy/Sell in-app (0.5%) · hooked Dex chops · unhooked Dex = $0 → Launch hooked.
+          <!-- ⛔ « (0.5%) » retire (Phil, 2026-09-23 : « retire 0.5% partout, gene de trop »). -->
+          · Buy/Sell in-app · hooked Dex chops · unhooked Dex = $0 → Launch hooked.
           <a class="lienLearn" id="mapTbgasDeep" href="/?block=0xb200000000000000000000df3ffcd9be89b3843c&amp;chain=8453">deep link</a>
         </p>
         <!-- tip 20260923-map-buy-cta: second sticky IB when Map is the lander (populated or empty) -->
@@ -1025,7 +1039,7 @@ details[open] > summary::before{transform:rotate(90deg)}
                  nouveau block qui ne s acheterait QU avec celui-ci — un piege, pas une fonction. La carte garde deux
                  gestes : acheter, ouvrir. GM et faits restent dans le profil ; les boutons sont caches, pas supprimes. -->
             <div class="fActions fActionsMain">
-              <button class="bouton" id="fAcheter" type="button">Buy · 0.5%</button>
+              <button class="bouton" id="fAcheter" type="button">Buy</button>
               <button class="bouton sec" id="fIb" type="button" hidden>Instant Birth · 0.001 ETH</button>
               <button class="bouton sec" id="fPairer" type="button" hidden>Pair with it</button>
               <button class="bouton plein sec" id="fProfil">Open profile</button>
@@ -1288,11 +1302,20 @@ details[open] > summary::before{transform:rotate(90deg)}
     <div class="carte" id="cModeToken" hidden>
       <p class="titre">A plain token with <a href="https://openlaunch.lol" target="_blank" rel="noopener">openlaunch.lol ↗</a></p>
       <p class="sous">Their contract, their rules: 1B supply, all of it locked in a pool paired with ETH. No face, no brain, not on the map.
-        The trading fee you pick goes <b>100% to you</b>, in ETH, forever. Pick 0% and nobody earns it.</p>
+        The trading fee you pick goes <b>100% to you</b>, in ETH, forever.</p>
       <label class="champ">Name<input id="olNom" maxlength="32" placeholder="My token" autocomplete="off"></label>
       <label class="champ">Symbol<input id="olSym" maxlength="11" placeholder="MYTKN" autocomplete="off"></label>
       <label class="champ">Starting value (whole supply)<select id="olFdv"><option value="3">≈ 3 ETH</option><option value="10" selected>≈ 10 ETH</option><option value="30">≈ 30 ETH</option></select></label>
-      <label class="champ">LP fee on trades<select id="olFee"><option value="10000" selected>1%</option><option value="30000">3%</option><option value="0">0% (no fee, nobody earns)</option></select></label>
+      <!-- ⛔⛔ L OPTION « 0 % (no fee, nobody earns) » EST RETIREE (Phil, 2026-09-23 : « evidemment
+           tout le monde va prendre free, enleve-le, c est fini le free modele »).
+           ⛔ CE N ETAIT PAS UN BOUTON, C ETAIT UN CHOIX DANS UNE LISTE — c est pour ca qu il avait
+             survecu au retrait du « free block » du 2026-09-19 : on avait cherche des boutons.
+             Offrir « payer » et « gratuit » cote a cote ne mesure pas une preference, ca la
+             fabrique : personne ne choisit de payer quand la case d a cote est vide.
+           ⛔ ET LE 0 % EST DEFINITIF : le taux est grave dans la PoolKey. Un marche ouvert a 0 %
+             ne rapporte JAMAIS rien, ni a son createur ni a nous — aucune migration n existe.
+             Ce n etait donc pas une option bon marche, c etait une option morte. -->
+      <label class="champ">LP fee on trades<select id="olFee"><option value="10000" selected>1%</option><option value="30000">3%</option></select></label>
       <button class="bouton" id="olPreparer" type="button">Prepare the OpenLaunch launch</button>
       <ol class="pmLignes" id="olLignes"></ol>
       <div id="olActions"></div>
@@ -1438,7 +1461,11 @@ details[open] > summary::before{transform:rotate(90deg)}
         <button class="bouton" id="bBotJournal" type="button" disabled>3 · Write journal</button>
       </div>
       <p class="note" id="bBotEtat" style="margin-top:8px">No propose yet — Option A waits for you.</p>
-      <p class="note" id="bX402Note">x402 recognition: ETH/USDC micropay for data/tools only · never Instant Birth 0.001 ETH · never Buy/Sell 0.5% · never a second Bridge 0.01% skim.</p>
+      <!-- ⛔ « 0.5% » RETIRE DU LIBELLE (Phil, 2026-09-23 : « retire 0.5% partout, gene de trop »).
+           La reserve reste ENTIERE : x402 ne remplace ni la naissance, ni l echange, ni le skim du
+           Bridge. C est le CHIFFRE qui part, pas la phrase — repeter un taux a chaque ecran le
+           transforme en argument de vente alors que ce n est qu une mecanique. -->
+      <p class="note" id="bX402Note">x402 recognition: ETH/USDC micropay for data/tools only · never Instant Birth · never Buy/Sell · never a second Bridge skim.</p>
     </div>
 
     <div class="carte">
@@ -1623,7 +1650,11 @@ details[open] > summary::before{transform:rotate(90deg)}
       </div>
       <p class="note" id="tbEtat" style="margin-top:8px"></p>
       <p class="note" id="tbEarly">Early holders = yield share at Open (frozen) — listed after confirm. Grafting is open to any wallet with proof.</p>
-      <p class="note" id="tbAgent">After confirm, <b>Zero 1 / Brain</b> will run ops. Credit mint path is not deployed yet — this screen stays honest.</p>
+      <!-- ⛔ « Zero 1 / Brain » RETIRE : « Zero 1 » est le nom interne d un de nos agents. Le
+           lecteur ne sait pas qui c est et ne peut pas l apprendre — nommer l operateur ne
+           l informe pas, ca lui fait croire qu il lui manque un savoir. Ce qui l interesse, c est
+           QUE ca tourne automatiquement, pas QUI le fait tourner. -->
+      <p class="note" id="tbAgent">After confirm, the <b>Brain</b> runs ops automatically. Credit mint path is not deployed yet — this screen stays honest.</p>
     </div>
 
     <!-- ⛔⛔ DECISION GARDEE ICI, RETIREE DE L ECRAN (Phil, 2026-09-11 : « le user ne doit pas voir
@@ -1642,6 +1673,13 @@ details[open] > summary::before{transform:rotate(90deg)}
   <section class="volet" id="v-trade" aria-label="Trade blocks">
     <div class="carte">
       <p class="titre">Trending blocks</p>
+      <!-- ⛔ LE RESUME CHIFFRE MONTE SOUS LE TITRE (Phil, 2026-09-23). Il vivait tout en BAS de la
+           carte, apres une liste de plusieurs dizaines de lignes : personne ne le voyait. C est
+           pourtant la seule ligne qui dit la TAILLE de ce qu on regarde — combien de blocks ont un
+           marche, et combien s y echange. Un chiffre juste mais illisible n avertit pas.
+           ⛔ MEME ELEMENT, MEME `id`, MEME TEXTE : on le DEPLACE, on ne le duplique pas. Deux
+             `#trNote` feraient diverger l un des deux en silence. -->
+      <p class="note" id="trNote" style="margin:2px 0 0"></p>
       <p class="sous">Every block on Base with a live market, ranked by what is moving right now — read from the chain and DexScreener.</p>
       <div class="stadeLigne" id="trTri" style="margin-top:4px">
         <button type="button" class="puce on" data-tri="h1">🔥 Last hour</button>
@@ -1650,17 +1688,28 @@ details[open] > summary::before{transform:rotate(90deg)}
         <button type="button" class="puce" data-tri="liq">💧 Liquidity</button>
       </div>
       <ul class="fil trListe" id="trListe"><li class="filL"><p class="note">Reading the market…</p></li></ul>
-      <p class="note" id="trNote"></p>
+      <!-- ⛔ L ANCIEN `#trNote` EST RETIRE D ICI : il est remonte sous le titre. Deux elements du
+           meme `id` sur une page, c est UN SEUL que `querySelector` atteint — l autre reste vide
+           pour toujours, sans que rien ne le signale. -->
     </div>
 
     <!-- ⛔ PHIL (2026-09-20) : « affiche les vraies stats ». Des NOMBRES D ACTES faits dans cette app,
          pris sur /api/entonnoir (persistant). Aucun pourcentage de frais, aucune adresse. -->
-    <div class="carte" id="carteStats">
-      <p class="titre">What this app has actually done</p>
-      <p class="sous">Counted in this app, not on Base. The Live feed shows the whole chain; these numbers
-        are only what people did here.</p>
-      <div class="stadeLigne" id="statsLignes" style="margin-top:8px"></div>
-      <p class="note" id="statsNote">Reading…</p>
+    <!-- ⛔⛔ CARTE RETIREE DE L ECRAN (Phil, 2026-09-23 : « retire, c est donnee privee »).
+         Elle publiait nos chiffres d exploitation : visites, ouvertures de Create, blocks crees
+         ici, marches ouverts, echanges faits, liens partages, et le nombre de tentatives echouees.
+         Ce n est pas une information pour le lecteur — publiee, elle dit a n importe qui
+         exactement ou en est le produit.
+         ⛔ LA CARTE PART, LA MESURE RESTE : `/api/entonnoir` continue de compter et se lit cote
+           serveur. On retire l AFFICHAGE, jamais l instrument — se priver de la mesure pour cacher
+           le resultat serait le pire des deux.
+         ⛔ LES DEUX ELEMENTS RESTENT DANS LA PAGE, VIDES ET CACHES. `peindreStats` ecrit dans
+           `#statsLignes` et `#statsNote` : les SUPPRIMER en ferait des id fantomes, et une garde
+           sur un element absent est TOUJOURS fausse — c est exactement ce qui avait tue le
+           Companion et trois hooks (`garde-sur-element-absent-toujours-fausse`). -->
+    <div class="carte" id="carteStats" hidden>
+      <div class="stadeLigne" id="statsLignes"></div>
+      <p class="note" id="statsNote"></p>
     </div>
   </section>
 
@@ -1712,7 +1761,7 @@ details[open] > summary::before{transform:rotate(90deg)}
            le texte ne l avait pas ete depuis le 20. Personne ne l a vu parce que la ligne est
            `hidden` : un chiffre faux que rien n affiche ne previent rien, il attend le jour ou
            quelqu un le lit pour dater un incident. -->
-      <p class="note" data-build="20260923-bridge-x402-brain" hidden>Build <code>20260923-bridge-x402-brain</code> · Bridge legs + x402 recog stub + Brain Option A journal.</p>
+      <p class="note" data-build="20260923-map-prune-2" hidden>Build <code>20260923-map-prune-2</code> · Contract labels say what they do, not our internal names.</p>
       <p class="sous">Everything happening to blocks on Base, live.</p>
       <!-- tip 0013: sticky — Hooked chip = Dex fees; unhooked → Launch beside. No fee addr. -->
       <p class="note" id="sfHookedSticky" hidden>Blocks alive on TokenizedBlock pay their creator on every trade. Example:<button type="button" class="puce" id="sfStickyTbgas">Open TBGAS</button>.</p>
@@ -1854,6 +1903,15 @@ details[open] > summary::before{transform:rotate(90deg)}
           <p class="pNomLong" id="pNomLong"></p>
           <p class="mono pAdr" id="pAdr"></p>
           <p class="note" id="pOrigine"></p>
+          <!-- ⛔⛔ LE POST GRAVE N ETAIT JAMAIS MONTRE (Phil, 2026-09-23 : « je vois pas le block
+               associe au post sur X »). `face.js` VALIDE et STOCKE le champ `tweet`, Create
+               l ECRIT dans la face gravee — et rien ne le relisait pour l afficher. Une valeur
+               ecrite sur la chaine puis jamais rendue est un defaut : elle a coute du gas et
+               n informe personne.
+               ⛔ LA RESERVE VOYAGE AVEC LE LIEN : on n a jamais ouvert ce post. Rien ici ne
+                 verifie qu il existe, ni qu il appartient a celui qui a grave le block. Montrer
+                 le lien sans le dire fabriquerait une association qu on n a pas mesuree. -->
+          <p class="note" id="pTweet" hidden></p>
         </div>
         <button class="puce pFermer" id="pFermer" type="button" aria-label="Close profile">✕</button>
       </div>
@@ -1985,7 +2043,7 @@ details[open] > summary::before{transform:rotate(90deg)}
       <div class="pJeu" id="pEchange" hidden>
         <!-- ⛔ PHIL (2026-09-19, capture « Fee 0.8%+ ») : « retirer l affichage des fees ». Le badge reste dans le DOM (le code
              l ecrit) mais n est plus montre ; les montants exacts restent dans la fenetre du wallet avant de signer. -->
-        <div class="pJeuTete"><span class="pBadge" id="peBadge">Buy · Sell</span><span class="pPV" id="peFrais">0.5%</span></div>
+        <div class="pJeuTete"><span class="pBadge" id="peBadge">Buy · Sell</span><span class="pPV" id="peFrais"></span></div>
         <div class="stadeLigne" data-itabs="peInfo" role="tablist" style="margin-top:6px">
           <button type="button" class="puce on" role="tab" aria-selected="true" data-itab="fees">Fees</button>
           <button type="button" class="puce" role="tab" aria-selected="false" data-itab="exit">Exit</button>
@@ -2012,12 +2070,12 @@ details[open] > summary::before{transform:rotate(90deg)}
           <div class="dexCol">
             <label class="champ">Buy — ETH to spend<input id="peAchat" inputmode="decimal" placeholder="0.01" autocomplete="off">
               <span class="soldeDex">Balance: <b id="peSoldeEth">—</b> <button type="button" class="maxDex" id="peMaxEth">MAX</button></span></label>
-            <button class="bouton" id="peAcheter" type="button">Prepare buy · 0.5%</button>
+            <button class="bouton" id="peAcheter" type="button">Prepare buy</button>
           </div>
           <div class="dexCol">
             <label class="champ">Sell — blocks to sell<input id="peVente" inputmode="decimal" placeholder="1000" autocomplete="off">
               <span class="soldeDex">Balance: <b id="peSoldeBloc">—</b> <button type="button" class="maxDex" id="peMaxBloc">MAX</button></span></label>
-            <button class="bouton sec" id="peVendre" type="button">Prepare sell · 0.5%</button>
+            <button class="bouton sec" id="peVendre" type="button">Prepare sell</button>
           </div>
         </div>
         <!-- ⛔ P0 tip 2250: ETH→USDC exit — 0.5% → FEE_WALLET; external DEX pays wallet nothing. Quoter-gated. -->
@@ -2134,9 +2192,15 @@ details[open] > summary::before{transform:rotate(90deg)}
       <p class="titre">Bridge</p>
       <p class="sous">Move value through a <b>Bridge block</b> hub — not a naked external Dex.
         <b>Legs:</b> Fund (fiat → <b>your</b> wallet) · ETH/USDC <b>0.01%</b> skim (live) ·
-        Block/Token hub quote (net swap <b>Phil-blocked</b> until BridgeRouter) ·
+        Block/Token hub quote (net swap <b>not live yet</b>) ·
         tokenized equity <b>later</b> (not a broker). Fee amount only — no leveraged legs.</p>
-      <p class="note" id="brLegsNote">Fund · ETH/USDC skim 0.01% · hub quote (Phil) · equity later</p>
+      <!-- ⛔ « Phil-blocked », « until BridgeRouter », « hub quote (Phil) » RETIRES DE L ECRAN :
+           un prenom et le nom d un contrat interne. Le lecteur n a aucun moyen de savoir qui est
+           Phil ni ce qu est un BridgeRouter — ca ne l informe pas, ca lui fait croire qu il lui
+           manque un savoir. Ce qu il doit savoir tient en trois mots : ce n est pas encore live.
+           ⛔ LA RESERVE EST GARDEE, C EST LE JARGON QUI PART : dire « pas encore live » est aussi
+             honnete que « Phil-blocked » et se comprend sans nous connaitre. -->
+      <p class="note" id="brLegsNote">Fund · ETH/USDC skim 0.01% · hub quote (not live yet) · equity later</p>
       <label class="champ">Bridge block
         <select id="brBlock"><option value="">Pick or create a block to use as hub…</option></select>
       </label>
@@ -2169,7 +2233,10 @@ details[open] > summary::before{transform:rotate(90deg)}
     <div class="carte" id="brSwapCarte" hidden>
       <p class="titre">Swap via Bridge</p>
       <p class="note">Fee 0.01% skim is live when <b>From</b> is ETH or USDC (wallet signs; fail-closed if fee rounds to 0).
-        Atomic token↔token net via hub is <b>blocked</b> until Phil BridgeRouter (1 bps) — quote only, not a live atomic promise.
+        <!-- ⛔ « until Phil BridgeRouter (1 bps) » RETIRE : un prenom et un nom de contrat interne,
+             plus un prix (1 bps) pour une route qui n existe pas encore. Annoncer le tarif d un
+             service non livre est une promesse, pas une information. La reserve reste ENTIERE. -->
+        Atomic token↔token net via hub is <b>not live</b> — quote only, not a live atomic promise.
         Equity leg = later. Fee settles as ETH or USDC — amount only. x402 does not replace this skim.</p>
       <label class="champ">From
         <select id="brFrom"></select>
@@ -2499,6 +2566,21 @@ const RESEAUX = {
           /* tip 2165: keep publicnode first (mainnet.base.org 429 under map load — overnight fix).
            * Console 403 from some egresses is noisy but rpc() already rotates to secours.
            * Extra: drpc last. B20 factory still pins b20Rpc (official). */
+          /* ⛔⛔ LA NOTE CI-DESSUS AVAIT RAISON SUR LA CORRECTION ET N A JAMAIS MESURE LE PRIX.
+           *    Mesure du 2026-09-23, en production, avec un temoin pose sur `fetch` :
+           *      · 14 `eth_getLogs` multi-adresses par chargement (12 x 50 jetons, 2 x 45) ;
+           *      · 7 chaines sur 7 de forme IDENTIQUE — PUBLICNODE 403 puis BASEORG 200 ;
+           *      · le 403 coute 3057-3165 ms, contre 192-300 ms pour la reponse utile.
+           *    Donc : aucune donnee perdue, le failover fait son travail. Mais ~21 s de temps mort
+           *    par chargement, et precisement sur le Live feed. « Bruyant » etait vrai ; gratuit,
+           *    non — et personne n avait chronometre le bruit.
+           *    ⛔ LA CAUSE EST ARITHMETIQUE, PAS INTERMITTENTE. Plafond mesure de publicnode :
+           *      5,6,7,8,9 adresses -> 200 · 10,20,40,80 -> 403. `JETONS_PAR_REQUETE` vaut 50.
+           *      50 > 9, donc CENT POUR CENT de ces balayages sont refuses. Ce n est pas « selon
+           *      les egresses » : ca ne pouvait jamais marcher.
+           *    ⛔ ET LE TROISIEME NOEUD NE SAUVE PAS : drpc rend 400 sur la meme requete (mais en
+           *      60-240 ms). `mainnet.base.org` est le SEUL a servir un getLogs multi-adresses. */
+          logsMultiRpc: 'https://mainnet.base.org',
           secours: ['https://mainnet.base.org', 'https://base.drpc.org'],
           b20Rpc: 'https://mainnet.base.org',
           stateView: '0xA3c0c9b65baD0b08107Aa264b0f3dB444b867A71',
@@ -2653,10 +2735,41 @@ async function rpcReseau(methode, params) {
    * « market unread ». Token eth_calls must rotate like StateView. */
   const to = params && params[0] && typeof params[0] === 'object' ? String(params[0].to || '').toLowerCase() : '';
   const FACTORY_B20 = '0xb20f000000000000000000000000000000000000';
-  const viseFactory = methode === 'eth_call' && to === FACTORY_B20;
-  const noeuds = viseFactory
+  /* ⛔⛔ LE PIN DE LA FACTORY AVAIT ETE ECRIT POUR `eth_call` SEUL, ET SON JUMEAU MANQUAIT.
+   *    Un `eth_getLogs` ne porte pas de champ `to` — chez lui l adresse s appelle `address` —
+   *    donc `viseFactory` etait toujours faux pour les balayages de la factory, qui partaient
+   *    chez publicnode. Mesure du 2026-09-23 en production : 34 `eth_getLogs` sur
+   *    `0xb20f00…` par chargement, 34 refus 403 (~55 ms chacun), puis 34 reprises sur base.org.
+   *    Cent pour cent des 403 qui restaient apres le correctif multi-adresses venaient de la.
+   *    ⛔ LE PIN EST DELIBERE ET NE ROTATE PAS, pour une raison PLUS FORTE ici que pour eth_call :
+   *      un secours qui se trompe sur un `eth_call` rend `0x`, visiblement faux ; sur un getLogs
+   *      il rendrait une LISTE VIDE, qu on ne distingue pas de « aucun evenement ». Mieux vaut
+   *      echouer que lire un zero qu on prendrait pour une mesure.
+   *    ⛔ EGALITE EXACTE, JAMAIS UN PREFIXE — voir le bug du 2026-09-14 juste au-dessus :
+   *      `startsWith('0xb20')` avait attrape TOUS les jetons (CREATE2 0xb200…), TBLOCK compris. */
+  const adresseLogs = methode === 'eth_getLogs' && params && typeof params[0] === 'object' && params[0]
+    ? params[0].address : null;
+  const uneAdresseLogs = typeof adresseLogs === 'string' ? adresseLogs.toLowerCase()
+    : (Array.isArray(adresseLogs) && adresseLogs.length === 1 ? String(adresseLogs[0]).toLowerCase() : '');
+  const viseFactory = (methode === 'eth_call' && to === FACTORY_B20)
+    || (methode === 'eth_getLogs' && uneAdresseLogs === FACTORY_B20);
+  /* ⛔ UN `eth_getLogs` A PLUSIEURS ADRESSES NE PEUT PAS ALLER CHEZ PUBLICNODE (mesure ci-dessus :
+   *    plafond 9, et `JETONS_PAR_REQUETE` vaut 50). On ne RETIRE aucun noeud — on met devant le
+   *    seul qui sert. Si base.org tombe, la rotation reprend comme avant : une optimisation qui
+   *    supprime un repli transforme un ralentissement en panne. */
+  const ADRESSES_MAX_PUBLICNODE = 9;
+  const filtreLogs = methode === 'eth_getLogs' && params && typeof params[0] === 'object' && params[0] ? params[0] : null;
+  const multiAdresses = !!filtreLogs && Array.isArray(filtreLogs.address)
+    && filtreLogs.address.length > ADRESSES_MAX_PUBLICNODE;
+  let noeuds = viseFactory
     ? [RESEAUX[CHAINE].b20Rpc || RESEAUX[CHAINE].rpc]
     : [RESEAUX[CHAINE].rpc, ...(RESEAUX[CHAINE].secours || [])];
+  if (!viseFactory && multiAdresses) {
+    const servant = RESEAUX[CHAINE].logsMultiRpc;
+    /* ⛔ sans `logsMultiRpc` declare (Sepolia), l ordre reste INCHANGE — pas de reordonnancement
+     *   devine sur une chaine ou rien n a ete mesure. */
+    if (servant) noeuds = [servant, ...noeuds.filter((u) => u !== servant)];
+  }
   let derniere = null;
   for (let i = 0; i < noeuds.length; i++) {
     const url = noeuds[i];
@@ -2970,12 +3083,32 @@ function creerHabitant(c) {
   return h;
 }
 
+/* ⛔⛔ UN BLOCK DONT ON A PROUVE QU IL N A PAS DE MARCHE NE TIENT PAS DE PLACE SUR LA CARTE
+ *     PUBLIQUE (Phil, 2026-09-23 : « il existe pas et vit pas sur la map visible au public »).
+ *     MESURE QUI L A MOTIVE : 355 cubes affiches, dont 67 exactement a la taille « sans marche ».
+ *     Un cinquieme de la carte etait occupe par des blocks jamais echanges, et ils rendaient
+ *     illisibles ceux qui vivent.
+ *
+ *     ⛔⛔ ET C EST LA QUE TOUT SE JOUE : `etatVie` a TROIS etats, jamais deux.
+ *         · `LUE`          -> un marche existe : il reste ;
+ *         · `NON_TROUVEE`  -> on a CHERCHE et on n a rien trouve : il part ;
+ *         · tout le reste  -> on n a PAS ENCORE REGARDE : il RESTE.
+ *       Confondre les deux derniers viderait la carte pendant le chargement et ferait passer une
+ *       lecture non faite pour un fait sur le block de quelqu un d autre. On cache ce qu on a
+ *       PROUVE absent, jamais ce qu on n a pas regarde — `absence-of-evidence-vs-failure-to-look`.
+ *
+ *     ⛔ LES BLOCKS RETIRES NE DISPARAISSENT PAS DE L APP : ils restent dans « Blocks by stage »,
+ *       sous « No market yet — it has never been traded », et leur profil s ouvre normalement. On
+ *       leur retire une PLACE SUR LA CARTE, pas leur existence. */
+function aSaPlaceSurLaCarte(c) {
+  return String(c && c.etatVie) !== 'NON_TROUVEE';
+}
 function poserBlocks(liste) {
   /* tip 0025 : on retire les BLOCKS, pas le monde (le cube, la couche d impulsions et la camera restent) */
   mondeMap().querySelectorAll('.bloc').forEach((el) => el.remove());
   if (moteur3d) moteur3d.vider();
   habitants.length = 0;
-  for (const c of liste) creerHabitant(c);
+  for (const c of liste) { if (aSaPlaceSurLaCarte(c)) creerHabitant(c); }
   animer();
 }
 
@@ -3399,8 +3532,15 @@ function marquerNotre(h) {
   }
   h.nous = true;
   h.el.classList.add('nous');
-  const etiq = h.el.querySelector('.etiq');
-  if (etiq && !etiq.textContent.startsWith('🟦')) etiq.textContent = '🟦 ' + etiq.textContent;
+  /* ⛔⛔ LE MARQUEUR 🟦 EST RETIRE DE L ETIQUETTE (Phil, 2026-09-23 : « retire les carres bleus de
+   *     nos creations »). Il datait du 2026-09-13 (« nos blocks d abord »).
+   *     ⛔ CE QUI RESTE, ET QUI FAIT LE TRAVAIL : `h.nous = true` et la classe CSS `nous`. Le
+   *       classement en tete et la mise en avant ne dependaient PAS de l emoji — verifie : rien ne
+   *       relisait `startsWith('🟦')` ailleurs que cette ligne, qui ne servait qu a eviter de le
+   *       doubler. On retire un signe a l ecran, pas une distinction dans les donnees.
+   *     ⚠️ Un commentaire de ce fichier raconte qu un block avait deja perdu son 🟦 ET sa place en
+   *        tete, SANS ERREUR. Ce n est pas ce qui se passe ici : la place vient de `h.nous`, qui
+   *        est pose juste au-dessus et n est pas touche. */
 }
 
 async function charger() {
@@ -3467,6 +3607,26 @@ function appliquerVie(h, r) {
   /* ⛔ mesure en navigateur (2026-09-14) : peinte seulement a la FIN de la lecture de tous les blocks, la carte des stades
    *    restait vide plus de 40 s sous saturation. Elle se repeint a chaque vie lue : on voit les blocks monter de stade. */
   queueMicrotask(peindreStades);
+  /* ⛔⛔ C EST ICI QUE LE BLOCK QUITTE LA CARTE, PAS AU PREMIER RENDU. Mon premier correctif
+   *     filtrait dans `poserBlocks` : au premier rendu, presque aucun `etatVie` n est lu, donc le
+   *     filtre laissait tout passer et rien ne le rejouait. Mesure apres deploiement : 366 cubes,
+   *     dont 90 a la taille « sans marche » — le filtre n avait RIEN retire.
+   *     Et `creerHabitant` est appele depuis NEUF endroits, dont un qui contourne explicitement
+   *     `poserBlocks` (« creates .bloc via creerHabitant WITHOUT poserBlocks »). Une garde posee
+   *     chez UN appelant ne garde pas les huit autres — `ssrf-guard-must-run-per-hop`.
+   *     ⇒ Le retrait se fait au moment ou l absence de marche est PROUVEE, quel que soit le chemin
+   *       par lequel le block est arrive.
+   *     ⛔ `NON_TROUVEE` SEULEMENT : c est « on a cherche, il n y a rien ». Un etat non lu ou une
+   *       lecture ratee laissent le block en place — on ne retire jamais sur ce qu on n a pas vu. */
+  if (r.etat === 'NON_TROUVEE') {
+    try {
+      if (h.el && h.el.parentNode) h.el.remove();
+      if (moteur3d && typeof moteur3d.retirer === 'function') moteur3d.retirer(h);
+      const i = habitants.indexOf(h);
+      if (i >= 0) habitants.splice(i, 1);
+    } catch (_) { /* ⛔ un retrait qui echoue laisse le block VISIBLE, jamais a moitie efface */ }
+    return;
+  }
   if (r.etat !== 'LUE') return;
   h.vie = r.vie; h.devise = r.devise; h.via = r.via; h.cle = r.cle || null; h.liquidite = r.liquidite != null ? r.liquidite : null;
   const t = Math.round(tailleDe(r.vie, r.devise) * (h.nous ? 1.25 : 1));
@@ -4403,7 +4563,7 @@ function peindreStades() {
           + g.blocks.length + ' waiting. TokenizedBlock count is separate from “life read”.</span>';
     } else {
       corps = g.blocks.filter((b) => b.nous).map((b) => '<button type="button" class="puce on" data-block="' + enTexte(b.adr) + '" data-sym="' + enTexte(b.sym || '') + '">'
-        + '🟦 ' + enTexte(String(b.sym || b.adr.slice(0, 8)).slice(0, 14))
+        + enTexte(String(b.sym || b.adr.slice(0, 8)).slice(0, 14))
         + (b.pct !== null ? ' · ' + Math.round(b.pct * 100) + ' % → ' + enTexte(b.prochain) : '') + '</button>').join('')
         + (g.autres ? '<span class="note" style="align-self:center">' + (g.nous ? '+ ' : '') + g.autres + ' other block' + (g.autres > 1 ? 's' : '') + '</span>' : '');
     }
@@ -4664,6 +4824,22 @@ function peindreCerveau() {
  * ⚠️ Pour une pool d un AUTRE lanceur, son hook peut prendre sa propre part, que nous ne mesurons pas :
  *    on le dit (« + this market's own fees »), sans inventer de chiffre. */
 const HOOK_PREVU_FRAIS_BPS = 300; /* 2 % + 1 %, mesures ; le contrat ne l expose pas (HOOK_FEE() revert) */
+/* ⛔⛔ LE DRAPEAU DE FRAIS DYNAMIQUE D UNISWAP v4. Une PoolKey dont le champ `fee` porte le bit
+ *     0x800000 (8 388 608) n annonce AUCUN taux : c est le hook qui le fixe a CHAQUE swap.
+ *     ⛔ CE QUE CA CASSAIT. Le code divisait ce champ par 10 000 comme un taux ordinaire, donc une
+ *       pool a frais dynamiques s affichait « Fee 839.36% ». Ce n est pas un frais choquant, c est
+ *       un nombre FAUX — et il est apparu dans une vraie mesure du 2026-09-23 : 82 pools B20 en
+ *       24 h portent ce drapeau (hook 0xbdf938…), plus 8 sur un autre.
+ *     ⛔ ET CA CORROMPAIT AUSSI LE CLASSEMENT : `poolDecouvertPour` voyait 8 388 608 et rangeait
+ *       ces pools comme les plus cheres du monde, alors que leur taux est simplement INCONNU
+ *       d avance. Le connaitre exige de simuler le swap.
+ *     ⇒ UN TAUX INCONNU N EST NI ZERO NI L INFINI : on ne l affiche pas comme un nombre, et il ne
+ *       gagne jamais un classement par prix. Fail-closed des deux cotes. */
+const FRAIS_DYNAMIQUE_V4 = 0x800000;
+function fraisEstDynamique(fee) {
+  const n = Number(fee);
+  return Number.isFinite(n) && (n & FRAIS_DYNAMIQUE_V4) !== 0;
+}
 function libelleFrais(cle) {
   const zero = '0x0000000000000000000000000000000000000000';
   const hk = cle && cle.hooks ? String(cle.hooks).toLowerCase() : zero;
@@ -4674,11 +4850,16 @@ function libelleFrais(cle) {
     const total = (HOOK_PREVU_FRAIS_BPS + (tier || 0) / 100) / 100;
     return { court: 'Fee ' + total + '%', long: '' };
   }
-  const pool = tier !== null ? ' + ' + (tier / 10000) + '% pool' : '';
+  /* ⛔⛔ UNE POOL A FRAIS DYNAMIQUES N ANNONCE AUCUN TAUX. Sans ce cas, `8 388 608 / 10 000`
+   *     s affichait « Fee 839.36% » — un nombre FAUX, pas un frais eleve. Mesure du 2026-09-23 :
+   *     82 pools B20 en 24 h portent ce drapeau. On dit ce qu on sait : le hook fixe le taux a
+   *     chaque echange, et nous ne l avons pas simule. */
+  if (fraisEstDynamique(tier)) {
+    return { court: 'Fee set by this market at each trade', long: '' };
+  }
   const base = Math.round((0.5 + (tier !== null ? tier / 10000 : 0)) * 100) / 100;
   if (hk !== zero) return { court: 'Fee ' + base + '%+', long: '' };
   return { court: 'Fee ' + base + '%', long: '' };
-  void pool;
 }
 
 /** Read pool-key hook status from a vieDuBlock result (facts only). */
@@ -4750,8 +4931,56 @@ function poolDecouvertPour(adr) {
     const hk = String(p.cle.hooks || '').toLowerCase();
     const isTb = estNotreHook(hk);
     /* Prefer fee hook if somehow present; else any ETH pair we can trade/upgrade. */
-    const score = isTb ? 300 : (conf === 'NOTRE' ? 200 : (conf === 'SANS_HOOK' ? 100 : 50));
-    if (!best || score > best._score) best = { ...p, confiance: conf, _score: score, isTbFeeHook: isTb };
+    /* ⛔⛔ « SANS HOOK » NE PASSE PLUS DEVANT « AVEC HOOK » (Phil, 2026-09-23 : « fais au mieux »).
+     *     L ancien classement mettait `SANS_HOOK` (100) devant `HOOK` (50), donc une pool sans hook
+     *     a 50 % battait une pool hookee a 0 %. Le raisonnement etait sain — un hook etranger peut
+     *     prelever sans l annoncer — mais il produisait une PERTE CERTAINE pour eviter un INCONNU.
+     *     MESURE QUI A TRANCHE (24 h, 13 506 echanges sur des blocks B20, 36/44 fenetres lues) :
+     *         pools hookees a 0 % de frais de pool : 4 266 echanges (31,6 %)
+     *         pools SANS hook                      : 1 256 echanges ( 9,3 %)
+     *         frais de pool > 50 %                 :    19 echanges ( 0,1 %)
+     *     Envoyer quelqu un sur une pool a 50 % le met la ou va UN echange sur mille. Et le marche
+     *     lui-meme prouve que le prelevement de ces hooks est supportable : 4 266 personnes y sont
+     *     allees en 24 h. Ce n est plus un inconnu, c est un fait observe.
+     *     ⛔ CE QUI RESTE INCHANGE, ET C EST L ESSENTIEL : NOTRE hook garde la priorite absolue
+     *       (300), et « NOTRE » ensuite (200). On ne route jamais hors de notre propre marche.
+     *     ⛔ ET L OPACITE EST DITE, PAS IGNOREE : `libelleFrais` suffixe deja « %+ » sur une pool
+     *       hookee — « ce taux, plus ce que ce marche prend ». On cesse de FUIR l inconnu ; on
+     *       continue de l ANNONCER. */
+    const score = isTb ? 300 : (conf === 'NOTRE' ? 200 : 100);
+    /* ⛔⛔ A CONFIANCE EGALE, LA MOINS CHERE GAGNE. Ce choix ne regardait QUE la confiance : entre
+     *     plusieurs pools du meme rang, la PREMIERE rencontree l emportait, quel que soit son prix.
+     *     MESURE DU 2026-09-23 sur SPIKE (0xb200…d601), 7 pools v4 lues sur la chaine :
+     *         77,00 %  <- celle que l app avait choisie
+     *         88,73 % · 87,84 % · 50,00 %   (sans hook)
+     *         0,00 % x3                     (avec hook)
+     *     Elle proposait donc un achat a 77 % de frais alors qu une pool a 50 % existait, et le
+     *     badge affichait « Fee 77.5% » : un chiffre VRAI, sur une route qu on n avait pas choisie
+     *     pour son prix. On routait un achat sans regarder ce qu il coute.
+     *     ⛔ LE FRAIS ILLISIBLE PERD TOUJOURS : MAX_SAFE_INTEGER en repli, donc une pool dont on n a
+     *       pas su lire le prix ne peut jamais battre une pool dont on l a lu. Un NaN qui gagnerait
+     *       ferait l inverse exact de ce correctif — `nan-walks-through-every-bound`.
+     *     ⚠️ CE QUE CA NE FAIT PAS : refuser un achat trop cher. Choisir la moins chere de sept
+     *        mauvaises reste un achat a 50 %. Le SEUIL de refus est une decision produit. */
+    /* ⛔⛔ `Number(null)` VAUT 0, ET `Number.isFinite(0)` EST VRAI. Ma premiere version ecrivait
+     *     `Number.isFinite(Number(p.cle.fee)) ? … : MAX` : une pool sans frais lisible devenait
+     *     donc une pool a 0 %, c est-a-dire LA MOINS CHERE DU MONDE, et gagnait toujours —
+     *     l inverse exact de l intention. Mon propre test l a attrape. Meme piege avec `''` et
+     *     `false`. On refuse donc les valeurs vides AVANT de convertir. */
+    const feeBrut = p.cle.fee;
+    /* ⛔⛔ UN FRAIS DYNAMIQUE EST INCONNU, PAS ENORME. Le drapeau v4 vaut 8 388 608 : sans ce cas,
+     *     ces pools etaient rangees comme les plus cheres du monde et perdaient toujours, alors
+     *     que leur taux est simplement fixe par le hook a chaque swap. Les connaitre exigerait de
+     *     simuler l echange — ce qu on ne fait pas ici.
+     *     ⛔ ELLES PERDENT QUAND MEME, ET C EST VOULU : a confiance egale, on prefere une pool dont
+     *       on a LU le prix a une pool dont on ne le sait pas. Mais la raison est « inconnu », pas
+     *       « 838 % » — et l ecran le dit desormais en toutes lettres. */
+    const feeP = (feeBrut !== null && feeBrut !== undefined && feeBrut !== ''
+      && Number.isFinite(Number(feeBrut)) && !fraisEstDynamique(feeBrut))
+      ? Number(feeBrut) : Number.MAX_SAFE_INTEGER;
+    if (!best || score > best._score || (score === best._score && feeP < best._fee)) {
+      best = { ...p, confiance: conf, _score: score, _fee: feeP, isTbFeeHook: isTb };
+    }
   }
   return best;
 }
@@ -5079,10 +5308,10 @@ function peindreTrustFacts(adr, v, origine) {
       /* tip 2357 + tip 20260923-map-buy-cta: hooked (and other LUE allowed) → primary Buy · 0.5%; deepen secondary.
        * Parens fix: hooked branch previously dropped the action buttons (ternary + concat precedence). */
       cta.innerHTML = (info.isTbFeeHook
-        ? 'Buy or sell right here · 0.5% in-app'
+        ? 'Buy or sell right here'
         : 'Buy/Sell in-app · deepen if thin')
         + '<div class="pActions" style="margin-top:8px;grid-template-columns:1fr 1fr">'
-        + '<button type="button" class="bouton" data-tf-act="buy">Buy · 0.5%</button>'
+        + '<button type="button" class="bouton" data-tf-act="buy">Buy</button>'
         + '<button type="button" class="bouton sec" data-tf-act="deepen">Deepen liquidity</button></div>';
     }
   } else {
@@ -5433,6 +5662,38 @@ async function lireProfil(adr, sym, perime) {
     } catch (e) { /* non lue : l avatar reste celui de l adresse */ }
   }
   $('#pOrigine').textContent = phrasesOrigine({ origine: origineProfil, scellement: { etat: 'NON_LU' } }).origine;
+  /* ⛔⛔ LE POST GRAVE, ENFIN AFFICHE (Phil, 2026-09-23). Il etait valide, stocke et grave — et
+   *     jamais relu. Une valeur ecrite sur la chaine puis jamais rendue a coute du gas sans
+   *     informer personne.
+   *     ⛔ LE LIEN EST REVALIDE ICI, a la FORME CANONIQUE EXACTE, meme s il a deja ete valide a la
+   *       gravure : il peut venir du stockage local d une autre version, et `javascript://x.com/…`
+   *       passe un controle d hote. La garde appartient la ou le lien devient CLIQUABLE —
+   *       `ssrf-guard-must-run-per-hop`.
+   *     ⛔ ET LA RESERVE EST DITE AVEC LE LIEN, jamais separee : on n a pas ouvert ce post, rien
+   *       ne prouve qu il existe ni qu il appartient a qui a grave le block. Le montrer sans ca
+   *       fabriquerait une association qu on n a pas mesuree. */
+  const elTweet = $('#pTweet');
+  if (elTweet) {
+    elTweet.innerHTML = '';
+    elTweet.hidden = true;
+    try {
+      const f = faceConnue(adr);
+      const lien = f && typeof f.tweet === 'string' ? f.tweet : null;
+      if (lien && /^https:\/\/x\.com\/[A-Za-z0-9_]{1,15}\/status\/\d{1,25}$/.test(lien)) {
+        const a = document.createElement('a');
+        a.href = lien;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        a.className = 'lienLearn';
+        a.textContent = 'Engraved post on X';
+        elTweet.appendChild(a);
+        elTweet.appendChild(document.createTextNode(
+          ' — engraved with this block, and it cannot be changed. We never opened it: nothing here '
+          + 'checks that the post exists or that it belongs to whoever made this block.'));
+        elTweet.hidden = false;
+      }
+    } catch (_) { /* ⛔ une face illisible ne montre RIEN, elle n invente pas de lien */ }
+  }
 
   await dormir(260);
   if (perime()) return;
@@ -5602,7 +5863,34 @@ async function lireProfil(adr, sym, perime) {
     $('#peBadge').textContent = bb ? 'Buyback · protocol fee path' : 'Buy · Sell';
     const lf = libelleFrais(v && v.cle);
     $('#peFrais').textContent = bb ? 'no fee' : lf.court;
-    if ($('#peFraisTexte')) { $('#peFraisTexte').innerHTML = ''; $('#peFraisTexte').hidden = true; }
+    /* ⛔⛔ ON DIT COMBIEN DE POOLS ON A LUES, ET QU ON A PRIS LA MOINS CHERE. Le fil Live promet
+     *     « we read every pool of this block and route the cheapest » : tant que l ecran ne montre
+     *     pas ce choix, c est une affirmation invérifiable par celui qui signe. Mesure du
+     *     2026-09-23 sur SPIKE : 7 pools v4 existent, a 0 %, 50 %, 77 % et 88,73 %. Choisir en
+     *     silence, c est demander une confiance qu on ne donne aucun moyen de verifier.
+     *     ⛔ LE COMPTE VIENT DE `poolsLive`, pas d une estimation : s il est a zero ou a un, on
+     *       n ecrit RIEN plutot que d annoncer un choix qui n a pas eu lieu.
+     *     ⚠️ CE QUE CETTE LIGNE NE DIT PAS, ET QUI RESTE OUVERT : entre une pool SANS hook a 50 %
+     *        et une pool AVEC hook a 0 % dont le prelevement est inconnu, le classement prend
+     *        encore la premiere. C est une decision qui engage l argent de quelqu un ; elle
+     *        appartient a Phil, pas a ce correctif. */
+    if ($('#peFraisTexte')) {
+      const txt = $('#peFraisTexte');
+      let combien = 0;
+      try {
+        const cible = String(adr).toLowerCase();
+        for (const p of (poolsLive || new Map()).values()) {
+          if (!p || !p.cle) continue;
+          const c0 = String(p.cle.currency0 || '').toLowerCase();
+          const c1 = String(p.cle.currency1 || '').toLowerCase();
+          if (String(p.jeton || '').toLowerCase() === cible || c0 === cible || c1 === cible) combien++;
+        }
+      } catch (_) { combien = 0; }
+      if (!bb && combien > 1) {
+        txt.textContent = 'Cheapest of ' + combien + ' pools we read on chain for this block.';
+        txt.hidden = false;
+      } else { txt.innerHTML = ''; txt.hidden = true; }
+    }
     peindreCapturePaths(adr, v, hkInfo);
     if (String(adr).toLowerCase() === TBLOCK.toLowerCase()) void peindreJournalBuyback(adr);
     /* tip 2357: hooked / TBGAS → surface in-app BuySell (no fee addr). */
@@ -6625,7 +6913,7 @@ function peindreLive() {
    * ⛔ AUDIT 2026-09-20 : c etait un 40 EN DUR, donc « Load older » lisait 1 580 evenements de la
    *    chaine et n ajoutait jamais une seule ligne — un bouton visible, actif, et sans effet. */
   $('#sfLive').innerHTML = lignes.slice(0, liveAffiches).map((e) => {
-    const nom = (estANous(e.jeton) ? '🟦 ' : '') + enTexte(String(e.sym || '?').slice(0, 14));
+    const nom = enTexte(String(e.sym || '?').slice(0, 14));
     const symDe = (adr) => { const h = habitants.find((x) => String(x.adr).toLowerCase() === String(adr).toLowerCase()); return enTexte(String((h && h.sym) || court(adr)).slice(0, 14)); };
     /* tip 2349: free create OK — nudge Launch to market (fee moment), not “spam kill create”. */
     /* tip 20260923-feed-catch-router: celebrate ONLY CreateRouter paidCreate.
@@ -6660,9 +6948,28 @@ function peindreLive() {
      * Still NO foreign V8 birth. Handler data-tf-act=instant-birth-tb → #creer. */
     const foreignCreate = e.type === 'CREATION' && CHAINE === 8453 && e.paidCreate !== true;
     /* tip 20260923-reclaim-volume: stronger primary IB — birth on TB opens hooked market / Buy path */
+    /* ⛔⛔ L OFFRE A CHANGE, ET C EST UNE MESURE QUI L A DICTEE (2026-09-23, Phil : « change
+     *     l offre, dig toi-meme »). Cette ligne proposait « Instant Birth on TB · 0.001 ETH ·
+     *     opens hooked market » a des blocks nes AILLEURS.
+     *     CE QUE LA MESURE A MONTRE : sur 6 naissances etrangeres prises dans ce fil, QUATRE
+     *     ouvrent leur marche DANS LA MEME TRANSACTION, sur une pool a 0,00 % de frais. On leur
+     *     proposait donc de PAYER pour ouvrir un SECOND marche, vide, a cote du leur, pendant que
+     *     leur liquidite est ailleurs. Ce n est pas un prix trop eleve : c est une offre SANS
+     *     OBJET. Baisser les 0,001 ETH n y aurait rien change.
+     *     CE QUI A UN OBJET, ET QUI EXISTE MAINTENANT : sur 24 h, 872 pools B20 ouvertes par 342
+     *     hooks differents, avec des frais de pool MESURES a 0 %, 0,30 %, 2,89 %, 4,89 %, 50 %,
+     *     77 %, 88,73 % — et des pools a frais DYNAMIQUES qui n annoncent aucun taux. L acheteur n
+     *     a aucun moyen de savoir par ou il passe ni ce que ca lui coute. Nous si :
+     *     `poolDecouvertPour` lit toutes les pools du block, prend la MOINS CHERE a confiance
+     *     egale, et le badge nomme le frais avant la signature — « inconnu » quand il l est.
+     *     ⇒ On arrete de vendre une naissance a qui en a deja une. On propose la seule chose que
+     *       personne d autre ne fait : dire par ou passe l argent, AVANT de signer.
+     *     ⛔ LE CHEMIN NAISSANCE RESTE, EN SECONDAIRE, et son libelle dit ce qu il FAIT : un block
+     *       sans marche en a encore besoin, et le retirer casserait le seul rail qui ait jamais
+     *       rapporte quoi que ce soit. */
     const openHint = foreignCreate
-      ? ' · <button type="button" class="puce" data-tf-act="instant-birth-tb">Instant Birth on TB · 0.001 ETH</button>'
-        + ' · <span class="filOpen">opens hooked market / Buy</span>'
+      ? ' · <span class="filOpen">Buy here — we read every pool of this block and route the cheapest</span>'
+        + ' · <button type="button" class="puce" data-tf-act="instant-birth-tb">Open a market on TB · 0.001 ETH</button>'
         + ' · <span class="filOpen">Open profile</span>'
       : ((e.type === 'CREATION' || e.type === 'ACHAT' || e.type === 'VENTE' || e.type === 'SWAP')
         ? ' · <span class="filOpen">tap to open</span>' : '');
@@ -6936,7 +7243,7 @@ function peindreRelais() {
    *    Meme lecture (hook de la pool decouverte) aux deux endroits. */
   const ailleurs = (adr) => { const p = poolDecouvertPour(adr); return !!(p && !p.isTbFeeHook); };
   $('#sfRelais').innerHTML = r.lignes.map((l) => '<li class="filL"><div class="filArt">' + dessin(l.adr, l.sym || nomDe(l.adr)) + '</div>'
-    + '<div style="min-width:0;flex:1"><p class="filT">' + (l.sens === 'KILL' ? '🔴' : EMOJI_PREUVE[l.preuve] || '·') + ' ' + (l.nous ? '🟦 ' : '') + '<b>'
+    + '<div style="min-width:0;flex:1"><p class="filT">' + (l.sens === 'KILL' ? '🔴' : EMOJI_PREUVE[l.preuve] || '·') + ' ' + '<b>'
     + enTexte(String(l.sym || nomDe(l.adr)).slice(0, 14)) + '</b> · ' + enTexte(l.texte) + (ailleurs(l.adr) ? ' · on another launchpad' : '') + '</p>'
     + '<p class="filS">' + enTexte(l.parce_que) + '</p><div class="stadeLigne" style="margin-top:4px">'
     + r.outils.filter((o) => o.adr === l.adr).map((o) => '<button type="button" class="puce" data-outil="' + o.quoi + '" data-adr="' + enTexte(o.adr)
@@ -7181,6 +7488,36 @@ async function preparerEchange(sens) {
     e.textContent = etatVieProfil === 'NON_LUE'
       ? 'Market unread — retry.'
       : 'No TB-readable pool yet — Instant Birth on TB, or Re-scan market.';
+    return;
+  }
+  /* ⛔⛔ AU-DESSUS DE 5 % DE FRAIS DE POOL, ON NE PREPARE RIEN (Phil, 2026-09-23 : « fais au mieux »).
+   *     LE SEUIL VIENT D UNE MESURE, PAS D UNE INTUITION. 24 h, 13 506 echanges sur des blocks
+   *     B20, repartis par frais de POOL et PONDERES PAR ECHANGE (une pool sans echange ne dit rien
+   *     de ce que les gens acceptent) :
+   *         0 %        4 266   31,6 %              cumul  31,6 %
+   *         0 – 1 %    8 027   59,4 %              cumul  91,0 %
+   *         1 – 5 %    1 017    7,5 %              cumul  98,5 %   <- le seuil est ICI
+   *         5 – 20 %      73    0,5 %              cumul  99,1 %
+   *         20 – 50 %     23    0,2 %              cumul  99,3 %
+   *         > 50 %        19    0,1 %              cumul  99,4 %
+   *     98,5 % du volume reel se fait a 5 % ou moins. Au-dessus, on est dans la queue : 115
+   *     echanges sur 13 506. Refuser la n empeche pas un marche, ca empeche une perte.
+   *     ⛔ ON REFUSE, ON NE PREVIENT PAS. Un avertissement a cote d un bouton actif se clique ;
+   *       c est exactement ce qui vient de se passer avec « Fee 77.5% », affiche et ignore.
+   *       Le chemin reste ouvert par le marche externe, qui est nomme.
+   *     ⛔ LE REFUS PORTE LE CHIFFRE. « trop cher » sans le taux ne se verifie pas et se lit comme
+   *       une panne — la personne recommencerait.
+   *     ⚠️ UN FRAIS DYNAMIQUE N EST PAS REFUSE : son taux est fixe au swap, donc INCONNU ici.
+   *        Le refuser sur un nombre qu on n a pas serait inventer une mesure ; `libelleFrais` dit
+   *        deja qu il est fixe a chaque echange. */
+  const FRAIS_POOL_MAX = 50000;   /* 5 %, en centiemes de point de base */
+  const feeRoute = marcheLuGate && marcheLuGate.cle ? Number(marcheLuGate.cle.fee) : null;
+  if (Number.isFinite(feeRoute) && !fraisEstDynamique(feeRoute) && feeRoute > FRAIS_POOL_MAX) {
+    e.className = 'note wKo';
+    e.textContent = 'Not prepared: the cheapest pool we found for this block charges '
+      + (feeRoute / 10000).toFixed(2) + '% per trade. Measured on Base over 24h, 98.5% of trading in '
+      + 'blocks happens at 5% or less — this one is far outside that. Nothing was sent. '
+      + 'Use the external market if you still want it.';
     return;
   }
   if (!(await pret({ e }))) {
@@ -8097,7 +8434,25 @@ function peindrePlan(plan, adr) {
     const b = document.createElement('button');
     b.className = 'bouton';
     b.type = 'button';
-    b.textContent = 'Approval 1 of ' + plan.etapes.length + ' — ' + etape.nom;
+    /* ⛔⛔ CE BOUTON DISAIT « Approval 1 of 3 » SOUS UNE LISTE NUMEROTEE « Signature 1 a 4 »
+     *     (capture de Phil, 2026-09-23). Quatre defauts dans une seule ligne :
+     *     · « Approval » est FAUX pour une partie des etapes. `plan.etapes` melange des
+     *       approbations (`value: 0x0`) et une etape PAYANTE — « Register on V8 — 0.0003 ETH ».
+     *       Une approbation ne coute que du gas ; appeler « approbation » un envoi d ETH prepare
+     *       le lecteur a signer autre chose que ce qu on lui annonce.
+     *     · Le total ignorait la transaction finale : la liste en montre N+1, le bouton disait N.
+     *     · Le `1` etait ECRIT EN DUR. Comme `etapes` retrecit a chaque signature, on lisait
+     *       « 1 of 3 », puis « 1 of 2 », puis « 1 of 1 » : un compteur qui n avance jamais.
+     *     · Et quand une ligne de frais ouvre la liste, `etapes[0]` est la Signature 2 — c est
+     *       exactement ce que montre la capture : le bouton annonce « 1 » pour la ligne « 2 ».
+     *     ⇒ UN SEUL COMPTEUR, celui de la liste, et le RANG REEL de l etape dedans. `indexOf`
+     *       fonctionne parce que `txsApercu` porte les MEMES objets que `plan.etapes`.
+     *     ⛔ ET SI LE RANG EST INTROUVABLE, ON N INVENTE PAS DE NUMERO : le bouton dit seulement
+     *       ce qu il fait. Un numero faux est pire que pas de numero. */
+    const signaturesVisibles = txsApercu.filter(Boolean);
+    const rang = signaturesVisibles.indexOf(etape) + 1;
+    b.textContent = (rang > 0 ? 'Signature ' + rang + ' of ' + signaturesVisibles.length + ' — ' : 'Next signature — ')
+      + etape.nom;
     b.addEventListener('click', () => void signerEtapeLancement(etape));
     actions.appendChild(b);
     e.className = 'note';
@@ -8107,8 +8462,11 @@ function peindrePlan(plan, adr) {
         ? 'Review approvals first, then the open-fee / starting-price step, then bring it to life. Your wallet opens for each request.'
         : 'Review approvals first, then the one-time 0.001 ETH fee, then bring it to life. Your wallet opens for each request.');
     if (vieAuto) {
-      majProgressionVie('Step 2 — allowing the market to hold your block (' + plan.etapes.length + ' approval'
-        + (plan.etapes.length > 1 ? 's' : '') + '). Your wallet opens now.');
+      /* ⛔ MEME CORRECTION ICI : « N approval(s) » comptait des etapes dont une PAIE. On dit
+       *    « signature », qui est vrai des deux, et on garde le compte des etapes restantes —
+       *    c est bien ce qui reste a signer avant la transaction finale. */
+      majProgressionVie('Step 2 — allowing the market to hold your block (' + plan.etapes.length + ' signature'
+        + (plan.etapes.length > 1 ? 's' : '') + ' left). Your wallet opens now.');
       void signerEtapeLancement(etape);
     }
     return;
@@ -8490,14 +8848,17 @@ $('#pReveiller').addEventListener('click', () => {
     try { ouvrirLancement(); } catch (__) {}
   }
 });
-$('#bEcrireBlock') && $('#bEcrireBlock').addEventListener('click', () => {
-  const g = $('#bGraver');
-  if (!g) return;
-  g.click();
-  /* l etat de l ecriture est celui du chemin commun ; on le reflete ici */
-  const suivre = () => { const src = $('#bGraverEtat'), dst = $('#bEcrireEtat'); if (src && dst) { dst.innerHTML = src.innerHTML; dst.className = src.className; } };
-  let n = 0; const t = setInterval(() => { suivre(); if (++n > 120) clearInterval(t); }, 1000);
-});
+/* ⛔ LE SECOND BOUTON D ECRITURE A ETE RETIRE PAR `833ed7a` (« un seul bouton pour ecrire ») et son
+ *    gestionnaire etait reste ici, garde par `$('#bEcrireBlock') && …`. Cette garde ne protegeait
+ *    rien : l element n existe dans AUCUN fichier, donc la condition etait toujours fausse et les
+ *    huit lignes ne pouvaient jamais s executer — y compris un `setInterval` de 120 secondes qui
+ *    n a jamais demarre. Une garde dont la condition est constante n est pas une garde, c est un
+ *    interrupteur colle sur ARRET, et elle fait croire a une fonctionnalite qui n existe plus.
+ *    ⛔ LE CHEMIN REEL EST INCHANGE : `#bGraver` existe, porte son propre gestionnaire et reste le
+ *      seul bouton d ecriture. Rien de visible ne change — c est precisement pourquoi ce code mort
+ *      pouvait survivre indefiniment sans que personne le remarque.
+ *    ⛔ `test-ids-fantomes.mjs` garde desormais cette classe entiere. */
+
 const TEINTES = [
   { cle: 'a', nom: 'Night purple', p1: '#1a1228', p2: '#a78bfa' },
   { cle: 'b', nom: 'Night blue', p1: '#0e1830', p2: '#7ea6ff' },
@@ -8868,7 +9229,7 @@ $('#tbAddLiqBtn') && $('#tbAddLiqBtn').addEventListener('click', async () => {
     etat.textContent = credit.etat === 'PENDING_CONTRACT'
       ? ('Add-liquidity confirmed' + (sig ? ' (signed)' : '') + '. Basket ' + greffes.length
         + ' · early frozen (yield) · ' + (credit.note ? 'stub note recorded · ' : '')
-        + 'Zero 1 / Brain will run ops.')
+        + 'The Brain runs ops automatically.')
       : ('Refused: ' + (credit.pourquoi || credit.etat));
   }
 });
@@ -8924,7 +9285,7 @@ $('#tbOpenBtn') && $('#tbOpenBtn').addEventListener('click', async () => {
     etat.textContent = credit.etat === 'PENDING_CONTRACT'
       ? ('Open confirmed' + (sig ? ' (signed)' : ' (proof recorded)') + '. Early shares frozen · credit USDC stub on basket of '
         + greffes.length + ' · survivors ' + positifs.length
-        + ' · any wallet may now add liquidity · Zero 1 / Brain will run ops.')
+        + ' · any wallet may now add liquidity · the Brain runs ops automatically.')
       : ('Refused: ' + (credit.pourquoi || credit.etat));
   }
 });
@@ -10510,9 +10871,22 @@ $('#olPreparer').addEventListener('click', async () => {
   const etat = $('#olEtat'), lignes = $('#olLignes'), actions = $('#olActions');
   lignes.innerHTML = ''; actions.innerHTML = '';
   if (Number(CHAINE) !== 8453) { etat.className = 'note wKo'; etat.textContent = 'OpenLaunch launches run on Base mainnet only — switch network.'; return; }
+  /* ⛔⛔ LE 0 % EST REFUSE ICI AUSSI, PAS SEULEMENT RETIRE DE LA LISTE. Retirer une `<option>` ne
+   *    ferme rien : un `select` garde la valeur d une session precedente, une extension ou un
+   *    outil de dev peut en poser une autre, et `Number('')` vaut 0. La garde appartient la ou la
+   *    DECISION se prend, pas la ou le choix s affiche.
+   *    ⛔ ET ELLE ECHOUE FERMEE, AVEC SA RAISON A L ECRAN : un `lpFee` illisible ne doit pas
+   *      devenir 0 en silence — `nan-walks-through-every-bound`. Un marche ouvert a 0 % ne
+   *      rapporte jamais rien, a personne, et aucune migration n existe pour le reparer. */
+  const lpFee = Number($('#olFee').value);
+  if (!Number.isFinite(lpFee) || lpFee <= 0) {
+    etat.className = 'note wKo';
+    etat.textContent = 'Pick a trading fee above 0% — a 0% market is engraved forever and can never pay anyone.';
+    return;
+  }
   const sel = crypto.getRandomValues(new Uint8Array(32));
   const plan = planLaunchOL({ nom: $('#olNom').value, symbole: $('#olSym').value, lanceur: compte,
-    startTick: tickPourFdv(Number($('#olFdv').value)), lpFee: Number($('#olFee').value),
+    startTick: tickPourFdv(Number($('#olFdv').value)), lpFee,
     salt: '0x' + [...sel].map((b) => b.toString(16).padStart(2, '0')).join('') });
   if (plan.etat !== 'OK') { etat.className = 'note wKo'; etat.textContent = plan.pourquoi + '. Nothing was prepared.'; return; }
   etat.className = 'note'; etat.textContent = 'Simulating on Base…';
@@ -10527,7 +10901,16 @@ $('#olPreparer').addEventListener('click', async () => {
   lignes.innerHTML = [
     '<b>' + enTexte(r.nom) + '</b> (' + enTexte(r.symbole) + ') · ' + r.supply + ' tokens, all locked in the pool',
     'Paired with ETH · starting value ≈ ' + r.fdvEth.toFixed(2) + ' ETH for the whole supply',
-    r.lpFeePct ? r.lpFeePct + '% trading fee → 100% to your wallet (fixed forever)' : '0% trading fee — nobody earns it',
+    /* ⛔ LA BRANCHE « 0 % » EST SUPPRIMEE, PAS RENOMMEE. Elle est devenue INATTEIGNABLE : le choix
+     *    n existe plus dans la liste et `olPreparer` refuse un lpFee <= 0 avant d arriver ici.
+     *    La laisser decrirait a l ecran un produit qu on n offre plus — et le prochain lecteur la
+     *    prendrait pour une option encore valable, exactement comme l `<option>` qui avait survecu
+     *    six jours au retrait du « free block ».
+     *    ⛔ ET ELLE NE DEVIENT PAS UN TEXTE NEUTRE : si un 0 % arrivait quand meme jusqu ici, il
+     *      faut que ca se VOIE, pas que ca s affiche joliment — `neutral-return-swallows-failure`. */
+    r.lpFeePct > 0
+      ? r.lpFeePct + '% trading fee → 100% to your wallet (fixed forever)'
+      : 'Unreadable trading fee — do not sign. Reload and pick a fee.',
     'Contract: OpenLaunch LaunchFactory · you pay gas only · no ETH sent',
     'Simulation passed on Base just now',
   ].map((t) => '<li>' + t + '</li>').join('');
@@ -10586,9 +10969,43 @@ async function lireTrending() {
   }
   peindreTrending();
 }
+/* ⛔⛔ LA DECOUVERTE DES POOLS NE TOURNAIT QUE SUR LE FEED, ET TOUTE L OFFRE EN DEPEND (2026-09-23).
+ *     MESURE, en production, sur un chargement froid qui va DIRECTEMENT sur Blocks :
+ *         0 bouton « Buy » sur 52 lignes — toutes disaient « Pair a block with it ».
+ *     Apres un simple passage par le Feed (qui appelle `lireLive`, seul endroit ou
+ *     `decouvrirPools` etait lance) : 32 « Buy » sur 50. Le bouton n etait pas casse — il etait
+ *     INVISIBLE a qui n avait pas visite un autre onglet.
+ *     ⇒ C est le coeur de la nouvelle offre (« we read every pool and route the cheapest ») :
+ *       sans pools decouvertes, on ne lit rien, on ne route rien, et on affiche un repli.
+ *     ⛔ UN SEUL TOUR, ET SEULEMENT SI RIEN N A ETE DECOUVERT : la condition est `poolsLive.size`
+ *       a zero, pas un minuteur. Relancer a chaque rendu ferait un balayage par tri de colonne.
+ *     ⛔ IL NE BLOQUE RIEN : le rendu se fait tout de suite avec ce qu on a, la decouverte repeint
+ *       APRES. Un ecran vide pendant dix secondes serait pire que le repli.
+ *     ⛔ ET UN ECHEC N EST PAS UNE ABSENCE DE POOL : on rouvre le droit de reessayer au lieu de
+ *       conclure « pas de marche » sur une panne de lecture. */
+let decouverteTrendingLancee = false;
+async function decouvrirPourTrending() {
+  if (decouverteTrendingLancee || Number(CHAINE) !== 8453) return;
+  const V = V4_ADRESSES[CHAINE];
+  if (!V || !V.poolm || (poolsLive && poolsLive.size)) return;
+  decouverteTrendingLancee = true;
+  try {
+    const head = parseInt(await rpc('eth_blockNumber', []), 16);
+    if (!Number.isSafeInteger(head)) { decouverteTrendingLancee = false; return; }
+    const d = await decouvrirPools({ rpc, poolManager: V.poolm,
+      deBloc: Math.max(0, head - DECOUVERTE_INITIALE), aBloc: head, jetons: null, pause: 250 });
+    (d.pools || new Map()).forEach((p, id) => poolsLive.set(id, p));
+    /* ⛔ on ne repeint QUE si on a trouve : un repaint a vide ferait clignoter la liste sans rien
+     *   changer, et ferait croire a un rafraichissement utile. */
+    if (d.pools && d.pools.size) { try { peindreTrending(); } catch (_) { /* rien */ } }
+  } catch (_) {
+    decouverteTrendingLancee = false;
+  }
+}
 function peindreTrending() {
   const ul = $('#trListe'), note = $('#trNote'), d = trDonnees;
   if (!ul || !d) return;
+  void decouvrirPourTrending();
   const cle = { h1: (l) => l.volume1hUsd, h24: (l) => l.volume24hUsd, gain: (l) => l.change1h ?? -1e9, liq: (l) => l.liquiditeUsd }[trTri];
   /* tip 0039 (Phil « montre tous les blocks qui ont ete chiffres ») : tous, par pages de 50 (« Show more ») */
   /* ⛔ PHIL (2026-09-19, capture « toujours buge ») : mesure — 8 lignes sur 194 ont bouge dans l heure (DexScreener
@@ -10621,7 +11038,7 @@ function peindreTrending() {
         const feeOk = !!(pool && (pool.isTbFeeHook || pool.confiance === 'NOTRE' || pool.confiance === 'SANS_HOOK' || pool.confiance === 'HOOK'));
         const liqOk = (l.liquiditeUsd || 0) >= 500;
         if (feeOk && liqOk) {
-          return '<button type="button" class="bouton trAcheter" data-acheter="' + enTexte(l.adr) + '">Buy · 0.5%</button>';
+          return '<button type="button" class="bouton trAcheter" data-acheter="' + enTexte(l.adr) + '">Buy</button>';
         }
         /* ⛔⛔ LIBELLE CORRIGE LE 2026-09-23 (Phil : « ca aussi pourquoi ? »). Il disait « Trade on
          *     TB · 0.001 ETH », a cote de lignes qui disent « Buy · 0.5% ». Le lecteur croyait
@@ -12674,7 +13091,10 @@ function basculerBridgeMode(mode) {
       return;
     }
     etape('bridge_fee_sign');
-    setEtat('Open your wallet — sign the 0.01% fee only. Net swap via hub still needs Phil.');
+    /* ⛔ « still needs Phil » RETIRE : ce texte s affiche au moment ou l utilisateur ouvre son
+     *    wallet pour signer. Lui repondre par le prenom de quelqu un qu il ne connait pas, juste
+     *    avant une signature, est le pire endroit possible pour du jargon interne. */
+    setEtat('Open your wallet — sign the 0.01% fee only. Net swap via hub is not live yet.');
     conf.disabled = true;
     try {
       const eth = window.ethereum;
@@ -12688,7 +13108,12 @@ function basculerBridgeMode(mode) {
         const feeTxt = formatBridgeAmount(q.fee, plan.asset);
         setEtat('Bridge fee confirmed (' + feeTxt + ')'
           + (r.hash ? (' · ' + String(r.hash).slice(0, 10) + '…') : '')
-          + ' · net swap via hub still Phil-blocked (1 bps router GO).');
+          /* ⛔ « still Phil-blocked (1 bps router GO) » RETIRE : ce texte s affiche JUSTE APRES que
+           *    l utilisateur a paye son frais. Lui repondre par un prenom, un nom de contrat
+           *    interne et un tarif pour une route qui n existe pas, c est le laisser croire qu il
+           *    lui manque un savoir au moment exact ou il attend une confirmation.
+           *    ⛔ LA RESERVE RESTE, en mots qui se comprennent sans nous connaitre. */
+          + ' · net swap via hub is not live yet.');
       } else if (r.etat === 'REFUSE_PAR_UTILISATEUR') {
         etape('bridge_fee_refuse');
         setEtat(r.pourquoi || 'You declined — nothing sent');
@@ -12754,7 +13179,7 @@ function basculerBridgeMode(mode) {
     const action = (sel && sel.value) || 'watch_feed';
     /* Refuse marking pay for rails that must stay on-chain-only as if x402 replaced them */
     if (action === 'propose_launch' || action === 'propose_buy') {
-      setEtat('Launch / Buy-Sell stay on-chain (0.001 ETH / 0.5%). Use wallet rails — x402 does not replace them. You can still write a journal note.');
+      setEtat('Launch and Buy/Sell stay on-chain. Use wallet rails — x402 does not replace them. You can still write a journal note.');
       return;
     }
     const dub = assertNoDoubleChargeWithBridge({ x402Used: true, bridgeSkimUsed: false });
@@ -12842,6 +13267,37 @@ async function soleilsSurLaMap() {
       }
       marcheParAdr.set(String(l.adr).toLowerCase(), l);
     }
+    /* ⛔⛔ LA CARTE EST ELAGUEE ICI, ET C EST MA TROISIEME TENTATIVE — LES DEUX PRECEDENTES N ONT
+     *     RIEN FAIT, MESURE A L APPUI.
+     *     · 1re : filtre dans `poserBlocks`. Au premier rendu presque aucun etat n est lu, donc il
+     *       laissait tout passer. Et `creerHabitant` est appele depuis NEUF endroits, dont un qui
+     *       contourne `poserBlocks`. Mesure apres deploiement : 366 cubes, 90 sans marche.
+     *     · 2e : retrait dans `appliquerVie` quand l etat devient `NON_TROUVEE`. Mais `lireLaVie`
+     *       ne tourne plus a ce stade : mesure sur 60 s, 400 cubes et 146 `sansPrix`, PLATS. La
+     *       preuve que j attendais n arrivait jamais. Une garde qui attend un evenement qui ne se
+     *       produit pas ne garde rien.
+     *     ⇒ ON UTILISE LA DONNEE QU ON A DEJA, ET QUI ARRIVE VRAIMENT : la liste des marches
+     *       vivants, celle qui affiche « N blocks with a live market ». Un block absent de cette
+     *       liste n a pas de marche lisible — MEME source que l onglet Blocks, pas une hypothese.
+     *     ⛔ TROIS GARDE-FOUS, CHACUN VENANT D UN RISQUE REEL :
+     *       1. on n elague QUE si la liste est ARRIVEE et plausible (>= 20 entrees). Une liste vide
+     *          ou ratee viderait la carte entiere — le pire resultat possible ;
+     *       2. NOS blocks restent, meme sans marche : c est chez nous, on ne se cache pas ;
+     *       3. un block dont la vie a ete LUE sur la chaine reste meme absent de la liste — la
+     *          chaine prime sur un agregateur. */
+    try {
+      if (marcheParAdr.size >= 20) {
+        for (let i = habitants.length - 1; i >= 0; i--) {
+          const h = habitants[i];
+          if (!h || h.nous) continue;
+          if (h.etatVie === 'LUE') continue;
+          if (marcheParAdr.has(String(h.adr).toLowerCase())) continue;
+          if (h.el && h.el.parentNode) h.el.remove();
+          if (moteur3d && typeof moteur3d.retirer === 'function') { try { moteur3d.retirer(h); } catch (_) { /* rien */ } }
+          habitants.splice(i, 1);
+        }
+      }
+    } catch (_) { /* ⛔ un elagage qui echoue laisse la carte INTACTE, jamais a moitie vidée */ }
     /* ⛔ LA DONNEE LUE PUIS JETEE EST UN DEFAUT : ces FDV jugent aussi les stades, donc on repeint. */
     try { peindreStades(); } catch (_) { /* l onglet n est peut-etre pas encore peint */ }
     /* tip 20260923-map-anim: soleilsSurLaMap creates .bloc via creerHabitant WITHOUT poserBlocks —

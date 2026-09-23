@@ -44,7 +44,16 @@ export function cube3dHtml(params, adr) {
   /* axe de rotation libre (x, y, z), vitesse et sens : propres a chaque block */
   const vx = (graine(adr, 1) * 2 - 1).toFixed(3), vy = (0.4 + graine(adr, 2)).toFixed(3), vz = (graine(adr, 3) * 2 - 1).toFixed(3);
   const duree = (14 + graine(adr, 4) * 16).toFixed(1);
-  const sens = graine(adr, 5) < 0.5 ? 'normal' : 'reverse';
+  /* ⛔⛔ AMPLITUDE REDUITE (Phil, 2026-09-23 : « je reduis l amplitude »). Le cube faisait un TOUR
+   *     COMPLET (0 -> 360 deg). Pris a mi-rotation — ce qui est le cas la plupart du temps — un
+   *     gros cube se lit comme un parallelogramme ecrase : signale trois fois comme un « bug
+   *     visuel ». Ce n en etait pas un : c est la demande du 2026-09-19 (« le block tourne sur
+   *     lui-meme en libre mouvement x y z »). On garde le mouvement, on borne l angle.
+   *     ⇒ Le cube OSCILLE entre -AMPLITUDE et +AMPLITUDE au lieu de tourner : il reste
+   *       reconnaissable a tout instant, et la galaxie garde sa vie.
+   *     ⛔ LE SENS DEVIENT UN SENS D ALTERNANCE : avec des images-cles bornees, `normal`/`reverse`
+   *       feraient un saut brutal a chaque fin de cycle. `alternate` fait l aller-retour. */
+  const sens = graine(adr, 5) < 0.5 ? 'alternate' : 'alternate-reverse';
   const n = Number(m.division) || 1;
   const faces = face('av', m.gauche, m.trait, m.ep, m.motifs.gauche, n)
     + face('ar', m.gauche, m.trait, m.ep, m.motifs.gauche, n)
@@ -96,9 +105,16 @@ export function cube3dHtml(params, adr) {
 export const CUBE3D_CSS = `
 .c3{position:absolute;inset:0 0 12% 0;perspective:420px;pointer-events:none;container-type:size}
 .c3t{position:absolute;inset:0;transform-style:preserve-3d;transform:rotateX(-22deg) rotateY(34deg)}
+/* ⛔⛔ L AMPLITUDE EST UNE CONSTANTE NOMMEE, PAS UN NOMBRE PERDU DANS UNE IMAGE-CLE. Elle vaut 14
+ *     degres : au-dela, un gros cube redevient un parallelogramme a mi-course, et c est exactement
+ *     ce que Phil a signale trois fois. En dessous de ~6, le mouvement ne se voit plus et la
+ *     galaxie parait figee. La regler, c est changer CETTE ligne — pas chercher dans le CSS. */
+:root{--c3amp:14deg}
 .c3r{position:absolute;left:50%;top:50%;width:0;height:0;transform-style:preserve-3d;
-  animation:c3tourne var(--d) linear infinite}
-@keyframes c3tourne{from{transform:rotate3d(var(--vx),var(--vy),var(--vz),0deg)}to{transform:rotate3d(var(--vx),var(--vy),var(--vz),360deg)}}
+  animation:c3tourne var(--d) ease-in-out infinite}
+@keyframes c3tourne{
+  from{transform:rotate3d(var(--vx),var(--vy),var(--vz),calc(-1 * var(--c3amp)))}
+  to{transform:rotate3d(var(--vx),var(--vy),var(--vz),var(--c3amp))}}
 .c3f{position:absolute;left:-28cqmin;top:-28cqmin;width:56cqmin;height:56cqmin;box-sizing:border-box;border-radius:3px;
   display:flex;align-items:center;justify-content:center;backface-visibility:visible}
 .c3f svg{width:62%;height:62%}
@@ -130,7 +146,16 @@ export const CUBE3D_CSS = `
 .bloc.loin .c3{opacity:0;visibility:hidden;transform:scale(.85);transition:opacity .5s ease,transform .5s ease,visibility 0s linear .5s}
 .bloc.loin .c3r,.bloc.loin .c3o,.bloc.loin .c3m{animation-play-state:paused}
 /* mini-cube satellite, en volume, qui tourne sur lui-meme */
-.c3m{position:absolute;width:0;height:0;transform-style:preserve-3d;animation:c3tourne 4s linear infinite;--vx:1;--vy:1;--vz:0}
+/* ⛔ LES SATELLITES GARDENT LEUR TOUR COMPLET. Ils partageaient l animation du gros cube : borner
+ *    l angle la aussi les aurait figes, alors que le defaut signale ne venait QUE du cube
+ *    principal — un satellite de quelques pixels ne se lit jamais comme un parallelogramme.
+ *    Corriger au-dela du defaut mesure, c est casser ce qui marchait.
+ *    ⛔ AUCUN ACCENT GRAVE DANS CE BLOC : on est A L INTERIEUR du gabarit CUBE3D_CSS. Un accent
+ *      grave y TERMINE la chaine et casse le module entier. Ca vient d arriver DEUX fois de suite
+ *      ici — la seconde dans le commentaire qui l interdisait. La garde de syntaxe les a attrapees
+ *      toutes les deux avant le deploiement. */
+@keyframes c3satellite{from{transform:rotate3d(1,1,0,0deg)}to{transform:rotate3d(1,1,0,360deg)}}
+.c3m{position:absolute;width:0;height:0;transform-style:preserve-3d;animation:c3satellite 4s linear infinite}
 .c3m b{position:absolute;left:-4.5cqmin;top:-4.5cqmin;width:9cqmin;height:9cqmin;border:1px solid;box-sizing:border-box}
 .c3m .av{transform:translateZ(4.5cqmin)}.c3m .ar{transform:rotateY(180deg) translateZ(4.5cqmin)}
 .c3m .dr{transform:rotateY(90deg) translateZ(4.5cqmin)}.c3m .ga{transform:rotateY(-90deg) translateZ(4.5cqmin)}

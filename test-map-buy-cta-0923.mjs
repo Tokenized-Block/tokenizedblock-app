@@ -1,3 +1,8 @@
+/* ⛔ LIBELLE REDIRIGE (Phil, 2026-09-23 : « retire 0.5% partout, gene de trop »).
+ *    Ces controles exigeaient « Buy · 0.5% ». Ils gardaient un TAUX affiche, pas un
+ *    comportement : le bouton doit exister et porter son adresse, c est tout ce qui casse
+ *    l app s il disparait. Le taux, lui, reste dans le hook et dans les tests qui le lisent
+ *    sur la chaine — la ou il est VERIFIABLE plutot qu affiche. */
 import { readFileSync } from 'fs';
 const h = readFileSync('./app.html', 'utf8');
 /* ⛔ EPINGLE DE BUILD RETIREE (2026-09-23, passe globale) : elle exigeait un numero de
@@ -21,10 +26,10 @@ if (!h.includes('tip 20260923-map-buy-cta: amplify Instant Birth Map CTA')) thro
 if (!h.includes('id="mapCta" class="mapCta">✦ Instant Birth')) throw new Error('header CTA manquant');
 if (!h.includes("poserIntent({ kind: 'ib' }); allerA('creer')")) throw new Error('l entonnoir Instant Birth a disparu');
 if (h.includes('id="mapCtaDock"') || h.includes('Map works')) throw new Error('le doublon de CTA est revenu');
-if (!h.includes("data-acheter=\"' + enTexte(l.adr) + '\">Buy · 0.5%")) throw new Error('trending buy');
-if (!h.includes('id="fAcheter" type="button">Buy · 0.5%')) throw new Error('fiche buy');
+if (!h.includes("data-acheter=\"' + enTexte(l.adr) + '\">Buy")) throw new Error('trending buy');
+if (!h.includes('id="fAcheter" type="button">Buy<')) throw new Error('fiche buy');
 if (!h.includes('id="fIb"')) throw new Error('fiche ib');
-if (!h.includes('Buy · 0.5%</button>') || !h.includes("data-tf-act=\"buy\">Buy · 0.5%")) throw new Error('profile buy label');
+if (!h.includes('>Buy</button>') || !h.includes("data-tf-act=\"buy\">Buy")) throw new Error('profile buy label');
 if (h.includes('Fees for Dev')) throw new Error('fees for dev');
 if (h.includes('data-build="20260923-created-ib-cta"')) throw new Error('old tip left');
 /* Prefer Buy CTA wiring over Open-only Trending */

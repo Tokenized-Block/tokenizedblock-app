@@ -1,3 +1,8 @@
+/* ⛔ LIBELLE REDIRIGE (Phil, 2026-09-23 : « retire 0.5% partout, gene de trop »).
+ *    Ces controles exigeaient « Buy · 0.5% ». Ils gardaient un TAUX affiche, pas un
+ *    comportement : le bouton doit exister et porter son adresse, c est tout ce qui casse
+ *    l app s il disparait. Le taux, lui, reste dans le hook et dans les tests qui le lisent
+ *    sur la chaine — la ou il est VERIFIABLE plutot qu affiche. */
 /* ⛔ CONTROLES DE PASTILLE RETIRES (2026-09-23, demande de Phil) : ils exigeaient la presence
  *    des filtres « TB · paid » et « another launchpad », supprimes de l interface — « TB · paid »
  *    affichait 0 en permanence, et la distinction regardait NOUS, pas le lecteur.
@@ -16,16 +21,16 @@ const need = [
   ['OL IB copy', 'no trade pays their creator'],
   ['OL IB button', 'data-tf-act="instant-birth-tb">Instant Birth on TB · 0.001 ETH</button>'],
   ['OL wire', 'OpenLaunch Feed IB reclaim'],
-  ['peFrais visible', 'id="peFrais">0.5%'],
-  ['Prepare buy', 'Prepare buy · 0.5%'],
-  ['Prepare sell', 'Prepare sell · 0.5%'],
+  ['peFrais present', 'id="peFrais"'],
+  ['Prepare buy', '>Prepare buy</button>'],
+  ['Prepare sell', '>Prepare sell</button>'],
   ['profile default IB', 'MAIN first paint = Instant Birth on TB'],
   ['foreign amplify', 'opens hooked market / Buy'],
   /* tip 20260923-created-history: Created = all births; partitions stay honest */
   ['Created all births', "if (liveFiltre === 'CREATION') return e.type === 'CREATION';"],
   ['TB paid partition', "liveFiltre === 'CREATION_TB') return e.type === 'CREATION' && e.paidCreate === true"],
   ['foreign partition', "liveFiltre === 'CREATION_FOREIGN') return e.type === 'CREATION' && e.paidCreate !== true"],
-  ['trending gate', 'Buy · 0.5% only when fee-capturable'],
+  ['trending gate', 'only when fee-capturable'],
   /* ⛔ LIBELLE CORRIGE LE 2026-09-23 : « Trade on TB · 0.001 ETH » figurait a cote de lignes
    *    « Buy · 0.5% », et le lecteur croyait comparer deux PRIX pour la MEME action. Or ce
    *    bouton-la n echange rien : son `data-tf-act="instant-birth-tb"` OUVRE un marche.

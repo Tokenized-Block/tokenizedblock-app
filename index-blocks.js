@@ -116,19 +116,38 @@ export async function listerCreations({ rpc, blocs = 90000, fin = null, surProgr
   const debut = Math.max(0, dernier - blocs);
   const trouvees = [];
   const fenetresRatees = [];
-  let bas = dernier;
-  while (bas > debut) {
-    const haut = bas;
-    bas = Math.max(debut, haut - FENETRE_MAX);
+  /* ⛔⛔ FENETRES ALIGNEES — LE MEME CORRECTIF QU A LA LIGNE ~268, QUI N AVAIT ETE APPLIQUE QU A
+   *     UNE BOUCLE SUR TROIS (2026-09-23). Le commentaire de la version canonique DECRIVAIT deja
+   *     ce defaut-ci : « glissantes, elles changeaient a chaque lecture et aucune ne se relisait
+   *     du cache ». Le diagnostic etait ecrit ; le jumeau avait ete oublie.
+   *     MESURE, sur 90 000 blocs et une tete qui avance de 137 blocs (~4 min sur Base) :
+   *         glissant : 0 fenetre sur 91 identique d une lecture a l autre — RIEN ne vient du cache
+   *         aligne   : 89 sur 91 (98 %)
+   *     C est la cause des 79 `eth_getLogs` sur la factory a CHAQUE chargement, mesures en
+   *     production, pour un historique qui ne change jamais.
+   *     ⛔ ET LES BORNES DEVIENNENT JOINTIVES SANS RECOUVREMENT. Le motif glissant relisait 90
+   *       blocs deux fois (`haut` de la fenetre suivante = `bas` de la precedente).
+   *       ⚠️ MESURE HONNETE : sur 30 fenetres reelles, ce recouvrement a produit 0 doublon — les
+   *         blocs partages ne portaient aucune creation. Le defaut est donc LATENT, pas actif :
+   *         il dupliquerait le jour ou une creation tomberait sur une bordure. Je ne le compte pas
+   *         comme un bug en cours.
+   *     ⛔ CONTROLE AVANT LIVRAISON : les deux motifs ont ete lances sur la MEME plage et rendent
+   *       exactement les memes 181 creations distinctes. Un correctif qui ampute serait pire que
+   *       le defaut — l aligne ne perd rien. */
+  let haut = dernier;
+  while (haut >= debut) {
+    const bas = Math.max(debut, Math.floor(haut / FENETRE_MAX) * FENETRE_MAX);
+    const hautFenetre = haut;
+    haut = bas - 1;
     try {
       const logs = await rpc('eth_getLogs', [{
-        fromBlock: '0x' + bas.toString(16), toBlock: '0x' + haut.toString(16),
+        fromBlock: '0x' + bas.toString(16), toBlock: '0x' + hautFenetre.toString(16),
         address: FACTORY, topics: [TOPIC_CREATED],
       }]);
       for (const l of logs) { const c = decoderCreation(l); if (c) trouvees.push(c); }
     } catch (e) {
       /* ⛔ Une fenetre ratee n est pas une fenetre vide. On la NOMME. */
-      fenetresRatees.push({ de: bas, a: haut, cause: e.message });
+      fenetresRatees.push({ de: bas, a: hautFenetre, cause: e.message });
     }
     if (surProgres) surProgres({ parcouru: dernier - bas, total: dernier - debut, trouvees: trouvees.length });
   }
@@ -305,15 +324,20 @@ export async function createurDuJeton({ rpc, token, blocs = FENETRE_MAX * 3, fin
   const dernier = fin ?? parseInt(await rpc('eth_blockNumber', []), 16);
   const debut = Math.max(0, dernier - blocs);
   const fenetresRatees = [];
-  let bas = dernier;
+  /* ⛔ LE TROISIEME JUMEAU, aligne comme les deux autres (2026-09-23). Meme raison : des bornes qui
+   *    bougent a chaque lecture ne se relisent jamais du cache. Ici la boucle s ARRETE au premier
+   *    resultat, donc elle coute moins — mais elle est appelee une fois PAR JETON consulte, et
+   *    c est justement le genre de lecture qu un visiteur refait sans arret. */
+  let haut = dernier;
   let hit = null;
-  while (bas > debut && !hit) {
-    const haut = bas;
-    bas = Math.max(debut, haut - FENETRE_MAX);
+  while (haut >= debut && !hit) {
+    const bas = Math.max(debut, Math.floor(haut / FENETRE_MAX) * FENETRE_MAX);
+    const hautFenetre = haut;
+    haut = bas - 1;
     try {
       const logs = await rpc('eth_getLogs', [{
         fromBlock: '0x' + bas.toString(16),
-        toBlock: '0x' + haut.toString(16),
+        toBlock: '0x' + hautFenetre.toString(16),
         address: FACTORY,
         topics: [TOPIC_CREATED, topicTok],
       }]);
@@ -322,7 +346,7 @@ export async function createurDuJeton({ rpc, token, blocs = FENETRE_MAX * 3, fin
         if (c && c.tx) hit = c;
       }
     } catch (e) {
-      fenetresRatees.push({ de: bas, a: haut, cause: e.message });
+      fenetresRatees.push({ de: bas, a: hautFenetre, cause: e.message });
     }
     if (surProgres) {
       surProgres({ parcouru: dernier - bas, total: dernier - debut, trouvees: hit ? 1 : 0 });

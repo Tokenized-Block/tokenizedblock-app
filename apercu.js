@@ -44,7 +44,16 @@ export function nomDe(adr, { chaine, compte = null, jeton = null, symbole = null
   const V = V4_ADRESSES[Number(chaine)] || {};
   const connus = [
     [compte, 'you'], [jeton, symbole ? 'the block ' + symbole : 'this block'],
-    [FEE_WALLET, 'fee'], [CREATE_ROUTER, 'TB CreateRouter'], [USDC_BASE, 'USDC'], [FACTORY, 'B20 factory'],
+    /* ⛔ « TB CreateRouter » -> ce que le contrat FAIT. Ces libelles s affichent sur la ligne
+     *    « Contract: … » sous chaque signature, a cote de « Permit2 (Uniswap) » — un nom que le
+     *    lecteur peut aller verifier. « CreateRouter » n en est pas un : c est notre vocabulaire
+     *    interne, et il arrive au pire moment, juste avant que la personne signe.
+     *    ⚠️ CETTE TABLE EST UN SITE D AFFICHAGE QUE `test-texte-a-l-ecran` NE SAIT PAS LIRE : ce
+     *       n est ni une affectation `.textContent`, ni un appel d affichage, mais un tableau de
+     *       paires. La garde est donc AVEUGLE ici, et c est ecrit dans ses bornes plutot que
+     *       corrige par une regle taillee pour une seule table — un motif trop etroit protege une
+     *       phrase, pas une regle, et c est le defaut qu on vient de corriger ailleurs. */
+    [FEE_WALLET, 'fee'], [CREATE_ROUTER, 'TokenizedBlock (creates your block)'], [USDC_BASE, 'USDC'], [FACTORY, 'B20 factory'],
     [PERMIT2, 'Permit2 (Uniswap)'], [V.posm, 'Uniswap v4 position manager'], [ROUTEUR_SWAP[Number(chaine)], 'Uniswap router'],
     [PROPRIETAIRE_PERMANENT, 'dead address (nobody)'],
   ];
@@ -107,7 +116,16 @@ export function apercuTransaction({ chaine, tx, compte = null, jeton = null, sym
     return { etat: 'LUE', action: 'Create a block', lignes };
   }
   if (sel === S.createPaid && to === String(CREATE_ROUTER).toLowerCase()) {
-    lignes.push('Creates via CreateRouter: sealed 1B all to you; life fee ≈ $1 ETH (birth, USDC/ETH oracle) only after create succeeds.');
+    /* ⛔⛔ DEUX CHOSES RETIREES DE CETTE LIGNE (2026-09-23), et elles etaient a l ECRAN, sous une
+     *     signature que l utilisateur s apprete a donner :
+     *     · « CreateRouter » — le nom d un de nos contrats. Le lecteur n a aucun moyen de savoir
+     *       ce que c est : ca ne l informe pas, ca lui fait croire qu il lui manque un savoir.
+     *     · « ≈ $1 » — un dollar ECRIT EN DUR. Le montant reel en ETH est deja affiche sur la
+     *       ligne « ETH sent with it » juste au-dessus : cette approximation n ajoutait aucune
+     *       information, elle ajoutait une AFFIRMATION que le code ne mesure pas ici.
+     *     ⛔ CINQ FICHIERS DE TEST INTERDISAIENT DEJA `≈$1` — aucun ne lisait `apercu.js`. Le
+     *       motif etait bon, c est la LISTE DES FICHIERS qui mentait. */
+    lignes.push('Creates your block: 1B units, all to you, sealed. The life fee is charged only if the create succeeds.');
     return { etat: 'LUE', action: 'Create a block (life fee)', lignes };
   }
   /* Native ETH transfer (no calldata) — Launch life fee → FEE_WALLET. */
@@ -127,7 +145,10 @@ export function apercuTransaction({ chaine, tx, compte = null, jeton = null, sym
     return { etat: 'LUE', action: 'Launch a market', lignes };
   }
   if (sel === S.inscrire) {
-    lignes.push(valeur > 0n ? 'Pays the one-off ≈ $1 that brings your block to life' : 'Confirms the starting price (already paid)');
+    /* ⛔ « ≈ $1 » RETIRE : le montant exact en ETH figure deja sur la ligne « ETH sent with it »
+     *    juste au-dessus. Ecrire un dollar en dur a cote d un montant variable, c est promettre un
+     *    prix qu on ne mesure pas — et le jour ou l ETH double, l ecran dit toujours « $1 ». */
+    lignes.push(valeur > 0n ? 'Pays the one-off fee that brings your block to life' : 'Confirms the starting price (already paid)');
     lignes.push('Records the starting price of its market, and you as its creator');
     return { etat: 'LUE', action: 'Bring it to life', lignes };
   }

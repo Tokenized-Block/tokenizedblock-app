@@ -74,7 +74,15 @@ assert.equal(assertCleanCopy().ok, true);
 assert.ok(X402_FEE_MATRIX.instant_birth_0001.x402 === false);
 
 const html = readFileSync('./app.html', 'utf8');
-assert.match(html, /data-build="20260923-bridge-x402-brain"/);
+/* ⛔ EPINGLE DE BUILD REDIRIGEE (C2, 2026-09-23) — PAS SUPPRIMEE.
+ *    `data-build="20260923-bridge-x402-brain"` exigeait un numero de build PRECIS. Ce controle-la
+ *    ne teste aucune fonctionnalite : il teste que PERSONNE n a deploye depuis. Il a rougi des le
+ *    merge suivant, alors que tout le tip bridge-x402-brain etait intact — et un rouge qui ne
+ *    designe aucun defaut apprend a ignorer les rouges.
+ *    ⛔ CE QUI EST GARDE : la ligne doit exister et etre bien formee. Les controles de
+ *      FONCTIONNALITE du tip (`bBotLoopCarte`, l import de `x402-pay.js`, la matrice de frais,
+ *      le journal Option A) sont LAISSES INTACTS ci-dessous — eux gardent vraiment quelque chose. */
+assert.match(html, /data-build="[\w-]+"/, 'ligne de build absente ou mal formee');
 assert.match(html, /bBotLoopCarte/);
 assert.match(html, /from '\.\/x402-pay\.js'/);
 assert.match(html, /phraseBridgeLegs|brLegsNote/);

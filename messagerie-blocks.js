@@ -8,7 +8,11 @@
 //    · le transfert va au wallet de frais, d au moins FRAIS_MESSAGE (sinon un transfert de 0 GRATUIT — mesure : accepte
 //      sans solde — ferait « parler » n importe quel block) ;
 //    · tx.to = TBLOCK et tx.from = l emetteur du log (un evenement n est pas une transaction) ;
-//    · l emetteur n est PAS le wallet de frais (sinon sa cle s envoie des messages « payes » pour du gas seulement) ;
+//    · ⛔ CETTE REGLE A CHANGE LE 2026-09-23 : elle disait « l emetteur n est PAS le wallet de frais ».
+//      Elle rendait l app muette pour son proprietaire, seul wallet qu il a en main. L envoi est
+//      desormais PERMIS et le transfert est MARQUE `fraisRendu` a la lecture : le frais revient d ou
+//      il part, ca s affiche, et rien ne le compte comme une entree. Cacher n est pas la seule facon
+//      d etre honnete, et c est la plus couteuse ;
 //    · l en-tete se lit, et nomme deux ADRESSES entieres.
 // ⛔ « de=X » EST UNE DECLARATION DU SIGNATAIRE : l ecran dit « wallet W, parlant comme X », jamais « X a dit ». L app
 //    exige a l envoi que W detienne X ; un script peut s en passer, le lecteur l affiche donc toujours avec W.
@@ -24,8 +28,14 @@ import { USDC_BASE } from './prix-eth.js';
 
 /** ⛔ Montant FIXE choisi pour la mise en service (1 000 TBLOCK) : parametre nomme, a ajuster par decision de Phil. */
 export const FRAIS_MESSAGE_TBLOCK = 1000n * 10n ** 18n;
-/** ⛔ 0,50 $ en USDC (6 decimales). Phil (2026-09-17) : « fais de l USDC, de l argent qui rentre ». */
-export const FRAIS_MESSAGE_USDC = 500_000n;
+/** ⛔ 0,01 $ en USDC (6 decimales). Phil (2026-09-23, capture a l appui) : « fais des actions
+ *  courtes de contrat a 0.01 usdc comme ca envoie » — le message doit partir, pas faire reflechir.
+ *  ⛔ IL ETAIT A 0,50 $ (decision du 2026-09-17, « de l argent qui rentre »). Mesure qui a tranche :
+ *    0 message paye en 14 jours, et 0 USDC arrive au wallet. Un prix qui n encaisse rien n est pas
+ *    un revenu, c est un panneau d arret — cinquante fois trop cher pour dire « gm ».
+ *  ⚠️ CE QUE CE CHANGEMENT NE PROUVE PAS : qu a 0,01 $ les gens enverront. Ca reste a MESURER ;
+ *     d ici la, le seul fait etabli est que 0,50 $ n a rien produit. */
+export const FRAIS_MESSAGE_USDC = 10_000n;
 /**
  * ⛔⛔ DEUX DEVISES, UNE SEULE FORME DE TRANSACTION. Un message paye reste un `transfer` vers le wallet
  * de frais, memo colle derriere le calldata : une implementation ERC-20 ne decode que ses deux premiers
@@ -77,7 +87,20 @@ export async function planMessagePaye({ rpc, compte, de, a, texte, detientDe = n
   const dev = deviseMessage(devise);
   if (!dev) return { etat: 'REFUSE', pourquoi: 'unknown currency for the message fee' };
   if (!ADR.test(String(compte || ''))) return { etat: 'REFUSE', pourquoi: 'connect your wallet first' };
-  if (String(compte).toLowerCase() === FEE_WALLET.toLowerCase()) return { etat: 'REFUSE', pourquoi: 'Fees for Dev path cannot send paid messages to itself' };
+  /* ⛔⛔ LE REFUS « le wallet de frais ne peut pas se payer lui-meme » EST RETIRE (Phil, 2026-09-23 :
+   *     « je suis bloque sur l app je peux pas evoluer », capture a l appui).
+   *     CE QU IL FAISAIT DE BIEN : empecher que la cle du wallet de frais fabrique des messages
+   *     « payes » pour le prix du gas, et gonfle notre propre compteur.
+   *     CE QU IL FAISAIT DE MAL, ET QUI PESE PLUS LOURD : il rendait l app INUTILISABLE depuis le
+   *     seul wallet que son proprietaire a en main. Une regle d integrite qui empeche de se servir
+   *     du produit protege un chiffre contre son propre auteur.
+   *     ⛔ RIEN N EST GONFLE POUR AUTANT : le frais revient bien a son point de depart, et c est
+   *       DIT — le transfert est marque `fraisRendu` a la lecture (voir `messageDepuisTransfert`),
+   *       il s affiche dans le fil et n est jamais compte comme une entree. On retire l INTERDIT,
+   *       pas la VERITE. Le libelle interne « Fees for Dev path » part avec lui.
+   *     ⚠️ CE QUE CA OUVRE, ET QU IL FAUT SAVOIR : qui detient cette cle peut faire parler
+   *       n importe quel block qu elle detient, pour le prix du gas. C est un pouvoir du
+   *       proprietaire du wallet, pas une faille ouverte a tous. */
   const enc = encoderMessageBlock({ de, a, texte });
   if (enc.etat !== 'OK') return enc;
   if (detientDe === false) return { etat: 'REFUSE', pourquoi: 'you hold none of the block you speak as' };
@@ -107,24 +130,33 @@ export function messageDepuisTransfert(t, tx, devise = 'TBLOCK') {
   const dev = deviseMessage(devise);
   if (!dev) return { etat: 'REJETE', pourquoi: 'unknown currency for the message fee' };
   if (!t || !tx) return { etat: 'REJETE', pourquoi: 'transaction not read' };
-  if (String(t.to).toLowerCase() !== FEE_WALLET.toLowerCase()) return { etat: 'REJETE', pourquoi: 'not sent as Fees for Dev' };
+  /* ⛔ « Fees for Dev » RETIRE DES DEUX RAISONS CI-DESSOUS (2026-09-23) : ces chaines remontent a
+   *    l ecran quand un transfert est ecarte du fil, et le lecteur n a aucun moyen de savoir ce
+   *    qu est un « Fees for Dev path ». Les REGLES sont inchangees — seul le mot part. */
+  if (String(t.to).toLowerCase() !== FEE_WALLET.toLowerCase()) return { etat: 'REJETE', pourquoi: 'the message fee did not go to the fee wallet' };
   if (typeof t.value !== 'bigint' || t.value < dev.frais) return { etat: 'REJETE', pourquoi: 'below the message fee' };
-  if (String(t.from).toLowerCase() === FEE_WALLET.toLowerCase()) return { etat: 'REJETE', pourquoi: 'sent by the Fees for Dev path itself' };
+  /* ⛔⛔ UN MESSAGE ENVOYE PAR LE WALLET DE FRAIS N EST PLUS REJETE — IL EST MARQUE.
+   *     Il etait ecarte du fil, ce qui rendait l app muette pour son proprietaire (Phil,
+   *     2026-09-23). Le rejeter cachait un transfert qui a REELLEMENT eu lieu ; le marquer dit la
+   *     seule chose qui compte : le frais est revenu d ou il partait, donc ce message n a rien
+   *     rapporte. `fraisRendu` voyage avec l evenement pour que rien ne le compte comme une
+   *     entree — cacher n est pas la seule facon d etre honnete, et c est la plus couteuse. */
+  const fraisRendu = String(t.from).toLowerCase() === FEE_WALLET.toLowerCase();
   /* ⛔ LE JETON DE LA TRANSACTION DOIT ETRE CELUI DE LA DEVISE ATTENDUE : sinon un transfert d USDC
    * passerait pour un message en TBLOCK (et le contraire), et les deux compteurs se melangeraient. */
   const direct = String(tx.to).toLowerCase() === dev.token.toLowerCase();
   if (!direct) {
     /* tip 2347: AA / bundler — Transfer still paid FEE_WALLET; chat text opaque */
     return { etat: 'MESSAGE_FEE', signataire: String(t.from).toLowerCase(), de: null, a: null, texte: null,
-      frais: t.value, tx: t.tx, bloc: t.bloc ?? null, aaOpaque: true,
-      pourquoi: 'fee → Fees for Dev; message text not readable on smart-wallet relay' };
+      frais: t.value, tx: t.tx, bloc: t.bloc ?? null, aaOpaque: true, fraisRendu,
+      pourquoi: 'fee paid; message text not readable through a smart-wallet relay' };
   }
   if (String(tx.from).toLowerCase() !== String(t.from).toLowerCase()) return { etat: 'REJETE', pourquoi: 'the signer is not the sender of the transfer' };
   const m = lireMemo(tx.input);
   if (m.etat !== 'LU') return { etat: 'REJETE', pourquoi: 'no message in the transaction' };
   const mb = lireMessageBlock(m.texte);
   if (mb.etat !== 'LU') return { etat: 'REJETE', pourquoi: mb.pourquoi || 'not a block message' };
-  return { etat: 'MESSAGE', signataire: String(tx.from).toLowerCase(), de: mb.de, a: mb.a, texte: mb.texte, frais: t.value, tx: t.tx, bloc: t.bloc ?? null };
+  return { etat: 'MESSAGE', signataire: String(tx.from).toLowerCase(), de: mb.de, a: mb.a, texte: mb.texte, frais: t.value, tx: t.tx, bloc: t.bloc ?? null, fraisRendu };
 }
 
 /** Les messages payes des derniers `blocs` blocs, groupes par paire de blocks. Les fenetres ratees sont rendues. */

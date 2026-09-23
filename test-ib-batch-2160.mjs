@@ -19,6 +19,29 @@ assert.match(html, /function estCreateB20ValeurZero/);
 assert.match(html, /function refuseSiCreateB20ValeurZero/);
 assert.match(html, /CreateRouter createPaid FIRST/);
 assert.match(html, /Do NOT call creerEtVivreUneSignature/);
+/* ⛔⛔ ET LE COMPORTEMENT, PAS SEULEMENT LA MISE EN GARDE (ajoute le 2026-09-23).
+ *     La ligne ci-dessus exige que le commentaire « Do NOT call creerEtVivreUneSignature » existe.
+ *     Elle ne verifiait PAS que le code obeisse : deplacer l appel DANS la branche `ibDirect`
+ *     l aurait laissee verte. Une garde qui protege la divulgation et pas la decision est le motif
+ *     `disclosure-fixed-decision-not`.
+ *     ⚠️ MESURE HONNETE AVANT CORRECTION : le code obeit DEJA. L appel vit dans la branche `else`,
+ *        annotee « Non-IB / Advanced / Practice may still try one-sig batch ». Ce controle ne
+ *        repare donc rien aujourd hui — il empeche une regression que rien ne voyait. */
+{
+  const d = html.indexOf('if (ibDirect) {');
+  assert.ok(d > 0, 'branche `if (ibDirect)` introuvable — ce controle ne garde plus rien');
+  const f = html.indexOf('} else if (adresseCreee', d);
+  assert.ok(f > d, 'fin de la branche `ibDirect` introuvable');
+  const brancheIb = html.slice(d, f);
+  assert.ok(brancheIb.length > 400, 'branche `ibDirect` suspecte : ' + brancheIb.length + ' caracteres');
+  assert.doesNotMatch(brancheIb, /creerEtVivreUneSignature\s*\(/,
+    'Instant Birth appelle creerEtVivreUneSignature : le batch EIP-5792 repasserait par '
+    + 'factory createB20 value 0, exactement ce que le commentaire interdit');
+  /* ⛔ TEMOIN : l appel doit exister AILLEURS, sinon on aurait « prouve » l absence en supprimant
+   *    la fonction — un vert obtenu en retirant la fonctionnalite ne prouve rien. */
+  assert.match(html, /const g = await creerEtVivreUneSignature\(/,
+    'le chemin non-Instant-Birth a perdu son batch une signature');
+}
 assert.match(html, /creerBlock IB final guard/);
 /* ⛔ CHAINE D ECRAN MISE A JOUR (2026-09-23) : elle portait « CreateRouter » — un nom de contrat
  *    sous les yeux de quelqu un qui cree un block. Le controle vise la MEME phrase dans sa nouvelle

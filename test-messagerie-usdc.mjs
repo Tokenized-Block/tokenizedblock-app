@@ -25,10 +25,17 @@ await ok('devises connues, devise inconnue -> null (pas de repli silencieux)', (
   assert.equal(deviseMessage('usdc').frais, FRAIS_MESSAGE_USDC);
   assert.equal(deviseMessage('TBLOCK').frais, FRAIS_MESSAGE_TBLOCK);
   assert.equal(deviseMessage('EUR'), null);
-  assert.equal(FRAIS_MESSAGE_USDC, 500000n); /* 0,50 USDC a 6 decimales */
+  /* ⛔ LE PRIX EST EPINGLE EXPRES, ET LA VALEUR A CHANGE (Phil, 2026-09-23 : « fais des actions
+   *    courtes de contrat a 0.01 usdc comme ca envoie »). Epingler un PRIX est legitime — il ne
+   *    doit jamais bouger par accident — contrairement a epingler un numero de build, qui ne teste
+   *    que « personne n a deploye depuis ».
+   *    ⛔ CE QUI A TRANCHE : a 0,50 $, 0 message paye et 0 USDC arrive au wallet en 14 jours
+   *      (mesure du 2026-09-23, 303/303 fenetres lues, 0 ratee). Un prix qui n encaisse rien n est
+   *      pas un revenu. ⚠️ Ce qui reste NON PROUVE : qu a 0,01 $ les gens enverront. */
+  assert.equal(FRAIS_MESSAGE_USDC, 10000n); /* 0,01 USDC a 6 decimales */
 });
 
-await ok('plan USDC : la transaction va au contrat USDC, pour 0,50 USDC vers le wallet de frais', async () => {
+await ok('plan USDC : la transaction va au contrat USDC, pour le frais en USDC vers le wallet de frais', async () => {
   const p = await planMessagePaye({ rpc: noeud({ [USDC.toLowerCase()]: 2_000_000n }), compte: COMPTE, de: DE, a: A,
     texte: 'gm', detientDe: true, devise: 'USDC' });
   assert.equal(p.etat, 'PRET');
@@ -40,10 +47,14 @@ await ok('plan USDC : la transaction va au contrat USDC, pour 0,50 USDC vers le 
 });
 
 await ok('solde USDC insuffisant : refus, avec ce qui manque, en USDC', async () => {
-  const p = await planMessagePaye({ rpc: noeud({ [USDC.toLowerCase()]: 100_000n }), compte: COMPTE, de: DE, a: A,
+  /* ⛔ MONTANTS RECALES SUR LE PRIX DU 2026-09-23 (0,01 USDC). Le cas testait 0,10 $ de solde
+   *    contre un frais de 0,50 $ ; a 0,01 $ ce solde est LARGEMENT suffisant et le cas ne testait
+   *    plus rien — il rendait `PRET`. L INTENTION est gardee entiere : un solde insuffisant doit
+   *    etre refuse, et le refus doit CHIFFRER ce qui manque. Seuls les nombres suivent le prix. */
+  const p = await planMessagePaye({ rpc: noeud({ [USDC.toLowerCase()]: 4_000n }), compte: COMPTE, de: DE, a: A,
     texte: 'gm', detientDe: true, devise: 'USDC' });
   assert.equal(p.etat, 'REFUSE');
-  assert.equal(p.manque, 400_000n);
+  assert.equal(p.manque, 6_000n);
   assert.equal(p.devise, 'USDC');
 });
 
@@ -60,8 +71,31 @@ await ok('lecture : un transfert USDC n est pas un message TBLOCK, et l inverse 
   assert.equal(messageDepuisTransfert(t, txUsdc, 'USDC').etat, 'MESSAGE');
   /* le meme transfert lu comme TBLOCK : sous le prix TBLOCK -> rejete */
   assert.equal(messageDepuisTransfert(t, txUsdc, 'TBLOCK').etat, 'REJETE');
-  /* un USDC sous 0,50 -> rejete */
-  assert.equal(messageDepuisTransfert({ ...t, value: 499_999n }, txUsdc, 'USDC').etat, 'REJETE');
+  /* ⛔ UN USDC SOUS LE PRIX -> REJETE. La valeur suit le prix (0,01 USDC depuis le 2026-09-23) :
+   *    499 999 etait « un wei sous 0,50 $ » et vaut maintenant cinquante fois le frais. Le cas
+   *    doit rester UN WEI SOUS LE PRIX — c est la borne qui compte, pas le nombre. */
+  assert.equal(messageDepuisTransfert({ ...t, value: FRAIS_MESSAGE_USDC - 1n }, txUsdc, 'USDC').etat, 'REJETE');
+});
+
+/* ⛔⛔ TEMOIN NEUF (2026-09-23) : LE WALLET DE FRAIS PEUT PARLER, ET SON MESSAGE EST MARQUE.
+ *     Avant, il etait REJETE — l app etait muette pour son proprietaire, seul wallet qu il a en
+ *     main (Phil : « je suis bloque sur l app je peux pas evoluer »). On a retire l INTERDIT, pas
+ *     la VERITE : le frais revient d ou il part, et `fraisRendu` le dit pour que rien ne le compte
+ *     comme une entree. */
+await ok('le wallet de frais peut parler, et son message porte fraisRendu', () => {
+  const memo = 'tbx1 de=' + DE + ' a=' + A + ' gm';
+  const t = { from: FEE_WALLET, to: FEE_WALLET, value: FRAIS_MESSAGE_USDC, tx: '0xdef' };
+  const tx = { from: FEE_WALLET, to: USDC, input: encodeTransferAvecMemo(FEE_WALLET, FRAIS_MESSAGE_USDC, memo) };
+  const m = messageDepuisTransfert(t, tx, 'USDC');
+  assert.equal(m.etat, 'MESSAGE', 'le wallet de frais doit pouvoir parler');
+  assert.equal(m.fraisRendu, true, 'son message doit etre marque : le frais est revenu a son point de depart');
+  assert.equal(m.texte, 'gm');
+  /* ⛔ ET LE TEMOIN NEGATIF, sinon `fraisRendu` pourrait etre vrai partout sans qu on le voie. */
+  const autre = { from: COMPTE, to: FEE_WALLET, value: FRAIS_MESSAGE_USDC, tx: '0xabc' };
+  const txAutre = { from: COMPTE, to: USDC, input: encodeTransferAvecMemo(FEE_WALLET, FRAIS_MESSAGE_USDC, memo) };
+  const n2 = messageDepuisTransfert(autre, txAutre, 'USDC');
+  assert.equal(n2.etat, 'MESSAGE');
+  assert.equal(n2.fraisRendu, false, 'un message d un autre wallet ne doit PAS etre marque');
 });
 
 console.log('test-messagerie-usdc:', n, 'cas, exit 0');

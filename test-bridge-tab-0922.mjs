@@ -84,10 +84,31 @@ assert.match(html, /Confirm Bridge fee/);
 const brStart = html.indexOf('id="v-bridge"');
 const brEnd = html.indexOf('</section>', brStart) + '</section>'.length;
 const bridgePanel = html.slice(brStart, brEnd);
-assert.doesNotMatch(bridgePanel, /0xa6cf|Fees for Dev|≈\s*\$1|≈\$1/i);
-assert.doesNotMatch(bridgePanel, /Fees for Dev/i);
-assert.match(bridgePanel, /Fee[\s\S]*0\.01%/);
-assert.match(bridgePanel, /Phil/i);
+/* ⛔⛔ CES CONTROLES LISAIENT LE FICHIER LA OU ILS VOULAIENT DIRE « L ECRAN », et ca les a rendus
+ *     faux DANS LES DEUX SENS (constat du 2026-09-23).
+ *     · `assert.match(bridgePanel, /Phil/i)` exigeait le mot « Phil ». Mesure : 5 occurrences dans
+ *       le panneau, 0 a l ecran — les cinq sont dans des COMMENTAIRES, dont ceux qui expliquent
+ *       qu on a justement retire « Phil » de l affichage. Le test passait AVANT le retrait et
+ *       APRES : il n a jamais remarque que ce qu il gardait avait disparu. Une garde satisfaite par
+ *       le commentaire qui documente sa propre violation ne garde rien.
+ *     · `doesNotMatch(/Fees for Dev/)` avait le defaut MIROIR : il rougirait sur un commentaire qui
+ *       explique un retrait, et il ne regardait qu un SLICE de `app.html` — jamais les modules
+ *       `.js`, ou la chaine vivait dans quatre messages affiches a l utilisateur.
+ *     ⇒ On depouille les commentaires, et on garde l INTENTION, pas le mot. */
+const ecranBridge = bridgePanel.replace(/<!--[\s\S]*?-->/g, ' ').replace(/\/\*[\s\S]*?\*\//g, ' ');
+assert.ok(ecranBridge.length < bridgePanel.length, 'depouillement sans effet — temoin casse');
+assert.ok(ecranBridge.length > 800, 'panneau Bridge suspect apres depouillement : ' + ecranBridge.length);
+
+assert.doesNotMatch(ecranBridge, /0xa6cf|Fees for Dev|≈\s*\$1|≈\$1/i);
+assert.match(ecranBridge, /Fee[\s\S]*0\.01%/);
+/* ⛔ L INTENTION D ORIGINE : le panneau doit DIRE que l echange net via le hub n est pas livre.
+ *    Elle est gardee — en mots qui se comprennent sans nous connaitre. */
+assert.match(ecranBridge, /not live( yet)?/i,
+  'le panneau Bridge ne dit plus que l echange net via le hub n est pas livre');
+/* ⛔ ET LE CONTROLE INVERSE, QUI MANQUAIT : aucun prenom de l equipe a l ecran. Sans lui, remettre
+ *    « Phil-blocked » demain ne ferait rougir personne ici. */
+assert.doesNotMatch(ecranBridge, /\b(?:Phil|Rakhsa|Raksha|Zero\s?1|Clansy|VolKov)\b/i,
+  'un prenom de l equipe est revenu a l ecran dans le panneau Bridge');
 
 const servi = readFileSync('./serveur-web.js', 'utf8');
 assert.match(servi, /bridge\.js/);
