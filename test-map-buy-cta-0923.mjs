@@ -1,6 +1,6 @@
 import { readFileSync } from 'fs';
 const h = readFileSync('./app.html', 'utf8');
-if (!h.includes('data-build="20260923-feed-catch-router"') && !h.includes('data-build="20260923-map-buy-cta"')) throw new Error('tip');
+if (!h.includes('data-build="20260923-feed-catch-router"') && !h.includes('data-build="20260923-map-buy-cta"') && !h.includes('data-build="20260923-created-history"')) throw new Error('tip');
 if (!h.includes('tip 20260923-map-buy-cta: amplify Instant Birth Map CTA')) throw new Error('amplify comment');
 if (!h.includes('id="mapCtaDock"')) throw new Error('dock');
 if (!h.includes('Map works — Instant Birth · 0.001 ETH')) throw new Error('dock copy');

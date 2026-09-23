@@ -1,6 +1,6 @@
 import { readFileSync } from 'fs';
 const h = readFileSync('./app.html', 'utf8');
-if (!h.includes('data-build="20260923-feed-catch-router"')) throw new Error('tip');
+if (!h.includes('data-build="20260923-feed-catch-router"') && !h.includes('data-build="20260923-created-history"')) throw new Error('tip');
 if (!h.includes('tip 20260923-feed-catch-router')) throw new Error('comment');
 if (!h.includes('data-filtre="CREATION_TB"')) throw new Error('TB paid chip');
 if (!h.includes('was born on TB · paid')) throw new Error('paid label');

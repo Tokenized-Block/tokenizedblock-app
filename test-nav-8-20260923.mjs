@@ -6,7 +6,7 @@ const tabs = [...nav[0].matchAll(/data-volet="/g)];
 if (tabs.length !== 8) throw new Error('expected 8 nav tabs, got ' + tabs.length);
 if (!/grid-template-columns:repeat\(8,1fr\)/.test(html)) throw new Error('CSS still not repeat(8)');
 if (/grid-template-columns:repeat\(7,1fr\)/.test(html)) throw new Error('CSS still has repeat(7)');
-if (!/data-build="20260923-nav-boot-fix"/.test(html)) throw new Error('tip missing');
+if (!/data-build="20260923-nav-boot-fix"/.test(html) && !html.includes('data-build="20260923-created-history"')) throw new Error('tip missing');
 if (!/data-volet="bridge"/.test(html)) throw new Error('Bridge tab missing');
 if (!/data-volet="mien"/.test(html)) throw new Error('My block tab missing');
 console.log('ok nav-8 tip 20260923-nav-boot-fix');

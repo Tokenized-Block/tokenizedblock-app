@@ -1644,7 +1644,7 @@ details[open] > summary::before{transform:rotate(90deg)}
            le texte ne l avait pas ete depuis le 20. Personne ne l a vu parce que la ligne est
            `hidden` : un chiffre faux que rien n affiche ne previent rien, il attend le jour ou
            quelqu un le lit pour dater un incident. -->
-      <p class="note" data-build="20260923-wallet-intent-market" hidden>Build <code>20260923-wallet-intent-market</code> · wallet-intent lane + No-market false-neg (CLES V8 · rescan).</p>
+      <p class="note" data-build="20260923-created-history" hidden>Build <code>20260923-created-history</code> · Created = all births + Live history ~12k (chunk ≤999).</p>
       <p class="sous">Everything happening to blocks on Base, live.</p>
       <!-- tip 0013: sticky — Hooked chip = Dex fees; unhooked → Launch beside. No fee addr. -->
       <p class="note" id="sfHookedSticky" hidden>Blocks alive on TokenizedBlock pay their creator on every trade. Example:<button type="button" class="puce" id="sfStickyTbgas">Open TBGAS</button>.</p>
@@ -1652,8 +1652,8 @@ details[open] > summary::before{transform:rotate(90deg)}
       <div class="stadeLigne" id="sfLiveFiltres" style="margin-top:8px">
         <button type="button" class="puce on" data-filtre="TOUT" title="Everything this page read on chain in this window">All</button>
         <!-- tip 20260923-feed-catch-router: Created = honesty (foreign secondary); TB · paid = CreateRouter only -->
-        <!-- tip 20260923-reclaim-volume: default Created = TB·paid only (Bankr-honest); foreign under another launchpad -->
-        <button type="button" class="puce" data-filtre="CREATION" title="TB-paid creates via CreateRouter — Bankr-honest Created">🧱 Created</button>
+        <!-- tip 20260923-created-history: Created = all factory births in Live window; TB·paid / another launchpad stay honest partitions -->
+        <button type="button" class="puce" data-filtre="CREATION" title="All factory births in this Live window (labels stay honest — TB·paid vs another launchpad)">🧱 Created</button>
         <button type="button" class="puce" data-filtre="CREATION_TB" title="Only creates that paid via CreateRouter Instant Birth on Tokenized Block">✦ TB · paid</button>
         <button type="button" class="puce" data-filtre="CREATION_FOREIGN" title="Creates from another launchpad — reclaim with Instant Birth on TB">another launchpad</button>
         <!-- noms choisis par Phil (2026-09-14) : acheter nourrit le block, vendre le tue un peu -->
@@ -5731,7 +5731,8 @@ $('#pEnvoyer').addEventListener('click', () => {
  *    refuser les lectures que quelqu un regarde vraiment.
  * ⚠️ Un trou plus long qu une fenetre (onglet ferme longtemps) repart de zero plutot que de sauter en
  *    silence la periode manquee. */
-const LIVE_MS = 20000, LIVE_FENETRE = 999; /* tip 20260923-map-anim: Base getLogs ≤1000 */
+const LIVE_MS = 20000, LIVE_FENETRE = 999; /* tip 20260923-map-anim: Base getLogs ≤1000 — NEVER raise above 999 */
+const LIVE_HISTOIRE_BLOCS = 12000; /* tip 20260923-created-history: auto lireLive('ancien') until ~12k covered */
 let liveEvts = [], liveDernier = null, livePlusAncien = null, liveMinuterie = null, liveEnCours = false, liveRatees = 0;
 /** blocs de chaine NON lus pendant une absence : dits a l ecran, jamais comptes comme « rien ne s est passe » */
 let liveTrou = 0;
@@ -5791,8 +5792,8 @@ function filtreLive(e) {
   }
   /* tip 20260923-feed-catch-router: TB · paid chip — CreateRouter createPaid only */
   if (liveFiltre === 'CREATION_TB') return e.type === 'CREATION' && e.paidCreate === true;
-  /* tip 20260923-reclaim-volume: Created default = paid only; foreign under CREATION_FOREIGN */
-  if (liveFiltre === 'CREATION') return e.type === 'CREATION' && e.paidCreate === true;
+  /* tip 20260923-created-history: Created = all births in window; TB·paid / another launchpad stay honest partitions */
+  if (liveFiltre === 'CREATION') return e.type === 'CREATION';
   if (liveFiltre === 'CREATION_FOREIGN') return e.type === 'CREATION' && e.paidCreate !== true;
   return e.type === liveFiltre;
 }
@@ -6581,7 +6582,9 @@ let liveAffiches = 40;
  * (le bas toujours visible) remonterait la chaine sans fin et viderait le noeud public. */
 function verifierBasLive() {
   const fin = $('#sfLiveFin').getBoundingClientRect();
-  if ($('#v-social').classList.contains('on') && liveDernier !== null && liveAuto < 5
+  /* tip 20260923-created-history: auto until LIVE_HISTOIRE_BLOCS; NEVER LIVE_FENETRE > 999 */
+  if ($('#v-social').classList.contains('on') && liveDernier !== null
+    && liveAuto * LIVE_FENETRE < LIVE_HISTOIRE_BLOCS
     && fin.top < window.innerHeight + 200 && fin.bottom > -200 && !liveEnCours) {
     liveAuto++;
     setTimeout(() => { if (!liveEnCours) void lireLive('ancien'); }, 1500);

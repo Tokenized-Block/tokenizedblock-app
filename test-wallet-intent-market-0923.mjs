@@ -4,7 +4,8 @@ import { HOOK_V8, HOOK_V3 } from './tokenomics.js';
 
 const h = readFileSync('./app.html', 'utf8');
 const need = [
-  ['tip', 'data-build="20260923-wallet-intent-market"'],
+  ['tip', 'data-build="20260923-created-history"'],
+  ['wallet-intent retained', 'tip 20260923-wallet-intent-market'],
   ['pret fail-closed', 'basculerChaine(CHAINE)'],
   ['pret Switch copy', 'Switch to Base to continue'],
   ['pret Retry', 'pretRetryChain'],
@@ -42,7 +43,8 @@ if (/Fees for Dev/i.test(horsScript)) throw new Error('Fees for Dev');
 const ui = horsScript.match(/<(?:button|a|span|b|p)[^>]*>[^<]*a6cf[^<]*</gi) || [];
 if (ui.length) throw new Error('a6cf in UI');
 if (!h.includes('grid-template-columns:repeat(8,1fr)')) throw new Error('nav not 8 cols');
-if (h.includes('data-build="20260923-reclaim-volume"')) throw new Error('old tip left');
+if (h.includes('data-build="20260923-reclaim-volume"')) throw new Error('old reclaim tip left');
+if (h.includes('data-build="20260923-wallet-intent-market"')) throw new Error('old wallet-intent tip left');
 
 // CLES_MARCHE must try HOOK_V8 before legacy
 const iV8 = CLES_MARCHE.findIndex((c) => c.hooks && String(c.hooks).toLowerCase() === HOOK_V8.toLowerCase());
@@ -59,4 +61,4 @@ if (!/const ok = await basculerChaine\(CHAINE\);\s*\n\s*if \(ok !== true\)/.test
 if (/ok === false\)\s*clesReelles\.set\(k,\s*\[\]\)/.test(h)) {
   throw new Error('clesReelles still caches empty on ok:false');
 }
-console.log('ok wallet-intent-market');
+console.log('ok wallet-intent-on-created-history');
