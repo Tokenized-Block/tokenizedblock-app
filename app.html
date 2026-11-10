@@ -16,16 +16,16 @@
 <link rel="author" href="https://x.com/Clansy314495853">
 <!--og:debut-->
 <link rel="canonical" href="https://tokenizedblock.space/">
-<meta name="description" content="Make a living block on Base: 0.001 ETH — born with its own face and brain, and its market opens.">
+<meta name="description" content="Make a living block on Base for $5 — born with its own face and brain, and its market opens.">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="TokenizedBlock">
 <meta property="og:title" content="TokenizedBlock — make a living block on Base">
-<meta property="og:description" content="0.001 ETH: your block is born with its own face and brain, and its market opens.">
+<meta property="og:description" content="$5: your block is born with its own face and brain, and its market opens.">
 <meta property="og:url" content="https://tokenizedblock.space/">
 <meta property="og:image" content="https://tokenizedblock.space/embed.png">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="TokenizedBlock — make a living block on Base">
-<meta name="twitter:description" content="0.001 ETH: your block is born with its own face and brain, and its market opens.">
+<meta name="twitter:description" content="$5: your block is born with its own face and brain, and its market opens.">
 <meta name="twitter:image" content="https://tokenizedblock.space/embed.png">
 <meta name="fc:miniapp" content="{&quot;version&quot;:&quot;1&quot;,&quot;imageUrl&quot;:&quot;https://tokenizedblock.space/embed.png&quot;,&quot;button&quot;:{&quot;title&quot;:&quot;Make a block · 0.001 ETH&quot;,&quot;action&quot;:{&quot;type&quot;:&quot;launch_miniapp&quot;,&quot;url&quot;:&quot;https://tokenizedblock.space/&quot;,&quot;name&quot;:&quot;TokenizedBlock&quot;,&quot;splashImageUrl&quot;:&quot;https://tokenizedblock.space/splash.png&quot;,&quot;splashBackgroundColor&quot;:&quot;#000000&quot;}}}">
 <meta name="fc:frame" content="{&quot;version&quot;:&quot;1&quot;,&quot;imageUrl&quot;:&quot;https://tokenizedblock.space/embed.png&quot;,&quot;button&quot;:{&quot;title&quot;:&quot;Make a block · 0.001 ETH&quot;,&quot;action&quot;:{&quot;type&quot;:&quot;launch_miniapp&quot;,&quot;url&quot;:&quot;https://tokenizedblock.space/&quot;,&quot;name&quot;:&quot;TokenizedBlock&quot;,&quot;splashImageUrl&quot;:&quot;https://tokenizedblock.space/splash.png&quot;,&quot;splashBackgroundColor&quot;:&quot;#000000&quot;}}}">
@@ -2209,7 +2209,7 @@ details[open] > summary::before{transform:rotate(90deg)}
     <div class="carte creaChoix" role="tablist" aria-label="What do you want to create">
       <button type="button" class="creaMode on" role="tab" aria-selected="true" data-cmode="block">
         <span class="creaModeIc">🧱</span><b>A block</b>
-        <span>Its own face, a living brain, a place on the map — born and brought to life for 0.001 ETH.</span>
+        <span>Its own face, a living brain, a place on the map — born and brought to life for $5, TBLOCK first.</span>
       </button>
       <button type="button" class="creaMode" role="tab" aria-selected="false" data-cmode="token">
         <span class="creaModeIc">🚀</span><b>A plain token</b>
@@ -3639,7 +3639,7 @@ details[open] > summary::before{transform:rotate(90deg)}
       <!-- ⛔ L EMPREINTE EST AFFICHEE, DONC ELLE EST DE L ANGLAIS. `20261001-pont-dans-lui` a fait
            rougir `test-texte-a-l-ecran.mjs` : le mot « dans » est de la prose francaise partie a
            l ecran anglais. La garde a fait son travail du premier coup. -->
-      <p class="note" data-build="20261109-game350" hidden>Build <code>20261109-game350</code> ·Contract labels say what they do, not our internal names.</p>
+      <p class="note" data-build="20261109-game351" hidden>Build <code>20261109-game351</code> ·Contract labels say what they do, not our internal names.</p>
       <p class="sous">Everything happening to blocks on Base, live.</p>
       <!-- tip 0013: sticky — Hooked chip = Dex fees; unhooked → Launch beside. No fee addr. -->
       <p class="note" id="sfHookedSticky" hidden>Blocks alive on TokenizedBlock pay their creator on every trade. Example:<button type="button" class="puce" id="sfStickyTbgas">Open TBGAS</button>.</p>
@@ -23441,8 +23441,9 @@ async function majPaire() {
   const chip = $('#cPaireChip');
   if (chip) {
     chip.hidden = false;
-    if (q.paire.type === 'TBLOCK') chip.textContent = 'Quote = TBLOCK — buyers need TBLOCK';
-    else if (q.paire.type === 'B20') chip.textContent = 'Quote = B20 ' + (q.paire.symbole || '·');
+    /* game351 (Grok QA of game348: the TBLOCK chip said only "Quote = B20 TBLOCK"): every pair says the same thing — what buyers pay with */
+    if (q.paire.type === 'TBLOCK') chip.textContent = libellePuceCreation({ symbole: 'TBLOCK' });
+    else if (q.paire.type === 'B20') chip.textContent = libellePuceCreation({ symbole: q.paire.symbole || 'this block' });
     else if (q.paire.type === 'ACTION') {
       /* ⛔ 2026-10-02 (fix-2) : « fee 0.001 ETH » melait frais de naissance et frais d echange. */
       chip.textContent = libellePuceCreation({ symbole: q.paire.symbole || 'stock', h7030: OPTIONS_LANCEMENT.h7030 === true && paireVa7030(q.paire.adr) });
@@ -24078,8 +24079,10 @@ function majFraisEtRecap() {
         'Face: engraved SVG image (shared look — not an NFT)',
         ...(roleTxt ? [roleTxt] : []),
         ...(toL === String(CREATE_ROUTER).toLowerCase()
-          ? ['Create + 0.001 ETH (your wallet shows the exact request)']
-          : ['Instant Birth = create + open fee 0.001 ETH · V8 (one batch when wallet allows; never Instant Birth = createB20 value 0 alone)'])] : [];
+          /* game351 (Phil via Grok, 2026-11-11: "the review still shows the 0.001 ETH fee on another line — must be changed"): the birth is
+           *   priced $5, TBLOCK first (the Create card shows each step with its real amount); no fixed fee line here any more */
+          ? ['Price: $5 in all, TBLOCK first — your wallet shows each exact request']
+          : ['Price: $5 in all, TBLOCK first — your wallet shows each exact request'])] : [];
       return '<li><b>' + (k + 1) + '. ' + enTexte(a.action) + '</b><br>' + [...a.lignes, ...extra].map(enTexte).join('<br>') + '</li>';
     }).join('') + '<li>Once alive, anyone can buy and sell it here.</li>';
   }
