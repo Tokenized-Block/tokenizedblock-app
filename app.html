@@ -3352,6 +3352,8 @@ details[open] > summary::before{transform:rotate(90deg)}
       <div id="wVaultRows"></div>
       <!-- game346 (Phil 2026-11-10): the hearts in YOUR wallet — given, received on your blocks, who gave and what you gave back — and the live
            board of the contributors. From /api/coeurs (BlockLikes' own Liked events); read-only. -->
+      <!-- game349: the TBLOCK lock (TBlockLock) — hidden until it is deployed; withdraw always offered once the date passed -->
+      <div class="wCoeurs" id="wLock" hidden></div>
       <div class="wCoeurs" id="wCoeurs" hidden>
         <p class="sousTitre">Your hearts ♥</p><div id="wCoeursMoi"></div>
         <p class="sousTitre">Most active holders — live</p><div id="wCoeursBoard"></div>
@@ -3637,7 +3639,7 @@ details[open] > summary::before{transform:rotate(90deg)}
       <!-- ⛔ L EMPREINTE EST AFFICHEE, DONC ELLE EST DE L ANGLAIS. `20261001-pont-dans-lui` a fait
            rougir `test-texte-a-l-ecran.mjs` : le mot « dans » est de la prose francaise partie a
            l ecran anglais. La garde a fait son travail du premier coup. -->
-      <p class="note" data-build="20261109-game348" hidden>Build <code>20261109-game348</code> ·Contract labels say what they do, not our internal names.</p>
+      <p class="note" data-build="20261109-game349" hidden>Build <code>20261109-game349</code> ·Contract labels say what they do, not our internal names.</p>
       <p class="sous">Everything happening to blocks on Base, live.</p>
       <!-- tip 0013: sticky — Hooked chip = Dex fees; unhooked → Launch beside. No fee addr. -->
       <p class="note" id="sfHookedSticky" hidden>Blocks alive on TokenizedBlock pay their creator on every trade. Example:<button type="button" class="puce" id="sfStickyTbgas">Open TBGAS</button>.</p>
@@ -5297,6 +5299,7 @@ import { recordPropose, recordPay, recordJournalHook, feeAlreadyRecognized, phra
 import { repartitionFrappe, TBLOCK, TBGAS, SUPPLY_FIXE, DECIMALES_FIXES, HOOK_PREVU, HOOK_V2, HOOK_V3, HOOK_V4, HOOK_V5, HOOK_V6, HOOK_V7, HOOK_V8, HOOK_V9, HOOK_7030_ACTIF, estHook7030, fraisHookBps, OPTIONS_LANCEMENT, estHookDeNaissance, estNotreHook, hookCourant, hookDeploye, hookV3Deploye, hookV8Deploye, blockPorteLeLabel, HOOKS_PAIENT_DEJA_A6CF } from './tokenomics.js';
 import * as ECO from './economie.js'; /* holders economy: the heart burn and the holders vault (unsigned calls only) */
 import * as CV from './coeurs-vue.js'; /* game346: hearts given / received, the board, the signals between blocks (text only) */
+import * as LK from './lock.js'; /* game349: TBlockLock — unsigned calls only; every lock button hidden until it is deployed */
 import * as TIP from './create-vault-tip.js';
 import { RELAIS_METHODES } from './relais-rpc.js';
 import { peindreCarteNaissance } from './carte-naissance.js'; /* game343 CREATE-ONE-PATH: the one birth card */
@@ -32540,7 +32543,90 @@ async function peindreCarteCreate(box) {
   /* the button's own label follows the reader once the block exists (its creerBlock label would say "Instant Birth" again) */
   if (b && lu && r.ne) { const lib = libelleContinue(r); b.textContent = lib.l1; }
   peindreCarteNaissance(box, r, { bouton: b, occupe: lu ? null : { secondes: 8, essai: carteCreeEssai } });
+  /* game349 (Phil 2026-11-10: "as soon as they made their token, propose the lock to be eligible for everything they can use"): once every
+   *   step of the birth is done, the lock offer appears under the card. Hidden while TBlockLock is not deployed (LK.LOCK null). */
+  if (LK.LOCK && lu && r.ne && !r.prochaine && r.restantes === 0) {
+    let o = $('#cLockOffre');
+    if (!o) { o = document.createElement('div'); o.id = 'cLockOffre'; o.className = 'carte lockOffre'; box.after(o); }
+    void peindreLock(o, { offre: true });
+  }
   return true;
+}
+/* ── game349: THE LOCK (TBlockLock), one painter for the Create success card and the Wallet tab. Reads activeLockedOf / lockedOf /
+ *   unlockAtOf; offers ONE batch (approve exactly + lock N days) and, once the date passed, the way back (withdraw) — a fund the app holds
+ *   without a visible way back is the bug of 2026-11-05, never again. ⛔ Never send TBLOCK to the lock directly: only lock() counts. */
+const lockEtat = { enVol: false };
+async function peindreLock(hote, { offre = false } = {}) {
+  if (!hote || !LK.LOCK) { if (hote) hote.hidden = true; return; }
+  hote.hidden = false;
+  if (!compte) { hote.textContent = ''; const p = document.createElement('p'); p.className = 'note'; p.textContent = 'Connect your wallet to see your TBLOCK lock.'; hote.append(p); return; }
+  if (lockEtat.enVol || (hote.dataset.lu && Date.now() - Number(hote.dataset.lu) < 30000)) return;
+  lockEtat.enVol = true;
+  try {
+    const moi = String(compte).toLowerCase();
+    const lit = async (v) => ECO.word(await rpc('eth_call', [{ to: v.to, data: v.data }, 'latest']));
+    const [locked, active, unlockAt, requestedAt, withdrawableAt, bal] = await Promise.all([lit(LK.VIEW.lockedOf(moi)), lit(LK.VIEW.activeLockedOf(moi)),
+      lit(LK.VIEW.unlockAtOf(moi)), lit(LK.VIEW.requestedAtOf(moi)), lit(LK.VIEW.withdrawableAtOf(moi)), lit(ECO.VIEW.balanceOf(moi))]);
+    const e = LK.etatLock({ locked, active, unlockAt, requestedAt, withdrawableAt, maintenantSec: Math.floor(Date.now() / 1000) });
+    hote.dataset.lu = String(Date.now());
+    hote.textContent = '';
+    const el = (tag, cls, txt) => { const x = document.createElement(tag); if (cls) x.className = cls; if (txt != null) x.textContent = txt; return x; };
+    hote.append(el('p', 'titre', offre ? 'Lock your TBLOCK — the holder stage' : 'Your TBLOCK lock'));
+    hote.append(el('p', 'sous', 'Hearts, the holders’ channel and the Holders vault payouts count what you LOCK, at least 7 days — not a balance that can be sold the next minute. To leave: request the withdrawal (the perks stop at once), then take it all back ' + LK.RETRAIT_JOURS + ' days later.'));
+    const etat = el('p', 'note' + (e.cle === 'actif' ? ' wOk' : ''), e.texte); hote.append(etat);
+    const dire = (t, k = '') => { etat.className = 'note' + (k ? ' ' + k : ''); etat.textContent = t; };
+    /* the ONE exit action etatLock chooses: request (perks stop, 7-day period starts), cancel (perks back), or take back (period over) */
+    const SORTIES = {
+      demander: { label: 'Request the withdrawal (' + LK.RETRAIT_JOURS + '-day period)', call: () => LK.requestWithdrawCall(), attente: 'request the withdrawal', fait: 'Withdrawal requested: the ' + LK.RETRAIT_JOURS + '-day period started, the holder perks stopped.' },
+      annuler: { label: 'Cancel the withdrawal — stay locked', call: () => LK.cancelWithdrawCall(), attente: 'cancel the withdrawal', fait: 'Cancelled: you stay locked, the perks are back while the date is ahead.' },
+      retirer: { label: 'Take back ' + LK.fmt(locked) + ' TBLOCK', call: () => LK.withdrawCall(), attente: 'take back ' + LK.fmt(locked) + ' TBLOCK', fait: 'Done: your TBLOCK is back in your wallet.' },
+    };
+    const s = e.action ? SORTIES[e.action] : null;
+    if (s) {
+      const w = el('button', 'bouton sec', s.label);
+      w.type = 'button';
+      w.addEventListener('click', async () => {
+        w.disabled = true; dire('Waiting for your wallet: ' + s.attente + '…');
+        try {
+          const c = s.call();
+          const r = await envoyerAppels([{ to: c.to, data: c.data, value: c.value }], compte);
+          if (r && r.etat === 'CONFIRME') { dire(s.fait, 'wOk'); hote.dataset.lu = '0'; w.hidden = true; wVaultLu = 0; }
+          else { dire('Not done: ' + String((r && (r.pourquoi || r.etat)) || 'no answer').slice(0, 160), 'wKo'); w.disabled = false; }
+        } catch (err) { dire('Not sent: ' + String((err && err.message) || err).slice(0, 160), 'wKo'); w.disabled = false; }
+      });
+      hote.append(w);
+    }
+    if (bal > 0n) {
+      /* the amount offered: what is missing to $15 of TBLOCK LOCKED at the lower of now and ~10 min ago, never more than held */
+      let px = null;
+      try { const h = await fetch('/api/tblock/hold', { cache: 'no-store', signal: AbortSignal.timeout(15000) }).then((x) => x.json()); px = h && h.ok ? Math.min(Number(h.priceNow), Number(h.priceBefore || h.priceNow)) : null; } catch (_) { px = null; }
+      const besoin = ECO.tblockPourUsd(ECO.SEUIL_USD, px);
+      const manque = besoin !== null && besoin > active ? besoin - active : 0n;
+      const propose = manque > 0n ? (manque < bal ? manque : bal) : bal;
+      const ligne = el('div', 'creaDuo');
+      const champ = el('label', 'champ', 'TBLOCK to lock'); const inp = document.createElement('input'); inp.inputMode = 'numeric'; inp.value = LK.fmt(propose).replace(/,/g, ''); champ.append(inp);
+      const champD = el('label', 'champ', 'For'); const sel = document.createElement('select');
+      for (const j of LK.DUREES_JOURS) { const o = document.createElement('option'); o.value = String(j); o.textContent = j + ' days'; sel.append(o); }
+      champD.append(sel); ligne.append(champ, champD); hote.append(ligne);
+      hote.append(el('p', 'note', 'You hold ' + LK.fmt(bal) + ' TBLOCK' + (besoin !== null ? ' · the holder stage is $' + ECO.SEUIL_USD + ' locked = ' + LK.fmt(besoin) + ' TBLOCK at the price read now' : '') + '. Adding to a lock keeps its later date. Never send TBLOCK to the lock address yourself: only this button counts, a plain transfer is lost.'));
+      const go = el('button', 'bouton', 'Lock (one batch: approve + lock)'); go.type = 'button';
+      go.addEventListener('click', async () => {
+        let montant;
+        try { montant = BigInt(String(inp.value || '').replace(/[^0-9]/g, '') || '0') * 10n ** 18n; } catch (_) { montant = 0n; }
+        const chk = LK.lockCheck({ balance: bal, amount: montant });
+        if (!chk.ok) { dire('Not sent: ' + chk.why + '.', 'wKo'); return; }
+        go.disabled = true; dire('Waiting for your wallet: lock ' + LK.fmt(montant) + ' TBLOCK for ' + sel.value + ' days…');
+        try {
+          const appels = LK.lockBatch({ amount: montant, jours: Number(sel.value), maintenantSec: Math.floor(Date.now() / 1000) });
+          const r = await envoyerAppels(appels.map((c) => ({ to: c.to, data: c.data, value: c.value })), compte);
+          if (r && r.etat === 'CONFIRME') { dire('🔒 Locked. Your holder perks read it from now on.', 'wOk'); hote.dataset.lu = '0'; wVaultLu = 0; }
+          else { dire('Not done: ' + String((r && (r.pourquoi || r.etat)) || 'no answer').slice(0, 160), 'wKo'); go.disabled = false; }
+        } catch (err) { dire('Not sent: ' + String((err && err.message) || err).slice(0, 160), 'wKo'); go.disabled = false; }
+      });
+      hote.append(go);
+    }
+  } catch (_) { hote.dataset.lu = String(Date.now() - 20000); }
+  finally { lockEtat.enVol = false; }
 }
 async function peindreTipApercu() {
   const box = $('#cTipApercu');
@@ -32769,6 +32855,7 @@ async function peindreVaultWallet() {
   } catch (e) { ligne('Not read just now', String((e && e.message) || e).slice(0, 80)); wVaultLu = Date.now() - 45000; }
   carte.hidden = false;
   void peindreCoeursWallet();
+  void peindreLock($('#wLock'));
 }
 /* game346 (Phil 2026-11-10: "the hearts given must show in the user's wallet: who gave them hearts and how many the holder gave back; a
  *   leaderboard of the best contributors, live, to see the holders who use the app"). Painted with the holders vault card (same 60 s pace).

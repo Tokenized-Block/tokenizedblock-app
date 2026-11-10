@@ -1,0 +1,68 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Deploy the TBLOCK lock</title>
+<!--
+  game349 (Phil 2026-11-10: "holders must LOCK their TBLOCK to reach the real holder stage, 1 week minimum") — offers the UNSIGNED deployment
+  of TBlockLock to the CONNECTED wallet. ⛔ The data is EXACTLY lock-deploiement.js (contracts/preparer-deploiement-lock.mjs), the bytes
+  benched on a base-anvil fork with the real TBLOCK (banc-lock-fork-20261110.mjs). Base (8453) only; the sha256 is checked before the button
+  opens. The contract has no owner: the wallet that signs gets no right over it.
+-->
+<style>
+:root{--bg:#050d24;--card:#0f1d3d;--line:#1e2f57;--fg:#e9f0ff;--dim:#8ba0c9;--or:#f7a318}
+*{box-sizing:border-box}html,body{margin:0}
+body{background:var(--bg);color:var(--fg);font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;padding:16px}
+main{max-width:720px;margin:0 auto}h1{font-size:19px}h2{font-size:15px;margin:0 0 6px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:12px}
+.row{display:flex;gap:10px;padding:5px 0;border-bottom:1px solid var(--line)}.row:last-child{border:0}
+.k{color:var(--dim);flex:0 0 170px;font-size:12px}.v{flex:1;font-size:12px;word-break:break-all}
+button{width:100%;background:var(--or);color:#20160a;border:0;border-radius:8px;padding:14px;font:inherit;font-weight:700;margin-top:10px;cursor:pointer}
+button:disabled{opacity:.45;cursor:not-allowed}.note{color:var(--dim);font-size:12px}
+</style>
+<main>
+<h1>Deploy the TBLOCK lock (Base)</h1>
+<p class="note">One contract, one signature. <b>TBlockLock</b>: a holder locks their OWN TBLOCK for at least 7 days; to leave, they request the
+withdrawal (the perks stop at once) and take it all back 7 days later — nobody else can. No owner, no fee, no pause, no rescue: whoever deploys gets no right over it. The app's holder features read what
+is locked (activeLockedOf), never a balance read at one instant.</p>
+<div class="card" id="what"></div>
+<div class="card">
+  <button id="connect">Connect wallet</button>
+  <button id="d1" disabled>Deploy TBlockLock (sign in the wallet)</button>
+  <div id="state" class="note" style="margin-top:10px"></div>
+</div>
+</main>
+<script type="module">
+import { LOCK_DEPLOIEMENT as D } from './lock-deploiement.js';
+const $ = (s) => document.querySelector(s);
+const esc = (x) => String(x ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const row = (k, v) => '<div class="row"><span class="k">' + esc(k) + '</span><span class="v">' + esc(v) + '</span></div>';
+$('#what').innerHTML = '<h2>TBlockLock</h2>' + row('token', D.tblock + ' (TBLOCK)') + row('minimum lock', D.minLockSecondes / 86400 + ' days, at most 4 years')
+  + row('withdraw', 'request, then ' + D.retraitSecondes / 86400 + ' days later (never before the lock date): all of it, only by the holder; the perks stop at the request') + row('admin', 'none (no owner, fee, pause, rescue, upgrade)')
+  + row('review', 'independent review 2026-11-10: no critical/high; SEC-001 and SEC-002 fixed') + row('sha256 of the data', D.sha256Creation)
+  + row('size', D.octets + ' bytes') + row('compiler', D.compilateur);
+let acct = null;
+async function sha256Hex(s) { const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)); return [...new Uint8Array(b)].map((x) => x.toString(16).padStart(2, '0')).join(''); }
+async function receipt(h) {
+  for (let k = 0; k < 90; k++) { const r = await window.ethereum.request({ method: 'eth_getTransactionReceipt', params: [h] }).catch(() => null); if (r) return r; await new Promise((o) => setTimeout(o, 2000)); }
+  return null;
+}
+if (D.adresse) { $('#state').innerHTML = 'Already deployed: TBlockLock ' + esc(D.adresse); $('#connect').disabled = true; }
+$('#connect').onclick = async () => {
+  if (!window.ethereum) { $('#state').textContent = 'No wallet in this browser.'; return; }
+  try { [acct] = await window.ethereum.request({ method: 'eth_requestAccounts' }); } catch (e) { $('#state').textContent = 'Wallet refused: ' + (e.message || e); return; }
+  const chain = parseInt(await window.ethereum.request({ method: 'eth_chainId' }), 16);
+  const ok = (await sha256Hex(D.creation)) === D.sha256Creation;
+  $('#state').innerHTML = 'Connected: ' + esc(acct) + ' · network ' + chain + (chain === 8453 ? '' : ' — switch to Base first') + ' · data integrity ' + (ok ? 'OK' : 'MISMATCH');
+  $('#d1').disabled = !(chain === 8453 && ok && !D.adresse);
+};
+$('#d1').onclick = async () => {
+  const btn = $('#d1'); btn.disabled = true;
+  let h;
+  try { h = await window.ethereum.request({ method: 'eth_sendTransaction', params: [{ from: acct, data: D.creation }] }); }
+  catch (e) { $('#state').textContent = 'Not sent: ' + (e.message || e); btn.disabled = false; return; }
+  $('#state').innerHTML = 'TBlockLock sent: <a href="https://basescan.org/tx/' + esc(h) + '" target="_blank" rel="noopener">' + esc(h) + '</a> · waiting for the receipt…';
+  const r = await receipt(h);
+  if (!r) { $('#state').innerHTML += ' · no receipt yet: check Basescan before anything else.'; return; }
+  if (r.status !== '0x1') { $('#state').innerHTML = 'TBlockLock FAILED on chain · tx ' + esc(h); return; }
+  $('#state').innerHTML = 'TBlockLock deployed at <b>' + esc(r.contractAddress) + '</b> · tx <a href="https://basescan.org/tx/' + esc(h) + '" target="_blank" rel="noopener">' + esc(h) + '</a>';
+};
+</script>
