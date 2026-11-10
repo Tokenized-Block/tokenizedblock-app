@@ -1847,6 +1847,7 @@ details[open] > summary::before{transform:rotate(90deg)}
 .creaMode.on{border-color:var(--accent);background:rgb(var(--accentRgb) / .12);box-shadow:0 0 22px rgb(var(--accentRgb) / .22)}
 .creaEtape{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;margin-right:8px;font-size:12.5px;
   background:rgb(var(--accentRgb) / .18);color:var(--accent2);box-shadow:0 0 12px rgb(var(--accentRgb) / .3);vertical-align:1px}
+.creaDuo{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:10px}
 .creaPas{list-style:none;margin:6px 0 4px;padding:0;display:grid;gap:8px;counter-reset:pas}
 .creaPas li{counter-increment:pas;display:flex;gap:10px;align-items:baseline;padding:10px 12px;border-radius:12px;
   background:rgb(var(--fondRgb) / .5);border:1px solid rgb(var(--accentRgb) / .1)}
@@ -2227,14 +2228,17 @@ details[open] > summary::before{transform:rotate(90deg)}
               admin d apres la verification de Block 0 (3 roles absents), mais je n ai PAS verifie
               que le chemin payant actuel produit le meme resultat. Affirmer l un ou l autre sans
               l avoir mesure serait remplacer une phrase inutile par une phrase fausse. -->
-      <p class="sous">1 billion blocks, all minted to you at birth. Its cap equals that number.</p>
+      <p class="sous">1,000,000,000 blocks, all yours at birth — never more.</p>
+      <!-- game347 (Phil 2026-11-10: "more readable and simpler"): name and symbol side by side -->
+      <div class="creaDuo">
       <label class="champ">Name<input id="cNom" maxlength="32" placeholder="Tokenized Block" autocomplete="off"></label>
       <label class="champ">Symbol<input id="cSym" maxlength="12" placeholder="e.g. MOON" autocomplete="off" spellcheck="false"></label>
+      </div>
       <!-- ⛔ LE SEL FIXE L ADRESSE, et c est pour ca qu il est un CHAMP et pas un secret : deux
            creations avec le meme sel depuis le meme compte se heurtent, et la factory le dit.
            Auto-fill + « New salt » tirent un sel ALEATOIRE visible — jamais un secret cache : le
            champ reste editable, et un preset de lien (?creer=…) ecrase toujours l auto-sel. -->
-      <details class="bDetail" style="margin-top:12px"><summary class="note">Advanced · its address</summary>
+      <details class="bDetail" style="margin-top:12px"><summary class="note">Its address (advanced, already filled in)</summary>
       <label class="champ">Salt — it fixes the address
         <span class="champSel">
           <input id="cSel" placeholder="anything you like" autocomplete="off" spellcheck="false">
@@ -2246,8 +2250,8 @@ details[open] > summary::before{transform:rotate(90deg)}
     </div>
 
     <div class="carte">
-      <p class="titre"><span class="creaEtape">2</span> Its face and its brain</p>
-      <p class="sous">The face is written into the block forever. Pick a style, tap <b>Surprise me</b>, or set every dial yourself.</p>
+      <p class="titre"><span class="creaEtape">2</span> Its face</p>
+      <p class="sous">Engraved forever. Pick a style, or tap <b>🎲 Surprise me</b> above.</p>
       <!-- ⛔ DES STYLES, PAS DE NOUVELLES PRIMITIVES. Un style est une COMBINAISON des valeurs deja
            gravables (orbite, facette, matiere, ornement, teintes) : rien de nouveau n entre dans les
            metadonnees, donc un block style aujourd hui se relit partout ou l app tourne deja. Ajouter
@@ -2259,6 +2263,30 @@ details[open] > summary::before{transform:rotate(90deg)}
       <label class="champ">Style<select id="cStyle"></select></label>
       <div id="cStyles" hidden></div>
       <p class="note" id="cCombinaisons" style="margin:0 0 6px"></p>
+      <!-- game346 (Phil 2026-11-10: "Give it a brain must not be an option, nobody unticks it, otherwise no living block"): the brain is
+           always on. The input stays (hidden, checked, disabled) because the birth reads #cCerveau.checked; nobody can untick it. -->
+      <input type="checkbox" id="cCerveau" checked disabled hidden>
+      <p class="note" id="cCerveauNote" style="margin-top:8px">🧠 Its brain is built in — 128 neurons that move it on the map and react to its market. Signs nothing.</p>
+      <label class="champ" style="margin-top:10px">Its role<select id="cRole"></select></label>
+      <p class="note" id="cRoleNote">You can change it later on its profile.</p>
+      <!-- ⛔⛔ FERME PAR DEFAUT DEPUIS LE 2026-09-25. Phil, plusieurs fois : « normalement y a que
+           le bouton birth et il fait tout ».
+           MESURE, page live, 375 px : l onglet Create exposait TREIZE boutons visibles et
+           4,5 ECRANS a faire defiler. Un seul agit (`#cCreer`) ; les douze autres sont deux
+           bascules de reglages, deux choix de mode, un sel, CINQ puces de devise et deux sorties
+           « trouver de l argent ». Quelqu un qui arrive pour creer un block devait choisir avant
+           d avoir compris.
+         ⛔ ON NE SUPPRIME RIEN : le repli existait deja, il etait juste ouvert — et l attribut
+           `aria-expanded="false"` du bouton, lui, disait deja « ferme ». Le balisage se
+           contredisait. Tout reste a UNE tape, et rien ne change pour qui sait ce qu il cherche ;
+           ce qui change, c est le premier ecran de ceux qui ne savent pas encore.
+         ⛔ Le contenu d un `<details>` ferme RESTE dans le DOM : aucun champ ne devient
+           inaccessible au code, seule la VUE change. -->
+      <details class="bDetail" id="cReglagesDetail"><summary class="note">Manual settings — every dial</summary>
+      <div class="reglages" id="cReglages"></div>
+      </details>
+      <!-- game347: everything optional in ONE fold — an image on a face, a post from X, a store. Closed by default; the fields stay in the DOM. -->
+      <details class="bDetail" id="cPlus" style="margin-top:10px"><summary class="note">More options (optional) — your image, a post from X, your store</summary>
       <!-- ⛔⛔ L IMAGE GRAVEE (Phil, 2026-09-22). Avant ce jour, une image posee sur un cube etait
            LOCALE ET PERDUE : ni app.html ni la face gravee ne connaissaient de champ photo, alors
            que logo.js savait deja en dessiner une. Du code mort qui donnait l illusion d une
@@ -2305,32 +2333,11 @@ details[open] > summary::before{transform:rotate(90deg)}
         <label class="champ">Post link<input type="url" id="cTweetLien" placeholder="https://x.com/name/status/123…" autocomplete="off" spellcheck="false" disabled></label>
         <p class="note" id="cTweetEtat" style="margin:0 0 6px"></p>
       </details>
-      <!-- ⛔⛔ FERME PAR DEFAUT DEPUIS LE 2026-09-25. Phil, plusieurs fois : « normalement y a que
-           le bouton birth et il fait tout ».
-           MESURE, page live, 375 px : l onglet Create exposait TREIZE boutons visibles et
-           4,5 ECRANS a faire defiler. Un seul agit (`#cCreer`) ; les douze autres sont deux
-           bascules de reglages, deux choix de mode, un sel, CINQ puces de devise et deux sorties
-           « trouver de l argent ». Quelqu un qui arrive pour creer un block devait choisir avant
-           d avoir compris.
-         ⛔ ON NE SUPPRIME RIEN : le repli existait deja, il etait juste ouvert — et l attribut
-           `aria-expanded="false"` du bouton, lui, disait deja « ferme ». Le balisage se
-           contredisait. Tout reste a UNE tape, et rien ne change pour qui sait ce qu il cherche ;
-           ce qui change, c est le premier ecran de ceux qui ne savent pas encore.
-         ⛔ Le contenu d un `<details>` ferme RESTE dans le DOM : aucun champ ne devient
-           inaccessible au code, seule la VUE change. -->
-      <details class="bDetail" id="cReglagesDetail"><summary class="note">Manual settings — every dial</summary>
-      <div class="reglages" id="cReglages"></div>
-      </details>
-      <!-- game346 (Phil 2026-11-10: "Give it a brain must not be an option, nobody unticks it, otherwise no living block"): the brain is
-           always on. The input stays (hidden, checked, disabled) because the birth reads #cCerveau.checked; nobody can untick it. -->
-      <input type="checkbox" id="cCerveau" checked disabled hidden>
-      <p class="note" id="cCerveauNote" style="margin-top:12px">🧠 Its brain is built in — 128 neurons that move it on the map and react to its market. Signs nothing.</p>
-      <label class="champ" style="margin-top:10px">Its role<select id="cRole"></select></label>
-      <p class="note" id="cRoleNote">You can change it later on its profile.</p>
       <!-- 2026-11-04 « block marchand » : FACULTATIF. Grave pour toujours dans les metadonnees du block (shopify_store) ;
            https seulement, valide ici et relu-valide sur la page du block. Rien n est signe de plus : la meme naissance. -->
       <label class="champ" style="margin-top:10px">Your Shopify store (optional)<input id="cBoutique" type="url" inputmode="url" maxlength="200" placeholder="https://your-shop.myshopify.com" autocomplete="off" spellcheck="false"></label>
       <p class="note" id="cBoutiqueNote">A store that accepts USDC. Engraved forever with the block, shown on its page as declared by you.</p>
+      </details>
     </div>
 
     <!-- ⛔ PAIRER = CHOISIR LA DEVISE DE LA POOL. Le choix est grave dans les metadonnees a la
@@ -3629,7 +3636,7 @@ details[open] > summary::before{transform:rotate(90deg)}
       <!-- ⛔ L EMPREINTE EST AFFICHEE, DONC ELLE EST DE L ANGLAIS. `20261001-pont-dans-lui` a fait
            rougir `test-texte-a-l-ecran.mjs` : le mot « dans » est de la prose francaise partie a
            l ecran anglais. La garde a fait son travail du premier coup. -->
-      <p class="note" data-build="20261109-game346" hidden>Build <code>20261109-game346</code> ·Contract labels say what they do, not our internal names.</p>
+      <p class="note" data-build="20261109-game347" hidden>Build <code>20261109-game347</code> ·Contract labels say what they do, not our internal names.</p>
       <p class="sous">Everything happening to blocks on Base, live.</p>
       <!-- tip 0013: sticky — Hooked chip = Dex fees; unhooked → Launch beside. No fee addr. -->
       <p class="note" id="sfHookedSticky" hidden>Blocks alive on TokenizedBlock pay their creator on every trade. Example:<button type="button" class="puce" id="sfStickyTbgas">Open TBGAS</button>.</p>

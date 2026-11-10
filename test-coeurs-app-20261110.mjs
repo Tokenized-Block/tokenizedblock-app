@@ -48,7 +48,7 @@ t('old Instant Birth list removed', !/<ol class="creaPas">\s*<!--[\s\S]{0,300}<l
 
 /* stamp */
 const st = APP.match(/20261109-game\d+/g) || [];
-t('stamp game346, both occurrences', st.length === 2 && st.every((s) => s === '20261109-game346'));
+t('stamp game346 or later, both occurrences equal', st.length === 2 && st[0] === st[1] && Number(st[0].slice(13)) >= 346);
 
 console.log(ok + '/' + (ok + ko) + (ko ? ' — RED' : ' — green'));
 process.exit(ko ? 1 : 0);
