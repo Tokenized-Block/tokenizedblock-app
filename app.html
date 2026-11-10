@@ -2345,7 +2345,8 @@ details[open] > summary::before{transform:rotate(90deg)}
          elle est dans le registre Coinbase ; un jeton tape a la main est dit non verifie. -->
     <div class="carte">
       <!-- tip 20260922-create-sign-ux: Instant Birth > vague Bring it to life -->
-      <p class="titre"><span class="creaEtape">3</span> Instant Birth</p>
+      <!-- game348 (Phil + Grok QA 2026-11-10: the "3 Instant Birth" title stayed after its list went): this card chooses what buyers pay with -->
+      <p class="titre"><span class="creaEtape">3</span> Its pair</p>
       <!-- game346 (Phil 2026-11-10: "this list is useless, the card already says it"): the old 4-line list (Create · 0.001 ETH · market · fee)
            is gone; the one Create card (carte-naissance.js) shows the real steps and the price. -->
       <p class="note" id="cReseauAvert"></p>
@@ -3636,7 +3637,7 @@ details[open] > summary::before{transform:rotate(90deg)}
       <!-- ⛔ L EMPREINTE EST AFFICHEE, DONC ELLE EST DE L ANGLAIS. `20261001-pont-dans-lui` a fait
            rougir `test-texte-a-l-ecran.mjs` : le mot « dans » est de la prose francaise partie a
            l ecran anglais. La garde a fait son travail du premier coup. -->
-      <p class="note" data-build="20261109-game347" hidden>Build <code>20261109-game347</code> ·Contract labels say what they do, not our internal names.</p>
+      <p class="note" data-build="20261109-game348" hidden>Build <code>20261109-game348</code> ·Contract labels say what they do, not our internal names.</p>
       <p class="sous">Everything happening to blocks on Base, live.</p>
       <!-- tip 0013: sticky — Hooked chip = Dex fees; unhooked → Launch beside. No fee addr. -->
       <p class="note" id="sfHookedSticky" hidden>Blocks alive on TokenizedBlock pay their creator on every trade. Example:<button type="button" class="puce" id="sfStickyTbgas">Open TBGAS</button>.</p>
@@ -4916,7 +4917,7 @@ import { planCreations, creationsDeLaCarte } from './creations-index.js';
  * En reecrire un ici donnerait deux encodages pour un seul geste — et celui qu on maintient le moins
  * finirait par graver autre chose que ce qui est affiche. */
 import { encodeCreateB20, encodeCreatePaid, paramsAsset, encodeUpdateSupplyCap, encodeUpdateContractURI,
-  encodeBatchMint, adresseOuRefus } from './encodeur.js';
+  encodeBatchMint, adresseOuRefus, adresseDejaPrise } from './encodeur.js';
 /* ⛔ LE FRAIS FIXE, SOURCE UNIQUE : un test compare ces constantes a celles de `index.html`. */
 /* ⛔⛔ LE FRAIS CREATE EST EN ETH ≈ $1 (2026-09-14) via prix-eth.js (mediane pools), fail-closed si prix illisible.
  * Ancien rail USDC archive — Phil 2026-09-12. En ETH, il fallait lire un prix sur
@@ -24000,7 +24001,7 @@ function majFraisEtRecap() {
   /* tip 20260922-stock-pair-ux: when ACTION, lead with Instant Birth · quoted in SYM · fee honesty */
   const actionRecap = (!v.ko && paireChoisie && paireChoisie.type === 'ACTION')
     ? ('Instant Birth · quoted in ' + (paireChoisie.symbole || 'stock')
-      + ' · Birth fee 0.001 ETH. ')
+      + '. ') /* game348 (Phil): no fixed fee on the pair recap — the Create card shows the real $5 */
     : '';
   /* ⛔⛔ CE QU UN ACHETEUR VENANT D ETH DEVRA SIGNER, DIT AVANT LA CREATION ET PAS APRES.
    *   Mesure du 2026-10-01 : les deux mondes sont disjoints. OUSD n a que des pools Uniswap V4,
@@ -24069,7 +24070,7 @@ function majFraisEtRecap() {
         'Supply: 1,000,000,000, all to you (cap = supply)',
         'Pair: ' + etiquettePaire(paireChoisie)
         + (paireChoisie && paireChoisie.type === 'ACTION'
-          ? (' · Instant Birth fee 0.001 ETH (not in ' + (paireChoisie.symbole || 'stock') + ')')
+          ? (' · buyers pay in ' + (paireChoisie.symbole || 'stock'))
           : ''),
         'Face: engraved SVG image (shared look — not an NFT)',
         ...(roleTxt ? [roleTxt] : []),
@@ -24150,6 +24151,21 @@ async function verifierAdresseCreation() {
       r = await adresseOuRefus(appelBrut, compte, calldataCreation(v2), opts);
     }
     if (r.refus && refusSimulationSansFonds(r.refus)) { direSimulationSansFonds(e); return null; }
+    /* game348 (Grok live test Two, 2026-11-10: after a successful birth the page showed « That salt is already used… Change the salt »):
+     *   the form kept the salt of the block just born, so this check asked the factory again. The refusal CARRIES the existing block.
+     *   A salt the app drew itself is simply redrawn (up to 4 times); a salt the person typed is never changed — we name its block. */
+    for (let k = 0; selAuto && r && r.refus && adresseDejaPrise(r.donnees) && k < 4; k++) {
+      $('#cSel').value = selAleatoire();
+      const v3 = validerCreation();
+      if (v3.ko) break;
+      r = await adresseOuRefus(appelBrut, compte, calldataCreation(v3), opts);
+    }
+    const dejaLa = r && r.refus ? adresseDejaPrise(r.donnees) : null;
+    if (dejaLa) {
+      e.className = 'note';
+      e.textContent = 'This salt already made your block ' + dejaLa + '. To create another one, tap New salt.';
+      return null;
+    }
     if (r.refus) { e.className = 'note wKo'; e.textContent = r.refus; return null; }
     /* ⛔ L ADRESSE EST DEMANDEE A LA FACTORY, jamais calculee ici. */
     e.className = 'note wOk';
@@ -25535,7 +25551,7 @@ async function creerBlock() {
             ? ('CreateRouter already sent the open fee. This step opens the ' + enTexte(symQ) + '↔block V8 pool.')
             : 'CreateRouter already sent the open fee. This step only seeds the pool.')
           : (quoteAction
-            ? ('Quote = ' + enTexte(symQ) + ' · Birth fee 0.001 ETH.')
+            ? ('Quote = ' + enTexte(symQ) + ' — buyers pay in ' + enTexte(symQ) + '.')
             : 'Seed into the book ≠ open fee 0.001 ETH.');
         e.innerHTML = '<b>' + enTexte(v.sym) + '</b> is created' + nextTxt
           + '<button type="button" class="bouton" id="cLaunchNow" style="margin-top:10px;display:block;width:100%;font-size:1.08em;padding:14px 16px;font-weight:700">'

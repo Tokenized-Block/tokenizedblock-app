@@ -185,9 +185,10 @@ ok(/prepayePour\(adrReprise\) \? 'Finish bringing it to life \(fee already paid\
 ok(fn(P, 'libellePuceCreation') && P.MEMESTOCK_MULTIPOOL_ACTIF === false, 'item8: chip helper present, multipool flag defaults OFF');
 if (fn(P, 'libellePuceCreation')) {
   const off = P.libellePuceCreation({ symbole: 'GOOGLc' }), on = P.libellePuceCreation({ symbole: 'GOOGLc', multipool: true });
-  ok(/birth fee 0\.001 ETH/.test(off) && /swap fee 0\.5%/.test(off), 'item8: birth fee and swap fee shown separately (' + off + ')');
-  ok(!/0\.07%|0\.03%|creator/.test(off), 'item8 NEG: flag OFF -> no split text');
-  ok(/app 0\.07% · creator 0\.03%/.test(on), 'item8: flag ON -> split shown');
+  /* game348 (Phil 2026-11-10: "birth fee 0.001 ETH · swap fee … (app 0.07% · creator 0.03%) — remove it, it is wrong now"): the chip says
+   *   only the pair and what buyers pay with; no fee, no percentage, no split, whatever the flags */
+  ok(off === 'Quote = GOOGLc — buyers pay in GOOGLc' && on === off, 'item8 (game348): the pair chip says the quote only (' + off + ')');
+  ok(!/0\.001|0\.07%|0\.03%|creator|fee|%/.test(off + on), 'item8 NEG: no fee, no percentage, no split on the chip');
   for (const t of [off, on]) ok(!/fees for dev/i.test(t) && !t.toLowerCase().includes(F.FEE_WALLET.slice(2).toLowerCase()), 'item8: no fee-wallet label/address');
 }
 ok(!/' · fee 0\.001 ETH'/.test(html), 'item8: old mixed "fee 0.001 ETH" chip text gone');

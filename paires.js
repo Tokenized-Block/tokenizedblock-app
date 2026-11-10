@@ -533,12 +533,13 @@ export const TAUX_ECHANGE_V8_LIBELLE = '0.5%';
 /** Puce de paire a Create. ⛔ Le frais de naissance et le frais d echange sont DEUX choses : « fee 0.001 ETH » les
  *  confondait. Le partage « app 0.07% · creator 0.03% » ne s affiche QUE si le drapeau multipool est allume.
  *  Jamais d adresse de frais, jamais le libelle interne du wallet de frais. */
-export function libellePuceCreation({ symbole, multipool = MEMESTOCK_MULTIPOOL_ACTIF, h7030 = false } = {}) {
+/* ⛔⛔ game348 (Phil 2026-11-10 : « Quote = ETH · birth fee 0.001 ETH · swap fee 0.1% per trade (app 0.07% · creator 0.03%) — retire ca,
+ *   c est faux maintenant ») : la naissance se paie 5 $ (TBLOCK d abord, la carte Create le dit avec les vrais montants) ; un frais et un
+ *   partage figes sur la puce de paire contredisaient la carte. La puce dit ce que le choix CHANGE : la devise que les acheteurs paient.
+ *   Les parametres restent (appelants inchanges) ; aucun frais, aucun pourcentage, aucune adresse sur cette puce. */
+export function libellePuceCreation({ symbole } = {}) {
   const s = String(symbole || 'stock');
-  /* ⛔ 2026-10-02 : hook 7030 allume -> 0.1 % par echange, partage affiche. Eteint -> exactement le texte d avant. */
-  if (h7030 === true) return 'Quote = ' + s + ' · birth fee 0.001 ETH · swap fee 0.1% per trade (app 0.07% · creator 0.03%)';
-  return 'Quote = ' + s + ' · birth fee 0.001 ETH · swap fee ' + TAUX_ECHANGE_V8_LIBELLE + ' per trade'
-    + (multipool === true ? ' (app 0.07% · creator 0.03%)' : '');
+  return 'Quote = ' + s + ' — buyers pay in ' + s;
 }
 /** Le block est-il APRES la devise dans la PoolKey (currency0 = devise) ? Le V8 preleve en currency0 : un block qui
  *  passe devant ferait payer son frais en block. ETH natif (0x0) est toujours devant. */
