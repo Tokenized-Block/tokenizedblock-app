@@ -64,7 +64,8 @@ const MUT = [
   ['fly-day.js', 'reserve does not add', 'today: countedToday(s, today) + 1', 'today: countedToday(s, today)'],
   ['fly-day.js', 'reserve keeps the old day', '{ ...s, day: today, today:', '{ ...s, today:'],
   ['fly-brain.js', 'no reservation before send', 'reserve();\n          const r = await flySend(c);', 'const r = await flySend(c);'],
-  ['fly-brain.js', 'reservation not saved', 'reserveTrade(auto.s, today)); autoSave(); reserved = true;', 'reserveTrade(auto.s, today)); reserved = true;'],
+  /* game368: game364 put reserveVolume between reserveTrade and autoSave; the anchor follows the save itself */
+  ['fly-brain.js', 'reservation not saved', 'autoSave(); reserved = true; sendingStarted = true;', 'reserved = true; sendingStarted = true;'],
   ['fly-brain.js', 'cap on the copy', 'if (!mayTrade(autoRefresh(), today, maxDay))', 'if (!mayTrade(auto.s, today, maxDay))'],
 ];
 const dossier = mkdtempSync(join(process.env.TAM_TMP || tmpdir(), 'fly-day-mut-'));

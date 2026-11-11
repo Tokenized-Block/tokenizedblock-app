@@ -49,7 +49,7 @@ t('holders.html: no "holder stage = $15 LOCKED" as a live perk', !HOL.includes("
 const intro = APP.slice(APP.indexOf('<p class="titre">Holders vault</p>'), APP.indexOf('<div id="wVaultRows">'));
 t('holders intro: no typed threshold, says whose payments fill it', !/\d{2},\d{3},\d{3}/.test(intro) && intro.includes('Deposits so far came from the team') && !intro.includes('Fed by buybacks and fees') && !intro.includes('Filled by TBLOCK buybacks'));
 t('Create: a lock line under the button, hidden until TBlockLock is deployed, opening Wallet → Holders → Lock', /<button class="bouton creaGo" id="cCreer"[^\n]*\n(?:[^\n]*\n){0,3}\s*<p class="note" id="cLockLien" hidden/.test(APP)
-  && APP.includes("if (LK.LOCK && $('#cLockLien')) { $('#cLockLien').hidden = false; $('#cLockAller').addEventListener('click', () => ouvrirWalletVault()); }"));
+  && APP.includes("$('#cLockLien').hidden = false; $('#cLockOuvrir').hidden = false;") /* game368: the real lock form opens in Create */);
 t('Create: the line says what the lock earns and who can take it back, no perk promised', APP.includes('Lock your TBLOCK for community points (7 days minimum; the lock contract has no owner, only you take it back)'));
 t('Swap UNIT card is gone', !APP.includes('id="unitCarte"') && !APP.includes('<span class="jeuKick">Game · Swap UNIT'));
 console.log(ok + '/' + (ok + ko) + (ko ? ' — RED' : ' — green'));
