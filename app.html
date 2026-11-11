@@ -3686,7 +3686,7 @@ details[open] > summary::before{transform:rotate(90deg)}
       <!-- ⛔ L EMPREINTE EST AFFICHEE, DONC ELLE EST DE L ANGLAIS. `20261001-pont-dans-lui` a fait
            rougir `test-texte-a-l-ecran.mjs` : le mot « dans » est de la prose francaise partie a
            l ecran anglais. La garde a fait son travail du premier coup. -->
-      <p class="note" data-build="20261109-game366" hidden>Build <code>20261109-game366</code> ·Contract labels say what they do, not our internal names.</p>
+      <p class="note" data-build="20261109-game367" hidden>Build <code>20261109-game367</code> ·Contract labels say what they do, not our internal names.</p>
       <p class="sous">Everything happening to blocks on Base, live.</p>
       <!-- tip 0013: sticky — Hooked chip = Dex fees; unhooked → Launch beside. No fee addr. -->
       <p class="note" id="sfHookedSticky" hidden>Blocks alive on TokenizedBlock pay their creator on every trade. Example:<button type="button" class="puce" id="sfStickyTbgas">Open TBGAS</button>.</p>
@@ -5727,8 +5727,9 @@ function poserBoutonsRolls(t, c) {
   const bpr = $('#jourRoll'); if (bpr) bpr.hidden = on;
   /* les tuiles de choix disent le PRIX servi (jamais tape) ; un score deja peint sur la tuile Roll n est pas ecrase */
   if (rollsCfg) {
-    const pz = Rg.gainMax(rollsCfg);
-    if ($('#jbRoll') && $('#jbRoll').textContent === '⚄') jb('jbRollTxt', usdcTexte(rollsCfg.prixRoll) + ' USDC' + (pz !== null ? ' · win up to ' + usdcTexte(pz) : ''));
+    /* game367: "win up to" is what the contract can pay NOW — the prize, capped by the pot read (BlockRolls pays min(prize, pot)) */
+    const gm = Rg.gainMaxReel(rollsCfg, rollsCfg.pot);
+    if ($('#jbRoll') && $('#jbRoll').textContent === '⚄') jb('jbRollTxt', usdcTexte(rollsCfg.prixRoll) + ' USDC' + (gm !== null ? ' · win up to ' + usdcTexte(gm.brut) + (gm.plafonne ? ' (the pot now)' : '') : ''));
     jb('jbPass', usdcTexte(rollsCfg.prixPass) + ' USDC'); jb('jbPassTxt', '7 days of tickets + ' + rollsCfg.passRolls + ' rolls');
   }
   if (on) { bp.textContent = 'Roll · ' + usdcTexte(rollsCfg.prixRoll) + ' USDC'; bd.textContent = 'Week pass · ' + usdcTexte(rollsCfg.prixPass) + ' USDC'; }

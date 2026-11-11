@@ -85,7 +85,8 @@ const avantEnvoi = (s, a, b) => { const x = entre(s, a, b); const i = x.indexOf(
   return i > 0 && d > i && p > d && e > p && /envoyerPaiementJeton\(pj, c, dit, av\.phrase\)/.test(x); };
 const checks = {
   importe: (s) => /import \* as Rg from '\.\/rolls-regles\.js';/.test(s),
-  tuile: (s) => /const pz = Rg\.gainMax\(rollsCfg\);/.test(s) && /\(pz !== null \? ' · win up to ' \+ usdcTexte\(pz\) : ''\)/.test(s),
+  /* game367: the tile shows what the contract can pay NOW (prize capped by the pot), read from the module, never typed */
+  tuile: (s) => /const gm = Rg\.gainMaxReel\(rollsCfg, rollsCfg\.pot\);/.test(s) && /\(gm !== null \? ' · win up to ' \+ usdcTexte\(gm\.brut\)/.test(s),
   regle: (s) => /\+ \(Rg\.texteGains\(rollsCfg, usdcTexte\) \|\| Rg\.PHRASE_GAINS_NON_LUS\.toLowerCase\(\)\) \+ '\) — never more than the pot holds'/.test(s) && !/rollsCfg\.prizes \|\| \[\]\)\.map/.test(s)
     && /The UNIT creator wallet can change the prizes/.test(s) && /a change applies to rolls made after it/.test(s),
   rollPaye: (s) => avantEnvoi(s, 'async function rollPaye()', 'async function passPaye()'),
@@ -99,7 +100,7 @@ const checks = {
 };
 const mutants = [
   ['importe', "import * as Rg from './rolls-regles.js';", ''],
-  ['tuile', 'const pz = Rg.gainMax(rollsCfg);', "const pz = '5000000';"],
+  ['tuile', 'const gm = Rg.gainMaxReel(rollsCfg, rollsCfg.pot);', "const gm = { brut: '5000000', plafonne: false };"],
   ['regle', '+ (Rg.texteGains(rollsCfg, usdcTexte) || Rg.PHRASE_GAINS_NON_LUS.toLowerCase()) + \') — never more than the pot holds\'', "+ (rollsCfg.prizes || []).map((p, i) => (5 - i) + '/5 → ' + usdcTexte(p)).join(', ') + ' USDC) — never more than the pot holds'"],
   ['regle', 'The UNIT creator wallet can change the prizes', 'Nobody can change the prizes'],
   ['rollPaye', "Sign ' + plan.appels.length + ' step' + (plan.appels.length > 1 ? 's' : '') + ' in your wallet…') + av.phrase);", "Sign ' + plan.appels.length + ' step' + (plan.appels.length > 1 ? 's' : '') + ' in your wallet…'));"],

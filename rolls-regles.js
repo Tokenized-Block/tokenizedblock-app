@@ -108,6 +108,15 @@ export function texteGains(r, fmt) {
 }
 /** le plus gros prix (5/5), brut ; null si non lu */
 export const gainMax = (r) => (reglesValides(r) ? BigInt(r.prizes[0]) : null);
+/** game367 (live audit 2026-11-11: the tile said "win up to 5" while the pot held 0.25 and BlockRolls.sol pays min(prize, pot)): the largest
+ *  win a roll can REALLY pay now = min(the 5/5 prize, the pot read). { brut, plafonne } ; null if the prize is unread. A pot not read leaves
+ *  the prize (plafonne false) — never a 0 invented. */
+export function gainMaxReel(r, pot) {
+  const pz = gainMax(r);
+  if (pz === null) return null;
+  let p = null; try { p = pot === null || pot === undefined ? null : BigInt(pot); } catch (_) { p = null; }
+  return p !== null && p < pz ? { brut: p, plafonne: true } : { brut: pz, plafonne: false };
+}
 /** la phrase d AVANT signature : les gains lus a l instant, ou qu ils n ont pas pu l etre (aucun montant montre) */
 export function phraseGainsAvantSignature(r, fmt) {
   const t = texteGains(r, fmt);

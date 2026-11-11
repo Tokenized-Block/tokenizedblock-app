@@ -142,7 +142,7 @@ function monter(texte, { stock = 'ok', garde = null, hash = '', avant = null } =
     verifierRollsEnAttente: async () => ({ reglables: [{ blocsRestants: 12 }], tropTot: [], perdus: [] }), texteBlocs: () => '12 blocks', sParBlocApp: 2, intervalleJeuMs: () => 5000,
     duelsCfg: {}, peindreDuels: null,
     /* poserBoutonsRolls */
-    rollsCfg: null, Rg: { gainMax: () => null, texteGains: () => '', PHRASE_GAINS_NON_LUS: 'Prizes not read' }, usdcTexte: (x) => (Number(x) / 1e6).toFixed(2), jb: () => {},
+    rollsCfg: null, Rg: { gainMax: () => null, gainMaxReel: () => null /* game367 */, texteGains: () => '', PHRASE_GAINS_NON_LUS: 'Prizes not read' }, usdcTexte: (x) => (Number(x) / 1e6).toFixed(2), jb: () => {},
     peindrePayerAvec: async () => {},
   };
   Object.defineProperty(ctx, 'localStorage', { get() { if (stock === 'absent') throw new Error('SecurityError: localStorage'); return st; } });
