@@ -21,7 +21,7 @@ import { planEchangeMultiSauts } from './echange.js';
 import { cleDePool, poolId, selecteur } from './pool.js';
 import { vieDuBlock } from './marche.js';
 import { CLES_PRIX } from './prix-eth.js';
-import { TBLOCK } from './tokenomics.js';
+import { TBLOCK_TEST_ANCIEN as TBLOCK } from './tokenomics.js'; /* game354: this bench measures the OLD test token's legacy ETH route */
 import { FEE_WALLET } from './frais-creation.js';
 
 const F = process.env.FORK || 'http://127.0.0.1:8548';

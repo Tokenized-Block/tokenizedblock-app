@@ -7,7 +7,7 @@
  *   · Exception unique : le format OpenLaunch (frais 3 %, espacement 200) — pools partenaires, hors de notre perimetre.
  *   Fait mesure (fork 52074517) : TBLOCK n a AUCUNE pool ETH avec hook ; sa seule pool ETH (frais 0, espacement 200)
  *   est sans hook — elle n est donc plus jamais choisie, et ce qui en dependait est refuse avant le wallet. */
-import { TBLOCK, TBGAS, HOOK_PREVU, deviseFraisHook, estNotreHook } from './tokenomics.js';
+import { TBLOCK_TEST_ANCIEN as TBLOCK, TBLOCK as TBLOCK_REEL, TBGAS, HOOK_PREVU, deviseFraisHook, estNotreHook } from './tokenomics.js'; /* game354: in this file TBLOCK = the OLD test token, only to read its LEGACY pools (never shown as "TBLOCK"); the real TBLOCK is tokenomics.TBLOCK */
 import { REFERENT_O1_ACTIF, estHookO1Standard } from './referent-o1.js';
 import { estHookMarcheOuvert } from './marche-ouvert.js';
 import { DEVISES_BASE, ACTIONS_COINBASE } from './paires.js';
@@ -16,7 +16,7 @@ import { NES_LAUNCHPADS_O1 } from './jetons-nes-launchpads.js';
 
 const bas = (a) => String(a || '').toLowerCase();
 const ZERO = '0x0000000000000000000000000000000000000000';
-const BLOCKS_TB = new Set([bas(TBLOCK), bas(TBGAS)]);
+const BLOCKS_TB = new Set([bas(TBLOCK), bas(TBLOCK_REEL), bas(TBGAS)]); /* game354 (review): the real TBLOCK too */
 const DEVISES = new Set([ZERO, ...DEVISES_BASE.map((d) => bas(d.adr)), ...ACTIONS_COINBASE.map((d) => bas(d.adr))]
   .filter((a) => !BLOCKS_TB.has(a)));
 
@@ -96,7 +96,7 @@ export function indexPoolSansHookInterdite(cles, blocks = []) {
 export const ROUTE_VIA_TBLOCK = false;
 /** Vrai = cette cle passe par TBLOCK (une de ses deux devises). */
 export function cleTouchTblock(cle) {
-  return !!cle && (bas(cle.currency0) === bas(TBLOCK) || bas(cle.currency1) === bas(TBLOCK));
+  return !!cle && [bas(TBLOCK), bas(TBLOCK_REEL)].some((t) => bas(cle.currency0) === t || bas(cle.currency1) === t);
 }
 
 /* ══ 2026-10-02 13:59 — FONDATEUR : a6cf recoit ETH, USDC ou l action appariee, JAMAIS le block ═══════════════════════

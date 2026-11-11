@@ -15,9 +15,7 @@
 // ⛔ BUYBACK : le wallet de frais qui achete TBLOCK ne se paie pas de frais a lui-meme (frais = 0).
 // ⛔ AVANT DE PROPOSER LA SIGNATURE, LA CHAINE EST INTERROGEE : quote (prix reel), forme de struct acceptee,
 //    puis eth_call de la transaction exacte. Une lecture ratee = rien a signer.
-import { TBLOCK, HOOK_PREVU, HOOK_V8, estNotreHook, hookPaieDejaA6cf, deviseFraisHook, filtrerHooksPayeurs,
-  HOOKS_PAIENT_DEJA_A6CF, refusMarcheOuvertIncoherent, estHook7030, fraisHookBps,
-  HOOK_V9, V9_PAIE_DEJA_A6CF, HOOK_7030, HOOK_7030_ACTIF } from './tokenomics.js';
+import { TBLOCK_TEST_ANCIEN as TBLOCK, HOOK_PREVU, HOOK_V8, estNotreHook, hookPaieDejaA6cf, deviseFraisHook, filtrerHooksPayeurs, HOOKS_PAIENT_DEJA_A6CF, refusMarcheOuvertIncoherent, estHook7030, fraisHookBps, HOOK_V9, V9_PAIE_DEJA_A6CF, HOOK_7030, HOOK_7030_ACTIF } from './tokenomics.js'; /* game354: in this file TBLOCK = the OLD test token, only to read its LEGACY pools (never shown as "TBLOCK"); the real TBLOCK is tokenomics.TBLOCK */
 import { encodeV4Swap, encodeQuote, formeAcceptee, paramsAction, paramsSwapExactInSingle, ACTIONS_V4, selecteur,
   AVEC_MINHOP, SANS_MINHOP, cleDePool, poolId, estErreurTransportRpc } from './pool.js';
 import { etapesPermit2Exactes } from './approbations-exactes.js';

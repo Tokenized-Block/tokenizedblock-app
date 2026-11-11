@@ -19,7 +19,9 @@
 export const ETH_NATIF = '0x0000000000000000000000000000000000000000';
 
 /** Les devises « de base ». ⛔ Adresses recopiees de `DEVISES` dans index.html. */
-/** TBLOCK — standard quote for new blocks (mainnet). Address from tokenomics / B20Created. */
+/** ⛔ game354 (Phil 2026-11-11): this is the OLD test token named TBLOCK (created by the app, block 51,260,745), NOT the real TBLOCK
+ *  (0xb200…ba9bf8330307f8830e, tokenomics.TBLOCK). Kept under this name only for the legacy hook routing below; never proposed, never
+ *  named "TBLOCK" on screen. The real TBLOCK cannot quote a new block: neither the V8 nor the 7030 hook lists it (both lists immutable). */
 export const TBLOCK_MAINNET = '0xb20000000000000000000024c30d3fcb7931272e';
 
 /* ⛔⛔ ETH D ABORD (Phil, 2026-09-18 : « la pool sur ETH par defaut, oublie le TBLOCK paired — gros
@@ -40,7 +42,11 @@ export const DEVISES_BASE = [
    *   ⛔ Le jeton RESTE dans cette liste : d autres ecrans s en servent legitimement, et le retirer
    *     d un coup casserait les blocks deja cotes en TBLOCK. C est le drapeau qui le retire des
    *     endroits ou on PROPOSE un echange. */
-  { adr: TBLOCK_MAINNET, symbole: 'TBLOCK', nom: 'TokenizedBlock — buyers need TBLOCK to buy', type: 'TBLOCK', chaines: [8453], lancePubliquement: false },
+  { adr: TBLOCK_MAINNET, symbole: 'oldTBLOCK', nom: 'the OLD test TBLOCK — not the real TBLOCK', type: 'TBLOCK', chaines: [8453], lancePubliquement: false },
+  /* game354 (series red, test-symbole-trompeur): the REAL TBLOCK, KNOWN under its own name so the name guard can tell a fake TBLOCK from
+   *   it — never PROPOSED (no launch hook lists it: V8 and 7030 are immutable). Copied from tokenomics.TBLOCK (no import: tokenomics
+   *   imports this file); test-tblock-reel checks the two are equal. */
+  { adr: '0xb200000000000000000000ba9bf8330307f8830e', symbole: 'TBLOCK', nom: 'TBLOCK — the holders token', type: 'TBLOCK', chaines: [8453], lancePubliquement: false },
   /* ⛔⛔ TOSHI, AJOUTE LE 2026-09-27 (Phil : « ajoute Toshi »), ET *PAS* COMME UN B20.
    *     L adresse a ete RESOLUE par l API DexScreener, jamais rappelee de memoire — completer une
    *     adresse de tete a deja envoye une enquete entiere sur une fausse piste dans ce projet.

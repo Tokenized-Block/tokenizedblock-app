@@ -231,7 +231,7 @@ import { scanFrais, verifierArrivee, resumerFrais } from './veille-frais.js';
 import { NOS_BLOCKS_GENESE, GRAINE_NOS_BLOCKS, graineNosBlocksAdmise, verifierGraineNos } from './origine.js';
 import { FEE_WALLET, USDC_BASE, CREATE_ROUTER } from './frais-creation.js';
 import { etatLive, htmlLive } from './live.js';
-import { TBLOCK as TBLOCK_JETON, OPTIONS_LANCEMENT, HOOK_7030 } from './tokenomics.js';
+import { TBLOCK as TBLOCK_JETON, TBLOCK_TEST_ANCIEN, estJetonMasque, OPTIONS_LANCEMENT, HOOK_7030 } from './tokenomics.js';
 import { verifierAchatSkin, validerRecette, SKIN_PRIX_USDC } from './skins.js';
 import { faceDuBlock } from './face.js';
 import { logoSvg, paramsLogoDepuisApparence } from './logo.js';
@@ -1651,7 +1651,8 @@ async function fraisEnAttente() {
    *   d appariement connues, sont lues pour CHAQUE hook meme si le balayage ne les a pas encore trouvees — sinon un balayage arrete
    *   rendait « aucune creance » sur des devises qu on n a simplement pas eu le droit de lister. Elles ne sont PAS ajoutees au
    *   resultat du balayage (ce qu il a vu reste ce qu il a vu). */
-  const amorce = [USDC_BASE.toLowerCase(), String(TBLOCK_JETON).toLowerCase()];
+  /* game354 (review): our LEGACY hooks are paired with the OLD test token — that is what du() can owe; the real TBLOCK is on basestonk's hook */
+  const amorce = [USDC_BASE.toLowerCase(), String(TBLOCK_TEST_ANCIEN).toLowerCase()];
   for (const h of HOOKS_FRAIS) {
     if (h.sansDu) continue; /* pas de fonction du() dans son code (mesure) : rien a lire, et ce n est pas un echec */
     for (const d of new Set([...devises.get(h.adr), ...amorce])) {
@@ -6909,7 +6910,7 @@ function traiterRequete(req, res) {
       if (Date.now() - lignesNomsTrending.t > 60000) {
         try { const j = JSON.parse(await trending()); lignesNomsTrending = { t: Date.now(), lignes: Array.isArray(j.lignes) ? j.lignes.map((l) => ({ adr: l.adr, sym: l.sym, nom: l.nom })) : [] }; } catch (_) { /* on garde l ancienne liste */ }
       }
-      const r = chercherNom(q, [...lignesNomsTrending.lignes, ...indexNoms.entrees()]);
+      const r = chercherNom(q, [...lignesNomsTrending.lignes, ...indexNoms.entrees()].filter((e) => !estJetonMasque(e && (e.adr || e.jeton)))); /* game354: never the old test TBLOCK */
       const corps = { ok: r.etat !== 'REFUSE', ...r, couverture: { nomsLus: indexNoms.taille(), aNommer: aNommerTaille, blocksConnus: blocksConnus.size, trending: lignesNomsTrending.lignes.length } };
       if (reponsesNoms.size > 500) reponsesNoms.clear();
       reponsesNoms.set(cle, { t: Date.now(), corps });

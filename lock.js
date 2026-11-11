@@ -62,7 +62,9 @@ export function lockCheck({ balance, amount }) {
   return { ok: true };
 }
 const quand = (s) => new Date(Number(s) * 1000).toISOString().slice(0, 16).replace('T', ' ') + ' UTC';
-const jours = (s, t) => { const j = Math.max(0, Math.ceil((Number(s) - Number(t)) / 86400)); return j + ' day' + (j === 1 ? '' : 's'); };
+/* game354 (Grok live test: "8 days left" with 7 d 23 h left): days AND hours, never rounded up */
+const jours = (s, t) => { const x = Math.max(0, Math.floor(Number(s) - Number(t))); const d = Math.floor(x / 86400), h = Math.floor((x % 86400) / 3600), m = Math.floor((x % 3600) / 60);
+  return d > 0 ? d + ' d ' + h + ' h' : (h > 0 ? h + ' h ' + m + ' min' : m + ' min'); };
 /** what the page says about a wallet's lock, and the ONE exit action it offers (raw TBLOCK units, seconds):
  *   action 'demander' (request the exit), 'annuler' (cancel the request), 'retirer' (take it back), or null */
 export function etatLock({ locked, active, unlockAt, requestedAt = 0, withdrawableAt = 0, maintenantSec }) {

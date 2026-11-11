@@ -9,7 +9,7 @@
 //    il peut frapper plus a tout moment. « Scelle » = supply == plafond : plus rien ne peut etre frappe, par personne.
 import { faceDuBlock } from './face.js';
 import { selecteur } from './pool.js';
-import { TBLOCK } from './tokenomics.js';
+import { TBLOCK_TEST_ANCIEN as TBLOCK } from './tokenomics.js'; /* game354: in this file TBLOCK = the OLD test token, only to read its LEGACY pools (never shown as "TBLOCK"); the real TBLOCK is tokenomics.TBLOCK */
 import { frappesVers } from './mes-blocks.js';
 import { FEE_WALLET } from './frais-creation.js';
 

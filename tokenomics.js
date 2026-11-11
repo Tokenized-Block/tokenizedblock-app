@@ -9,8 +9,16 @@ export const PART_FRAIS_POUR_CENT = 0n;
 /** Fixed sealed supply for every TB Create: 1 billion units × 18 decimals. Indestructible = cap == mint, nobody can mint more. */
 export const DECIMALES_FIXES = 18;
 export const SUPPLY_FIXE = 1_000_000_000n * 10n ** BigInt(DECIMALES_FIXES);
-/** TBLOCK, lu dans le log B20Created de la tx 0xda396460…4cf3 (bloc 51 260 745). */
-export const TBLOCK = '0xb20000000000000000000024c30d3fcb7931272e';
+/** ⛔⛔ game354 (Phil 2026-11-11: "this new TBLOCK is the right one and must be everywhere; replace the old TBLOCK by the new one — leaving it
+ *   is a serious error"). TBLOCK = THE token, launched on basestonk (pool vs wtCOIN): copied from tblock-hold.js / economie.js, verified on
+ *   basestonk.io/tokens/<address> ("TokenizedBlock ($TBLOCK)") and by every on-chain read of this week. */
+export const TBLOCK = '0xb200000000000000000000ba9bf8330307f8830e';
+/** The OLD test token with the SAME name and symbol (created by the app, B20Created in tx 0xda396460…4cf3, block 51,260,745). NEVER shown
+ *  as "TBLOCK": kept ONLY to read its old pools (legacy markets keyed on it) and to HIDE it from every list (JETONS_MASQUES). */
+export const TBLOCK_TEST_ANCIEN = '0xb20000000000000000000024c30d3fcb7931272e';
+/** tokens the app never lists, names or proposes (a second "TBLOCK" on screen is what scams use) */
+export const JETONS_MASQUES = Object.freeze([TBLOCK_TEST_ANCIEN]);
+export const estJetonMasque = (a) => JETONS_MASQUES.includes(String(a || '').toLowerCase());
 /** TBGAS — Tokenized Gas · MAIN Launch 2026-09-15 hooked HOOK_PREVU → a6cf (tip 2357). */
 export const TBGAS = '0xb200000000000000000000df3ffcd9be89b3843c';
 /** tip 0016: Uniswap v4 PoolId = Initialize topic1 · Launch 0x17d20e41…dcc5 · Dex/Gecko pairAddress. */

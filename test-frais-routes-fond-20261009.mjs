@@ -103,7 +103,8 @@ await cas('C2 sans noeud d archive : arret apres 20 refus de suite, DIT ; creanc
   assert.match(corps, /if \(refusDeSuite >= 20\) \{ arret = /);
   assert.match(corps, /\} catch \{ fenetresRatees\+\+; avance = false; refusDeSuite\+\+; \}/);
   assert.match(corps, /refusDeSuite = 0;/);
-  assert.match(corps, /const amorce = \[USDC_BASE\.toLowerCase\(\), String\(TBLOCK_JETON\)\.toLowerCase\(\)\];/);
+  /* game354: the seed reads the token our LEGACY hooks are paired with — the old test token, named for what it is */
+  assert.match(corps, /const amorce = \[USDC_BASE\.toLowerCase\(\), String\(TBLOCK_TEST_ANCIEN\)\.toLowerCase\(\)\];/);
   assert.match(corps, /for \(const d of new Set\(\[\.\.\.devises\.get\(h\.adr\), \.\.\.amorce\]\)\)/);
   assert.match(corps, /const balayageComplet = fenetresRatees === 0 && !arret && fraisScan\.jusqua === tete;/);
   assert.match(corps, /complet: balayageComplet && creancesNonLues\.length === 0/);

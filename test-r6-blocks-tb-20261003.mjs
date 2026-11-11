@@ -359,7 +359,7 @@ let nAssert = 0, ko = 0;
 const ok = (c, m) => { nAssert += 1; if (!c) { ko += 1; console.log('  KO ' + m); } };
 const MUTANTS = [
   { nom: 'a provenance routeur ignoree', edits: [['pool-sans-hook.js', '|| estNeDuRouteur(a) ||', '||']], casse: [/^CL ne du routeur/] },
-  { nom: 'b TBLOCK retire de BLOCKS_TB', edits: [['pool-sans-hook.js', 'const BLOCKS_TB = new Set([bas(TBLOCK), bas(TBGAS)]);', 'const BLOCKS_TB = new Set([bas(TBGAS)]);']], casse: [/^CL TBLOCK est toujours un block/] },
+  { nom: 'b TBLOCK retire de BLOCKS_TB', edits: [['pool-sans-hook.js', 'const BLOCKS_TB = new Set([bas(TBLOCK), bas(TBLOCK_REEL), bas(TBGAS)]);', 'const BLOCKS_TB = new Set([bas(TBGAS)]);']], casse: [/^CL TBLOCK est toujours un block/] },
   { nom: 'b2 blocks V1 de test oublies (les deux listes : V1 de test et sur nos hooks)', edits: [['pool-sans-hook.js', 'if (BLOCKS_TB.has(a) || BLOCKS_V1_TEST.has(a) || SUR_NOS_HOOKS.has(a) ||', 'if (BLOCKS_TB.has(a) ||']], casse: [/^CL V1/] },
   { nom: 'k2 liste statique des blocks sur nos hooks ignoree', edits: [['pool-sans-hook.js', '|| SUR_NOS_HOOKS.has(a) ||', '||']], casse: [/^CL K2 /] },
   { nom: 'k1 scanner : sel cherche seulement si tx.to == routeur', edits: [['index-routeur.js', 'for (let off = 0; !sel && off < 64; off += 8)', 'for (let off = 0; false; off += 8)']], casse: [/^PROV scanner 4337/] },

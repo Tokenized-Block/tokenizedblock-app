@@ -31,7 +31,7 @@
  */
 import { HOOK_V8, ensembleHooksFacturants, cheminsCandidats, areteValide, CMD, ADRESSES,
   unFraisParJambe, routeEntierementFactureeParHook, routeFactureeParHook } from './multipool.js';
-import { TBLOCK } from './tokenomics.js';
+import { TBLOCK, TBLOCK_TEST_ANCIEN } from './tokenomics.js'; /* game354: TBLOCK = the real token; the registry entry below is the OLD test token */
 import { TTB } from './origine.js';
 import { pairesProposees, proposableEnEchange, DEVISES_BASE } from './paires.js';
 
@@ -68,7 +68,7 @@ ok('0. les adresses du test sont toutes resolues',
   [BLOCK, USDC, AAPL, WETH].every((a) => ADR.test(a)),
   JSON.stringify({ BLOCK, USDC, AAPL, WETH }));
 /* ⛔ ET LE SUJET N EST PAS NOTRE JETON. Si quelqu un remet TBLOCK ici, ce banc rougit. */
-ok('0b. ⭐ le block de depart n est PAS notre TBLOCK', BLOCK !== bas(TBLOCK), BLOCK);
+ok('0b. ⭐ le block de depart n est PAS notre TBLOCK (ni le vrai ni l ancien de test)', BLOCK !== bas(TBLOCK) && BLOCK !== bas(TBLOCK_TEST_ANCIEN), BLOCK);
 /* ⛔⛔ ET LA DECISION PRODUIT EST GARDEE A SA SOURCE : TBLOCK reste hors des echanges. Sans cette
  *    assertion, le filtre pourrait sauter sans que rien ne crie — et le jeton reviendrait dans une
  *    liste que personne ne relit. */
@@ -80,7 +80,7 @@ ok('0b. ⭐ le block de depart n est PAS notre TBLOCK', BLOCK !== bas(TBLOCK), B
  *  ⛔ J avais donc accuse le code pour une faute de MON assertion — et les deux moitiees etaient
  *    dans un seul `&&`, ce qui rendait le message illisible : on ne savait pas laquelle tombait.
  *    Une conjonction qui echoue ne dit pas QUI a echoue. Separees. */
-const entreeTblock = (DEVISES_BASE || []).find((x) => bas(x.adr) === bas(TBLOCK));
+const entreeTblock = (DEVISES_BASE || []).find((x) => bas(x.adr) === bas(TBLOCK_TEST_ANCIEN)); /* game354: the registry entry is the OLD token, symbol oldTBLOCK */
 ok('0c. TEMOIN — l entree TBLOCK existe dans le registre', !!entreeTblock,
   entreeTblock ? 'trouvee' : 'absente du registre');
 ok('0d. ⛔ …et elle porte `lancePubliquement: false`',

@@ -11,7 +11,7 @@
 import { planLancement, V4_ADRESSES, FEE_POOL, TICK_SPACING_POOL, ADRESSE_NULLE, ETH_NATIF, sqrtDeTick } from './lancer-pool.js';
 import { selecteur, montantsPosition, encodeRetraitPosition, decoderPoolEtPosition, poolId } from './pool.js';
 import { vieDuBlock } from './marche.js';
-import { TBLOCK, HOOK_PREVU, estNotreHook } from './tokenomics.js';
+import { TBLOCK_TEST_ANCIEN as TBLOCK, HOOK_PREVU, estNotreHook } from './tokenomics.js'; /* game354: in this file TBLOCK = the OLD test token, only to read its LEGACY pools (never shown as "TBLOCK"); the real TBLOCK is tokenomics.TBLOCK */
 
 export const ETATS_LIQUIDITE = ['PRET', 'APPROBATIONS', 'REFUSE', 'NON_MESURE'];
 const pad = (a) => String(a).slice(2).toLowerCase().padStart(64, '0');

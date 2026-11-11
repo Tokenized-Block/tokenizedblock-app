@@ -48,11 +48,16 @@ t('request / cancel calls', L.requestWithdrawCall().data === selecteur('requestW
 t('views for the exit', L.VIEW.requestedAtOf(ADRL).data.startsWith(selecteur('requestedAtOf(address)')) && L.VIEW.withdrawableAtOf(ADRL).data.startsWith(selecteur('withdrawableAtOf(address)')));
 const M = 3_000_000n * E;
 const a = L.etatLock({ locked: M, active: M, unlockAt: now + 3 * 86400 + 5, maintenantSec: now });
-t('active: days left, the exit is a REQUEST', a.cle === 'actif' && /3,000,000 TBLOCK locked until .* \(4 days left\)/.test(a.texte) && a.action === 'demander', a.texte);
+/* game354 (Grok live test: "8 days left" shown with 7 d 23 h left): days AND hours, never rounded up — 3 d 0 h 5 s reads "3 d 0 h" */
+t('active: days and hours left, never rounded up; the exit is a REQUEST', a.cle === 'actif' && /3,000,000 TBLOCK locked until .* \(3 d 0 h left\)/.test(a.texte) && a.action === 'demander', a.texte);
+{ const p7 = L.etatLock({ locked: M, active: M, unlockAt: now + 7 * 86400 + 23 * 3600 + 58 * 60, maintenantSec: now });
+  t('the live case: 7 d 23 h, not "8 days"', /\(7 d 23 h left\)/.test(p7.texte), p7.texte);
+  const p0 = L.etatLock({ locked: M, active: M, unlockAt: now + 2 * 3600 + 30 * 60, maintenantSec: now });
+  t('under a day: hours and minutes', /\(2 h 30 min left\)/.test(p0.texte), p0.texte); }
 const x = L.etatLock({ locked: M, active: 0n, unlockAt: now - 10, maintenantSec: now });
 t('date passed, not requested: perks off, request offered', x.cle === 'expire' && x.action === 'demander' && /perks are off/.test(x.texte));
 const w = L.etatLock({ locked: M, active: 0n, unlockAt: now - 10, requestedAt: now - 86400, withdrawableAt: now + 6 * 86400, maintenantSec: now });
-t('requested, period running: date shown, cancel offered, no take-back yet', w.cle === 'sortie' && w.action === 'annuler' && /can be taken back on .* \(6 days\)/.test(w.texte), w.texte);
+t('requested, period running: date shown, cancel offered, no take-back yet', w.cle === 'sortie' && w.action === 'annuler' && /can be taken back on .* \(6 d 0 h\)/.test(w.texte), w.texte);
 const p = L.etatLock({ locked: M, active: 0n, unlockAt: now - 10, requestedAt: now - 8 * 86400, withdrawableAt: now - 86400, maintenantSec: now });
 t('period over: take back offered', p.cle === 'pret' && p.action === 'retirer' && /yours to take back/.test(p.texte));
 const pile = L.etatLock({ locked: M, active: 0n, unlockAt: now, requestedAt: now - 7 * 86400, withdrawableAt: now, maintenantSec: now });

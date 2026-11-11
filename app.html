@@ -2367,7 +2367,7 @@ details[open] > summary::before{transform:rotate(90deg)}
       </details>
       <!-- game344 (Phil: "one version, the new one, no overload"): the long texts fold under ONE line; the card below is the path -->
       <details class="bDetail" id="cDetailsFrais" style="margin-top:6px"><summary class="note">Fees, deposit and why TBLOCK</summary>
-      <p class="note" id="cReviewDisclosure">Before your wallet opens, review your name, symbol, engraved face and brain, selected pair, and the price: $5 in all, TBLOCK first. Step 1, only if you lack TBLOCK: the app buys it with your ETH (no app fee). Step 2, the birth: 0.001 ETH, signed in two parts: 0.0007 ETH when you create, then 0.0003 ETH plus your creator deposit (not a fee: it stays yours) when its market opens. Step 3: your block is paid in TBLOCK to the holders vault. Your wallet shows the exact transaction(s) before you approve; nothing is sent until you confirm.</p>
+      <p class="note" id="cReviewDisclosure">Before your wallet opens, review your name, symbol, engraved face and brain, selected pair, and the price: $5 in all, TBLOCK first. Step 1, only if you lack TBLOCK: the app buys it with your ETH (no app fee). Step 2, the birth: 0.001 ETH (inside the total above), signed in two parts: 0.0007 ETH when you create, then 0.0003 ETH plus your creator deposit (not a fee: it stays yours) when its market opens. Step 3: your block is paid in TBLOCK to the holders vault. Your wallet shows the exact transaction(s) before you approve; nothing is sent until you confirm.</p>
       <!-- game326 (Phil 2026-11-09): the app recommends holding TBLOCK; the birth path itself is unchanged (the deployed contracts take ETH) -->
       <p class="note" id="cTblockReco">Recommended: hold TBLOCK, the app's own token. About $5 of it can be bought in the app in one batch
         (<a href="holders.html" target="_blank" rel="noopener">Buy TBLOCK</a>); $15 opens the holders' channel. Each buy goes through its pool, whose hook sends
@@ -3645,7 +3645,7 @@ details[open] > summary::before{transform:rotate(90deg)}
       <!-- ⛔ L EMPREINTE EST AFFICHEE, DONC ELLE EST DE L ANGLAIS. `20261001-pont-dans-lui` a fait
            rougir `test-texte-a-l-ecran.mjs` : le mot « dans » est de la prose francaise partie a
            l ecran anglais. La garde a fait son travail du premier coup. -->
-      <p class="note" data-build="20261109-game353" hidden>Build <code>20261109-game353</code> ·Contract labels say what they do, not our internal names.</p>
+      <p class="note" data-build="20261109-game354" hidden>Build <code>20261109-game354</code> ·Contract labels say what they do, not our internal names.</p>
       <p class="sous">Everything happening to blocks on Base, live.</p>
       <!-- tip 0013: sticky — Hooked chip = Dex fees; unhooked → Launch beside. No fee addr. -->
       <p class="note" id="sfHookedSticky" hidden>Blocks alive on TokenizedBlock pay their creator on every trade. Example:<button type="button" class="puce" id="sfStickyTbgas">Open TBGAS</button>.</p>
@@ -5277,7 +5277,7 @@ function ressentiDe(histo) {
 function humeurEtRessenti(phase, histo) { const r = phase === 'NON_LU' ? null : ressentiDe(histo); return humeurAffichee(phase) + (r ? ' · ' + r : ''); }
 import { lireRegles, ecrireRegles, evenementsDuPas, appliquerRegles, compter } from './regles-cerveau.js';
 /* ⛔ NOS BLOCKS D ABORD (Phil, 2026-09-13) : en tete du fil, plus grands et marques 🟦 sur la map, 🟦 dans Live. */
-let nosSet = new Set(NOS_BLOCKS_GENESE);
+let nosSet = new Set(NOS_BLOCKS_GENESE.filter((a) => !estJetonMasque(a))); /* game354: the old test TBLOCK is never ours on screen */
 const estANous = (adr) => CHAINE === 8453 && nosSet.has(String(adr).toLowerCase());
 import { frappesVers, fusionnerCache } from './mes-blocks.js';
 /* tip 20260922-prepaye-inscrire-dust */
@@ -5302,7 +5302,7 @@ import { frappesVers, fusionnerCache } from './mes-blocks.js';
  *   bancs ; c est le CABLE qui part. */
 import { confirmerBridgeStub, planBridgeFeeSkim, buildBridgeFeeCall, lireBridgeBlock, ecrireBridgeBlock, BRIDGE_FEE_LABEL, phraseBridgeLegs, HUB_SWAP_LIVE, unitsFromHuman } from './bridge.js';
 import { recordPropose, recordPay, recordJournalHook, feeAlreadyRecognized, phraseOptionA, mayUseX402, assertNoDoubleChargeWithBridge, listX402Events } from './x402-pay.js';
-import { repartitionFrappe, TBLOCK, TBGAS, SUPPLY_FIXE, DECIMALES_FIXES, HOOK_PREVU, HOOK_V2, HOOK_V3, HOOK_V4, HOOK_V5, HOOK_V6, HOOK_V7, HOOK_V8, HOOK_V9, HOOK_7030_ACTIF, estHook7030, fraisHookBps, OPTIONS_LANCEMENT, estHookDeNaissance, estNotreHook, hookCourant, hookDeploye, hookV3Deploye, hookV8Deploye, blockPorteLeLabel, HOOKS_PAIENT_DEJA_A6CF } from './tokenomics.js';
+import { repartitionFrappe, TBLOCK_TEST_ANCIEN as TBLOCK, TBLOCK as TBLOCK_REEL, estJetonMasque, TBGAS, SUPPLY_FIXE, DECIMALES_FIXES, HOOK_PREVU, HOOK_V2, HOOK_V3, HOOK_V4, HOOK_V5, HOOK_V6, HOOK_V7, HOOK_V8, HOOK_V9, HOOK_7030_ACTIF, estHook7030, fraisHookBps, OPTIONS_LANCEMENT, estHookDeNaissance, estNotreHook, hookCourant, hookDeploye, hookV3Deploye, hookV8Deploye, blockPorteLeLabel, HOOKS_PAIENT_DEJA_A6CF } from './tokenomics.js'; /* game354: in this file TBLOCK = the OLD test token, only to read its LEGACY pools (never shown as "TBLOCK"); the real TBLOCK is tokenomics.TBLOCK */
 import * as ECO from './economie.js'; /* holders economy: the heart burn and the holders vault (unsigned calls only) */
 import * as CV from './coeurs-vue.js'; /* game346: hearts given / received, the board, the signals between blocks (text only) */
 import * as PV from './points-vue.js'; /* game353: the community points (text only) */
@@ -10064,7 +10064,7 @@ function signauxEntreBlocks(e) {
     txBlocks.set(e.tx, vus);
     if (txBlocks.size > 3000) txBlocks.delete(txBlocks.keys().next().value);
   }
-  if ((e.type === 'ACHAT' || e.type === 'VENTE') && e.verifie && e.devise === 'TBLOCK' && j !== TBLOCK.toLowerCase()) {
+  if ((e.type === 'ACHAT' || e.type === 'VENTE') && e.verifie && e.devise === 'old test TBLOCK' && j !== TBLOCK.toLowerCase()) {
     if (e.type === 'ACHAT') impulsion(TBLOCK, j, '#22c55e', 'Feed'); else impulsion(j, TBLOCK, '#ef4444', 'Kill');
   }
   if (e.type === 'GM' || e.type === 'NOTE') {
@@ -10089,7 +10089,7 @@ function effetsDepuisLive(evts, { animeMax = Infinity } = {}) {
     if (e.type === 'ACHAT') onde(e.jeton, '#22c55e', 'Feed');
     else if (e.type === 'VENTE') onde(e.jeton, '#ef4444', 'Kill');
     else if (e.type === 'SWAP') onde(e.jeton, '#60a5fa', 'swap');
-    else if (e.type === 'CREATION') { if (!habitantDe(e.jeton)) creerHabitant({ jeton: e.jeton, symbole: e.sym, vie: null }); onde(e.jeton, '#f7a318', 'born'); }
+    else if (e.type === 'CREATION') { if (!habitantDe(e.jeton) && !estJetonMasque(e.jeton)) creerHabitant({ jeton: e.jeton, symbole: e.sym, vie: null }); onde(e.jeton, '#f7a318', 'born'); }
     /* tip 0027 : un transfert lu = un signal lumineux du block vers le wallet qui le RECOIT (adresse lue, point fixe dans l espace).
      * Le mot est « sent », pas « GM » : la mesure montre des milliers de transferts par heure, pas des GM choisis. */
     else if (e.type === 'GM') { const h = habitantDe(e.jeton); if (moteur3d && h && e.a) moteur3d.signalVersWallet(h, e.a, accentVif()); if (animes <= 1) onde(e.jeton, accentVif(), 'sent'); }
@@ -10208,6 +10208,8 @@ function retirerDeLaCarte(h) {
 }
 
 function aSaPlaceSurLaCarte(c) {
+  /* game354: the OLD test "TBLOCK" never appears on the map (two tokens with one name is what scams use) */
+  if (c && estJetonMasque(c.jeton)) return false;
   return String(c && c.etatVie) !== 'NON_TROUVEE';
 }
 function poserBlocks(liste) {
@@ -11404,7 +11406,7 @@ document.addEventListener('click', (e) => { const t = e.target && e.target.close
  * ⛔ Mainnet seulement (la genese y vit). Scan des frappes vers le wallet de frais sur 20 000 blocs a chaque
  *    chargement : un block v2 recent y est ; la genese est toujours la. Une lecture ratee garde la genese.
  */
-const SYMBOLES_GENESE = { [NOS_BLOCKS_GENESE[0]]: 'TBLOCK', [NOS_BLOCKS_GENESE[1]]: 'TTB' };
+const SYMBOLES_GENESE = { [NOS_BLOCKS_GENESE[1]]: 'TTB' }; /* game354: the old test token (NOS_BLOCKS_GENESE[0]) is masked, never labelled TBLOCK */
 async function poserNosBlocks(fin) {
   if (CHAINE !== 8453) return;
   /* ⛔⛔ PHIL (2026-09-20) : « ne lit que les 20 000 derniers blocs — faut expandre depuis le debut ».
@@ -11433,6 +11435,7 @@ async function poserNosBlocks(fin) {
       for (const b of r.blocks) vus.add(String(b).toLowerCase());
     } catch (e) { /* genese seule */ }
   }
+  for (const a of [...vus]) if (estJetonMasque(a)) vus.delete(a); /* game354 (review HIGH): never drawn, never "ours" */
   nosSet = vus;
   for (const adr of nosSet) {
     let h = habitants.find((x) => String(x.adr).toLowerCase() === adr);
@@ -14315,7 +14318,7 @@ function peindreCapturePaths(adr, v, hkInfo) {
   const badge = $('#plqBadge');
   const depth = $('#plqDepth');
   const intro = $('#plqIntro');
-  if (badge) badge.textContent = estTb ? 'Deepen TBLOCK liquidity' : (viaTb ? 'Liquidity · TBLOCK pair' : 'Liquidity');
+  if (badge) badge.textContent = estTb ? 'Deepen old test TBLOCK liquidity' : (viaTb ? 'Liquidity · old test TBLOCK pair' : 'Liquidity');
   if (depth) depth.textContent = lo ? ('L≈' + lo + ' · you keep position') : 'you keep your position';
   if (intro) {
     intro.innerHTML = estTb
@@ -14404,7 +14407,7 @@ function peindreMarcheHook(v) {
      *   ligne laissait passer tel quel ce que `marche.js` met dans `via` : « on-chain key · ETH »
      *   (marche.js:235), ou « TbFeeHook v8 » si un jour il manquait le motif « fee hook ». On ne garde
      *   que la DEVISE de la paire ; tout mot interne (hook, on-chain key, V4_…) est retire. */
-    if (/TBLOCK/i.test(s)) return ' · via TBLOCK';
+    if (/TBLOCK/i.test(s)) return ' · via the old test TBLOCK';
     if (/^ETH/i.test(s) || /fee hook|legacy Launch/i.test(s)) return ' · via ETH';
     const propre = s.replace(/\s*·\s*0(,5)?\s*%[^·]*/gi, '')
       .split('·').map((x) => x.trim()).filter((x) => x && !/hook|on-chain|^V\d|_/i.test(x)).join(' · ');
@@ -19781,7 +19784,7 @@ async function preparerAjout() {
     'Places ' + formaterUnites(p.blocksRequis, p.dec) + ' ' + (symProfil || 'blocks') + ' in its market, below the current price — they are sold as people buy.',
     (p.ethRequis != null && BigInt(p.ethRequis) > 0n)
       ? ('Also needs ' + formaterUnites(p.ethRequis, 18) + ' of the quote token (measured).')
-      : (viaTbLiq ? 'Quote side is TBLOCK — unilateral block range asks for blocks only (measured).' : 'Quote side ETH not required for this unilateral range (measured).'),
+      : (viaTbLiq ? 'Quote side is the old test TBLOCK — unilateral block range asks for blocks only (measured).' : 'Quote side ETH not required for this unilateral range (measured).'),
     estTbLiq
       /* ⛔ AUDIT 2026-09-20 (bloquant) : ces deux lignes promettaient un revenu de trading au deposant.
        * Sur nos marches le frais LP est 0 — la position ne gagne rien sur les echanges. On dit le vrai. */
@@ -23941,7 +23944,7 @@ function majFraisEtRecap() {
   const R = RESEAUX[CHAINE];
   const v = validerCreation();
   const feePhrase = Number(CHAINE) === 8453
-    ? 'Review: the 0.001 ETH fee opens your market; your wallet shows the exact transaction(s) before you approve.'
+    ? 'Review: this opens your market; your wallet shows the exact transaction(s) and amounts before you approve.'
     : phraseFrais(CHAINE, R.nom, ethUsd, fraisWeiCalcule, soldeEthNat);
   /* tip 2355: ko once in cRecap only — no double « needs a name » */
   $('#cFrais').textContent = v.ko ? '' : feePhrase;
@@ -30058,6 +30061,8 @@ function bcResoudre(ref) {
   const r = String(ref || '').trim();
   /* 2026-10-18 (mesure : « safety UNIT » -> « No block named UNIT ») : UNIT est LE block de l app — connu sans attendre l index du Market */
   if (/^unit$/i.test(r)) return { ok: true, adr: UNIT_APP.toLowerCase(), sym: 'UNIT' };
+  /* game354: « TBLOCK » is the REAL token, known without any index (the old test token of the same name is masked) */
+  if (/^tblock$/i.test(r)) return { ok: true, adr: TBLOCK_REEL.toLowerCase(), sym: 'TBLOCK' };
   if (/^(this|it|block)$/i.test(r)) {
     if (!brainAdr) return { ok: false, pourquoi: 'pick a block first (“this” is the block shown)' };
     const mk = marcheParAdr.get(String(brainAdr).toLowerCase()), lu = bcNoms.get(String(brainAdr).toLowerCase());
@@ -30073,14 +30078,14 @@ function bcResoudre(ref) {
   const haut = r.toUpperCase();
   const reg = registre.find((d) => String(d.symbole).toUpperCase() === haut);
   if (reg) return { ok: true, adr: String(reg.adr).toLowerCase(), sym: reg.symbole };
-  const trouves = [...marcheParAdr.values()].filter((l) => String(l.sym || '').toUpperCase() === haut);
+  const trouves = [...marcheParAdr.values()].filter((l) => String(l.sym || '').toUpperCase() === haut && !estJetonMasque(l.adr));
   if (trouves.length === 1) return { ok: true, adr: String(trouves[0].adr).toLowerCase(), sym: trouves[0].sym };
   if (trouves.length > 1) return { ok: false, pourquoi: trouves.length + ' blocks are named ' + r + ' — paste the address of the one you mean' };
   /* 2026-10-10 (QA Grok Super) : 'IB022' et 'Smoke IB022' etaient refuses alors que le block existe - seul le SYMBOLE de l index du
    *   Market etait cherche. On cherche aussi les NOMS et symboles CONNUS (index du Market, noms lus sur la chaine, carte, creations lues),
    *   egalite exacte sans casse ; plusieurs blocks = REFUSE comme avant (on ne choisit pas a la place). */
   const connus = new Map();
-  const noter = (adr, ...noms) => { const k = String(adr || '').toLowerCase(); if (!/^0x[0-9a-f]{40}$/.test(k)) return; if (noms.some((n) => n && String(n).trim().toUpperCase() === haut)) connus.set(k, String(noms.find((n) => n && String(n).trim().toUpperCase() === haut)).trim()); };
+  const noter = (adr, ...noms) => { const k = String(adr || '').toLowerCase(); if (!/^0x[0-9a-f]{40}$/.test(k) || estJetonMasque(k)) return; if (noms.some((n) => n && String(n).trim().toUpperCase() === haut)) connus.set(k, String(noms.find((n) => n && String(n).trim().toUpperCase() === haut)).trim()); };
   for (const l of marcheParAdr.values()) if (l) noter(l.adr, l.sym, l.nom);
   for (const [k, v] of bcNoms) if (v) noter(k, v.sym, v.nom);
   try { for (const h of habitants || []) if (h) noter(h.adr, h.sym, h.nom); } catch (_) { /* carte absente */ }
@@ -32623,7 +32628,8 @@ async function peindreLock(hote, { offre = false } = {}) {
       for (const j of LK.DUREES_JOURS) { const o = document.createElement('option'); o.value = String(j); o.textContent = j + ' days'; sel.append(o); }
       champD.append(sel); ligne.append(champ, champD); hote.append(ligne);
       hote.append(el('p', 'note', 'You hold ' + LK.fmt(bal) + ' TBLOCK' + (besoin !== null ? ' · the holder stage is $' + ECO.SEUIL_USD + ' locked = ' + LK.fmt(besoin) + ' TBLOCK at the price read now' : '') + '. Adding to a lock keeps its later date. Never send TBLOCK to the lock address yourself: only this button counts, a plain transfer is lost.'));
-      const go = el('button', 'bouton', 'Lock (one batch: approve + lock)'); go.type = 'button';
+      /* game354 (Grok live test): a wallet without batched calls (Rabby) asks twice — the label says so, never "one batch" */
+      const go = el('button', 'bouton', 'Lock — approve, then lock (your wallet may ask twice)'); go.type = 'button';
       go.addEventListener('click', async () => {
         let montant;
         try { montant = BigInt(String(inp.value || '').replace(/[^0-9]/g, '') || '0') * 10n ** 18n; } catch (_) { montant = 0n; }

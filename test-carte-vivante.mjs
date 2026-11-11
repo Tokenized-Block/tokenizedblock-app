@@ -77,7 +77,8 @@ v('les satellites gardent leur tour complet', () => {
 const d = html.indexOf('function aSaPlaceSurLaCarte(');
 assert.ok(d > 0, 'le filtre de la carte est introuvable');
 const src = html.slice(d, indexEol(html, /\r?\n\}/, d) + 2);
-const aSaPlace = new Function(src + '\nreturn aSaPlaceSurLaCarte;')();
+const { estJetonMasque } = await import('./tokenomics.js'); /* game354: the map filter masks the old test token */
+const aSaPlace = new Function('estJetonMasque', src + '\nreturn aSaPlaceSurLaCarte;')(estJetonMasque);
 
 v('un block PROUVE sans marche quitte la carte', () => {
   assert.equal(aSaPlace({ etatVie: 'NON_TROUVEE' }), false);

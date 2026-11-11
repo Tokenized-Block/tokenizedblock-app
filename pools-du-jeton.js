@@ -14,7 +14,7 @@
 //    comme ratee — jamais lue comme « pas de pool ».
 import { keccak256Hex } from './keccak.js';
 import { cleDePool, poolId } from './pool.js';
-import { TBLOCK, TBGAS, TBGAS_POOL_ID } from './tokenomics.js';
+import { TBLOCK_TEST_ANCIEN as TBLOCK, TBGAS, TBGAS_POOL_ID } from './tokenomics.js'; /* game354: in this file TBLOCK = the OLD test token, only to read its LEGACY pools (never shown as "TBLOCK"); the real TBLOCK is tokenomics.TBLOCK */
 
 export const SIGNATURE_INITIALIZE = 'Initialize(bytes32,address,address,uint24,int24,address,uint160,int24)';
 export const TOPIC_INITIALIZE = keccak256Hex(new TextEncoder().encode(SIGNATURE_INITIALIZE));

@@ -1,0 +1,8 @@
+{
+  "foreign-open/lib/v4-core": {
+    "rev": "e50237c43811bd9b526eff40f26772152a42daba"
+  },
+  "lib/forge-std": {
+    "rev": "7fdf81f9ceb2f6ebbb8f9f1c6c5274d5bcc9a1f5"
+  }
+}

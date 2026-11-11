@@ -16,7 +16,7 @@ import { listerAchats, achatDepuisSwap, sensDuSwap } from './achats.js';
 import { formaterUnites } from './montants.js';
 import { CLES_MARCHE, CLE_TBLOCK } from './marche.js';
 import { cleDePool, poolId } from './pool.js';
-import { TBLOCK } from './tokenomics.js';
+import { TBLOCK_TEST_ANCIEN as TBLOCK } from './tokenomics.js'; /* game354: in this file TBLOCK = the OLD test token, only to read its LEGACY pools (never shown as "TBLOCK"); the real TBLOCK is tokenomics.TBLOCK */
 import { confianceDe } from './pools-du-jeton.js';
 
 const ETH_NATIF = '0x0000000000000000000000000000000000000000';
@@ -146,7 +146,7 @@ function deviseConnue(cle, jeton) {
   const autre = String(cle.currency0).toLowerCase() === String(jeton).toLowerCase() ? cle.currency1 : cle.currency0;
   const a = String(autre).toLowerCase();
   if (a === ETH_NATIF) return { nom: 'ETH', dec: 18 };
-  if (a === TBLOCK.toLowerCase()) return { nom: 'TBLOCK', dec: 18 };
+  if (a === TBLOCK.toLowerCase()) return { nom: 'old test TBLOCK', dec: 18 }; /* game354: TBLOCK here = the OLD test token (legacy pools) */
   return null;
 }
 

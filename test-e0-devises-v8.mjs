@@ -52,14 +52,16 @@ const NOUVELLES_20261009 = ['ARMc', 'SKHYc', 'WRDc', 'BIDUc', 'BILIc', 'HSAIc', 
  *   que les 12 du 09 : hors 7030 et hors V8, refusee pour un block NEUF. */
 /* 2026-10-25 : + SANc SEc ULc NOKc LIc (prouvees sur la chaine, achat execute sur fork) — memes regles : hors 7030, hors V8. */
 const NOUVELLES_20261010 = ['SONYc', 'SANc', 'SEc', 'ULc', 'NOKc', 'LIc'];
+/* game354 (2026-11-11): the REAL TBLOCK enters the registry, KNOWN for the name guard — never proposed, and refused for a new block: V8 and 7030 are immutable and list only the old test token. */
+const NOUVELLES_20261111 = ['TBLOCK'];
 
 console.log('one source, pinned to the census (devises-admises.mjs, measured 2026-10-01)');
 ok('12 admitted, by symbol', DEVISES_ADMISES_V8.length === 12 && ADMISES.every((s) => DEVISES_ADMISES_V8.includes(parSym[s])));
 ok('no second (refused) list is exported', !Object.keys(P).some((k) => /REFUSE/i.test(k)), Object.keys(P).filter((k) => /REFUSE/i.test(k)));
 const cibles = ciblesDuCensus().filter((c) => c.sym !== 'TEMOIN');
-ok('the census asks exactly the 19 listed currencies + the 22 added 2026-10-02 + the 21 added 2026-10-03 + the 12 added 2026-10-09 + SONYc (2026-10-10)', cibles.length === 19 + NOUVELLES_20261002.length + NOUVELLES_20261003.length + NOUVELLES_20261009.length + NOUVELLES_20261010.length, cibles.length);
+ok('the census asks exactly the 19 listed currencies + the 22 added 2026-10-02 + the 21 added 2026-10-03 + the 12 added 2026-10-09 + SONYc (2026-10-10)', cibles.length === 19 + NOUVELLES_20261002.length + NOUVELLES_20261003.length + NOUVELLES_20261009.length + NOUVELLES_20261010.length + NOUVELLES_20261111.length, cibles.length);
 ok('refused by the app = complement of the admitted set = exactly the 7 + the 22 + the 21 + the 12 + SONYc',
-  JSON.stringify(cibles.filter((c) => hookDeLancementPour(c.adr, 8453) === null).map((c) => c.sym).sort()) === JSON.stringify([...REFUSEES, ...NOUVELLES_20261002, ...NOUVELLES_20261003, ...NOUVELLES_20261009, ...NOUVELLES_20261010].sort()),
+  JSON.stringify(cibles.filter((c) => hookDeLancementPour(c.adr, 8453) === null).map((c) => c.sym).sort()) === JSON.stringify([...REFUSEES, ...NOUVELLES_20261002, ...NOUVELLES_20261003, ...NOUVELLES_20261009, ...NOUVELLES_20261010, ...NOUVELLES_20261111].sort()),
   cibles.filter((c) => hookDeLancementPour(c.adr, 8453) === null).map((c) => c.sym));
 ok('ETH and TBLOCK open on V8', hookDeLancementPour(ETH_NATIF, 8453) === 'V8' && hookDeLancementPour(TBLOCK_MAINNET, 8453) === 'V8');
 

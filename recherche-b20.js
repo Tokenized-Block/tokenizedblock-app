@@ -59,12 +59,15 @@ function alias(sym, action) {
  * Fusionne les sources par adresse. `sources` : [{ nom, entrees: iterable de { adr, sym?, nom?, marche?, action?, notre?, volume? } }].
  * Une entree a l adresse mal formee est ignoree. Le premier symbole / nom rencontre (ordre des sources) est celui qui est servi.
  */
+/* game354 (Phil 2026-11-11): the OLD test token named TBLOCK (created by the app at block 51,260,745) is hidden — copied from tokenomics.js */
+const TBLOCK_TEST_ANCIEN_RECHERCHE = '0xb20000000000000000000024c30d3fcb7931272e';
 export function construireIndex(sources) {
   const par = new Map();
   for (const src of sources || []) {
     for (const e of (src && src.entrees) || []) {
       const adr = String((e && e.adr) || '').toLowerCase();
       if (!ADR.test(adr)) continue;
+      if (adr === TBLOCK_TEST_ANCIEN_RECHERCHE) continue; /* game354: the OLD test "TBLOCK" is never found by search */
       let x = par.get(adr);
       if (!x) { x = { adr, syms: [], noms: [], sources: new Set(), action: false, marche: false, notre: false, volume: 0 }; par.set(adr, x); }
       x.sources.add(String(src.nom || '?'));

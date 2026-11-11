@@ -43,9 +43,11 @@ console.log('il ne casse rien de ce qui existait');
 for (const s of ['ETH', 'USDC', 'cbBTC', 'TOSHI']) {
   ok(s + ' est toujours propose', pairesProposees(8453).some((p) => p.symbole === s));
 }
+/* game354: by ADDRESS (the old test token is now symbol oldTBLOCK), and BOTH conditions — the check tested nothing otherwise */
+const ancienTb = DEVISES_BASE.find((d) => String(d.adr).toLowerCase() === '0xb20000000000000000000024c30d3fcb7931272e');
 ok('TBLOCK reste NON propose (decision du 2026-09-24)',
-  !pairesProposees(8453).some((p) => p.symbole === 'TBLOCK')
-  || proposableEnEchange(DEVISES_BASE.find((d) => d.symbole === 'TBLOCK')) === false);
+  !!ancienTb && !pairesProposees(8453).some((p) => String(p.adr).toLowerCase() === '0xb20000000000000000000024c30d3fcb7931272e')
+  && proposableEnEchange(ancienTb) === false);
 ok('aucun doublon d adresse dans la liste', (() => {
   const v = DEVISES_BASE.map((d) => d.adr.toLowerCase());
   return new Set(v).size === v.length;

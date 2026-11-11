@@ -27,8 +27,10 @@ let n = 0;
 const v = (nom, fn) => { fn(); n++; };
 
 v('TBLOCK est marque comme non lance publiquement', () => {
-  const t = DEVISES_BASE.find((p) => p.symbole === 'TBLOCK');
+  /* game354: looked up by ADDRESS (the old test token); its symbol is oldTBLOCK, never the bare TBLOCK */
+  const t = DEVISES_BASE.find((p) => String(p.adr).toLowerCase() === String(TBLOCK_MAINNET).toLowerCase());
   assert.ok(t, 'l entree TBLOCK a disparu de DEVISES_BASE : ce test ne garde plus rien');
+  assert.equal(t.symbole, 'oldTBLOCK', 'the old test token is named TBLOCK again: two TBLOCKs on screen');
   assert.equal(t.lancePubliquement, false, 'TBLOCK n est plus marque non-lance : il reviendrait dans les listes');
   assert.equal(String(t.adr).toLowerCase(), String(TBLOCK_MAINNET).toLowerCase());
 });
@@ -38,7 +40,7 @@ v('le filtre retire TBLOCK et RIEN D AUTRE', () => {
    *     entier — un panneau vide serait bien pire que le defaut corrige. On verifie les DEUX cotes :
    *     ce qui doit partir part, ce qui doit rester reste. */
   const retires = DEVISES_BASE.filter((p) => !proposableEnEchange(p)).map((p) => p.symbole);
-  assert.deepEqual(retires, ['TBLOCK'], 'actifs retires inattendus : ' + retires.join(', '));
+  assert.deepEqual(retires, ['oldTBLOCK', 'TBLOCK'], /* game354: the old test token (oldTBLOCK) and the REAL one, known for the name guard — neither is proposed */ 'actifs retires inattendus : ' + retires.join(', '));
   const gardes = DEVISES_BASE.filter(proposableEnEchange).map((p) => p.symbole);
   for (const doitRester of ['ETH', 'USDC', 'cbBTC']) {
     assert.ok(gardes.includes(doitRester), doitRester + ' a ete retire par erreur : le selecteur se viderait');

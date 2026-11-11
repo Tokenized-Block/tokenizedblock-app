@@ -8,7 +8,7 @@
 //    bundler comme `tx.origin` — ni l un ni l autre n est l admin du block. Un compte qui a du code doit donc
 //    s INSCRIRE d abord (`inscrire(key, sqrtPrice)`), au MEME prix que l initialisation (le hook l exige).
 import { planLancement } from './lancer-pool.js';
-import { TBLOCK, HOOK_PREVU, HOOK_V2, hookDeploye, estHook7030 } from './tokenomics.js';
+import { TBLOCK_TEST_ANCIEN as TBLOCK, HOOK_PREVU, HOOK_V2, hookDeploye, estHook7030 } from './tokenomics.js'; /* game354: in this file TBLOCK = the OLD test token, only to read its LEGACY pools (never shown as "TBLOCK"); the real TBLOCK is tokenomics.TBLOCK */
 import { encodeInitializePool, selecteur, poolId } from './pool.js';
 
 export const ETATS_V2 = ['HOOK_ABSENT', 'PRET', 'APPROBATIONS', 'REFUSE', 'NON_MESURE'];

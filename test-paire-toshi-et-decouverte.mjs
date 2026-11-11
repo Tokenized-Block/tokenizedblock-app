@@ -39,7 +39,8 @@ cas('⛔⛔ TBLOCK n est plus PROPOSE, mais reste CONNU', () => {
   assert.ok(!P.some((x) => x.symbole === 'TBLOCK'),
     'TBLOCK est de nouveau propose a la creation : on promettrait un marche qui n existe pas, et '
     + 'l acheteur ne l apprendrait qu apres avoir paye la naissance');
-  assert.ok(DEVISES_BASE.some((x) => x.symbole === 'TBLOCK'),
+  /* game354: KNOWN = the real TBLOCK under its name (the old test token is oldTBLOCK) */
+  assert.ok(DEVISES_BASE.some((x) => x.symbole === 'TBLOCK' && String(x.adr).toLowerCase() === '0xb200000000000000000000ba9bf8330307f8830e'),
     'TBLOCK a ete SUPPRIME du registre : les blocks deja cotes en TBLOCK perdraient leur libelle. '
     + 'On filtre ce qu on propose, on ne supprime pas ce qu on connait');
   assert.ok(/d\.lancePubliquement !== false/.test(pai),

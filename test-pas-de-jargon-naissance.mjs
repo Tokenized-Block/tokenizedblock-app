@@ -79,8 +79,8 @@ const via = (v) => new Function('info', corps)({ via: v });
 
 cas('⛔⛔⛔ « via … » NE MONTRE QUE LA DEVISE — jamais TbFeeHook, on-chain key, V4_…, hooked/legacy Launch', () => {
   const vus = {
-    'TBLOCK · 0 % · TbFeeHook v8': ' · via TBLOCK',
-    'TBLOCK · 0 %': ' · via TBLOCK',
+    'TBLOCK · 0 % · TbFeeHook v8': ' · via the old test TBLOCK', /* game354: the legacy label names the OLD token */
+    'TBLOCK · 0 %': ' · via the old test TBLOCK',
     'on-chain key · ETH': ' · via ETH',
     'on-chain key · USDC': ' · via USDC',
     'ETH · fee hook': ' · via ETH',

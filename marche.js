@@ -20,7 +20,7 @@
 // ✅ 2026-09-15 P0: App Launch attaches HOOK_PREVU — try that key first (ETH + TBLOCK), then legacy zero-hook.
 import { cleDePool, poolId, selecteur, prixDepuisSqrt } from './pool.js';
 import { capitalisation } from './pointsdevie.js';
-import { TBLOCK, HOOK_PREVU, HOOK_V2, HOOK_V3, HOOK_V4, HOOK_V5, HOOK_V6, HOOK_V7, HOOK_V8, HOOK_7030, HOOK_7030_ACTIF } from './tokenomics.js';
+import { TBLOCK_TEST_ANCIEN as TBLOCK, HOOK_PREVU, HOOK_V2, HOOK_V3, HOOK_V4, HOOK_V5, HOOK_V6, HOOK_V7, HOOK_V8, HOOK_7030, HOOK_7030_ACTIF } from './tokenomics.js'; /* game354: in this file TBLOCK = the OLD test token, only to read its LEGACY pools (never shown as "TBLOCK"); the real TBLOCK is tokenomics.TBLOCK */
 import { pairesProposees } from './paires.js';
 import { enVolBorne, lireEnsemble } from './lectures-en-vol.js';
 
@@ -79,15 +79,15 @@ async function vieEnTblock({ rpc, stateView, jeton }) {
   /* ⛔ P0 2026-09-15: Launch may open TBLOCK/block with HOOK_PREVU — try hooked key first, then legacy zero. */
   /* tip 20260923-wallet-intent-market: Instant Birth opens HOOK_V8 — try current hooks before legacy. */
   const variants = [
-    { hooks: HOOK_V8, via: 'TBLOCK · 0 % · TbFeeHook v8' },
-    { hooks: HOOK_V7, via: 'TBLOCK · 0 % · TbFeeHook v7' },
-    { hooks: HOOK_V6, via: 'TBLOCK · 0 % · TbFeeHook v6' },
-    { hooks: HOOK_V5, via: 'TBLOCK · 0 % · TbFeeHook v5' },
-    { hooks: HOOK_V4, via: 'TBLOCK · 0 % · TbFeeHook v4' },
-    { hooks: HOOK_V3, via: 'TBLOCK · 0 % · TbFeeHook v3' },
-    { hooks: HOOK_PREVU, via: 'TBLOCK · 0 % · TbFeeHook' },
-    { hooks: HOOK_V2, via: 'TBLOCK · 0 % · TbFeeHook v2' },
-    { hooks: null, via: 'TBLOCK · 0 %' },
+    { hooks: HOOK_V8, via: 'old test TBLOCK · 0 % · TbFeeHook v8' },
+    { hooks: HOOK_V7, via: 'old test TBLOCK · 0 % · TbFeeHook v7' },
+    { hooks: HOOK_V6, via: 'old test TBLOCK · 0 % · TbFeeHook v6' },
+    { hooks: HOOK_V5, via: 'old test TBLOCK · 0 % · TbFeeHook v5' },
+    { hooks: HOOK_V4, via: 'old test TBLOCK · 0 % · TbFeeHook v4' },
+    { hooks: HOOK_V3, via: 'old test TBLOCK · 0 % · TbFeeHook v3' },
+    { hooks: HOOK_PREVU, via: 'old test TBLOCK · 0 % · TbFeeHook' },
+    { hooks: HOOK_V2, via: 'old test TBLOCK · 0 % · TbFeeHook v2' },
+    { hooks: null, via: 'old test TBLOCK · 0 %' },
   ];
   let cle = null, s = 0n, via = null, ratee = false;
   for (const v of variants) {
