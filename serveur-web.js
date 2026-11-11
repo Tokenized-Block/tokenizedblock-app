@@ -266,6 +266,10 @@ import { lireEtatNaissance } from './etat-naissance.js'; /* game343 CREATE-ONE-P
 import { lireCoffrePaye } from './coffre-paye.js';
 import { classement, vueCompte } from './coeurs.js'; /* game346: hearts given / received / board */
 import { creerIndexCoeurs, LIKES_DEPLOY_BLOC } from './coeurs-index.js';
+import { creerIndexLogs } from './index-logs.js'; /* game353: the community points */
+import { TOPICS as TOPICS_LOCK, decoderLock, LOCK_DEPLOY_BLOC } from './lock-evenements.js';
+import { tableauPoints } from './points.js';
+import { LOCK_DEPLOIEMENT } from './lock-deploiement.js';
 const TBLOCK_ADR = '0xb200000000000000000000ba9bf8330307f8830e';
 const NAISS_ETAT = { cache: new Map(), minute: 0, parIp: new Map() };
 import { lireMarchesMorpho, lireFraisMorphoChaine, lirePositionsMorpho, planEmprunter, planPreter, planRembourser, planRetirerGarantie, planRetirerPret, planEmprunterPanier, PANIER_MAX } from './banque-morpho.js';
@@ -4011,6 +4015,16 @@ function blocksDuCreateur() {
   }
   return COEURS.inverse.map;
 }
+/* ── game353 (Phil 2026-11-11: "a community vault with every user's lock, the points it generates for an airdrop"): the lock events index
+ *   (index-logs.js over TBlockLock, from its deploy block) + the hearts index -> points.js. Read-only; nothing signs. */
+const POINTS = { index: null, minute: 0, parIp: new Map() };
+if (LOCK_DEPLOIEMENT.adresse) {
+  POINTS.index = creerIndexLogs({ rpc: rpcCoeurs, adresse: String(LOCK_DEPLOIEMENT.adresse).toLowerCase(), topics: Object.values(TOPICS_LOCK), decoder: decoderLock, depuis: LOCK_DEPLOY_BLOC });
+  if (process.env.TB_SONDES !== '0' && !ESSAI_SRV.actif) {
+    setTimeout(() => { void POINTS.index.avancer(); setInterval(() => { void POINTS.index.avancer(); }, 60000).unref?.(); }, 25000).unref?.();
+  }
+}
+
 
 let faitsDepuis = null;
 /* ⛔ DENIM (2026-11-05, 0,2 s/bloc mesure par nous ET par Grok) : 3 x 43 200 blocs faisaient 3 jours a 2 s, 7,2 h a 0,2 s — passe ce
@@ -6131,7 +6145,7 @@ const SERVIS = [
   /* the block contest page for users (reads Base, builds unsigned calls for the wallet of the user) and its pure module */
   'contest.html', 'block-contest.js',
   /* holders economy: the +1 burn and the holders vault, their page module, the unsigned deployment (generated) and its page */
-  'economie.js', 'economie-deploiement.js', 'deployer-economie.html', 'create-vault-tip.js', 'relais-rpc.js', 'etat-naissance.js', 'coffre-paye.js', 'carte-naissance.js', 'coeurs-vue.js', 'lock.js', 'lock-deploiement.js', 'deployer-lock.html',
+  'economie.js', 'economie-deploiement.js', 'deployer-economie.html', 'create-vault-tip.js', 'relais-rpc.js', 'etat-naissance.js', 'coffre-paye.js', 'carte-naissance.js', 'coeurs-vue.js', 'lock.js', 'lock-deploiement.js', 'deployer-lock.html', 'points-vue.js',
   /* game120 : ondes, lumiere et son */
   'tam-ondes.js',
   /* game122 : electricite */
@@ -7794,6 +7808,34 @@ function traiterRequete(req, res) {
    *   Reads only (relais-rpc.js validerRelais); node = BASE_RPC_RELAIS if set, else the keyed archive node (CDP), then RPC_LIST.
    *   Budgets: per IP 60 / min, and RELAIS_MAX_JOUR keyed calls per UTC day (20,000 by default, its own counter, apart from the archive's).
    *   A node's JSON-RPC error (a revert) is returned as is, with its data: the page must see a revert as a revert, never as an outage. */
+  if (chemin === '/api/points') {
+    const rendreP = (code, corps) => { res.writeHead(code, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' });
+      res.end(JSON.stringify(corps, (k, v) => (typeof v === 'bigint' ? v.toString() : v))); };
+    if (req.method !== 'GET') { rendreP(405, { ok: false, pourquoi: 'GET only' }); return; }
+    const compteP = String(new URL(req.url, 'http://x').searchParams.get('compte') || '').toLowerCase();
+    if (compteP && !/^0x[0-9a-f]{40}$/.test(compteP)) { rendreP(400, { ok: false, pourquoi: 'usage: /api/points[?compte=<wallet>]' }); return; }
+    const ipP = ipClient(req), minP = Math.floor(Date.now() / 60000);
+    if (POINTS.minute !== minP) { POINTS.minute = minP; POINTS.parIp.clear(); }
+    const nP = (POINTS.parIp.get(ipP) || 0) + 1;
+    if (nP > 60) { rendreP(429, { ok: false, pourquoi: 'busy: retry in a minute' }); return; }
+    POINTS.parIp.set(ipP, nP);
+    if (!POINTS.index || !COEURS.index) { rendreP(200, { ok: false, pourquoi: 'the lock or the hearts are not deployed' }); return; }
+    const lockOk = POINTS.index.complet(), coeursOk = COEURS.index.complet();
+    const evs = POINTS.index.recs().filter((r) => r.t !== undefined);
+    const tab = tableauPoints({ evenementsLock: evs, coeurs: COEURS.index.coeurs(), maintenant: Math.floor(Date.now() / 1000) });
+    const inv = blocksDuCreateur();
+    const corps = {
+      ok: true, complet: lockOk && coeursOk,
+      lock: { complet: lockOk, lusJusqua: POINTS.index.etat.prochain - 1, trou: POINTS.index.etat.trou, sansTemps: POINTS.index.etat.sansTemps, evenements: evs.length },
+      coeurs: { complet: coeursOk },
+      regle: 'lock points per day = TBLOCK locked / 1,000,000 x (1 + 0.5 x min(days left, 90) / 90) while the lock is active; play points = TBLOCK burned in hearts / 1,000,000 x 2. Points decide a SHARE of what the vault actually received; no rate is promised.',
+      board: tab.lignes.slice(0, 20).map((x) => ({ ...x, sesBlocks: (inv.get(x.holder) || []).slice(0, 3) })),
+      somme: tab.somme,
+    };
+    if (compteP) corps.compte = tab.lignes.find((x) => x.holder === compteP) || { holder: compteP, lock: 0, jeu: 0, total: 0, rang: null, part: 0 };
+    rendreP(200, corps);
+    return;
+  }
   if (chemin === '/api/coeurs') {
     const rendreC = (code, corps) => { res.writeHead(code, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' });
       res.end(JSON.stringify(corps, (k, v) => (typeof v === 'bigint' ? v.toString() : v))); };

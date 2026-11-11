@@ -76,6 +76,14 @@ input{width:100%;background:var(--bg2);color:var(--fg);border:1px solid var(--li
   <div id="vueCoeurs" style="margin-top:10px"></div>
 </div>
 
+<!-- game353 (Phil 2026-11-11): the community points, for the airdrop — /api/points, every 60 s -->
+<div class="card">
+  <h2>Community points — the airdrop</h2>
+  <div id="vuePointsMoi"></div>
+  <div id="vuePointsBoard" style="margin-top:8px"><span class="note">reading the points…</span></div>
+  <p class="note" id="vuePointsRegle"></p>
+</div>
+
 <!-- game346 (Phil 2026-11-10): "a leaderboard of the best contributors: see live the holders who use the app". From /api/coeurs, read from
      BlockLikes' own Liked events: TBLOCK burned in hearts, then hearts. Read-only, every 60 s. -->
 <div class="card">
@@ -122,7 +130,8 @@ input{width:100%;background:var(--bg2);color:var(--fg);border:1px solid var(--li
 import { LIKE_PRICE, LIKE_MIN_HOLD, CLAIM_MIN_HOLD, tblockPourUsd } from './economie.js';
 import { displayShort } from './frais-creation.js'; /* the one shortener: a fee wallet address is never displayed */
 import { lignesBoard, lignesCompte } from './coeurs-vue.js'; /* game346: the hearts board and this wallet's hearts */
-import * as LK from './lock.js'; /* game350: the holder stage = TBLOCK locked (TBlockLock); null until deployed */
+import * as LK from './lock.js';
+import { lignesMesPoints, lignesBoardPoints, REGLE_COURTE } from './points-vue.js'; /* game353 */ /* game350: the holder stage = TBLOCK locked (TBlockLock); null until deployed */
 const $ = (s) => document.querySelector(s);
 const esc = (x) => String(x ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const row = (k, v) => '<div class="row"><span class="k">' + esc(k) + '</span><span class="v">' + v + '</span></div>';
@@ -192,6 +201,7 @@ $('#connecter').onclick = async () => {
   catch (e) { box.innerHTML = row('state', pill('SERVER NOT REACHED', 'warn')); return; }
   etat = { wallet: w, challenge: h.ok ? h.challenge : null, balance: h.balance ?? null, holder: h.usd == null ? null : !!h.ok };
   void lireCoeurs();
+  void lirePoints();
   box.innerHTML = row('wallet', esc(displayShort(w))) + row('holds', h.balance == null ? 'not read' : tok(h.balance) + ' TBLOCK')
     + row('worth', fmtUsd(h.usd)) + row('state', h.ok ? pill('HOLDER', 'ok') : pill(h.usd == null ? 'NOT READ' : 'BELOW $' + (h.thresholdUsd || 15), h.usd == null ? 'warn' : 'bad'))
     + (!h.ok && h.why ? row('why', esc(h.why)) : '');
@@ -248,6 +258,17 @@ setInterval(() => { if (!document.hidden) void lirePrix(); }, 30000);
 void lireBurn();
 void lireCoeurs();
 setInterval(() => { if (!document.hidden) void lireCoeurs(); }, 60000);
+/* game353: the community points — the same words as the app (points-vue.js) */
+async function lirePoints() {
+  let r = null;
+  try { r = await api('/api/points' + (etat.wallet ? '?compte=' + etat.wallet : '')); } catch (_) { r = null; }
+  const nom = (x) => displayShort(x);
+  $('#vuePointsMoi').innerHTML = etat.wallet ? lignesMesPoints(r, nom).map((l) => row(l.k, esc(l.v))).join('') : '';
+  $('#vuePointsBoard').innerHTML = lignesBoardPoints(r, nom, etat.wallet).map((l) => (l.moi ? '<b>' : '') + row(l.k, esc(l.v)) + (l.moi ? '</b>' : '')).join('');
+  $('#vuePointsRegle').textContent = REGLE_COURTE;
+}
+void lirePoints();
+setInterval(() => { if (!document.hidden) void lirePoints(); }, 60000);
 
 /* game350 (Phil 2026-11-10: "simpler: send people to BaseStonk for our token"): the in-page buy batch is gone; the link below is the
  *   token page measured on 2026-11-10 (basestonk.io/tokens/<address> -> "TokenizedBlock ($TBLOCK)"), by ADDRESS so it never lands on the

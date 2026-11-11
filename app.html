@@ -3354,6 +3354,12 @@ details[open] > summary::before{transform:rotate(90deg)}
            board of the contributors. From /api/coeurs (BlockLikes' own Liked events); read-only. -->
       <!-- game349: the TBLOCK lock (TBlockLock) — hidden until it is deployed; withdraw always offered once the date passed -->
       <div class="wCoeurs" id="wLock" hidden></div>
+      <!-- game353 (Phil 2026-11-11: "a community vault with every user's lock and the points it generates for an airdrop"): /api/points -->
+      <div class="wCoeurs" id="wPoints" hidden>
+        <p class="sousTitre">Community points</p><div id="wPointsMoi"></div>
+        <p class="note" id="wPointsRegle"></p>
+        <p class="sousTitre">Points board — live</p><div id="wPointsBoard"></div>
+      </div>
       <div class="wCoeurs" id="wCoeurs" hidden>
         <p class="sousTitre">Your hearts ♥</p><div id="wCoeursMoi"></div>
         <p class="sousTitre">Most active holders — live</p><div id="wCoeursBoard"></div>
@@ -3639,7 +3645,7 @@ details[open] > summary::before{transform:rotate(90deg)}
       <!-- ⛔ L EMPREINTE EST AFFICHEE, DONC ELLE EST DE L ANGLAIS. `20261001-pont-dans-lui` a fait
            rougir `test-texte-a-l-ecran.mjs` : le mot « dans » est de la prose francaise partie a
            l ecran anglais. La garde a fait son travail du premier coup. -->
-      <p class="note" data-build="20261109-game352" hidden>Build <code>20261109-game352</code> ·Contract labels say what they do, not our internal names.</p>
+      <p class="note" data-build="20261109-game353" hidden>Build <code>20261109-game353</code> ·Contract labels say what they do, not our internal names.</p>
       <p class="sous">Everything happening to blocks on Base, live.</p>
       <!-- tip 0013: sticky — Hooked chip = Dex fees; unhooked → Launch beside. No fee addr. -->
       <p class="note" id="sfHookedSticky" hidden>Blocks alive on TokenizedBlock pay their creator on every trade. Example:<button type="button" class="puce" id="sfStickyTbgas">Open TBGAS</button>.</p>
@@ -5299,6 +5305,7 @@ import { recordPropose, recordPay, recordJournalHook, feeAlreadyRecognized, phra
 import { repartitionFrappe, TBLOCK, TBGAS, SUPPLY_FIXE, DECIMALES_FIXES, HOOK_PREVU, HOOK_V2, HOOK_V3, HOOK_V4, HOOK_V5, HOOK_V6, HOOK_V7, HOOK_V8, HOOK_V9, HOOK_7030_ACTIF, estHook7030, fraisHookBps, OPTIONS_LANCEMENT, estHookDeNaissance, estNotreHook, hookCourant, hookDeploye, hookV3Deploye, hookV8Deploye, blockPorteLeLabel, HOOKS_PAIENT_DEJA_A6CF } from './tokenomics.js';
 import * as ECO from './economie.js'; /* holders economy: the heart burn and the holders vault (unsigned calls only) */
 import * as CV from './coeurs-vue.js'; /* game346: hearts given / received, the board, the signals between blocks (text only) */
+import * as PV from './points-vue.js'; /* game353: the community points (text only) */
 import * as LK from './lock.js'; /* game349: TBlockLock — unsigned calls only; every lock button hidden until it is deployed */
 import * as TIP from './create-vault-tip.js';
 import { RELAIS_METHODES } from './relais-rpc.js';
@@ -32863,6 +32870,21 @@ async function peindreVaultWallet() {
   carte.hidden = false;
   void peindreCoeursWallet();
   void peindreLock($('#wLock'));
+  void peindrePointsWallet();
+}
+/* game353: the community points — lock points (amount x time, while active) + play points (hearts x2), from /api/points; a SHARE of what
+ *   the vault actually receives, never a rate (points-vue.js says it on every view) */
+async function peindrePointsWallet() {
+  const box = $('#wPoints');
+  if (!box || !LK.LOCK) return;
+  let r = null;
+  try { r = await fetch('/api/points' + (compte ? '?compte=' + String(compte).toLowerCase() : ''), { cache: 'no-store', signal: AbortSignal.timeout(15000) }).then((x) => x.json()); } catch (_) { r = null; }
+  const nom = (x) => bcResoudre(x).sym || court(x);
+  const peindre = (hote, lignes) => { hote.textContent = ''; for (const l of lignes) { const d = document.createElement('div'); d.className = 'stadeLigne' + (l.moi ? ' moi' : ''); const a = document.createElement('span'); a.textContent = l.k; const b = document.createElement('b'); b.textContent = l.v; d.append(a, ' ', b); hote.append(d); } };
+  peindre($('#wPointsMoi'), compte ? PV.lignesMesPoints(r, nom) : [{ k: 'Your points', v: 'connect your wallet to see them' }]);
+  peindre($('#wPointsBoard'), PV.lignesBoardPoints(r, nom, compte));
+  $('#wPointsRegle').textContent = PV.REGLE_COURTE;
+  box.hidden = false;
 }
 /* game346 (Phil 2026-11-10: "the hearts given must show in the user's wallet: who gave them hearts and how many the holder gave back; a
  *   leaderboard of the best contributors, live, to see the holders who use the app"). Painted with the holders vault card (same 60 s pace).
