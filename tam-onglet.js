@@ -2528,6 +2528,17 @@ export function monter(racine, ctx = {}) {
           dit.textContent = 'Minted. ' + AT.texteEtape(montantAchat);
           const b = await ctx.acheterTblock(montantAchat, (t) => { dit.textContent = 'Minted. ' + t; }, c);
           dit.textContent = 'Minted. It appears in the gallery once the block is read. ' + String((b && b.texte) || '');
+          /* game361 (Grok: "l'app doit proposer de terminer l'achat seul après un mint, sans refaire de mint") */
+          if (!(b && b.ok)) {
+            const fin = el('button', { type: 'button', class: 'tamPrim', id: 'tamFinirAchat', text: 'Finish the TBLOCK buy — ' + AT.texteOption(montantAchat).replace(/^Also buy TBLOCK with /, '').replace(/ \(10%\).*$/, '') + ' (no new mint)' });
+            fin.addEventListener('click', async () => {
+              fin.disabled = true;
+              const b2 = await ctx.acheterTblock(montantAchat, (t) => { dit.textContent = t; }, c);
+              dit.textContent = String((b2 && b2.texte) || '');
+              if (b2 && b2.ok) fin.remove(); else fin.disabled = false;
+            });
+            signe.replaceChildren(fin);
+          }
           return;
         }
         dit.textContent = minte ? 'Minted. It appears in the gallery once the block is read.' : 'Not minted: ' + String((res && (res.pourquoi || res.etat)) || 'no answer') + '.';

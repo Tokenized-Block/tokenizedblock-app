@@ -91,7 +91,8 @@ function jeuRegles(M, j) {
 const REFERENCE_9AB857E = [
   /* 2026-10-10 : 9ab857e MOINS les deux noeuds morts mesures en prod (developer-access-mainnet.base.org 0/3 832, 1rpc.io 0/558) */
   "const RPC_LIST = (process.env.BASE_RPC\n  || 'https://mainnet.base.org')\n  .split(',').map((s) => s.trim()).filter(Boolean);",
-  "const RPC_FAITS_POOL = (process.env.BASE_RPC_LECTURE\n  || 'https://mainnet.base.org,https://base.drpc.org')\n  .split(',').map((s) => s.trim()).filter(Boolean);",
+  /* game361: + publicnode + tenderly in the pool-read list (prod measured 2,631 rate limits on mainnet.base.org, publicnode 0) */
+  "const RPC_FAITS_POOL = (process.env.BASE_RPC_LECTURE\n  || 'https://mainnet.base.org,https://base.drpc.org,https://base-rpc.publicnode.com,https://gateway.tenderly.co/public/base')\n  .split(',').map((s) => s.trim()).filter(Boolean);",
   "const RPC_ACTIVITE = [...new Set([...RPC_LIST, 'https://base-rpc.publicnode.com', 'https://base.drpc.org'])];",
   "const RPC_SIMULATION = ['https://mainnet.base.org', 'https://base-rpc.publicnode.com', 'https://base.drpc.org'];",
 ];
@@ -320,7 +321,9 @@ console.log('vrai code : ' + (n - avantReel) + ' assertions, ' + ko + ' KO');
 try {
   const vieux = execFileSync('git', ['show', '9ab857e:serveur-web.js'], { cwd: ICI, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }).replace(/\r\n/g, '\n');
   /* 2026-10-10 : la reference = 9ab857e MOINS les deux noeuds morts ; le temoin retire ces deux noeuds du texte de 9ab857e, et rien d autre */
-  const vieuxMoins = vieux.split(",https://developer-access-mainnet.base.org'").join("'").split(",https://developer-access-mainnet.base.org,").join(",").split(",https://1rpc.io/base'").join("'");
+  const vieuxMoins = vieux.split(",https://developer-access-mainnet.base.org'").join("'").split(",https://developer-access-mainnet.base.org,").join(",").split(",https://1rpc.io/base'").join("'")
+    /* game361: then the two nodes added to the pool-read list, and nothing else */
+    .split("|| 'https://mainnet.base.org,https://base.drpc.org')").join("|| 'https://mainnet.base.org,https://base.drpc.org,https://base-rpc.publicnode.com,https://gateway.tenderly.co/public/base')");
   ok(REFERENCE_9AB857E.every((d) => vieuxMoins.includes(d)) && vieux.includes('developer-access-mainnet.base.org') && vieux.includes('1rpc.io/base'), 'temoin : les quatre declarations de reference sont, au caractere pres, celles du commit 9ab857e moins developer-access-mainnet.base.org et 1rpc.io');
 } catch (_) { console.log('NON LU : git ne rend pas 9ab857e ici — la reference recopiee n a pas ete comparee au commit (elle l a ete le 2026-10-04)'); }
 

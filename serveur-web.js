@@ -342,9 +342,12 @@ const RPC_LIST = ESSAI_SRV.actif ? [ESSAI_SRV.rpc] : (process.env.BASE_RPC
   .split(',').map((s) => s.trim()).filter(Boolean);
 /* ⛔ LA LISTE LARGE, RESERVEE AUX LECTURES QUI NE FONT QUE `eth_call` : quatre fois le quota pour
  *   les faits de pool, sans toucher aux chemins qui ont besoin de `eth_getLogs`. */
+/* game361 (Grok's live test 2026-11-11: the TBLOCK buy after a TAM mint failed "You reached Public endpoint rate limit"). Measured on prod
+ *   /sante.envois since 12:48 UTC: mainnet.base.org 3,342 ok / 2,631 rate-limited, base.drpc.org 925 ok / 1,114 limited, publicnode 553 ok / 0
+ *   limited. Probed the same day: publicnode and tenderly answer eth_call WITH a state override (the patched Aerodrome quoter needs it). */
 const RPC_FAITS_POOL = ESSAI_SRV.actif ? [ESSAI_SRV.rpc] : (process.env.BASE_RPC_LECTURE
   /* 2026-10-10 (mesure prod, Claude) : developer-access-mainnet.base.org 0 ok / 3 832 et 1rpc.io 0 ok / 558 -> retires */
-  || 'https://mainnet.base.org,https://base.drpc.org')
+  || 'https://mainnet.base.org,https://base.drpc.org,https://base-rpc.publicnode.com,https://gateway.tenderly.co/public/base')
   .split(',').map((s) => s.trim()).filter(Boolean);
 let tourFaits = 0, idFaits = 0;
 /* ══ 2026-10-10 — CE QUI PART VRAIMENT SUR LE RESEAU, PAR HOTE (/sante.envois) ═══════════════════════════════════════════════

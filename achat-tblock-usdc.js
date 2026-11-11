@@ -49,6 +49,14 @@ export function verifierPlanAchat(p, { montant }) {
   return { ok: true, appels, recoitAuMoins: min, frais };
 }
 
+/** game361: a plan worth asking again — not read (no answer, NON_MESURE, busy / rate limit / 429, served from the cache); never a REFUSE */
+export function planAReessayer(p, v) {
+  if (v && v.ok) return false;
+  if (!p || typeof p !== 'object') return true;
+  if (p.depuisCache === true) return true;
+  if (p.etat === 'NON_MESURE') return true;
+  return /busy|rate limit|too many|429|could not be read|not read|timeout|capacity/i.test(String(p.pourquoi || ''));
+}
 const usd = (raw) => (Number(BigInt(raw)) / 1e6).toFixed(2);
 /** the checkbox label, before paying */
 export function texteOption(montant) { return 'Also buy TBLOCK with ' + usd(montant) + ' USDC (10%) — it goes to your wallet'; }

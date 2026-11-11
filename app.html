@@ -3718,7 +3718,7 @@ details[open] > summary::before{transform:rotate(90deg)}
       <!-- ⛔ L EMPREINTE EST AFFICHEE, DONC ELLE EST DE L ANGLAIS. `20261001-pont-dans-lui` a fait
            rougir `test-texte-a-l-ecran.mjs` : le mot « dans » est de la prose francaise partie a
            l ecran anglais. La garde a fait son travail du premier coup. -->
-      <p class="note" data-build="20261109-game360" hidden>Build <code>20261109-game360</code> ·Contract labels say what they do, not our internal names.</p>
+      <p class="note" data-build="20261109-game361" hidden>Build <code>20261109-game361</code> ·Contract labels say what they do, not our internal names.</p>
       <p class="sous">Everything happening to blocks on Base, live.</p>
       <!-- tip 0013: sticky — Hooked chip = Dex fees; unhooked → Launch beside. No fee addr. -->
       <p class="note" id="sfHookedSticky" hidden>Blocks alive on TokenizedBlock pay their creator on every trade. Example:<button type="button" class="puce" id="sfStickyTbgas">Open TBGAS</button>.</p>
@@ -6131,9 +6131,16 @@ async function acheterTblockUsdc(montant, dire = () => {}, payeur = null) {
   if (!c) return { ok: false, texte: 'TBLOCK not bought: no wallet connected.' };
   /* review 358: the buy belongs to the wallet that paid; another wallet connected meanwhile buys nothing */
   if (payeur && String(payeur).toLowerCase() !== String(c).toLowerCase()) return { ok: false, texte: 'TBLOCK not bought: the connected wallet changed since the payment — nothing was sent.' };
-  let p = null;
-  try { p = await fetch(AT.urlPlanAchat({ montant, compte: c }), { cache: 'no-store', signal: AbortSignal.timeout(30000) }).then((x) => x.json()); } catch (_) { p = null; }
-  const v = AT.verifierPlanAchat(p, { montant });
+  /* game361 (Grok's live test: "the pinned pools could not be read just now: You reached Public endpoint rate limit"): a plan that was NOT
+   *   READ (busy nodes, the 15 s cache, a 429) is asked again — 3 tries, 4 s then 8 s apart, said on screen. A plan REFUSED for a real reason
+   *   (no USDC, the old TBLOCK, another amount) is never retried. */
+  let p = null, v = null;
+  for (let essai = 0; essai < 3; essai += 1) {
+    if (essai > 0) { dire('Base nodes are busy — asking the TBLOCK route again (' + (essai + 1) + '/3)…'); await new Promise((o) => setTimeout(o, 4000 * essai)); }
+    try { p = await fetch(AT.urlPlanAchat({ montant, compte: c }), { cache: 'no-store', signal: AbortSignal.timeout(30000) }).then((x) => x.json()); } catch (_) { p = null; }
+    v = AT.verifierPlanAchat(p, { montant });
+    if (v.ok || !AT.planAReessayer(p, v)) break;
+  }
   if (!v.ok) return { ok: false, texte: 'TBLOCK not bought: ' + v.pourquoi + '.' };
   /* game361 (Phil 2026-11-11, after Grok's Rabby test: the 5 USDC reached the dev and NO TBLOCK was bought — "les paiements doivent faire un
    *   achat en TBLOCK"): one all-or-nothing batch when the wallet offers it; otherwise the SAME calls signed one by one, and the result is
