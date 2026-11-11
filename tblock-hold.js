@@ -241,9 +241,15 @@ export function joinRequestDecision(update, { chatId, approved, nowMs }) {
   return { userId: r.from.id, approve: !!(a && a.exp > nowMs), wallet: a ? a.wallet : null };
 }
 
+/** game370: is the holders' bot configured? A BOOLEAN only — the server publishes it (GET /api/tblock/hold telegramReady) so the page
+ *  shows "opening soon" instead of a button that can only answer TELEGRAM_NOT_CONFIGURED. Same rule as the invite below. */
+export function telegramConfigured({ token, chatId } = {}) {
+  return String(token ?? '').trim() !== '' && String(chatId ?? '').trim() !== '';
+}
+
 /* ── Telegram: a ONE-TIME invite link, created by the group's bot (the token and chat id live in the server env, never here) ── */
 export async function telegramInvite({ token, chatId, wallet, nowS, fetchImpl = fetch, ttlS = 900, joinRequest = false }) {
-  if (!token || !chatId) return { ok: false, state: 'TELEGRAM_NOT_CONFIGURED', why: 'the Telegram bot is not configured on this server yet' };
+  if (!telegramConfigured({ token, chatId })) return { ok: false, state: 'TELEGRAM_NOT_CONFIGURED', why: 'the Telegram bot is not configured on this server yet' };
   /* joinRequest: the link only ASKS to join and the bot approves the proven account alone (Telegram forbids member_limit with it) */
   const body = { chat_id: chatId, expire_date: Math.floor(nowS) + ttlS, name: ('hold ' + bas(wallet).slice(0, 10)).slice(0, 32),
     ...(joinRequest ? { creates_join_request: true } : { member_limit: 1 }) };

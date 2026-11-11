@@ -3688,7 +3688,7 @@ details[open] > summary::before{transform:rotate(90deg)}
       <!-- ⛔ L EMPREINTE EST AFFICHEE, DONC ELLE EST DE L ANGLAIS. `20261001-pont-dans-lui` a fait
            rougir `test-texte-a-l-ecran.mjs` : le mot « dans » est de la prose francaise partie a
            l ecran anglais. La garde a fait son travail du premier coup. -->
-      <p class="note" data-build="20261109-game369" hidden>Build <code>20261109-game369</code> ·Contract labels say what they do, not our internal names.</p>
+      <p class="note" data-build="20261109-game370" hidden>Build <code>20261109-game370</code> ·Contract labels say what they do, not our internal names.</p>
       <p class="sous">Everything happening to blocks on Base, live.</p>
       <!-- tip 0013: sticky — Hooked chip = Dex fees; unhooked → Launch beside. No fee addr. -->
       <p class="note" id="sfHookedSticky" hidden>Blocks alive on TokenizedBlock pay their creator on every trade. Example:<button type="button" class="puce" id="sfStickyTbgas">Open TBGAS</button>.</p>
@@ -5006,7 +5006,7 @@ let Duels = DuelsV1;
 /* 2026-10-23 : les slots (BlockSlots) — encodeurs purs, faces, points, loi exacte ; le contrat vient de /api/slots, sinon rien ne se montre */
 import * as Slots from './slots-plan.js';
 /* 2026-10-24 : « Pay with » — payer un jeu avec un jeton profond (swap exact-output en USDC, puis les appels du jeu inchanges) */
-import { CANDIDATS_CL as MISABLES_CANDIDATS, coterMisable, planPayerEnJeton, usdcAViser, besoinDuJeu, tailleCouvrante as tailleMisable } from './misables.js';
+import { CANDIDATS_CL as MISABLES_CANDIDATS, coterMisable, planPayerEnJeton, usdcAViser, besoinDuJeu, tailleCouvrante as tailleMisable, WETH as WETH_BASE_ADR } from './misables.js';
 /* 2026-10-28 (Phil) : UNIT, UNE option de plus (UNIT -> ETH -> USDC, un lot atomique) — la ligne servie a la forme des autres ; au clic, un
  *   devis VIVANT a la taille EXACTE du geste decide (<= 1 %), jamais 10 000 USDC ; sans lot atomique : refuse, rien n est envoye */
 import { coterUnit, planPayerEnUnit, ROUTE_UNIT } from './payer-unit.js';
@@ -7197,7 +7197,11 @@ async function peindreSkinsJeu() {
     const moi = compte ? String(compte).toLowerCase() : null, t = Math.floor(Date.now() / 1000);
     const enVente = r.skins.filter((s) => s.enVente);
     const miennes = moi ? r.skins.filter((s) => s.detenteur === moi && !s.enVente) : [];
-    jb('jbSkins', String(enVente.length)); jb('jbSkinsTxt', enVente.length ? 'for sale' : 'mint the first');
+    /* game370 (visitor audit, prod game369): the card said "0 · mint the first" while Skin #1 was minted (not listed). With none for
+     *   sale it now counts the skins minted (the contract's total when the read is truncated); "mint the first" only when none is. */
+    const nMintees = Math.max(Number(r.total) || 0, r.skins.length);
+    jb('jbSkins', String(enVente.length || nMintees));
+    jb('jbSkinsTxt', enVente.length ? 'for sale' : (nMintees ? 'minted · none for sale' : 'mint the first'));
     /* Phil 2026-10-18 08:40 : pas de « 0 minted · 0 for sale » — une phrase courte, vraie, qui invite.
      *   2026-10-26 : la phrase vit dans skins-marche.js (texteMarcheSkins) — la section Skins de l onglet Market dit LA MEME */
     etat.textContent = texteMarcheSkins(r.skins, moi);
@@ -22679,7 +22683,7 @@ function peindreApercuCreation() {
     b.classList.toggle('on', !!s && memeApparence(s.a, apparenceChoisie));
   }
   $('#cCombinaisons').textContent = combinaisons().toLocaleString('en-US')
-    + ' possible faces. Two addresses can still land on the same one — we publish the number, not the word « unique ».';
+    + ' possible faces. Two addresses can still land on the same one — we publish the number, not the word “unique”.';
   majFraisEtRecap();
 }
 
@@ -30079,7 +30083,9 @@ function bcResoudre(ref) {
     /* une adresse garde son adresse ; on lui donne seulement son NOM : le registre d abord, sinon l index du Market, sinon l adresse abregee */
     const parAdr = registre.find((d) => String(d.adr).toLowerCase() === r.toLowerCase()), mk = marcheParAdr.get(r.toLowerCase());
     const luA = bcNoms.get(r.toLowerCase());
-    return { ok: true, adr: r.toLowerCase(), sym: (parAdr && parAdr.symbole) || (mk && mk.sym) || (luA && luA.sym) || court(r) };
+    /* game370 (visitor audit, prod game369): a block quoted in WETH showed "You pay 0x4200…0006" — WETH is in no registry here */
+    const weth = r.toLowerCase() === String(WETH_BASE_ADR).toLowerCase() ? 'WETH' : '';
+    return { ok: true, adr: r.toLowerCase(), sym: (parAdr && parAdr.symbole) || (mk && mk.sym) || (luA && luA.sym) || weth || court(r) };
   }
   const haut = r.toUpperCase();
   const reg = registre.find((d) => String(d.symbole).toUpperCase() === haut);
@@ -32950,9 +32956,16 @@ async function peindreVaultWallet() {
         const h = await fetch('/api/tblock/hold?wallet=' + String(compte).toLowerCase(), { cache: 'no-store', signal: AbortSignal.timeout(20000) }).then((x) => x.json());
         if (h && h.ok) {
           const d = document.createElement('div'); d.className = 'stadeLigne';
-          const a = document.createElement('a'); a.href = 'holders.html'; a.target = '_blank'; a.rel = 'noopener';
-          a.textContent = 'You hold $' + Number(h.usd).toFixed(2) + ' of TBLOCK — join the holders’ channel →';
-          d.append(a); rows.append(d);
+          /* game370: the link only once the server says the holders' bot is configured (telegramReady, a boolean); before that the
+           *   invite could only answer TELEGRAM_NOT_CONFIGURED, so the line says "opening soon" and links nowhere */
+          if (h.telegramReady === true) {
+            const a = document.createElement('a'); a.href = 'holders.html'; a.target = '_blank'; a.rel = 'noopener';
+            a.textContent = 'You hold $' + Number(h.usd).toFixed(2) + ' of TBLOCK — join the holders’ channel →';
+            d.append(a);
+          } else {
+            d.textContent = 'You hold $' + Number(h.usd).toFixed(2) + ' of TBLOCK · Holders’ channel: opening soon';
+          }
+          rows.append(d);
         }
       } catch (_) { /* not read: no link, never a wrong one */ }
     }
@@ -32961,7 +32974,7 @@ async function peindreVaultWallet() {
   const wc = $('#wVaultComment');
   if (wc && !wc.textContent) wc.textContent = 'Each week the vault keeps a budget for the players: a share of the TBLOCK they burned with hearts, never more than they burned, claimed within the claim window. '
     + 'Today (v1) the contracts check a fixed amount written at launch: ' + ECO.fmt(ECO.LIKE_MIN_HOLD) + ' TBLOCK still held after a heart, ' + ECO.fmt(ECO.CLAIM_MIN_HOLD) + ' TBLOCK to claim. Before your wallet opens, the app also asks for a heart that you keep $' + ECO.SEUIL_USD + ' of TBLOCK at the price read. '
-    + 'A fixed amount is worth a different number of dollars every day, so the next version (v2, reviewed and fork-tested, not deployed yet) has the contracts ask $' + ECO.SEUIL_USD + ' of TBLOCK LOCKED instead, at a price kept up to date within fixed bounds. Community points are separate: ' + 'Points decide your share of the community drop — a separate distribution, not live yet; the weekly player budget follows what you burned. No rate is promised.';
+    + 'A fixed amount is worth a different number of dollars every day, so the next version (v2, reviewed and fork-tested, not deployed yet) has the contracts ask $' + ECO.SEUIL_USD + ' of TBLOCK LOCKED instead, at a price kept up to date within fixed bounds. In v2: $15 locked to claim; more from $100 locked: +15% at $100, +30% at $500, +50% at $1000; up to +25% more for locking 90 days; you must play that week. Community points are separate: ' + 'Points decide your share of the community drop — a separate distribution, not live yet; the weekly player budget follows what you burned. No rate is promised.';
   void peindreCoeursWallet();
   void peindreLock($('#wLock'));
   void peindrePointsWallet();

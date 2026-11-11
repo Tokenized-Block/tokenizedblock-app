@@ -136,7 +136,7 @@ import { POOLS_ACTIONS_AERODROME } from './pools-actions-aerodrome.js';
 import { readPoolPrice } from './fly-price.js';
 import { createFly, createSession, foreseeNext, FLY } from './fly-core.js';
 import { readPrices as tbReadPrices, readHold as tbReadHold, holdMessage as tbHoldMessage, verifyOwnership as tbVerifyOwnership,
-  telegramInvite as tbTelegramInvite, telegramReply as tbTelegramReply, joinRequestDecision as tbJoinRequestDecision, holderTagCall as tbHolderTagCall, HOLD_THRESHOLD_USD as TB_HOLD_USD, CHALLENGE_TTL_S as TB_CHALLENGE_TTL_S, TBLOCK_POOL as TB_POOL } from './tblock-hold.js';
+  telegramInvite as tbTelegramInvite, telegramConfigured as tbTelegramConfigured, telegramReply as tbTelegramReply, joinRequestDecision as tbJoinRequestDecision, holderTagCall as tbHolderTagCall, HOLD_THRESHOLD_USD as TB_HOLD_USD, CHALLENGE_TTL_S as TB_CHALLENGE_TTL_S, TBLOCK_POOL as TB_POOL } from './tblock-hold.js';
 import { readBurn as tbReadBurn } from './tblock-burn.js';
 import { verifierFrais, compterRevenu, walletsInternes, devisesComptees, LIGNES_FRAIS } from './revenu-externe.js';
 import { ligneRegistre, totauxParCreateur } from './ref-vitrine.js';
@@ -233,7 +233,7 @@ import { NOS_BLOCKS_GENESE, GRAINE_NOS_BLOCKS, graineNosBlocksAdmise, verifierGr
 import { FEE_WALLET, USDC_BASE, CREATE_ROUTER } from './frais-creation.js';
 import { etatLive, htmlLive } from './live.js';
 import { TBLOCK as TBLOCK_JETON, TBLOCK_TEST_ANCIEN, estJetonMasque, OPTIONS_LANCEMENT, HOOK_7030 } from './tokenomics.js';
-import { verifierAchatSkin, validerRecette } from './skins.js';
+import { verifierAchatSkin, validerRecette, jugerBlocSkinV1, COUPURE_SKINS_V1 } from './skins.js';
 import { faceDuBlock } from './face.js';
 import { logoSvg, paramsLogoDepuisApparence } from './logo.js';
 /* ══ RASTERISEUR PNG, CHARGE A LA DEMANDE ══════════════════════════════════════════════════════════
@@ -3421,6 +3421,9 @@ async function enregistrerAchatSkin({ tx, block, skin }) {
     try { [t, recu] = await Promise.all([rpcActivite('eth_getTransactionByHash', [h]), rpcActivite('eth_getTransactionReceipt', [h])]); } catch (_) { t = null; recu = null; }
     const v = verifierAchatSkin({ tx: t, recu, usdc: USDC_BASE, beneficiaire: FEE_WALLET, block: b, recette: vr.recette });
     if (!v.ok) return { ok: false, etat: v.etat, pourquoi: v.pourquoi };
+    /* 2026-11-11: a v1 payment mined at or after the BlockSkins v2 deployment block (read from the record) is not recorded */
+    const jv = jugerBlocSkinV1(v.bloc, COUPURE_SKINS_V1);
+    if (!jv.ok) return { ok: false, etat: jv.etat, pourquoi: jv.pourquoi };
     const achat = { tx: h, bloc: v.bloc, payeur: v.payeur, block: b, recette: vr.recette, t: new Date().toISOString() };
     if (skinsAchats.size >= 2000) skinsAchats.delete(skinsAchats.keys().next().value);
     skinsAchats.set(h, achat); ecrireSkins();
@@ -7596,7 +7599,10 @@ function traiterRequete(req, res) {
   }
   /* 2026-11-09 TBLOCK proof of hold: GET /api/tblock/hold?wallet=0x… (status + a message to sign), POST /api/tblock/telegram-invite */
   if (chemin === '/api/tblock/hold' || chemin === '/api/tblock/telegram-invite') {
-    const send = (code, body) => { res.writeHead(code, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' }); res.end(JSON.stringify(body)); };
+    /* game370: every answer says whether the holders' bot is configured — a boolean, never the token nor the chat id — so the page shows
+     *   "opening soon" instead of a button that can only answer TELEGRAM_NOT_CONFIGURED */
+    const telegramReady = tbTelegramConfigured({ token: process.env.TELEGRAM_BOT_TOKEN, chatId: process.env.TELEGRAM_CHAT_ID });
+    const send = (code, body) => { res.writeHead(code, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' }); res.end(JSON.stringify({ ...body, telegramReady })); };
     const pubHold = (h) => ({ ok: h.ok, usd: h.usd, price: h.price, tblockNeeded: h.tblockNeeded, why: h.why, balance: h.balance, block: h.block,
       priceNow: h.priceNow, priceBefore: h.priceBefore, wtcoinUsd: h.wtcoinUsd, thresholdUsd: h.thresholdUsd ?? TB_HOLD_USD, poolId: TB_POOL.poolId });
     const panneTb = (e) => send(200, { ok: false, state: 'NOT_READ', why: 'the chain did not answer: ' + String((e && e.message) || e).slice(0, 100) });

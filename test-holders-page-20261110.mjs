@@ -17,7 +17,8 @@ t('the address warning (another token shares the name)', /another token uses the
 t('game357: the lock row says it earns points only today (v1 reads the wallet balance)', H.includes("'Lock TBLOCK: community points now, the holder stage with vault v2'") && H.includes('Today it earns points only: hearts, the channel and vault claims still count your wallet balance') && !H.includes("'The holder stage: $' + prix.seuil + ' of TBLOCK LOCKED"));
 t('the lock line: "coming" while undeployed, a link to lock in the app once deployed (game352)', /lockPret \? '<a class="st ok" href="\/#wallet">LOCK IN THE APP →<\/a>' : VENIR\('lock contract to deploy'\)/.test(H) && /import \* as LK from '\.\/lock\.js';/.test(H));
 t('games and the TAM mint listed, open to all', /'Games \(Spin, Roll, Duels\) and the TAM mint'/.test(H) && /<span class="st ok">OPEN<\/span>/.test(H));
-t('vault v2 (from $15 locked, amount x time) shown as in review, never as live', /'Vault v2: from \$' \+ prix\.seuil \+ ' locked, weighted by amount × time locked'/.test(H) && /VENIR\('in review'\)/.test(H));
+/* game370 (Phil 2026-11-11: "$15 gives access; the biggest holders gain more from $100 locked"): the tiers, word for word in test-vault-v2-paliers-370 */
+t('vault v2 ($15 locked to claim, more from $100 locked) shown as in review, never as live', /'Vault v2: more from \$100 locked', '\$15 locked to claim; more from \$100 locked: /.test(H) && /VENIR\('in review'\)/.test(H));
 t('today\'s real vault rule still shown (17.2M held, contract)', /today: the week\\'s players claim with ' \+ tok\(CLAIM_MIN_HOLD\)/.test(H));
 t('lock.js and its data are served', /'lock\.js', 'lock-deploiement\.js'/.test(SRV));
 console.log(ok + '/' + (ok + ko) + (ko ? ' — RED' : ' — green'));

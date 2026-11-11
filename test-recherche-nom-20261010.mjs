@@ -17,11 +17,11 @@ for (let i = html.indexOf('{', debut); i < html.length; i++) {
 }
 assert.ok(debut > 0 && fin > debut, 'bcResoudre introuvable');
 const A = '0xb2' + '0'.repeat(37) + '1', B = '0xb2' + '0'.repeat(37) + '2', C = '0xb2' + '0'.repeat(37) + '3';
-const { estJetonMasque, TBLOCK: TBLOCK_REEL } = await import('./tokenomics.js'); /* game354: bcResoudre masks the old token, TBLOCK = the real one */
+const { estJetonMasque, TBLOCK: TBLOCK_REEL } = await import('./tokenomics.js'); const { WETH: WETH_BASE_ADR } = await import('./misables.js'); /* game370: bcResoudre names WETH */ /* game354: bcResoudre masks the old token, TBLOCK = the real one */
 const fabriquer = ({ marche = [], noms = [], hab = [], crea = [] }) => new Function('estJetonMasque', 'TBLOCK_REEL', 'marcheParAdr', 'bcNoms', 'habitants', 'creationsLues',
-  'DEVISES_BASE', 'ACTIONS_COINBASE', 'brainAdr', 'court', 'window', html.slice(debut, fin) + '; return bcResoudre;')(estJetonMasque, TBLOCK_REEL,
+  'DEVISES_BASE', 'ACTIONS_COINBASE', 'brainAdr', 'court', 'window', 'WETH_BASE_ADR', html.slice(debut, fin) + '; return bcResoudre;')(estJetonMasque, TBLOCK_REEL,
   new Map(marche.map((l) => [l.adr, l])), new Map(noms), hab, crea,
-  [{ symbole: 'USDC', adr: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913', chaines: [8453] }], [], null, (x) => x.slice(0, 6), {});
+  [{ symbole: 'USDC', adr: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913', chaines: [8453] }], [], null, (x) => x.slice(0, 6), {}, WETH_BASE_ADR);
 const r1 = fabriquer({ noms: [[A, { nom: 'Smoke IB022', sym: 'IB022' }]] });
 for (const q of ['IB022', 'ib022', 'Smoke IB022', 'smoke ib022', '  Smoke IB022 ']) {
   const j = r1(q); assert.equal(j.ok, true, q + ' refuse : ' + j.pourquoi); assert.equal(j.adr, A);

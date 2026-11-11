@@ -93,12 +93,17 @@ input{width:100%;background:var(--bg2);color:var(--fg);border:1px solid var(--li
   Each heart is read from the heart contract itself, never from a claim.</p>
 </div>
 
-<div class="card">
-  <h2>Join the holders' channel</h2>
+<!-- game370: the invite answered TELEGRAM_NOT_CONFIGURED on prod. The button only shows once the server says telegramReady === true
+     (GET /api/tblock/hold); until then, and while that flag is not read, the card says "opening soon" and offers nothing to press. -->
+<div class="card" id="tgCarte">
+  <h2 id="tgTitre">Holders' channel: opening soon</h2>
+  <p class="note" id="tgBientot">The Telegram bot is not switched on yet. This card opens by itself when it is; nothing to sign until then.</p>
+  <div id="tgOuvert" hidden>
   <p class="note" style="margin-top:0">In the TokenizedBlock Telegram group, send <b>/hold</b> to @TblockHoldersBot, or connect here. Then sign a <b>message</b>
   (not a transaction: no funds move, no gas) to prove the wallet is yours.</p>
   <button id="signer" disabled>Sign and get my Telegram invite</button>
   <div id="vueInvite" style="margin-top:10px"></div>
+  </div>
 </div>
 
 <div class="card">
@@ -142,6 +147,16 @@ let etat = { wallet: null, challenge: null, balance: null, holder: null };
 let prix = { usd: null, t: 0, seuil: 15 };
 const TG = (() => { try { const c = new URLSearchParams(location.search).get('tg') || ''; return /^[0-9a-f]{24}$/.test(c) ? c : ''; } catch (_) { return ''; } })();
 async function api(path, init) { const r = await fetch(path, init); return r.json(); }
+/* game370: the holders' channel opens only when the server says its bot is configured (telegramReady === true, a boolean from
+ *   /api/tblock/hold). Not read, false or anything else = closed: "opening soon", no button. */
+const TGP = { pret: false };
+function peindreTg(pret) {
+  TGP.pret = pret === true;
+  $('#tgOuvert').hidden = !TGP.pret;
+  $('#tgBientot').hidden = TGP.pret;
+  $('#tgTitre').textContent = TGP.pret ? "Join the holders' channel" : "Holders' channel: opening soon";
+  if (!TGP.pret) $('#signer').disabled = true;
+}
 
 /* the perks, from the contracts' own constants; "you" is filled once a wallet is read */
 function peindrePerks() {
@@ -159,11 +174,11 @@ function peindrePerks() {
   const p = [
     /* game357: the v1 hearts, channel and claim read the WALLET balance; locking moves TBLOCK out of it. Today the lock earns points only. */
     ['🔒', 'Lock TBLOCK: community points now, the holder stage with vault v2', 'locked in the TBlockLock contract (no owner), 7 days or more; leaving = a 7-day withdrawal period. Today it earns points only: hearts, the channel and vault claims still count your wallet balance', 'any amount', null, false, lockPret ? '<a class="st ok" href="/#wallet">LOCK IN THE APP →</a>' : VENIR('lock contract to deploy')],
-    ['💬', 'Holders\' channel on Telegram', 'checked by our server before the invite: $' + prix.seuil + ' of TBLOCK held in your wallet (a lock does not count for it today)', '$' + prix.seuil + ' of TBLOCK', etat.holder === true, etat.holder != null, null],
+    ['💬', 'Holders\' channel on Telegram', 'checked by our server before the invite: $' + prix.seuil + ' of TBLOCK held in your wallet (a lock does not count for it today)', '$' + prix.seuil + ' of TBLOCK', etat.holder === true, etat.holder != null, TGP.pret ? null : VENIR('opening soon')],
     ['♥', 'Heart a block', 'burns ' + tok(LIKE_PRICE) + ' TBLOCK, and you keep $' + prix.seuil + ' of TBLOCK at the price read now; counts as play for the weekly rewards', tok(LIKE_PRICE + garde) + ' TBLOCK' + val(LIKE_PRICE + garde), b != null && b >= LIKE_PRICE + garde, b != null, null],
     ['🎰', 'Games (Spin, Roll, Duels) and the TAM mint', 'open to everyone; only hearts count for the holders vault rewards (games do not)', 'open to all', null, false, '<span class="st ok">OPEN</span>'],
-    ['🏦', 'Holders vault rewards', 'today: the week\'s players claim with ' + tok(CLAIM_MIN_HOLD) + ' TBLOCK held' + val(CLAIM_MIN_HOLD) + '. Next (vault v2): from $' + prix.seuil + ' LOCKED, the reward grows with how much and how long you lock', tok(CLAIM_MIN_HOLD) + ' TBLOCK' + val(CLAIM_MIN_HOLD), b != null && b >= CLAIM_MIN_HOLD, b != null, null],
-    ['🏦', 'Vault v2: from $' + prix.seuil + ' locked, weighted by amount × time locked', 'needs the lock contract and a new vault; written, under review and fork test — not deployed', '$' + prix.seuil + ' locked', null, false, VENIR('in review')],
+    ['🏦', 'Holders vault rewards', 'today: the week\'s players claim with ' + tok(CLAIM_MIN_HOLD) + ' TBLOCK held' + val(CLAIM_MIN_HOLD) + '. Next (vault v2): $15 locked to claim; more from $100 locked: +15% at $100, +30% at $500, +50% at $1000; up to +25% more for locking 90 days; you must play that week', tok(CLAIM_MIN_HOLD) + ' TBLOCK' + val(CLAIM_MIN_HOLD), b != null && b >= CLAIM_MIN_HOLD, b != null, null],
+    ['🏦', 'Vault v2: more from $100 locked', '$15 locked to claim; more from $100 locked: +15% at $100, +30% at $500, +50% at $1000; up to +25% more for locking 90 days; you must play that week. Needs the lock contract and a new vault; written, under review and fork test — not deployed', '$15 locked', null, false, VENIR('in review')],
   ];
   $('#perks').innerHTML = p.map(([ic, t, d, need, ok, lu, force]) => '<div class="perk"><span class="ic">' + ic + '</span><span class="t"><b>' + esc(t) + '</b><small>' + esc(d) + '</small></span>'
     + '<span class="need">' + esc(need) + '<small>' + (force || (lu ? st(ok) : (b == null && etat.holder == null ? st(false) : '<span class="st na">not read</span>'))) + '</small></span></div>').join('');
@@ -173,6 +188,7 @@ function peindrePerks() {
 async function lirePrix() {
   try {
     const p = await api('/api/tblock/hold');
+    peindreTg(p.telegramReady);
     if (Number.isFinite(p.priceNow) && p.priceNow > 0) {
       /* bas = the lower of now and ~10 min ago: the price the $15 rules are judged at (same as the server and the app's heart) */
       const bas = Number.isFinite(p.priceBefore) && p.priceBefore > 0 ? Math.min(p.priceNow, p.priceBefore) : p.priceNow;
@@ -200,14 +216,15 @@ $('#connecter').onclick = async () => {
   let h;
   try { h = await api('/api/tblock/hold?wallet=' + w); }
   catch (e) { box.innerHTML = row('state', pill('SERVER NOT REACHED', 'warn')); return; }
+  peindreTg(h.telegramReady);
   etat = { wallet: w, challenge: h.ok ? h.challenge : null, balance: h.balance ?? null, holder: h.usd == null ? null : !!h.ok };
   void lireCoeurs();
   void lirePoints();
   box.innerHTML = row('wallet', esc(displayShort(w))) + row('holds', h.balance == null ? 'not read' : tok(h.balance) + ' TBLOCK')
     + row('worth', fmtUsd(h.usd)) + row('state', h.ok ? pill('HOLDER', 'ok') : pill(h.usd == null ? 'NOT READ' : 'BELOW $' + (h.thresholdUsd || 15), h.usd == null ? 'warn' : 'bad'))
     + (!h.ok && h.why ? row('why', esc(h.why)) : '');
-  $('#signer').disabled = !(h.ok && h.challenge);
-  if (h.ok && !h.challenge) $('#vueInvite').innerHTML = row('state', pill('BUSY', 'warn')) + row('why', 'too many open requests, try again in a minute');
+  $('#signer').disabled = !(h.ok && h.challenge && TGP.pret);
+  if (TGP.pret && h.ok && !h.challenge) $('#vueInvite').innerHTML = row('state', pill('BUSY', 'warn')) + row('why', 'too many open requests, try again in a minute');
   peindrePerks();
 };
 

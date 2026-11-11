@@ -24,7 +24,8 @@
  * ⛔ Aucun secret, aucune cle, aucun envoi ici : ce module construit un appel NON SIGNE et lit des reponses de noeud. */
 import { encodeTransferAvecMemo } from './messages.js';
 import { topic } from './keccak.js';
-import { SKIN_MINT_USDC, SKIN_MINT_TEXTE } from './blockskins-actif.js';
+import { SKIN_MINT_USDC, SKIN_MINT_TEXTE, chaineDeploiements } from './blockskins-actif.js';
+import { BLOCKSKINS_DEPLOIEMENT } from './blockskins-deploiement.js';
 
 /** Le prix d une skin (6 decimales) : celui du contrat BlockSkins ACTIF, lu dans l enregistrement de deploiement (blockskins-actif.js) —
  *  1 USDC fixe par Phil le 2026-10-04 (v2) ; 10 USDC des que v3 est note (Phil, 2026-10-18). Jamais une constante tapee ici. */
@@ -74,6 +75,24 @@ export function appelAchatSkin({ usdc, beneficiaire, block, recette }) {
   if (!ADR.test(bas(usdc)) || !ADR.test(bas(beneficiaire))) throw new Error('usdc and beneficiary must be whole addresses');
   return { to: bas(usdc), data: encodeTransferAvecMemo(bas(beneficiaire), SKIN_PRIX_USDC, memoSkin(block, recette)), value: '0x0',
     nom: 'pay ' + SKIN_MINT_TEXTE + ' for the skin' };
+}
+
+/** The v1 cutoff (2026-11-11, Phil's default): the block at which BlockSkins v2 was deployed, read from the deployment record
+ *  (blockskins-deploiement.js), never typed. From that block on, a skin is a token minted by the contract; a plain USDC transfer +
+ *  memo to the fee wallet buys no token, so POST /api/skins/achat no longer records one. Payments made before it are still recognised.
+ *  null = the record names no deployed v2 with a whole deployment block (the caller then refuses: fail closed). */
+export function coupureSkinsV1(d = BLOCKSKINS_DEPLOIEMENT) {
+  const v2 = chaineDeploiements(d).find((x) => x && x.version === 2 && /^0x[0-9a-fA-F]{40}$/.test(String(x.adresse || '')));
+  return v2 && Number.isInteger(v2.blocDeploiement) && v2.blocDeploiement > 0 ? v2.blocDeploiement : null;
+}
+export const COUPURE_SKINS_V1 = coupureSkinsV1();
+
+/** Is a VERIFIED v1 payment (transfer + memo) mined in block `bloc` still recordable? Only strictly before the v2 deployment block. */
+export function jugerBlocSkinV1(bloc, coupure = COUPURE_SKINS_V1) {
+  if (!Number.isInteger(coupure)) return { ok: false, etat: 'REFUSE', pourquoi: 'the BlockSkins deployment block could not be read from the deployment record — nothing was recorded' };
+  if (!Number.isInteger(bloc)) return { ok: false, etat: 'NON_LU', pourquoi: 'the block of this payment could not be read yet' };
+  if (bloc >= coupure) return { ok: false, etat: 'REFUSE', pourquoi: 'skins are minted on the BlockSkins contract since block ' + coupure + '; a plain transfer is not a skin — nothing was recorded' };
+  return { ok: true };
 }
 
 /**

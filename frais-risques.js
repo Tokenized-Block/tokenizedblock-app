@@ -213,8 +213,11 @@ export function rendre(C, live) {
       'A separate, visible transfer: your friend receives exactly what you typed. Too small to take, or an ETH send: no fee.'),
     ligne('Roll', usdc(ro.rollPrice),
       pctBps(partPot) + ' goes to the roll pot, ' + pctBps(partDev) + ' to TokenizedBlock at once.'),
-    ligne('Roll pass', usdc(ro.passPrice),
-      ro.passRolls + ' rolls to use within ' + heures(ro.passWindow) + '. ' + pctBps(partPot) + ' goes to that day\'s pass pot, ' + pctBps(partDev) + ' to TokenizedBlock.'),
+    /* game370: ONE product. The app's "Week pass" button buys BlockRolls buyPass(); the server reads PassBought and adds the week's tickets.
+     *   The page used to list it twice ("Roll pass" here + a price-less "Week pass" in the Game card). */
+    ligne('Week pass', usdc(ro.passPrice),
+      'From the BlockRolls contract: ' + ro.passRolls + ' rolls to use within ' + heures(ro.passWindow) + ' and an entry in that day\'s pass pot; ' + pctBps(partPot) + ' of the price goes to that pot, ' + pctBps(partDev) + ' to TokenizedBlock. '
+      + 'From our server, once it reads the purchase on Base: a ticket every day for ' + jours(ti.joursPassSemaine * 86400) + ' and ' + ti.bonusPassSemaine + ' bonus entries in that week\'s pot.'),
     ligne('Skin', usdc(sk.mintUsdc),
       'All of it to TokenizedBlock. On a resale (fixed price or auction), the contract takes ' + pctBps(sk.venteBps) + ' of each sale; the seller gets the rest.'
       + (sk.prochain ? ' A new skin contract at ' + usdc(sk.prochain.mintUsdc) + ' is prepared but not signed yet; until it is, the price is this one.' : '')),
@@ -257,7 +260,6 @@ export function rendre(C, live) {
     ligne('Week\'s reward pot', potSemLu ? usdc(BigInt(potSemBrut)) : '—',
       'Today\'s ticket = 1 entry in this week\'s reward pot; the pot is shared by entries after the week closes (UTC). '
       + (potSemLu ? 'Read from the TicketPot contract by our server (pot of ' + esc(String(ps.jourId).slice(1)) + ', the week\'s last day).' : 'The week\'s pot was not read just now.')),
-    ligne('Week pass', jours(ti.joursPassSemaine * 86400), 'A ticket every day for ' + jours(ti.joursPassSemaine * 86400) + ' and ' + ti.bonusPassSemaine + ' bonus entries in that week\'s pot.'),
     ligne('Skin as a ticket', jours(ti.joursPassSkin * 86400), 'Minting a skin gives the ticket of the day it is minted.'),
   ]) + '<p class="note">BlockRolls contract: ' + (deploye(ro.adresse) ? lienBase(ro.adresse) + ' (it has no withdraw function: USDC leaves only through a winning settle or a day draw; who can change the prizes is under Risks).' : 'not deployed.') + '</p>'
     + (C.ticketpot.deploye ? '' : pasDeploye('TicketPot (the week\'s reward pot, shared by entries): no contract on Base.'))
