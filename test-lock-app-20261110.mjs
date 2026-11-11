@@ -11,7 +11,7 @@ const P = corps('async function peindreLock(');
 
 t('page imports lock.js', /import \* as LK from '\.\/lock\.js';/.test(APP));
 t('server SERVES lock.js, lock-deploiement.js and deployer-lock.html', /'lock\.js', 'lock-deploiement\.js', 'deployer-lock\.html'/.test(SRV));
-t('undeployed today: the frozen data has no address', /adresse: null,/.test(LD));
+t('game352: the frozen data carries the VERIFIED address (verifier 6/6)', /adresse: '0xec46b02bb1f3a58ce37c023f8668f2207bc2b0aa',/.test(LD));
 t('every lock UI hidden while LK.LOCK is null', /if \(!hote \|\| !LK\.LOCK\) \{ if \(hote\) hote\.hidden = true; return; \}/.test(P));
 t('Create offers the lock only once EVERY birth step is done', /if \(LK\.LOCK && lu && r\.ne && !r\.prochaine && r\.restantes === 0\) \{/.test(APP));
 t('the Wallet vault card paints the lock', /void peindreCoeursWallet\(\);\n  void peindreLock\(\$\('#wLock'\)\);\n\}/.test(APP) && /id="wLock" hidden/.test(APP));

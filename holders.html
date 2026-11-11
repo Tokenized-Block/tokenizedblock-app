@@ -148,7 +148,7 @@ function peindrePerks() {
   const lockPret = LK.LOCK !== null;
   const VENIR = (q) => '<span class="st na">coming · ' + esc(q) + '</span>';
   const p = [
-    ['🔒', 'The holder stage: $' + prix.seuil + ' of TBLOCK LOCKED, 7 days or more', 'locked in the TBlockLock contract (no owner); leaving = a 7-day withdrawal period, the perks stop at the request', '$' + prix.seuil + (usd15 !== null ? ' = ' + tok(usd15) + ' TBLOCK' : ''), null, false, lockPret ? null : VENIR('lock contract to deploy')],
+    ['🔒', 'The holder stage: $' + prix.seuil + ' of TBLOCK LOCKED, 7 days or more', 'locked in the TBlockLock contract (no owner); leaving = a 7-day withdrawal period, the perks stop at the request', '$' + prix.seuil + (usd15 !== null ? ' = ' + tok(usd15) + ' TBLOCK' : ''), null, false, lockPret ? '<a class="st ok" href="/#wallet">LOCK IN THE APP →</a>' : VENIR('lock contract to deploy')],
     ['💬', 'Holders\' channel on Telegram', 'checked by our server before the invite (today: $' + prix.seuil + ' held; with the lock: $' + prix.seuil + ' locked)', '$' + prix.seuil + ' of TBLOCK', etat.holder === true, etat.holder != null, null],
     ['♥', 'Heart a block', 'burns ' + tok(LIKE_PRICE) + ' TBLOCK, and you keep $' + prix.seuil + ' of TBLOCK at the price read now; counts as play for the weekly rewards', tok(LIKE_PRICE + garde) + ' TBLOCK' + val(LIKE_PRICE + garde), b != null && b >= LIKE_PRICE + garde, b != null, null],
     ['🎰', 'Games (Spin, Roll, Duels) and the TAM mint', 'open to everyone; a holder\'s plays and hearts count for the holders vault rewards', 'open to all', null, false, '<span class="st ok">OPEN</span>'],

@@ -39,7 +39,7 @@ t('it reads the real TBLOCK, 7 days minimum, 7-day withdrawal period', (await ca
 const ICI = path.dirname(fileURLToPath(import.meta.url));
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'lockfork-'));
 for (const f of ['lock.js', 'keccak.js']) fs.copyFileSync(path.join(ICI, f), path.join(DIR, f));
-fs.writeFileSync(path.join(DIR, 'lock-deploiement.js'), fs.readFileSync(path.join(ICI, 'lock-deploiement.js'), 'utf8').replace('adresse: null', "adresse: '" + LA + "'"));
+fs.writeFileSync(path.join(DIR, 'lock-deploiement.js'), fs.readFileSync(path.join(ICI, 'lock-deploiement.js'), 'utf8').replace(/adresse: (null|'0x[0-9a-f]{40}')/, "adresse: '" + LA + "'"));
 const L = await import(pathToFileURL(path.join(DIR, 'lock.js')).href);
 const now = Number(BigInt((await rpc('eth_getBlockByNumber', ['latest', false])).timestamp));
 const AMT = 500_000n * E;
