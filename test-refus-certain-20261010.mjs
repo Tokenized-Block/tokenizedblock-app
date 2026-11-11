@@ -48,6 +48,7 @@ const ICI = path.dirname(fileURLToPath(import.meta.url));
 const CIBLE = process.argv[2] ? path.resolve(process.argv[2]) : path.join(ICI, 'serveur-web.js');
 const DIR = path.dirname(CIBLE);
 const imp = (f) => import(pathToFileURL(path.join(DIR, f)).href);
+const SANTE_MOD = await imp('rpc-sante.js'); /* game362 */
 const RL = await imp('repli-logs.js');
 const RF = await imp('rythme-fond.js');
 const IR = await imp('index-routeur.js');
@@ -189,7 +190,9 @@ const PARAMS = ['fetch', 'process', 'ESSAI_SRV', 'existsSync', 'join', 'readFile
   'FEE_WALLET', 'CREATE_ROUTER', 'graineNosBlocksAdmise', 'verifierGraineNos', 'NOS_BLOCKS_GENESE', 'GRAINE_NOS_BLOCKS', 'prochaineFenetre', 'frappesVers',
   'holdersCache', 'HOLDERS_MAX', 'lireNaissance', 'naissanceDuJeton', 'passeIncrementale', 'ecrireHolders', 'pauseNosBlocks', 'routeurEnchaine',
   /* 2026-10-25 : apprendreCreationAction (tranche du routeur) lit preuvesActions ; ici aucune action prouvee */
-  'preuvesActions', 'prouverAction'];
+  'preuvesActions', 'prouverAction',
+  /* game362: the server's shared RPC health state (rpc-sante.js), on THIS test's clock */
+  'creerSante'];
 const FICHIER_COMPTE_TMP = '/data/archive-compte.json.tmp';
 
 /** Un « processus » neuf : le code livre, son faux reseau, son faux disque, son horloge et ses minuteurs. */
@@ -217,7 +220,8 @@ function monter(corpsSrc, { c, max = 3000, disque = new Map(), quand = '2026-10-
     IR.scannerNesDuRouteur, IR.GRAINE_ROUTEUR, IR.GRAINE_JUSQUA, IR.PLANCHER_ROUTEUR, IR.RETARD_MAX_INDEX, IR.neDuRouteur, IR.ROUTEURS_ANCIENS,
     FEE_WALLET, CREATE_ROUTER, O.graineNosBlocksAdmise, O.verifierGraineNos, O.NOS_BLOCKS_GENESE, O.GRAINE_NOS_BLOCKS, prochaineFenetre, frappesVers,
     new Map(), 200, SJ.lireNaissance, SJ.naissanceDuJeton, SJ.passeIncrementale, () => {}, RF.pauseNosBlocks, RF.routeurEnchaine,
-    new Map(), async () => { throw new Error('prouverAction ne doit pas etre appelee sans action prouvee'); });
+    new Map(), async () => { throw new Error('prouverAction ne doit pas etre appelee sans action prouvee'); },
+    (o = {}) => SANTE_MOD.creerSante({ ...o, maintenant: () => horloge.t }));
   const jour = () => new FDate().toISOString().slice(0, 10);
   /* budget du jour EPUISE, comme la prod l ecrit (le jour courant, appels >= plafond) */
   const epuiser = () => Object.assign(M.archiveCompte, { jour: jour(), appels: max });
@@ -506,7 +510,8 @@ async function suite(source) {
     const r = await m.rpcNaissance('eth_simulateV1', [{ blockStateCalls: [] }, 'latest']);
     const nNaissance = c.envois.length - nAvant - nActivite;
     /* 2026-10-10 : RPC_ACTIVITE = RPC_LIST (base.org seul, developer-access retire) + publicnode + drpc -> 2 noeuds essayes avant la reponse ici, plus 3 */
-    assert.ok(nActivite === 2 && nNaissance === 2 && Array.isArray(r), 'temoin : rpcActivite ' + nActivite + ' envois (2 attendus), rpcNaissance ' + nNaissance + ' (2 attendus)');
+    /* game362: base.org rate-limited earlier in THIS case is set aside by the shared health state -> the simulation goes straight to the next host: 1 send */
+    assert.ok(nActivite === 2 && nNaissance === 1 && Array.isArray(r), 'temoin : rpcActivite ' + nActivite + ' envois (2 attendus), rpcNaissance ' + nNaissance + ' (1 attendu : base.org mis de cote)');
     assert.ok(m.envoisNoeuds, 'aucun compteur d envois');
     assert.deepEqual(sansZero(m.envoisNoeuds.parHote), attendu(c));
     const vus = Object.values(attendu(c)).flatMap((v) => Object.keys(v));

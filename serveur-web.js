@@ -265,6 +265,7 @@ import { validerRelais, RELAIS_CORPS_MAX } from './relais-rpc.js'; /* game341: t
 import { lireEtatNaissance } from './etat-naissance.js'; /* game343 CREATE-ONE-PATH: the one reader of a birth */
 import { lireCoffrePaye } from './coffre-paye.js';
 import { classement, vueCompte, joueursParSemaine } from './coeurs.js'; /* game346: hearts given / received / board */
+import { creerSante } from './rpc-sante.js'; /* game362: one health state per RPC host */
 import { creerIndexCoeurs, LIKES_DEPLOY_BLOC } from './coeurs-index.js';
 import { creerIndexLogs } from './index-logs.js'; /* game353: the community points */
 import { TOPICS as TOPICS_LOCK, decoderLock, LOCK_DEPLOY_BLOC } from './lock-evenements.js';
@@ -370,12 +371,19 @@ let tourFaits = 0, idFaits = 0;
 const ENVOIS_HOTES_MAX = 40;
 const ENVOIS_CLASSES = ['ok', 'limite', 'erreur', 'reseau'];
 const envoisNoeuds = { depuis: new Date().toISOString(), parHote: {} };
+/* game362 (Phil: "régler une bonne fois pour toutes le problème de RPC"): every answer counted here also feeds ONE health state per host
+ *   (rpc-sante.js): a host that rate-limits or does not answer is tried last for 15 s .. 5 min, by every reader of this server. */
+const SANTE_RPC = creerSante();
+/* the keyed node (RELAIS_CLE, CDP) as the LAST resort of the pool reads when every public host failed — its own daily budget, counted */
+const SECOURS_MAX_JOUR = Number.isSafeInteger(Number(process.env.RPC_SECOURS_MAX_JOUR)) && Number(process.env.RPC_SECOURS_MAX_JOUR) >= 0 ? Number(process.env.RPC_SECOURS_MAX_JOUR) : 5000;
+const secoursCompte = { jour: '', appels: 0, servis: 0, refusBudget: 0, echecs: 0 };
 function compterEnvoi(url, classe) {
   try {
     let h = libelleNoeud(url);
     if (!envoisNoeuds.parHote[h] && Object.keys(envoisNoeuds.parHote).length >= ENVOIS_HOTES_MAX) h = 'autres hotes';
     const c = envoisNoeuds.parHote[h] || (envoisNoeuds.parHote[h] = { ok: 0, limite: 0, erreur: 0, reseau: 0 });
     c[ENVOIS_CLASSES.includes(classe) ? classe : 'erreur'] += 1;
+    SANTE_RPC.noter(libelleNoeud(url), classe); /* game362 */
   } catch { /* un compteur ne casse jamais une lecture */ }
 }
 /** lecteurUrl (repli-logs.js) dont chaque requete envoyee est comptee par hote. Meme nom : le cablage existant ne change pas. */
@@ -392,8 +400,9 @@ function lecteurUrl(url, options = {}) {
  *   pool qu elle n a pas lue. */
 async function callLarge(to, data) {
   let dernier = 'aucun essai';
+  const ordreF = SANTE_RPC.ordonner(RPC_FAITS_POOL, tourFaits++, libelleNoeud); /* game362: available hosts first */
   for (let k = 0; k < RPC_FAITS_POOL.length * 2; k += 1) {
-    const url = RPC_FAITS_POOL[tourFaits++ % RPC_FAITS_POOL.length];
+    const url = ordreF[k % ordreF.length];
     let compte = false; /* 2026-10-10 : chaque requete envoyee, comptee une fois par hote et par issue (compterEnvoi) */
     try {
       const r = await fetch(url, { method: 'POST', signal: AbortSignal.timeout(12000),
@@ -1472,8 +1481,9 @@ async function rpcServeur(methode, params) {
 async function rpcServeurBrut(methode, params) {
   let dernier = null;
   const maxEssais = Math.max(3, RPC_LIST.length);
+  const ordreL = SANTE_RPC.ordonner(RPC_LIST, rpcTour, libelleNoeud); /* game362 */
   for (let k = 0; k < maxEssais; k++) {
-    const url = RPC_LIST[rpcTour % RPC_LIST.length];
+    const url = ordreL[k % ordreL.length];
     rpcTour++;
     /* 2026-10-10 : chaque requete envoyee, comptee UNE fois par hote et par issue (compterEnvoi) — les relances ci-dessous, inchangees */
     let r = null, compte = false;
@@ -2759,8 +2769,9 @@ let idRails = 0;
 async function rpcRails(methode, params) {
   if (methode !== 'eth_call') return rpcServeur(methode, params);
   let dernier = new Error('no endpoint tried');
+  const ordreF = SANTE_RPC.ordonner(RPC_FAITS_POOL, tourFaits++, libelleNoeud); /* game362: available hosts first */
   for (let k = 0; k < RPC_FAITS_POOL.length * 2; k += 1) {
-    const url = RPC_FAITS_POOL[tourFaits++ % RPC_FAITS_POOL.length];
+    const url = ordreF[k % ordreF.length];
     let compte = false; /* 2026-10-10 : chaque requete envoyee, comptee une fois par hote et par issue (compterEnvoi) */
     try {
       const r = await fetch(url, { method: 'POST', signal: AbortSignal.timeout(12000), headers: { 'content-type': 'application/json' },
@@ -2786,7 +2797,27 @@ async function rpcRails(methode, params) {
     }
     await new Promise((ok) => setTimeout(ok, 200 * (k + 1)));
   }
+  /* game362: every public host failed on a read — one try on the keyed node (never for a definitive answer of the chain, never in test mode) */
+  const secours = await secoursCle(methode, params);
+  if (secours.ok) return secours.result;
   throw dernier;
+}
+async function secoursCle(methode, params) {
+  if (!RELAIS_CLE || ESSAI_SRV.actif || methode !== 'eth_call') return { ok: false };
+  const jour = new Date().toISOString().slice(0, 10);
+  if (secoursCompte.jour !== jour) { secoursCompte.jour = jour; secoursCompte.appels = 0; secoursCompte.servis = 0; secoursCompte.refusBudget = 0; secoursCompte.echecs = 0; }
+  if (secoursCompte.appels >= SECOURS_MAX_JOUR) { secoursCompte.refusBudget += 1; return { ok: false }; }
+  secoursCompte.appels += 1;
+  try {
+    const r = await fetch(RELAIS_CLE, { method: 'POST', signal: AbortSignal.timeout(12000), headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: ++idRails, method: methode, params }) });
+    const j = await r.json().catch(() => null);
+    compterEnvoi(RELAIS_CLE, classeEnvoi(r.status, j));
+    const lecture = !(params && params[0] && params[0].from);
+    if (j && !j.error && j.result !== undefined && !(lecture && j.result === '0x')) { secoursCompte.servis += 1; return { ok: true, result: j.result }; }
+  } catch (_) { compterEnvoi(RELAIS_CLE, 'reseau'); }
+  secoursCompte.echecs += 1;
+  return { ok: false };
 }
 /* ══ 2026-10-26 — LA CLE D UN BLOCK PAR SON poolId (cle-par-pool-id.js) ══════════════════════════════════════════════════════
  * ⛔⛔ MESURE (prod 20261025-game46) : /api/trending 194 lignes, 153 sans cle connue, 0 achetable ; ADOF REFUSE depuis ETH et USDC
@@ -3393,8 +3424,9 @@ let tourSim = 0;
 async function rpcNaissance(methode, params) {
   if (methode !== 'eth_simulateV1') return rpcRails(methode, params);
   let dernier = new Error('no endpoint tried');
+  const ordreS = SANTE_RPC.ordonner(RPC_SIMULATION, tourSim++, libelleNoeud); /* game362 */
   for (let k = 0; k < RPC_SIMULATION.length * 2; k += 1) {
-    const url = RPC_SIMULATION[tourSim++ % RPC_SIMULATION.length];
+    const url = ordreS[k % ordreS.length];
     let compte = false; /* 2026-10-10 : chaque requete envoyee, comptee une fois par hote et par issue (compterEnvoi) */
     try {
       const r = await fetch(url, { method: 'POST', signal: AbortSignal.timeout(20000), headers: { 'content-type': 'application/json' },
@@ -9009,6 +9041,7 @@ function traiterRequete(req, res) {
       /* 2026-10-10 : chaque requete JSON-RPC envoyee, par hote (jamais le chemin) et par issue, depuis le demarrage (compterEnvoi ;
        *   ce qui est compte et ce qui ne l est pas : voir envoisNoeuds) */
       envois: envoisNoeuds,
+      santeRpc: { misDeCote: SANTE_RPC.instantane(), secoursCle: { ...secoursCompte, maxJour: SECOURS_MAX_JOUR, pose: !!RELAIS_CLE } }, /* game362 */
       /* game341: the page's last-resort read relay — counts only; the keyed node is named by its host, never its path */
       relais: { noeudCle: RELAIS_CLE ? libelleNoeud(RELAIS_CLE) : null, cleDediee: !!String(process.env.BASE_RPC_RELAIS || '').trim(),
         maxJour: RELAIS_MAX_JOUR, jour: RELAIS.jour, appelsCle: RELAIS.cles, servis: RELAIS.servis, refus: RELAIS.refus, echecs: RELAIS.echecs },
