@@ -138,6 +138,144 @@ t('tag call: group, numeric user, tag', tc && tc.chat_id === -1001 && tc.user_id
 t('no group known -> no tag call', holderTagCall(undefined, 7) === null && holderTagCall(null, 7) === null);
 t('a tag over 16 chars or with an emoji is refused', holderTagCall(-1, 7, 'TBLOCK Holder 2026!') === null && holderTagCall(-1, 7, 'Holder 🔥') === null);
 
+// 5e. game372 Step B: the 10-minute search starts from the LAST answer (hint). A valid hint costs at most 4 timestamp reads and gives the
+//     same block as the full search; a stale hint, one past the head, a changed block time or a failed read give the full search's answer.
+async function serieHint(M) {
+  const f = [];
+  const v = (c, m) => { if (!c) f.push(m); };
+  const compte = (lireTs) => { const w = async (n) => { w.n++; return lireTs(n); }; w.n = 0; return w; };
+  /* 0.2 s per block (Base after Denim), timestamps in whole seconds. The server keeps a read 60 s: a refresh 60 s later (300 blocks) is
+   *  the case the hint is for -> <= 4 reads whatever the head's place inside its second (r). An OLDER hint must still give the right block;
+   *  its read count is printed, not promised: the head's timestamp is a whole second, so the measured block time errs by up to 1 s over
+   *  (head - hint) and the guess can miss by a block or two -> the full search (measured below). */
+  const lus = [];
+  for (const [gap, r] of [[300, 0], [300, 1], [300, 2], [300, 3], [300, 4], [600, 0], [600, 2], [1500, 3], [1500, 0], [3000, 0], [3000, 4]]) {
+    const head0 = HEAD - gap, head1 = HEAD + r;
+    const prev = await M.recentBlockAt({ lireTs: nodeNoArchive, tete: head0, ts: tsOf(head0) - 600 });
+    const full = await M.recentBlockAt({ lireTs: nodeNoArchive, tete: head1, ts: tsOf(head1) - 600 });
+    const c = compte(nodeNoArchive);
+    const viaHint = await M.recentBlockAt({ lireTs: c, tete: head1, ts: tsOf(head1) - 600, hint: prev });
+    v(viaHint === full && full !== null, 'hint ' + gap + ' blocks old: same block as the full search (' + viaHint + ' vs ' + full + ')');
+    const cf = compte(nodeNoArchive);
+    await M.recentBlockAt({ lireTs: cf, tete: head1, ts: tsOf(head1) - 600 });
+    lus.push(gap + '/' + r + ': ' + c.n + ' (full ' + cf.n + ')');
+    if (gap === 300) {
+      v(c.n <= 4, 'hint 60 s old (r=' + r + '): at most 4 timestamp reads (read ' + c.n + ')');
+      const c2 = compte(nodeNoArchive);
+      const pr2 = await M.readPrices({ lire: lireFake([136, 137, 138], 20_000_000), lireTs: c2, tete: head1, hint: prev });
+      v(pr2.before === full && c2.n <= 4, 'readPrices passes the hint: before ' + pr2.before + ' vs ' + full + ', ' + c2.n + ' timestamp reads (<= 4 with the head read)');
+    }
+  }
+  if (M.__principal) console.log('   timestamp reads with a hint, by hint age in blocks / head place r: ' + lus.join(' · '));
+  /* 2 s per block (before Denim): the guess is exact too */
+  const slowTs = (n) => 1_700_000_000 + n * 2, slow = async (n) => slowTs(n);
+  const sPrev = await M.recentBlockAt({ lireTs: slow, tete: HEAD - 40, ts: slowTs(HEAD - 40) - 600 });
+  const sFull = await M.recentBlockAt({ lireTs: slow, tete: HEAD, ts: slowTs(HEAD) - 600 });
+  const cs = compte(slow);
+  v(await M.recentBlockAt({ lireTs: cs, tete: HEAD, ts: slowTs(HEAD) - 600, hint: sPrev }) === sFull && cs.n <= 4, '2 s chain: hint gives the full answer in <= 4 reads (' + cs.n + ')');
+  const target = tsOf(HEAD) - 600, fullNow = await M.recentBlockAt({ lireTs: nodeNoArchive, tete: HEAD, ts: target });
+  /* a stale hint (older than span x 9), one past the head, one AT the head, garbage: the full search, same answer */
+  for (const [nom, hint] of [['stale', HEAD - 60_000], ['past the head', HEAD + 5], ['at the head', HEAD], ['not an integer', 'x'], ['NaN', NaN], ['null', null]]) {
+    v(await M.recentBlockAt({ lireTs: nodeNoArchive, tete: HEAD, ts: target, hint }) === fullNow, nom + ' hint -> the full search answer');
+  }
+  /* a hint whose guessed block fails to read -> the full search, same answer */
+  const prevOk = await M.recentBlockAt({ lireTs: nodeNoArchive, tete: HEAD - 300, ts: tsOf(HEAD - 300) - 600 });
+  let premier = true;
+  const flaky = async (n) => { if (n !== HEAD && n !== prevOk && premier) { premier = false; throw new Error('429'); } return nodeNoArchive(n); };
+  v(await M.recentBlockAt({ lireTs: flaky, tete: HEAD, ts: target, hint: prevOk }) === fullNow, 'failed read of the guessed block -> the full search answer');
+  /* Denim: 2 s per block up to D, 0.2 s after; the hint is from the 2 s era -> the averaged guess lands too LOW (ts(g) <= ts but ts(g+1) <= ts too) */
+  const D = HEAD - 4000, denTs = (n) => (n <= D ? 1_700_000_000 + n * 2 : 1_700_000_000 + D * 2 + Math.floor((n - D) / 5));
+  const den = async (n) => { if (HEAD - n > 30_000) throw new Error('archive refused'); return denTs(n); };
+  const dTarget = denTs(HEAD) - 600;
+  const dFull = await M.recentBlockAt({ lireTs: den, tete: HEAD, ts: dTarget });
+  const dHint = D - 200;
+  v(dFull !== null && denTs(dFull) <= dTarget && denTs(dFull + 1) > dTarget, 'Denim chain: the full search finds the block (' + dFull + ')');
+  v(await M.recentBlockAt({ lireTs: den, tete: HEAD, ts: dTarget, hint: dHint }) === dFull, 'changed block time (Denim) -> the full search answer');
+  /* the other way: 0.2 s up to D2, then 2 s (a slowdown); the hint is from the fast era -> the guess lands too LOW: only the ts(g+1) check sees it */
+  const D2 = HEAD - 200, lenTs = (n) => (n <= D2 ? 1_700_000_000 + Math.floor(n / 5) : 1_700_000_000 + Math.floor(D2 / 5) + (n - D2) * 2);
+  const len = async (n) => lenTs(n);
+  const lTarget = lenTs(HEAD) - 600, lFull = await M.recentBlockAt({ lireTs: len, tete: HEAD, ts: lTarget });
+  v(lFull !== null && lenTs(lFull) <= lTarget && lenTs(lFull + 1) > lTarget, 'slowdown chain: the full search finds the block (' + lFull + ')');
+  const lGot = await M.recentBlockAt({ lireTs: len, tete: HEAD, ts: lTarget, hint: D2 - 3000 });
+  v(lGot === lFull, 'changed block time (slowdown) -> the full search answer (' + lGot + ' vs ' + lFull + ')');
+  return f;
+}
+const fautesHint = await serieHint({ ...(await import('./tblock-hold.js')), __principal: true });
+t('Step B: the hint (valid, stale, past the head, failed read, Denim)', fautesHint.length === 0, fautesHint.join(' ; '));
+/* MUTANT: the ts(g+1) check skipped -> RED (a copy of the module in a temp dir, its imports pointed at the originals) */
+{
+  const { readFileSync, writeFileSync, mkdtempSync, rmSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join, dirname } = await import('node:path');
+  const { fileURLToPath, pathToFileURL } = await import('node:url');
+  const ici = dirname(fileURLToPath(import.meta.url));
+  const src = readFileSync(join(ici, 'tblock-hold.js'), 'utf8');
+  const DE = 'if (Number.isFinite(tg1) && ts < tg1) return g;';
+  t('mutant anchor present (ts(g+1) check)', src.includes(DE));
+  const tmp = mkdtempSync(join(tmpdir(), 'tb-hold-hint-'));
+  const fm = join(tmp, 'tblock-hold-mut.js');
+  writeFileSync(fm, src.replace(/from '\.\/([^']+)'/g, (_, f) => "from '" + pathToFileURL(join(ici, f)).href + "'")
+    .replace('const tg1 = await lireTs(g + 1).catch(() => null);', 'const tg1 = ts + 1;'));
+  let rouge = false, vu = '';
+  try { const fx = await serieHint(await import(pathToFileURL(fm).href)); rouge = fx.length > 0; vu = fx[0] || 'GREEN'; } catch (e) { rouge = true; vu = 'threw ' + e.message; }
+  console.log('   mutant « ts(g+1) check skipped » : ' + vu);
+  t('MUTANT SURVIVES: ts(g+1) check skipped', rouge);
+  rmSync(tmp, { recursive: true, force: true });
+}
+/* 5f. game372 review: the SERVER wiring of Step B, executed (slices of serveur-web.js: horodatageBloc, tbLire, tbLireTs, tbPrices), not
+ *   read as text. A refresh 300 blocks after the first answer costs <= 3 eth_getBlockByNumber and finds the full search's block. RED if
+ *   tbPrices stops passing the hint or tbLireTs stops going through horodatageBloc (both checked by mutants below). */
+async function serieServeur(src) {
+  const f = [];
+  const v = (c, m) => { if (!c) f.push(m); };
+  const NL = String.fromCharCode(10);
+  const cut = (de, fin) => { const i = src.indexOf(de); const e = i < 0 ? -1 : src.indexOf(fin, i); return i < 0 || e < 0 ? null : src.slice(i, e + fin.length); };
+  const sH = cut('const horodatagesBlocsRolls = new Map();', '  return ts;' + NL + '}' + NL);
+  const sP = cut('const tbLire = (to, data, b) =>', '  return TB_HOLD.pending;' + NL + '}' + NL);
+  if (!sH || !sP) { f.push('server slices not found'); return f; }
+  const { AsyncLocalStorage } = await import('node:async_hooks');
+  const M = await import('./tblock-hold.js');
+  const chaine = { tete: HEAD - 300, lus: 0 };
+  const rpcServeur = async (m, p) => {
+    if (m === 'eth_blockNumber') return '0x' + chaine.tete.toString(16);
+    if (m === 'eth_getBlockByNumber') { chaine.lus++; const n = parseInt(p[0], 16); return { timestamp: '0x' + (await nodeNoArchive(n)).toString(16) }; }
+    throw new Error('unexpected ' + m);
+  };
+  const prix = lireFake([136, 137, 138], 20_000_000);
+  const rpcRails = async (m, p) => prix(p[0].to, p[0].data);
+  const TB_HOLD = { prices: null, at: 0, pending: null };
+  const fab = new Function('rpcServeur', 'rpcRails', 'tbReadPrices', 'TB_HOLD', 'consommateurArchive', '"use strict";' + NL + sH + sP + NL + 'return { tbPrices };');
+  const { tbPrices } = fab(rpcServeur, rpcRails, M.readPrices, TB_HOLD, new AsyncLocalStorage());
+  const p1 = await tbPrices();
+  v(Number.isSafeInteger(p1.before), 'first read finds the 10-min block (' + p1.before + ')');
+  chaine.tete = HEAD; TB_HOLD.at = 0; chaine.lus = 0;
+  const p2 = await tbPrices();
+  const full = await M.recentBlockAt({ lireTs: nodeNoArchive, tete: HEAD, ts: tsOf(HEAD) - 600 });
+  v(p2.before === full && full !== null, 'refresh finds the full search block (' + p2.before + ' vs ' + full + ')');
+  /* head + g + g+1: the hint's own timestamp was read by the first search, it comes from horodatageBloc's cache (4 without the cache) */
+  v(chaine.lus <= 3, 'refresh 300 blocks later: at most 3 eth_getBlockByNumber, the hint from the cache (read ' + chaine.lus + ')');
+  return f;
+}
+{
+  const { readFileSync } = await import('node:fs');
+  const { join, dirname } = await import('node:path');
+  const { fileURLToPath } = await import('node:url');
+  const srcSrv = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'serveur-web.js'), 'utf8').split(String.fromCharCode(13)).join('');
+  const fs0 = await serieServeur(srcSrv);
+  t('Step B server wiring: tbPrices passes the hint, tbLireTs through horodatageBloc (executed)', fs0.length === 0, fs0.join(' ; '));
+  const MUTS = [
+    ['hint not passed by tbPrices', 'lireTs: tbLireTs, tete, hint: TB_HOLD.prices && TB_HOLD.prices.before });', 'lireTs: tbLireTs, tete });'],
+    ['tbLireTs straight to the node (no cache)', 'const tbLireTs = async (n) => { const ts = await horodatageBloc(Number(n)); return ts === null ? NaN : ts; };',
+      "const tbLireTs = async (n) => { const b = await rpcServeur('eth_getBlockByNumber', ['0x' + Number(n).toString(16), false]); return b ? Number(BigInt(b.timestamp)) : NaN; };"],
+  ];
+  for (const [nom, de, a] of MUTS) {
+    t('mutant anchor present (' + nom + ')', srcSrv.includes(de));
+    const fx = await serieServeur(srcSrv.replace(de, () => a));
+    console.log('   mutant « ' + nom + ' » : ' + (fx[0] || 'GREEN'));
+    t('MUTANT SURVIVES: ' + nom, fx.length > 0);
+  }
+}
+
 // 6. LIVE (read-only, Base mainnet)
 if (process.env.LIVE === '1') {
   const RPCS = ['https://base-rpc.publicnode.com', 'https://mainnet.base.org'];

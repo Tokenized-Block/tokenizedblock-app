@@ -377,9 +377,11 @@ const envoisNoeuds = { depuis: new Date().toISOString(), parHote: {} };
 const SANTE_RPC = creerSante();
 /* game366 (live audit: mainnet.base.org's traffic could not be attributed — compterEnvoi counts per host, not per method or reader): every
  *   call that ENTERS a reader is counted here as reader x method (calls, not sends; retries stay in envois). Published in /sante. */
-const appelsLecteurs = { depuis: new Date().toISOString(), par: {} };
+/* game372 Step 0: `parQui` = the same calls per CALLER (the archive label of the request or background loop) x reader x method */
+const appelsLecteurs = { depuis: new Date().toISOString(), par: {}, parQui: {} };
 function compterAppel(lecteur, methode) {
   try { const k = lecteur + ' ' + String(methode || '?').slice(0, 40); appelsLecteurs.par[k] = (appelsLecteurs.par[k] || 0) + 1; } catch { /* never breaks a read */ }
+  try { const q = etiquetteArchive() + ' | ' + lecteur + ' ' + String(methode || '?').slice(0, 40); appelsLecteurs.parQui[q] = (appelsLecteurs.parQui[q] || 0) + 1; } catch { /* never breaks a read */ }
 }
 /* the keyed node (RELAIS_CLE, CDP) as the LAST resort of the pool reads when every public host failed — its own daily budget, counted */
 const SECOURS_MAX_JOUR = Number.isSafeInteger(Number(process.env.RPC_SECOURS_MAX_JOUR)) && Number(process.env.RPC_SECOURS_MAX_JOUR) >= 0 ? Number(process.env.RPC_SECOURS_MAX_JOUR) : 5000;
@@ -3157,7 +3159,8 @@ async function tbTelegram(method, body) {
     body: JSON.stringify(body), signal: AbortSignal.timeout(15000) }).then((r) => r.json()).catch(() => null);
 }
 const tbLire = (to, data, b) => rpcRails('eth_call', [{ to, data }, '0x' + Number(b).toString(16)]);
-const tbLireTs = async (n) => { const b = await rpcServeur('eth_getBlockByNumber', ['0x' + Number(n).toString(16), false]); return b ? Number(BigInt(b.timestamp)) : NaN; };
+/* game372 Step B: block timestamps share horodatageBloc's cache (successful reads only, 5000-entry FIFO); a failed read is NaN as before */
+const tbLireTs = async (n) => { const ts = await horodatageBloc(Number(n)); return ts === null ? NaN : ts; };
 async function tbPrices() {
   /* ⛔ game340: a read where only the ~10-min-ago price failed was NEVER kept, so every visitor paid the whole read again (13 s
    *   measured locally, the archive read timing out each time) and the TBLOCK price button showed "not read". A whole read is kept
@@ -3165,12 +3168,15 @@ async function tbPrices() {
   if (TB_HOLD.prices && Number.isFinite(TB_HOLD.prices.now.usd)
     && Date.now() - TB_HOLD.at < (Number.isFinite(TB_HOLD.prices.prev.usd) ? 60000 : 20000)) return TB_HOLD.prices;
   if (!TB_HOLD.pending) {
-    TB_HOLD.pending = (async () => {
+    const lirePrix = async () => {
       const tete = Number(BigInt(await rpcServeur('eth_blockNumber', [])));
-      const p = await tbReadPrices({ lire: tbLire, lireTs: tbLireTs, tete });
+      /* game372 Step B: the last answer's 10-min block is the hint (recentBlockAt: <= 4 timestamp reads when it holds, else the full search) */
+      const p = await tbReadPrices({ lire: tbLire, lireTs: tbLireTs, tete, hint: TB_HOLD.prices && TB_HOLD.prices.before });
       TB_HOLD.prices = p; TB_HOLD.at = Date.now();
       return p;
-    })().finally(() => { TB_HOLD.pending = null; });
+    };
+    /* game372 Step 0: a request keeps its own label; a read with no label is counted as 'fond prix tblock' */
+    TB_HOLD.pending = (consommateurArchive.getStore() ? lirePrix() : consommateurArchive.run('fond prix tblock', lirePrix)).finally(() => { TB_HOLD.pending = null; });
   }
   return TB_HOLD.pending;
 }
@@ -5620,9 +5626,9 @@ function duelsV2() {
   if (!lecteurDuelsV2 || lecteurDuelsV2.etat().contrat !== c) lecteurDuelsV2 = creerLecteurDuelsV2({ rpc: rpcDuelsV2, contrat: c });
   return lecteurDuelsV2;
 }
-setInterval(() => { const l = duelsV2(); if (l) void l.lire(); }, 30000).unref?.();
+setInterval(() => { const l = duelsV2(); if (l) void consommateurArchive.run('fond duels v2', () => l.lire()); }, 30000).unref?.();
 /* revue 2026-10-24 n°2 : tant qu un contrat v2 est servi, la mesure courte du temps de bloc est tenue fraiche (2 en-tetes / 30 s) */
-if (process.env.TB_SONDES !== '0') setInterval(() => { if (duelsV2()) void mesureCourteSrv.lire(); }, 30000).unref?.();
+if (process.env.TB_SONDES !== '0') setInterval(() => { if (duelsV2()) void consommateurArchive.run('fond mesure courte', () => mesureCourteSrv.lire()); }, 30000).unref?.();
 
 /* ══ LE REGLEUR DES SLOTS (2026-10-23, option 3 de Phil) — un spin non regle dans sa fenetre (256 blocs) est PERDU : le serveur regle donc
  *   les spins lui-meme quand le proprietaire a pose SLOTS_KEEPER_KEY (un wallet qu il cree et approvisionne en ETH pour le gas). La cle
@@ -5698,8 +5704,20 @@ const JOURNAL_GARDE = Number.isSafeInteger(Number(process.env.TB_JOURNAL_GARDE))
 const JOURNAL_TOUR_EFFECTIF_MS = Number(process.env.TB_JOURNAL_TOUR_MS) >= 1000 ? Number(process.env.TB_JOURNAL_TOUR_MS) : JOURNAL_TOUR_MS;
 const JOURNAL_ATTENTE_MAX_TOURS = 32;
 const journalEtat = { curseur: null, bas: null, premierBloc: null, sParBloc: null, profondeur: null, rattrapage: null, jour: null, lu: null,
-  coupes: 0, refusRattrapage: 0, rattrapageApres: 0, fenetresRattrapage: 0,
+  coupes: 0, refusRattrapage: 0, rattrapageApres: 0, fenetresRattrapage: 0, restaure: false, restaureDe: null, sauvegardesRefusees: 0,
   evenements: [], cibles: new Map(), devisesListees: new Map(), jetons: new Map(), enVol: false };
+/* game372 Step A (measured: 174 catch-up windows per deploy, -2.7 eth_getLogs/min for ~65 min, x3 tries on base.org): the journal is
+ *   SAVED on the volume (journal-jeu.json, .tmp then rename, at most once per JOURNAL_SAUVE_MS, the last change always written) and
+ *   RESTORED once at boot when it is v1, same chain, same contracts, TODAY (UTC) and its cursor is not past the head. Anything else ->
+ *   the normal path (premierBlocJournal): a bad file costs a re-read, never a lost event. Windows read after the last save are read
+ *   again after a restart; journal-jeu.js de-duplicates by (tx, logIndex). An old refusal or 429 is NEVER restored (rattrapage,
+ *   refusRattrapage, rattrapageApres start empty); fenetresRattrapage stays a count since boot. Over 2 MB or not serialisable (a
+ *   BigInt): NOT written, never cut to fit, counted in sauvegardesRefusees (with a failed disk write). */
+const FICHIER_JOURNAL = !ESSAI_SRV.actif && process.env.TB_JOURNAL_PERSIST !== '0' && (process.env.RAILWAY_VOLUME_MOUNT_PATH || (existsSync('/data') ? '/data' : null)) ? join(process.env.RAILWAY_VOLUME_MOUNT_PATH || '/data', 'journal-jeu.json') : null;
+const JOURNAL_SAUVE_MAX_OCTETS = 2 * 1024 * 1024;
+/* TB_JOURNAL_SAUVE_MS: for fake-node benches only (at least 500 ms); in prod, 30 s */
+const JOURNAL_SAUVE_MS = Number(process.env.TB_JOURNAL_SAUVE_MS) >= 500 ? Number(process.env.TB_JOURNAL_SAUVE_MS) : 30000;
+const journalSauve = { dernier: 0, arme: false, chargeEssaye: false };
 /** l attente avant de retenter un rattrapage refuse `refus` fois de suite : tour x 2^(refus-1), au plus JOURNAL_ATTENTE_MAX_TOURS tours */
 const attenteRattrapageJournal = (refus) => JOURNAL_TOUR_EFFECTIF_MS * Math.min(JOURNAL_ATTENTE_MAX_TOURS, 2 ** Math.max(0, refus - 1));
 const contratsJournal = () => {
@@ -5710,7 +5728,52 @@ const contratsJournal = () => {
 function couvertureJournal() {
   return { couvertureDepuis: journalEtat.bas, couvreLaJournee: journalEtat.coupes === 0 && journeeCouverte({ premierBloc: journalEtat.premierBloc, basCouvert: journalEtat.bas, hautCouvert: journalEtat.curseur }),
     premierBlocDuJour: journalEtat.premierBloc, secondesParBloc: journalEtat.sParBloc, profondeurMax: journalEtat.profondeur, rattrapage: journalEtat.rattrapage,
-    coupes: journalEtat.coupes, fenetresRattrapage: journalEtat.fenetresRattrapage };
+    coupes: journalEtat.coupes, fenetresRattrapage: journalEtat.fenetresRattrapage,
+    restaure: journalEtat.restaure, restaureDe: journalEtat.restaureDe, sauvegardesRefusees: journalEtat.sauvegardesRefusees };
+}
+function sauverJournal() {
+  if (!FICHIER_JOURNAL) return;
+  let payload;
+  try {
+    payload = JSON.stringify({ v: 1, chainId: 8453, contrats: contratsJournal(), jour: journalEtat.jour, curseur: journalEtat.curseur, bas: journalEtat.bas,
+      premierBloc: journalEtat.premierBloc, sParBloc: journalEtat.sParBloc, profondeur: journalEtat.profondeur, coupes: journalEtat.coupes, lu: journalEtat.lu,
+      evenements: journalEtat.evenements, cibles: [...journalEtat.cibles.entries()], devisesListees: [...journalEtat.devisesListees.entries()], jetons: [...journalEtat.jetons.entries()] });
+  } catch (_) { journalEtat.sauvegardesRefusees++; return; }
+  if (Buffer.byteLength(payload) > JOURNAL_SAUVE_MAX_OCTETS) { journalEtat.sauvegardesRefusees++; return; }
+  try { writeFileSync(FICHIER_JOURNAL + '.tmp', payload); renameSync(FICHIER_JOURNAL + '.tmp', FICHIER_JOURNAL); journalSauve.dernier = Date.now(); }
+  catch (_) { journalEtat.sauvegardesRefusees++; }
+}
+/** at most one write per JOURNAL_SAUVE_MS; a change inside the window is written when it ends (the state AT that moment) */
+function noterJournal() {
+  if (!FICHIER_JOURNAL || journalSauve.arme) return;
+  const reste = journalSauve.dernier + JOURNAL_SAUVE_MS - Date.now();
+  if (reste <= 0) { sauverJournal(); return; }
+  journalSauve.arme = true;
+  setTimeout(() => { journalSauve.arme = false; sauverJournal(); }, reste).unref?.();
+}
+/** restores the saved journal when every check holds; true if restored. Any failed check: false, nothing touched */
+function chargerJournal(tete, sur) {
+  if (!FICHIER_JOURNAL) return false;
+  let o;
+  try { if (!existsSync(FICHIER_JOURNAL)) return false; o = JSON.parse(readFileSync(FICHIER_JOURNAL, 'utf8')); } catch (_) { return false; }
+  const ent = Number.isSafeInteger, c = contratsJournal();
+  if (!o || typeof o !== 'object' || o.v !== 1 || o.chainId !== 8453 || !o.contrats) return false;
+  if (['rolls', 'skins', 'duels', 'missions'].some((k) => (o.contrats[k] ?? null) !== c[k])) return false;
+  if (o.jour !== jourDe(Date.now()).id) return false;
+  if (!ent(o.curseur) || o.curseur > tete || !ent(o.bas) || o.bas < 1 || o.bas > o.curseur + 1) return false;
+  /* game372 review: a cursor deeper than the normal boot's first direct window (sur - JOURNAL_RECENT_BLOCS) is NOT restored. The direct
+   *  path has no refusal back-off and no published refusal: from a deep cursor the public node refuses (archive depth), and the direct
+   *  stalls on that window every tour, showing no new event, while the deep part belongs to the catch-up (back-off, refusal shown). */
+  if (!ent(sur) || o.curseur < sur - JOURNAL_RECENT_BLOCS) return false;
+  if (!(o.premierBloc === null || ent(o.premierBloc))) return false;
+  if (![o.evenements, o.cibles, o.devisesListees, o.jetons].every(Array.isArray)) return false;
+  let cibles, devisesListees, jetons;
+  try { cibles = new Map(o.cibles); devisesListees = new Map(o.devisesListees); jetons = new Map(o.jetons); } catch (_) { return false; }
+  const fini = (x) => (Number.isFinite(x) ? x : null);
+  Object.assign(journalEtat, { curseur: o.curseur, bas: o.bas, premierBloc: o.premierBloc, sParBloc: fini(o.sParBloc), profondeur: ent(o.profondeur) ? o.profondeur : null,
+    jour: o.jour, lu: fini(o.lu), coupes: ent(o.coupes) && o.coupes >= 0 ? o.coupes : 0, evenements: o.evenements, cibles, devisesListees, jetons,
+    rattrapage: null, refusRattrapage: 0, rattrapageApres: 0, restaure: true, restaureDe: o.curseur });
+  return true;
 }
 /** le premier bloc du jour UTC `j`, au temps de bloc MESURE (tete vs tete - 1 000) ; pose sParBloc / profondeur ; null si illisible */
 async function premierBlocJournal(tete, j) {
@@ -5752,11 +5815,14 @@ async function lireJournalJeu() {
   const c = contratsJournal();
   if (journalEtat.enVol || (!c.rolls && !c.skins && !c.duels && !c.missions)) return;
   journalEtat.enVol = true;
+  const avantJl = journalEtat.curseur + ':' + journalEtat.bas;
   try {
     const j = jourDe(Date.now());
     const tete = parseInt(await rpcServeur('eth_blockNumber', []), 16);
     if (!Number.isSafeInteger(tete) || tete <= 1000) return;
     const sur = tete - margeBlocsRolls();
+    /* game372 Step A: once, before the first read of the day's first block */
+    if (journalEtat.curseur === null && !journalSauve.chargeEssaye) { journalSauve.chargeEssaye = true; chargerJournal(tete, sur); }
     if (journalEtat.curseur === null) {
       /* DENIM : le premier bloc du jour est TROUVE en lisant des horodatages (premierBlocJournal), sans hypothese de temps de bloc */
       const premier = await premierBlocJournal(tete, j);
@@ -5796,12 +5862,15 @@ async function lireJournalJeu() {
       }
       journalEtat.bas = d; journalEtat.rattrapage = null; journalEtat.refusRattrapage = 0; journalEtat.rattrapageApres = 0; journalEtat.fenetresRattrapage++;
     }
-  } catch (_) { /* relu au prochain tour, depuis le meme curseur */ } finally { journalEtat.enVol = false; }
+  } catch (_) { /* relu au prochain tour, depuis le meme curseur */ } finally {
+    journalEtat.enVol = false;
+    if (journalEtat.curseur + ':' + journalEtat.bas !== avantJl) noterJournal(); /* game372 Step A: a pass that moved curseur or bas */
+  }
 }
 if (process.env.TB_JOURNAL !== '0') {
   /* TB_JOURNAL_TOUR_MS : voir JOURNAL_TOUR_EFFECTIF_MS (bancs seulement) */
   const tourJl = JOURNAL_TOUR_EFFECTIF_MS;
-  setTimeout(() => { void lireJournalJeu(); setInterval(() => { void lireJournalJeu(); }, tourJl).unref?.(); },
+  setTimeout(() => { void consommateurArchive.run('fond journal', () => lireJournalJeu()); setInterval(() => { void consommateurArchive.run('fond journal', () => lireJournalJeu()); }, tourJl).unref?.(); },
     Math.max(500, Number(process.env.TB_JOURNAL_PREMIER_MS) || 20000)).unref?.();
 }
 /* ══ NIVEAUX DU BRAIN (2026-10-18, niveaux-jeu.js) — l XP vient de gestes VERIFIES : les logs de NOS contrats (BlockRolls : Rolled paye,
@@ -5849,8 +5918,8 @@ async function crediterXp() {
     }
   } catch (_) { /* relu au prochain tour, depuis les memes curseurs */ } finally { xpScanEnVol = false; }
 }
-setTimeout(() => { void crediterXp(); }, 20000).unref?.();
-setInterval(() => { void crediterXp(); }, 120000).unref?.();
+setTimeout(() => { void consommateurArchive.run('fond xp', () => crediterXp()); }, 20000).unref?.();
+setInterval(() => { void consommateurArchive.run('fond xp', () => crediterXp()); }, 120000).unref?.();
 /* jours avec ticket par wallet : recalcules au plus toutes les 30 s (revenu.jours + revenu.passes, jusqu a aujourd hui inclus) */
 const joursTicketCache = { t: 0, jour: null, carte: {} };
 function joursTicketSrv() {
@@ -8894,7 +8963,7 @@ function traiterRequete(req, res) {
       couvertureDepuis: memeJourJl ? cvJl.couvertureDepuis : null, couvreLaJournee: memeJourJl && cvJl.couvreLaJournee === true && gJl.coupes === 0,
       premierBlocDuJour: memeJourJl ? cvJl.premierBlocDuJour : null, secondesParBloc: cvJl.secondesParBloc, profondeurMax: cvJl.profondeurMax,
       rattrapage: memeJourJl ? cvJl.rattrapage : null, coupes: coupesMemoireJl + gJl.coupes, coupesMemoire: coupesMemoireJl, coupesEnvoi: gJl.coupes,
-      fenetresRattrapage: cvJl.fenetresRattrapage,
+      fenetresRattrapage: cvJl.fenetresRattrapage, restaure: cvJl.restaure, restaureDe: cvJl.restaureDe, sauvegardesRefusees: cvJl.sauvegardesRefusees,
       scanJusqua: journalEtat.curseur, sources: { rolls: cJl.rolls, skins: cJl.skins, practice: true, duels: cJl.duels, missions: cJl.missions },
       evenements: avecBlocks(tousJl, (w) => blocDeJl.get(w) || null) });
     return;

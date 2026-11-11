@@ -87,7 +87,26 @@ export function holdVerdict({ balance, priceNow, priceBefore, thresholdUsd = HOL
  *  reading block 1's timestamp needs an archive node — the public node refuses anything ~10,000 blocks deep, so "10 minutes ago" was
  *  never read and every proof failed closed. Base makes a block every 0.2 s (measured 05/11): 10 min = 3,000 blocks; the window starts
  *  at 6,000 blocks back and widens x3 (at most twice) if the chain was slower. null if not found. */
-export async function recentBlockAt({ lireTs, tete, ts, span = 6000, tries = 3 }) {
+export async function recentBlockAt({ lireTs, tete, ts, span = 6000, tries = 3, hint = null, tsHead = null }) {
+  /* game372 Step B: `hint` = the previous answer (the server's last 10-min block). When it is a recent block, ONE guess from the block time
+   *  MEASURED between the hint and the head (never a constant) is checked by reading ts(g) and ts(g+1): at most 4 reads with the head.
+   *  Any mismatch or failed read -> the full search below, unchanged. */
+  const T = Number(tete);
+  if (Number.isSafeInteger(hint) && Number.isSafeInteger(T) && hint >= T - span * 9 && hint < T) {
+    const tH = Number.isFinite(tsHead) ? tsHead : await lireTs(T).catch(() => null);
+    const tI = Number.isFinite(tH) ? await lireTs(hint).catch(() => null) : null;
+    if (Number.isFinite(tH) && Number.isFinite(tI) && tH > tI) {
+      const sPerBlock = (tH - tI) / (T - hint);
+      const g = hint + Math.round((ts - tI) / sPerBlock);
+      if (Number.isSafeInteger(g) && g >= Math.max(1, T - span * 9) && g < T) {
+        const tg = await lireTs(g).catch(() => null);
+        if (Number.isFinite(tg) && tg <= ts) {
+          const tg1 = await lireTs(g + 1).catch(() => null);
+          if (Number.isFinite(tg1) && ts < tg1) return g;
+        }
+      }
+    }
+  }
   let s = span;
   for (let k = 0; k < tries; k++, s *= 3) {
     const lo = Math.max(1, Number(tete) - s);
@@ -108,10 +127,10 @@ export async function recentBlockAt({ lireTs, tete, ts, span = 6000, tries = 3 }
 }
 
 /** the TBLOCK price at the head and ~10 min earlier (the server caches this; it costs a block search) */
-export async function readPrices({ lire, lireTs, tete }) {
+export async function readPrices({ lire, lireTs, tete, hint = null }) {
   const tsHead = await lireTs(tete).catch(() => null);
   if (!Number.isFinite(tsHead)) return { tete, before: null, now: { usd: null, why: 'head block not read' }, prev: { usd: null, why: 'head block not read' } };
-  const before = await recentBlockAt({ lireTs, tete, ts: tsHead - RECUL_PRIX_S });
+  const before = await recentBlockAt({ lireTs, tete, ts: tsHead - RECUL_PRIX_S, hint, tsHead });
   const now = await tblockUsdAt({ lire, bloc: tete });
   const prev = before === null ? { usd: null, why: 'block 10 minutes ago not read' } : await tblockUsdAt({ lire, bloc: before });
   return { tete, before, now, prev };
