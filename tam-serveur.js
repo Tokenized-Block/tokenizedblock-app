@@ -20,6 +20,7 @@ const SCIENCES_HORS_CHOIX = new Set([]);
 
 export const TOPIC_MINTED = topic(SIG_TAM.minted);
 export const FENETRE_LOGS = 9000, FENETRES_PAR_APPEL = 20, TTL_MS = 60000;
+export const PAR_ID_MAX = 50; /* game359: works read by id per call when totalSupply says some are missing */
 export const TAM_CALCULS_MAX = 2, TAM_BUDGET_IP_MINUTE = 20;
 const G32 = /^0x[0-9a-fA-F]{64}$/;
 
@@ -217,6 +218,28 @@ export function serveurTam({ rpc, deploiement, lireVie = null, lireSymbole = nul
   async function balayer(contrat) {
     for (const o of oe.oeuvres) if (o.signatureNonLue) await lireSignature(contrat, o);
     const h = parseInt(await rpc('eth_blockNumber', []), 16);
+    /* game359 (Grok's live test 2026-11-11: "Not ready: the minted works were not read up to the latest block"): measured on prod, the log
+     *   scan sat at block 53,906,473 with the head ~2.1M blocks ahead — 180k blocks per call, only when someone opens TAM, restarted from the
+     *   deploy block after every redeploy, while Base makes ~432k blocks a day. TamArt has no burn and totalSupply only grows (tokenId =
+     *   ++totalSupply), so the works are EXACTLY the ids 1..totalSupply: when the ids we know are 1..n and totalSupply (read at the same
+     *   head) is n, the list is whole; missing ids are read BY ID (donnees/empreinte/graine views), at most PAR_ID_MAX per call. Any read
+     *   that fails falls back to the log scan below, unchanged. */
+    try {
+      const sup = Number(BigInt(String(await rpc('eth_call', [appelLecture(contrat, SIG_TAM.totalSupply), '0x' + h.toString(16)]))));
+      if (Number.isSafeInteger(sup) && sup >= 0) {
+        const connus = new Set(oe.oeuvres.map((o) => o.tokenId));
+        const manquants = []; for (let id = 1; id <= sup && manquants.length < PAR_ID_MAX; id++) if (!connus.has(id)) manquants.push(id);
+        for (const id of manquants) {
+          const mot = async (sig) => String(await rpc('eth_call', [appelLecture(contrat, sig, id), '0x' + h.toString(16)])).toLowerCase();
+          const o = { tokenId: id, minter: null, empreinte: await mot(SIG_TAM.empreinte), graine: await mot(SIG_TAM.graine), tx: null, bloc: null, parId: true };
+          oe.oeuvres.push(o);
+          await lireSignature(contrat, o);
+        }
+        oe.oeuvres.sort((x, y) => x.tokenId - y.tokenId);
+        const entiers = oe.oeuvres.length === sup && oe.oeuvres.every((o, k) => o.tokenId === k + 1) && !oe.oeuvres.some((o) => o.signatureNonLue);
+        if (entiers) { oe.jusqua = Math.max(oe.jusqua === null ? 0 : oe.jusqua, h); return true; }
+      }
+    } catch (_) { /* not read: the log scan decides, as before */ }
     let de = oe.jusqua === null ? deploiement.bloc : oe.jusqua + 1;
     for (let f = 0; f < FENETRES_PAR_APPEL && de <= h; f++) {
       const a = Math.min(h, de + FENETRE_LOGS - 1);

@@ -9,7 +9,7 @@ import { LOCK_DEPLOIEMENT as D } from './lock-deploiement.js';
 export const TBLOCK = '0xb200000000000000000000ba9bf8330307f8830e';
 export const LOCK = D.adresse ? String(D.adresse).toLowerCase() : null;
 export const MIN_JOURS = 7;
-export const DUREES_JOURS = Object.freeze([7, 30, 90]);
+export const DUREES_JOURS = Object.freeze([7, 30, 90, 365]); /* game359: 365 days shows the ×2 commitment band (points.js) */
 /* the date is computed when the plan is built; the tx is mined later. One hour of margin keeps "7 days" valid at execution. */
 export const MARGE_SECONDES = 3600;
 

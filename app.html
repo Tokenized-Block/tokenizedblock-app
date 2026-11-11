@@ -3409,7 +3409,7 @@ details[open] > summary::before{transform:rotate(90deg)}
     <div class="carte" id="wVault" hidden data-v="lock">
       <p class="titre">Holders vault</p>
       <!-- game357: the threshold is no longer typed here (it is READ in "How it works"); "fees" said who: creators' TBLOCK at birth -->
-      <p class="sous">Filled by TBLOCK buybacks and creators’ birth payments. Each week it pays players back part of the TBLOCK they burned with hearts ♥ — never more than they burned — then feeds the contest pot.</p>
+      <p class="sous">TBLOCK set aside for the players. Each week it pays them back part of the TBLOCK they burned with hearts ♥ — never more than they burned. Deposits so far came from the team; buybacks and creators’ birth payments can add to it.</p>
       <div id="wVaultRows"></div>
       <div class="lkPuces wSeg" id="wVaultSeg" role="group" aria-label="Holders sections">
         <button type="button" class="lkPuce on" data-v="lock" aria-pressed="true">Lock</button>
@@ -3716,7 +3716,7 @@ details[open] > summary::before{transform:rotate(90deg)}
       <!-- ⛔ L EMPREINTE EST AFFICHEE, DONC ELLE EST DE L ANGLAIS. `20261001-pont-dans-lui` a fait
            rougir `test-texte-a-l-ecran.mjs` : le mot « dans » est de la prose francaise partie a
            l ecran anglais. La garde a fait son travail du premier coup. -->
-      <p class="note" data-build="20261109-game358" hidden>Build <code>20261109-game358</code> ·Contract labels say what they do, not our internal names.</p>
+      <p class="note" data-build="20261109-game359" hidden>Build <code>20261109-game359</code> ·Contract labels say what they do, not our internal names.</p>
       <p class="sous">Everything happening to blocks on Base, live.</p>
       <!-- tip 0013: sticky — Hooked chip = Dex fees; unhooked → Launch beside. No fee addr. -->
       <p class="note" id="sfHookedSticky" hidden>Blocks alive on TokenizedBlock pay their creator on every trade. Example:<button type="button" class="puce" id="sfStickyTbgas">Open TBGAS</button>.</p>
@@ -32650,7 +32650,7 @@ async function peindreLock(hote, { offre = false } = {}) {
     hote.append(el('p', 'titre', offre ? 'Lock your TBLOCK — earn community points' : 'Your TBLOCK lock'));
     /* game357: the v1 hearts, channel and vault claim read the WALLET BALANCE (economie.js MIN_HOLD, TBlockVault.sol _bal); only the undeployed v2
      *   reads the lock. Locking moves TBLOCK out of the wallet, so the card must never say those perks count the lock. */
-    hote.append(el('p', 'sous', 'Locking earns community points: more TBLOCK and more days earn more. Locked TBLOCK leaves your wallet, and today hearts ♥, the holders’ channel and vault claims still count your wallet balance (the lock-based contracts are not deployed yet). To leave: request the withdrawal (points stop at once), then take it all back ' + LK.RETRAIT_JOURS + ' days later.'));
+    hote.append(el('p', 'sous', 'Locking earns community points: more TBLOCK and more days earn more. Locked TBLOCK leaves your wallet, and today hearts ♥, the holders’ channel and vault claims still count your wallet balance (the lock-based contracts are not deployed yet). To leave: request the withdrawal (points stop at once); you take it all back ' + LK.RETRAIT_JOURS + ' days after the request, or at the lock date if that is later.'));
     const etat = el('p', 'note' + (e.cle === 'actif' ? ' wOk' : ''), e.texte); hote.append(etat);
     const dire = (t, k = '') => { etat.className = 'note' + (k ? ' ' + k : ''); etat.textContent = t; };
     /* the ONE exit action etatLock chooses: request (perks stop, 7-day period starts), cancel (perks back), or take back (period over) */
@@ -32717,7 +32717,7 @@ async function peindreLock(hote, { offre = false } = {}) {
         const fin = Math.max(t0 + jours * 86400, Number(unlockAt) > t0 && locked > 0n && requestedAt === 0n ? Number(unlockAt) : 0);
         const garde = fin > t0 + jours * 86400;
         const pts = m > 0n ? PTS.pointsLockIntervalle(m, fin, t0, fin) : 0;
-        ptsNote.textContent = m > 0n ? (garde ? 'Your lock already runs until ' + new Date(fin * 1000).toISOString().slice(0, 10) + ': added TBLOCK stays locked until then too. ' : '') + 'Until that date these TBLOCK earn about ' + pts.toLocaleString('en-US', { maximumFractionDigits: 1 }) + ' community points (a longer lock earns more per day, up to 1.5x at 90 days ahead). Points decide your share of the community drop — a separate distribution, not live yet; the weekly player budget follows what you burned. No rate is promised.' : '';
+        ptsNote.textContent = m > 0n ? (garde ? 'Your lock already runs until ' + new Date(fin * 1000).toISOString().slice(0, 10) + ': added TBLOCK stays locked until then too. ' : '') + 'Until that date these TBLOCK earn about ' + PV.fmtPts(pts) + ' community points: 1 a day per 100,000 TBLOCK, ×1.25 from 30 days, ×1.5 from 90, ×2 from 1 year. Points decide your share of the community drop — a separate distribution, not live yet; the weekly player budget follows what you burned. No rate is promised.' : '';
         go.textContent = m > 0n ? (garde ? 'Add ' + LK.fmt(m) + ' TBLOCK to your lock (until ' + new Date(fin * 1000).toISOString().slice(0, 10) + ')' : 'Lock ' + LK.fmt(m) + ' TBLOCK for ' + jours + ' days') : 'Lock — enter a whole number of TBLOCK';
       }
       inp.addEventListener('input', majLock);
@@ -32955,7 +32955,18 @@ async function peindreVaultWallet() {
   const ligne = (k, v) => { const d = document.createElement('div'); d.className = 'stadeLigne'; const a = document.createElement('span'); a.textContent = k; const b = document.createElement('b'); b.textContent = v; d.append(a, ' ', b); rows.append(d); };
   try {
     const bal = await lit(ECO.VIEW.vaultBalance()), res = await lit(ECO.VIEW.reserved()), ep = await lit(ECO.VIEW.currentEpoch());
-    ligne('In the vault', ECO.fmt(bal) + ' TBLOCK'); ligne('Reserved for players', ECO.fmt(res) + ' TBLOCK'); ligne('This week', 'week ' + ep);
+    /* game359 (Phil: "valeur en $, date de fin de semaine, montant réservé attendu, combien de joueurs; reserved = le vault, fusionne") */
+    const [fin, depense, libre, rBps, rbBps, maxB] = await Promise.all([lit(ECO.VIEW.epochEnd(ep)), lit(ECO.VIEW.totalSpentIn(ep)), lit(ECO.VIEW.free()),
+      lit(ECO.VIEW.rewardBps()), lit(ECO.VIEW.rebateBps()), lit(ECO.VIEW.maxEpochBudget())]);
+    let px = null; try { const h = await fetch('/api/tblock/hold', { cache: 'no-store', signal: AbortSignal.timeout(15000) }).then((x) => x.json()); px = h && h.ok && Number(h.priceNow) > 0 ? Number(h.priceNow) : null; } catch (_) { px = null; }
+    const usd = (raw) => (px === null ? '' : ' ≈ $' + (Number(raw) / 1e18 * px).toLocaleString('en-US', { maximumFractionDigits: 2, minimumFractionDigits: 2 }));
+    let joueurs = null; try { const c = await fetch('/api/coeurs', { cache: 'no-store', signal: AbortSignal.timeout(15000) }).then((x) => x.json()); if (c && c.ok && c.complet) joueurs = Number(((c.semaines || {})[String(ep)] || {}).joueurs || 0); } catch (_) { joueurs = null; }
+    const attendu = ECO.budgetAttendu({ free: libre, totalSpent: depense, rewardBps: rBps, rebateBps: rbBps, maxBudget: maxB });
+    const resteS = Number(fin) - Math.floor(Date.now() / 1000), dans = resteS > 0 ? ' (in ' + Math.floor(resteS / 86400) + ' d ' + Math.floor((resteS % 86400) / 3600) + ' h)' : ' (over — waiting for its close)';
+    ligne('In the vault', ECO.fmt(bal) + ' TBLOCK' + usd(bal) + (res > 0n ? ' · ' + ECO.fmt(res) + ' of it reserved for past weeks’ players' : ''));
+    ligne('Week ' + ep + ' ends', new Date(Number(fin) * 1000).toISOString().slice(0, 16).replace('T', ' ') + ' UTC' + dans);
+    ligne('Players this week', joueurs === null ? 'not read just now' : joueurs + (joueurs === 1 ? ' player' : ' players') + ' · ' + ECO.fmt(depense) + ' TBLOCK burned in hearts');
+    ligne('For them at the close', attendu > 0n ? ECO.fmt(attendu) + ' TBLOCK' + usd(attendu) + ' if the week closed now' : '0 TBLOCK so far — the budget never exceeds what players burned in hearts this week');
     if (compte && ep > 0n) {
       const o = await rpc('eth_call', [ECO.VIEW.owed(ep - 1n, String(compte).toLowerCase()), 'latest']);
       const s = ECO.word(o, 0) + ECO.word(o, 1);
@@ -32996,7 +33007,7 @@ async function peindrePointsWallet() {
   const peindre = (hote, lignes) => { hote.textContent = ''; for (const l of lignes) { const d = document.createElement('div'); d.className = 'stadeLigne' + (l.moi ? ' moi' : ''); const a = document.createElement('span'); a.textContent = l.k; const b = document.createElement('b'); b.textContent = l.v; d.append(a, ' ', b); hote.append(d); } };
   peindre($('#wPointsMoi'), compte ? PV.lignesMesPoints(r, nom) : [{ k: 'Your points', v: 'connect your wallet to see them' }]);
   const gros = $('#wPointsGros');
-  if (gros) { const tot = r && r.ok && r.compte ? Number(r.compte.total) : NaN; gros.hidden = !(tot > 0); if (tot > 0) gros.textContent = tot.toLocaleString('en-US', { maximumFractionDigits: 1 }) + ' pts'; }
+  if (gros) { const tot = r && r.ok && r.compte ? Number(r.compte.total) : NaN; gros.hidden = !(tot > 0); if (tot > 0) gros.textContent = PV.fmtPts(tot) + ' pts'; } /* game359: never "0" for a positive balance */
   peindre($('#wPointsBoard'), PV.lignesBoardPoints(r, nom, compte));
   $('#wPointsRegle').textContent = PV.REGLE_COURTE;
   box.hidden = false;

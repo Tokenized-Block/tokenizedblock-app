@@ -19,6 +19,9 @@ export const SEL = Object.freeze({
   currentEpoch: S('currentEpoch()'), spentIn: S('spentIn(uint256,address)'), claim: S('claim(uint256)'), owed: S('owed(uint256,address)'),
   epochs: S('epochs(uint256)'), reserved: S('reserved()'), free: S('free()'), rescueAmount: S('rescueAmount()'), rescueAt: S('rescueAt()'),
   rescueRenounced: S('rescueRenounced()'), closeEpoch: S('closeEpoch(uint256)'), feedContest: S('feedContest()'),
+  /* game359: what the week's close will reserve (TBlockVault.closeEpoch) and when the week ends (BlockLikes.epochEnd) */
+  epochEnd: S('epochEnd(uint256)'), totalSpentIn: S('totalSpentIn(uint256)'), REWARD_BPS: S('REWARD_BPS()'), REBATE_BPS: S('REBATE_BPS()'),
+  MAX_EPOCH_BUDGET: S('MAX_EPOCH_BUDGET()'),
 });
 const ADR = /^0x[0-9a-f]{40}$/;
 export function wAddr(a) { const s = String(a || '').toLowerCase(); if (!ADR.test(s)) throw new Error('not an address: ' + a); return strip(s).padStart(64, '0'); }
@@ -71,7 +74,20 @@ export const VIEW = Object.freeze({
   reserved: () => ({ to: VAULT, data: '0x' + SEL.reserved }),
   rescueAmount: () => ({ to: VAULT, data: '0x' + SEL.rescueAmount }), rescueAt: () => ({ to: VAULT, data: '0x' + SEL.rescueAt }),
   rescueRenounced: () => ({ to: VAULT, data: '0x' + SEL.rescueRenounced }),
+  epochEnd: (e) => ({ to: LIKES, data: '0x' + SEL.epochEnd + wUint(e) }), totalSpentIn: (e) => ({ to: LIKES, data: '0x' + SEL.totalSpentIn + wUint(e) }),
+  free: () => ({ to: VAULT, data: '0x' + SEL.free }), rewardBps: () => ({ to: VAULT, data: '0x' + SEL.REWARD_BPS }),
+  rebateBps: () => ({ to: VAULT, data: '0x' + SEL.REBATE_BPS }), maxEpochBudget: () => ({ to: VAULT, data: '0x' + SEL.MAX_EPOCH_BUDGET }),
 });
+/** game359: the budget TBlockVault.closeEpoch(e) would reserve for the week's players if it ran NOW — the contract's three caps, in its
+ *  order (TBlockVault.sol closeEpoch): free × REWARD_BPS, then MAX_EPOCH_BUDGET, then totalSpentIn × REBATE_BPS × 2 (every share + the top
+ *  bonus). A read, not a promise: the free balance can change before the close. */
+export function budgetAttendu({ free, totalSpent, rewardBps, rebateBps, maxBudget }) {
+  let b = BigInt(free) * BigInt(rewardBps) / 10000n;
+  if (b > BigInt(maxBudget)) b = BigInt(maxBudget);
+  const payable_ = BigInt(totalSpent) * BigInt(rebateBps) / 10000n * 2n;
+  if (b > payable_) b = payable_;
+  return b;
+}
 /** one 32-byte word -> BigInt; throws on anything else (a cut or empty answer is never read as 0) */
 export function word(hex, i = 0) {
   const s = strip(String(hex || ''));

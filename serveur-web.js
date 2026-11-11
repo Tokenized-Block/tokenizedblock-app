@@ -264,7 +264,7 @@ import { ECONOMIE_DEPLOIEMENT } from './economie-deploiement.js';
 import { validerRelais, RELAIS_CORPS_MAX } from './relais-rpc.js'; /* game341: the page's last-resort read relay */
 import { lireEtatNaissance } from './etat-naissance.js'; /* game343 CREATE-ONE-PATH: the one reader of a birth */
 import { lireCoffrePaye } from './coffre-paye.js';
-import { classement, vueCompte } from './coeurs.js'; /* game346: hearts given / received / board */
+import { classement, vueCompte, joueursParSemaine } from './coeurs.js'; /* game346: hearts given / received / board */
 import { creerIndexCoeurs, LIKES_DEPLOY_BLOC } from './coeurs-index.js';
 import { creerIndexLogs } from './index-logs.js'; /* game353: the community points */
 import { TOPICS as TOPICS_LOCK, decoderLock, LOCK_DEPLOY_BLOC } from './lock-evenements.js';
@@ -7829,7 +7829,8 @@ function traiterRequete(req, res) {
       ok: true, complet: lockOk && coeursOk,
       lock: { complet: lockOk, lusJusqua: POINTS.index.etat.prochain - 1, trou: POINTS.index.etat.trou, sansTemps: POINTS.index.etat.sansTemps, evenements: evs.length },
       coeurs: { complet: coeursOk },
-      regle: 'lock points per day = TBLOCK locked / 1,000,000 x (1 + 0.5 x min(days left, 90) / 90) while the lock is active; play points = TBLOCK burned in hearts / 1,000,000 x 2. Points decide a SHARE of what the vault actually received; no rate is promised.',
+      /* game359: rule v2 (points.js); the old text said points share what the vault received — false (the vault pays by hearts) */
+      regle: 'v2: lock points per day = TBLOCK locked / 100,000 x commitment multiplier (x1 under 30 days, x1.25 from 30, x1.5 from 90, x1.75 from 180, x2 from 365 days; set at the last Locked/Extended) while the lock is active; hearts = 10 points each (1 point per 8,600 TBLOCK burned). Points decide a share of a separate community drop, not live; no rate is promised.',
       board: tab.lignes.slice(0, 20).map((x) => ({ ...x, sesBlocks: (inv.get(x.holder) || []).slice(0, 3) })),
       somme: tab.somme,
     };
@@ -7858,6 +7859,8 @@ function traiterRequete(req, res) {
       ok: true, complet: ix.complet(), lusJusqua: ix.etat.prochain - 1, tete: ix.etat.tete, trou: ix.etat.trou, depuis: LIKES_DEPLOY_BLOC,
       total: { coeurs: likes, burned, donneurs: new Set(tous.map((c) => c.liker)).size },
       board: classement(tous, 10).map((e) => ({ ...e, sesBlocks: sesBlocks(e.liker) })),
+      /* game359 (Phil: "montre à combien de joueurs"): per week, the distinct wallets that gave a heart and the TBLOCK burned */
+      semaines: joueursParSemaine(tous),
     };
     if (compteC) {
       const v = vueCompte(tous, compteC, crDe);

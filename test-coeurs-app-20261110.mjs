@@ -21,7 +21,7 @@ t('route validates both addresses', /\(compteC && !\/\^0x\[0-9a-f\]\{40\}\$\/\.t
 t('route is rate limited per IP', /if \(nC > 60\) \{ rendreC\(429/.test(SRV));
 
 /* Holders vault */
-t('Wallet card titled Holders vault (game357: short true intro, Lock panel first)', /<div class="carte" id="wVault" hidden data-v="lock">\s*<p class="titre">Holders vault<\/p>/.test(APP) && APP.includes('Filled by TBLOCK buybacks and creators’ birth payments.'));
+t('Wallet card titled Holders vault (game357: short true intro, Lock panel first)', /<div class="carte" id="wVault" hidden data-v="lock">\s*<p class="titre">Holders vault<\/p>/.test(APP) && APP.includes('TBLOCK set aside for the players.') && APP.includes('Deposits so far came from the team; buybacks and creators’ birth payments can add to it.'));
 t('no visible "community vault" left in app strings', !/['"][^'"\n]*[Cc]ommunity vault[^'"\n]*['"]/.test(APP.replace(/<!--[\s\S]*?-->/g, '').replace(/\/\*[\s\S]*?\*\//g, '')));
 t('hearts + board inside the vault card', /id="wVault"[\s\S]{0,3000}id="wCoeursMoi"[\s\S]{0,300}id="wCoeursBoard"/.test(APP));
 /* game356: the vault explainer is painted between the two lines; still inside peindreVaultWallet, right after the card is shown */

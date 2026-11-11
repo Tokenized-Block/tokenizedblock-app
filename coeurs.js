@@ -29,6 +29,14 @@ export function decoderLiked(log, likes) {
   };
 }
 
+/** game359: per week (BlockLikes epoch), the distinct heart givers and the TBLOCK they burned: { [epoch]: { joueurs, burned } } */
+export function joueursParSemaine(coeurs) {
+  const par = new Map();
+  for (const c of coeurs) { const e = par.get(c.epoch) || { qui: new Set(), burned: 0n }; e.qui.add(c.liker); e.burned += BigInt(c.burned); par.set(c.epoch, e); }
+  const out = {};
+  for (const [k, v] of par) out[k] = { joueurs: v.qui.size, burned: v.burned };
+  return out;
+}
 /** the same log read twice (two overlapping windows, a retry) counts once: key = tx + log index */
 export function dedoublonner(coeurs) {
   const vus = new Set(), out = [];
