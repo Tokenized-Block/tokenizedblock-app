@@ -9,6 +9,7 @@ import * as V from './tam-vue.js';
 import { adresseTam, PRIX_TAM, SIG_TAM, appelLecture, decoderBytes, decoderMot, decoderAdresse, octetsDe } from './tam-plan.js';
 import { TAMART_DEPLOIEMENT } from './tamart-deploiement.js';
 import { planJeuUsdc } from './misables.js';
+import * as AT from './achat-tblock-usdc.js'; /* game358: after a USDC mint, 10 % of the price buys TBLOCK for the payer (optional) */
 import { projectCam } from './map3d.js';
 import { navGesture } from './vision-inside.js';
 import { keccak256Hex } from './keccak.js';
@@ -2422,9 +2423,22 @@ export function monter(racine, ctx = {}) {
     const dit = el('p', { class: 'tamDoux', 'aria-live': 'polite' });
     const signe = el('div', { class: 'tamSigne', hidden: true });
     const bMint = el('button', { type: 'button', class: 'tamPrim', id: 'tamMintBouton', text: 'Mint this work — 5 USDC' });
-    zMint.replaceChildren(el('div', { class: 'tamRang' }, el('label', { class: 'tamDoux', for: 'tamPayer', text: 'Pay with' }), selPay, bMint), signe, dit);
+    /* game358 (Phil 2026-11-11: "Mint this work — 5 USDC … ça ouvre un buy sur tblock"): TamArt sends the 5 USDC to the fee wallet as
+     *   USDC (TamArt.sol, not changeable), so the buy is a SECOND step in the payer's own wallet: 10 % of the price -> TBLOCK, theirs.
+     *   Ticked by default, offered only when paying in USDC and when the page has the buy route (ctx.acheterTblock). */
+    const achat = AT.montantAchat(PRIX_TAM);
+    const cbAchat = el('input', { type: 'checkbox', id: 'tamAchatTblock', checked: true });
+    const labAchat = el('label', { class: 'tamDoux tamAchat', for: 'tamAchatTblock' }, cbAchat, document.createTextNode(' ' + AT.texteOption(achat)));
+    const majAchat = () => { labAchat.hidden = !(achat > 0n && typeof ctx.acheterTblock === 'function' && selPay.value === 'usdc'); };
+    selPay.addEventListener('change', majAchat);
+    /* review 358: the summary shown is what runs — any change of the box or of "Pay with" clears it; press Mint again */
+    const perime = () => { if (!signe.hidden) { signe.hidden = true; signe.replaceChildren(); dit.textContent = 'Changed: press Mint again to see what you sign.'; } };
+    selPay.addEventListener('change', perime);
+    cbAchat.addEventListener('change', perime);
+    majAchat();
+    zMint.replaceChildren(el('div', { class: 'tamRang' }, el('label', { class: 'tamDoux', for: 'tamPayer', text: 'Pay with' }), selPay, bMint), labAchat, signe, dit);
     void optionsPayer(selPay);
-    bMint.addEventListener('click', () => preparerMint({ selPay, signe, dit }));
+    bMint.addEventListener('click', () => preparerMint({ selPay, signe, dit, achat: () => (!labAchat.hidden && cbAchat.checked ? achat : 0n) }));
   }
   /* 2026-11-01 (Phil : « payement des stocks tokenized et usdc comme pour les slots ») : comme la carte des jeux — le menu = USDC + les
    *   jetons TENUS en assez grande quantite ; en dessous, TOUS les jetons qui peuvent payer, grises avec leur raison et leur cout pour 5 USDC.
@@ -2455,7 +2469,7 @@ export function monter(racine, ctx = {}) {
     const [p, b, u] = await Promise.all([lire(SIG_TAM.PRICE), lire(SIG_TAM.beneficiaire), lire(SIG_TAM.USDC)]);
     return { prix: BigInt(decoderMot(p)), beneficiaire: decoderAdresse(b), usdc: decoderAdresse(u) };
   }
-  async function preparerMint({ selPay, signe, dit }) {
+  async function preparerMint({ selPay, signe, dit, achat = () => 0n }) {
     const c = ctx.compte && ctx.compte();
     if (!c) { dit.textContent = 'Connect a wallet to mint.'; return; }
     const contrat = adresseTam(TAMART_DEPLOIEMENT);
@@ -2494,16 +2508,29 @@ export function monter(racine, ctx = {}) {
     }
     if (!pj.ok) { dit.textContent = 'Not ready: ' + pj.pourquoi; return; }
     const rs = planUsdc.resume;
+    /* game358: the buy is decided at THIS click (what the payer sees in "You sign" is what runs) */
+    const montantAchat = selPay.value === 'usdc' ? achat() : 0n;
     signe.hidden = false;
     /* ⛔ 2026-11-01 (test-no-fee-address-shown D2) : le calldata signe porte l adresse ; l ECRAN jamais — tout texte passe par le masque */
     signe.replaceChildren(
       el('p', { text: maskFeeAddresses('You sign: 5 USDC to ' + String(FEE_WALLET).toLowerCase() + ' (TamArt ' + displayShort(contrat) + ' moves it, in the mint).') }),
       el('p', { text: maskFeeAddresses('The work: ' + rs.octets + ' bytes, keccak ' + rs.empreinte + '. Seed ' + rs.graine + '.') }),
       el('p', { text: maskFeeAddresses(pj.phrase + ' ' + pj.plan.appels.length + ' calls: ' + pj.plan.appels.map((a) => a.quoi).join(' · ') + '.') }),
+      montantAchat > 0n ? el('p', { text: 'Then: ' + AT.texteOption(montantAchat).replace(/^Also buy/, 'buy') + ' — a second signature after the mint, all or nothing (a wallet that cannot batch is told so, and nothing is sent).' }) : null,
       el('button', { type: 'button', class: 'tamPrim', text: 'Sign in my wallet', onclick: async () => {
         dit.textContent = 'Waiting for your wallet…';
         const res = await ctx.envoyer(pj, c, (t) => { dit.textContent = t; });
-        dit.textContent = res && (res.etat === 'CONFIRME' || res.etat === 'OK' || res.etat === 'PRET') ? 'Minted. It appears in the gallery once the block is read.' : 'Not minted: ' + String((res && (res.pourquoi || res.etat)) || 'no answer') + '.';
+        const minte = !!(res && (res.etat === 'CONFIRME' || res.etat === 'OK' || res.etat === 'PRET'));
+        if (minte && montantAchat > 0n) {
+          /* game358: the mint is done whatever the buy does; the buy says its own result */
+          /* review 358: the mint is said and the gallery refreshed BEFORE the buy; the buy belongs to the wallet that paid (c) */
+          void galerie();
+          dit.textContent = 'Minted. ' + AT.texteEtape(montantAchat);
+          const b = await ctx.acheterTblock(montantAchat, (t) => { dit.textContent = 'Minted. ' + t; }, c);
+          dit.textContent = 'Minted. It appears in the gallery once the block is read. ' + String((b && b.texte) || '');
+          return;
+        }
+        dit.textContent = minte ? 'Minted. It appears in the gallery once the block is read.' : 'Not minted: ' + String((res && (res.pourquoi || res.etat)) || 'no answer') + '.';
         void galerie();
       } }));
   }

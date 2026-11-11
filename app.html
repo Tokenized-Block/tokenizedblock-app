@@ -3716,7 +3716,7 @@ details[open] > summary::before{transform:rotate(90deg)}
       <!-- ⛔ L EMPREINTE EST AFFICHEE, DONC ELLE EST DE L ANGLAIS. `20261001-pont-dans-lui` a fait
            rougir `test-texte-a-l-ecran.mjs` : le mot « dans » est de la prose francaise partie a
            l ecran anglais. La garde a fait son travail du premier coup. -->
-      <p class="note" data-build="20261109-game357" hidden>Build <code>20261109-game357</code> ·Contract labels say what they do, not our internal names.</p>
+      <p class="note" data-build="20261109-game358" hidden>Build <code>20261109-game358</code> ·Contract labels say what they do, not our internal names.</p>
       <p class="sous">Everything happening to blocks on Base, live.</p>
       <!-- tip 0013: sticky — Hooked chip = Dex fees; unhooked → Launch beside. No fee addr. -->
       <p class="note" id="sfHookedSticky" hidden>Blocks alive on TokenizedBlock pay their creator on every trade. Example:<button type="button" class="puce" id="sfStickyTbgas">Open TBGAS</button>.</p>
@@ -5364,6 +5364,7 @@ import * as ECO from './economie.js'; /* holders economy: the heart burn and the
 import * as CV from './coeurs-vue.js'; /* game346: hearts given / received, the board, the signals between blocks (text only) */
 import * as PTS from './points.js'; /* game356: the server's own points function, for the lock pills */
 import * as PV from './points-vue.js'; /* game353: the community points (text only) */
+import * as AT from './achat-tblock-usdc.js'; /* game358: USDC -> TBLOCK buy after a USDC payment (planned by /api/rails/plan, checked here) */
 import * as LK from './lock.js'; /* game349: TBlockLock — unsigned calls only; every lock button hidden until it is deployed */
 import * as TIP from './create-vault-tip.js';
 import { RELAIS_METHODES } from './relais-rpc.js';
@@ -6120,6 +6121,31 @@ async function preparerPaiementUnit({ ligne, c, planUsdc, jeu, besoin }) {
 }
 /* L ENVOI : un lot atomique (wallet_sendCalls 2.0, atomicRequired) si le wallet le declare (wallet_getCapabilities « supported »),
  *   sinon chaque appel a la suite — et c est DIT avant : l USDC arrive d abord dans le wallet du joueur. */
+/* game358 (Phil 2026-11-11: "vérifie bien que les paiements en usdc font bien une pression acheteuse"): a USDC payment's contract keeps
+ *   the USDC; this buys TBLOCK with `montant` USDC in the payer's wallet, through the app's own route. The plan is checked by
+ *   AT.verifierPlanAchat (ready, exact USDC, the REAL TBLOCK, minimum > 0) before the wallet opens. Never throws; says its result. */
+async function acheterTblockUsdc(montant, dire = () => {}, payeur = null) {
+  const c = compte;
+  if (!c) return { ok: false, texte: 'TBLOCK not bought: no wallet connected.' };
+  /* review 358: the buy belongs to the wallet that paid; another wallet connected meanwhile buys nothing */
+  if (payeur && String(payeur).toLowerCase() !== String(c).toLowerCase()) return { ok: false, texte: 'TBLOCK not bought: the connected wallet changed since the payment — nothing was sent.' };
+  let p = null;
+  try { p = await fetch(AT.urlPlanAchat({ montant, compte: c }), { cache: 'no-store', signal: AbortSignal.timeout(30000) }).then((x) => x.json()); } catch (_) { p = null; }
+  const v = AT.verifierPlanAchat(p, { montant });
+  if (!v.ok) return { ok: false, texte: 'TBLOCK not bought: ' + v.pourquoi + '.' };
+  /* review 358 (HIGH): all or nothing, like envoyerPaiementJeton for an exigeAtomique plan — never call by call (the USDC could become
+   *   wtCOIN with no TBLOCK after it). A wallet without batching is told so, and nothing is sent. */
+  let cap = null;
+  try { cap = await capaciteDeGroupement({ eth: window.ethereum, compte: c, chaineHex: '0x' + Number(CHAINE).toString(16) }); } catch (_) { cap = null; }
+  if (!cap || cap.capacite !== 'OUI') return { ok: false, texte: 'TBLOCK not bought: this buy needs one all-or-nothing batch and this wallet does not offer one — nothing was sent. Buy TBLOCK from the Wallet tab (Swap) instead.' };
+  dire(AT.texteAttente({ montant, recoitAuMoins: v.recoitAuMoins, frais: v.frais, fmt: (x) => ECO.fmt(x) }));
+  try {
+    const r = await envoyerLotAtomique({ eth: window.ethereum, rpc, chaineAttendue: CHAINE, compte: c, calls: v.appels.map((a) => ({ to: a.to, data: a.data, value: a.value })), sansRepliV1: true });
+    if (r && r.sendCallsUnsupported) return { ok: false, texte: 'TBLOCK not bought: this wallet does not offer an all-or-nothing batch — nothing was sent.' };
+    if (r && r.etat === 'CONFIRME') return { ok: true, texte: 'TBLOCK bought: at least ' + ECO.fmt(v.recoitAuMoins) + ' TBLOCK in your wallet.' };
+    return { ok: false, texte: 'TBLOCK not bought: ' + String((r && (r.pourquoi || r.etat)) || 'no answer').slice(0, 160) };
+  } catch (e) { return { ok: false, texte: 'TBLOCK not bought: ' + String((e && e.message) || e).slice(0, 160) }; }
+}
 async function envoyerPaiementJeton(pj, c, dit, suite = '') {
   const appels = pj.plan.appels;
   let cap = null;
@@ -8937,6 +8963,7 @@ function ouvrirTam() {
       lire: async (moi) => { await lireMisablesPage(); if (moi !== payer.compte) { payer.compte = moi; payer.soldes = new Map(); payer.soldesA = 0; } if (payer.lignes && Date.now() - payer.soldesA >= PAYER_TTL_MS) await lireSoldesPayer(moi); } },
     preparer: (o) => preparerPaiementJeton(o),
     envoyer: (pj, c, dit) => envoyerPaiementJeton(pj, c, dit),
+    acheterTblock: (montant, dire, payeur) => acheterTblockUsdc(montant, dire, payeur), /* game358 */
   })).catch((e) => { tamEnVol = null; r.textContent = 'The TAM tab could not load. Reload the page to try again.'; try { console.error(e); } catch (_) { /* rien */ } });
   return tamEnVol;
 }
