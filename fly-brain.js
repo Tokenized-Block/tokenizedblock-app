@@ -7,7 +7,7 @@ import { POOLS_ACTIONS_AERODROME } from './pools-actions-aerodrome.js';
 import { createFly, createSession, foreseeNext, decide, recordEdge, edgeOf, edgePaysFee, FLY } from './fly-core.js';
 import { checkPlanCalls } from './fly-guard.js';
 import { memoryFingerprint, sealData, checkSeal } from './fly-seal.js';
-import { dayOf, countedToday, mayTrade, reserveTrade } from './fly-day.js';
+import { dayOf, countedToday, mayTrade, reserveTrade, volume24h, mayBuyVolume, reserveVolume, verdictPerte } from './fly-day.js';
 import { USDC_BASE, displayShort } from './frais-creation.js';
 import { selecteur } from './keccak.js';
 
@@ -334,9 +334,23 @@ async function autoTrade(e) {
       /* 09/11: a slot is reserved (and saved) right before the FIRST transaction goes out, not counted after the swap: a reload in
        *   between left a real trade uncounted (fly-day.js) */
       let reserved = false;
-      const reserve = () => { if (reserved) return; autoRefresh(); Object.assign(auto.s, reserveTrade(auto.s, today)); autoSave(); reserved = true; sendingStarted = true; };
+      const reserve = () => { if (reserved) return; autoRefresh(); Object.assign(auto.s, reserveTrade(auto.s, today)); Object.assign(auto.s, reserveVolume(auto.s, Date.now(), volumeDuTrade)); autoSave(); reserved = true; sendingStarted = true; };
+      let volumeDuTrade = 0; /* game364: USDC of this trade, recorded with the slot before the first transaction goes out */
       const maxDay = field('autoDay', 1, 50, 1);
       const a = await autoAccount(stock.address), held = a.stock ? BigInt(a.stock) : 0n;
+      /* game364 auto-stop: the wallet's value (USDC + the stock at the live pool price) against its value at Start; at or past the loss set,
+       *   the fly stops and only the human's Start resumes it. A value that cannot be priced is not a loss: it is said, and nothing changes. */
+      const prix = Number.isFinite(lastPrice) && lastPrice > 0 ? lastPrice : null;
+      if (prix !== null) {
+        const valeur = Number(BigInt(a.usdc)) / 1e6 + Number(held) / 10 ** (live.decimals ?? 8) * prix;
+        if (!(auto.s.baseUsd > 0)) { autoRefresh(); auto.s.baseUsd = valeur; autoSave(); }
+        const vp = verdictPerte(auto.s.baseUsd, valeur, field('autoLoss', 1, 50, 1));
+        if (vp && vp.arret) {
+          autoRefresh(); auto.s.running = false; auto.s.stopPerte = { at: Date.now(), base: auto.s.baseUsd, valeur }; autoSave();
+          autoNote({ b: 'auto-stop' }, ': the fly wallet is worth $' + fmt(valeur, 4) + ', down ' + fmt(vp.perte, 2) + '% from $' + fmt(auto.s.baseUsd, 4) + ' when you pressed Start. It sends nothing more until you press Start again.');
+          return;
+        }
+      }
       /* the REAL position decides, not the paper book: after a reload or a stock switch the paper book starts out (review L3) */
       const action = decide(e.word, held > 0n ? 1 : 0);
       /* every live decision is said, trade or not (Phil 08/11: "it does not talk any more" — a HOLD left no line at all) */
@@ -356,12 +370,15 @@ async function autoTrade(e) {
         const cap = BigInt(Math.round(field('autoCap', 0.1, 100, 0.1) * 1e6)), have = BigInt(a.usdc);
         const amt = have < cap ? have : cap;
         if (amt < 100000n) { autoNote(`decided BUY ${stock.symbol}, but it holds ${usd6(have)} USDC: nothing to buy with`); return; }
+        /* game364: the rolling 24 h volume cap, checked before anything is planned or signed */
+        const capVol = field('autoVol', 0.5, 1000, 0.5);
+        if (!mayBuyVolume(autoRefresh(), Date.now(), Number(amt) / 1e6, capVol)) { autoNote(`decided BUY ${stock.symbol}, but ${fmt(volume24h(auto.s, Date.now()), 2)} USDC were traded in the last 24 h and the cap is ${capVol} USDC: nothing sent`); return; }
         /* 09/11 (fly-core.edgePaysFee, kept by simulation): it buys only when the expected gain of a window in, from its RECORD and the
          *   usual move, pays the pool fee; otherwise the fees eat a small edge, and it does not buy */
         const st = session.state(), r = recordEdge(st.tally);
         if (!edgePaysFee(st.tally, st.typical, st.feePips)) { autoNote(`decided BUY ${stock.symbol}, but its edge does not pay the fee yet: record ${r.k} right, ${r.n - r.k} wrong, usual move ${fmt(st.typical * 100, 3)}% -> expected ${fmt(edgeOf(st.tally, st.typical) * 100, 4)}% a window, cost of a side ${st.feePips == null ? '?' : fmt(st.feePips / 1e4, 3) + '% pool + ' + fmt(FLY.INTERFACE_FEE * 100, 2) + '% interface'}: no buy`); return; }
-        de = USDC_BASE; vers = stock.address; montant = amt.toString();
-      } else { de = stock.address; vers = USDC_BASE; montant = held.toString(); }
+        de = USDC_BASE; vers = stock.address; montant = amt.toString(); volumeDuTrade = Number(amt) / 1e6;
+      } else { de = stock.address; vers = USDC_BASE; montant = held.toString(); volumeDuTrade = Number.isFinite(lastPrice) ? Number(held) / 10 ** (live.decimals ?? 8) * lastPrice : 0; }
       /* game323: mouche=1 -> the fly's own trades carry no interface fee (Phil 09/11); the route's real fee is still checked below */
       const q = new URLSearchParams({ de, vers, montant, compte: s.address, mouche: '1' });
       let p = await fetch('/api/rails/plan?' + q, { cache: 'no-store' }).then((x) => x.json()), swapped = false;
@@ -401,10 +418,24 @@ async function autoTrade(e) {
 }
 /* the session is remembered (Phil 08/11: reopening the page stopped the fly and asked to tick the box again): the consent with its date,
  * the settings, and whether it was trading alone. Reopened, it resumes as it was; Stop still halts it. */
-function autoSettings() { return { budget: field('autoBudget', 0.1, 100, 0.1), cap: field('autoCap', 0.1, 100, 0.1), day: field('autoDay', 1, 50, 1) }; }
+function autoSettings() { return { budget: field('autoBudget', 0.1, 100, 0.1), cap: field('autoCap', 0.1, 100, 0.1), day: field('autoDay', 1, 50, 1), vol: field('autoVol', 0.5, 1000, 0.5), loss: field('autoLoss', 1, 50, 1) }; }
+/* game364: the rules panel — read from the same fields the checks below use, never typed twice */
+function autoRulesRender() {
+  const ul = $('autoRulesList'); if (!ul) return;
+  const lignes = [
+    'At most ' + field('autoCap', 0.1, 100, 0.1) + ' USDC per buy, and ' + field('autoDay', 1, 50, 1) + ' trades a day (UTC).',
+    'At most ' + field('autoVol', 0.5, 1000, 0.5) + ' USDC traded in any 24 hours: a buy above it is not sent (a sell, an exit, always is).',
+    'Auto-stop: if the fly wallet is down ' + field('autoLoss', 1, 50, 1) + '% or more from its value when you pressed Start, it stops; only you can start it again.',
+    'Spot only: it buys the one stock you chose with USDC and sells it back. No leverage, no borrowing, no other asset.',
+    'Every call is checked in this page before its key signs: known routers only, approvals no larger than the trade, no ETH attached, nothing sent to another wallet.',
+    'Where these rules live: in this page, which holds the fly\'s key. The brain cannot change them; no server enforces them. Stop and Withdraw all are always yours.',
+  ];
+  ul.replaceChildren(...lignes.map((t) => { const li = document.createElement('li'); li.textContent = t; return li; }));
+}
 function autoRemember() { if (!auto.s) return; autoRefresh(); auto.s.settings = autoSettings(); if ($('autoRisk').checked && !auto.s.consentAt) auto.s.consentAt = Date.now(); autoSave(); }
 function autoStart() { if (!auto.s || !auto.s.owner || auto.withdrawing || auto.funding) return; if (!$('autoRisk').checked) { autoSay('Tick the box first.'); return; }
-  autoRefresh(); auto.s.running = true; auto.s.consentAt = auto.s.consentAt || Date.now(); auto.s.settings = autoSettings(); autoSave(); autoRender();
+  /* game364: Start is the human's act: it sets the base value of the auto-stop again (measured at the first decision) and clears a stop */
+  autoRefresh(); auto.s.running = true; auto.s.consentAt = auto.s.consentAt || Date.now(); auto.s.settings = autoSettings(); auto.s.baseUsd = null; auto.s.stopPerte = null; autoSave(); autoRender();
   autoNote(`trading alone on ${current.symbol}, on its live decisions only, max ${field('autoCap', 0.1, 100, 0.1)} USDC per buy, ${field('autoDay', 1, 50, 1)} trades a day, buying only when its edge pays the real cost. Stop halts it.`); }
 function autoStop() { if (!auto.s) return; autoRefresh(); auto.s.running = false; autoSave(); autoRender(); autoNote({ b: 'stopped' }, ': it sends nothing more' + (auto.busy ? ' after the call already in flight' : '') + '.'); }
 async function autoWithdraw() {
@@ -452,7 +483,9 @@ function autoWire() {
     if (Number.isFinite(auto.s.consentAt)) $('autoRisk').checked = true;
     if (auto.s.running) autoNote('page reopened: ', { b: 'still trading alone' }, ` on its live decisions, with your settings (max ${field('autoCap', 0.1, 100, 0.1)} USDC per buy, ${field('autoDay', 1, 50, 1)} trades a day, buying only when its edge pays the real cost). Stop halts it.`);
   }
-  for (const id of ['autoBudget', 'autoCap', 'autoDay', 'autoRisk']) $(id).addEventListener('change', autoRemember);
+  if (auto.s && auto.s.settings) { const st2 = auto.s.settings; if (Number.isFinite(st2.vol)) $('autoVol').value = String(st2.vol); if (Number.isFinite(st2.loss)) $('autoLoss').value = String(st2.loss); }
+  for (const id of ['autoBudget', 'autoCap', 'autoDay', 'autoVol', 'autoLoss', 'autoRisk']) $(id).addEventListener('change', () => { autoRemember(); autoRulesRender(); });
+  autoRulesRender();
   /* another tab pressed Stop (or started it): obey at once */
   window.addEventListener('storage', (ev) => { if (ev.key === AUTO_KEY) { const x = autoLoad(); if (x && auto.s && x.key === auto.s.key) { auto.s = x; autoRender(); } } });
   $('autoCreate').addEventListener('click', autoCreate); $('autoFund').addEventListener('click', autoFund); $('autoStart').addEventListener('click', autoStart);

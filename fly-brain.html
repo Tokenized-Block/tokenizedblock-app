@@ -225,7 +225,14 @@
           <label class="state">Budget sent to the fly (USDC)<input id="autoBudget" type="number" min="0.1" max="100" step="0.1" value="1"></label>
           <label class="state">Max per trade (USDC)<input id="autoCap" type="number" min="0.1" max="100" step="0.1" value="0.5"></label>
           <label class="state">Max trades per day<input id="autoDay" type="number" min="1" max="50" step="1" value="10"></label>
+          <!-- game364: the two controls Coinbase announced the same day for its agents, here for the fly -->
+          <label class="state">Max traded in 24 h (USDC)<input id="autoVol" type="number" min="0.5" max="1000" step="0.5" value="5"></label>
+          <label class="state">Auto-stop if down (%)<input id="autoLoss" type="number" min="1" max="50" step="1" value="5"></label>
         </div>
+        <!-- game364: the fly's rules, in one place; the brain decides, these limits decide what can be signed -->
+        <details class="state" id="autoRules" style="margin-top:8px"><summary><b>The fly's rules</b> — what it can never do</summary>
+          <ul id="autoRulesList" style="margin:6px 0 0 18px;padding:0"></ul>
+        </details>
         <button id="connect">Connect my wallet (it funds the fly and gets everything back)</button>
         <div class="state" id="liveState" style="margin-top:6px">Not connected.</div>
         <div class="state" id="autoWallet" style="margin-top:8px">No fly wallet in this browser yet.</div>

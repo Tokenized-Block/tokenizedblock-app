@@ -90,7 +90,7 @@ const total = await banc(ICI);
 /* the real buy follows the same rule (page source: fly-brain.js is a browser module; its money path is exercised on the fork bench) */
 const page = readFileSync(join(ICI, 'fly-brain.js'), 'utf8');
 assert.ok(/const st = session\.state\(\), r = recordEdge\(st\.tally\);\s*if \(!edgePaysFee\(st\.tally, st\.typical, st\.feePips\)\) \{ autoNote\(/.test(page), 'the real BUY is refused while the edge does not pay the fee');
-assert.ok(/const amt = have < cap \? have : cap;[\s\S]{0,900}de = USDC_BASE; vers = stock\.address; montant = amt\.toString\(\);/.test(page), 'when it pays, the amount planned is min(USDC, cap)');
+assert.ok(/const amt = have < cap \? have : cap;[\s\S]{0,1800}de = USDC_BASE; vers = stock\.address; montant = amt\.toString\(\);/.test(page), 'when it pays, the amount planned is min(USDC, cap)');
 { const i = page.indexOf("if (action === 'buy' && round === 0) { const st2 = session.state(), bps = Number(p.resume.fraisBps);"), j = page.indexOf('if (!Number.isFinite(bps) || !edgePaysFee(st2.tally, st2.typical, st2.feePips, bps / 1e4))'), h1 = page.indexOf('/* ⛔ H1: nothing is signed');
   assert.ok(i > 0 && j > i && j - i < 200 && h1 > j, 'the real BUY checks the cost of ITS route before anything is signed'); }
 /* 09/11: the coin-flip gate is gone (it changed nothing on top of the edge rule in simulation, and added a second refusal): no checkbox,
