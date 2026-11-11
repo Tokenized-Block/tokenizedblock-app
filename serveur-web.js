@@ -374,6 +374,12 @@ const envoisNoeuds = { depuis: new Date().toISOString(), parHote: {} };
 /* game362 (Phil: "régler une bonne fois pour toutes le problème de RPC"): every answer counted here also feeds ONE health state per host
  *   (rpc-sante.js): a host that rate-limits or does not answer is tried last for 15 s .. 5 min, by every reader of this server. */
 const SANTE_RPC = creerSante();
+/* game366 (live audit: mainnet.base.org's traffic could not be attributed — compterEnvoi counts per host, not per method or reader): every
+ *   call that ENTERS a reader is counted here as reader x method (calls, not sends; retries stay in envois). Published in /sante. */
+const appelsLecteurs = { depuis: new Date().toISOString(), par: {} };
+function compterAppel(lecteur, methode) {
+  try { const k = lecteur + ' ' + String(methode || '?').slice(0, 40); appelsLecteurs.par[k] = (appelsLecteurs.par[k] || 0) + 1; } catch { /* never breaks a read */ }
+}
 /* the keyed node (RELAIS_CLE, CDP) as the LAST resort of the pool reads when every public host failed — its own daily budget, counted */
 const SECOURS_MAX_JOUR = Number.isSafeInteger(Number(process.env.RPC_SECOURS_MAX_JOUR)) && Number(process.env.RPC_SECOURS_MAX_JOUR) >= 0 ? Number(process.env.RPC_SECOURS_MAX_JOUR) : 5000;
 const secoursCompte = { jour: '', appels: 0, servis: 0, refusBudget: 0, echecs: 0 };
@@ -399,6 +405,7 @@ function lecteurUrl(url, options = {}) {
  *   ferait passer une non-reponse pour un zero, et la porte lirait un glissement de 0 bps sur une
  *   pool qu elle n a pas lue. */
 async function callLarge(to, data) {
+  compterAppel('pool-facts', 'eth_call'); /* game366 */
   let dernier = 'aucun essai';
   const ordreF = SANTE_RPC.ordonner(RPC_FAITS_POOL, tourFaits++, libelleNoeud); /* game362: available hosts first */
   for (let k = 0; k < RPC_FAITS_POOL.length * 2; k += 1) {
@@ -1493,6 +1500,7 @@ function hotesLecteurGeneral(methode, params, liste = RPC_LIST, large = RPC_FAIT
   return [...new Set([...liste, ...large])];
 }
 async function rpcServeurBrut(methode, params) {
+  compterAppel('general', methode); /* game366 */
   let dernier = null;
   const hotesL = hotesLecteurGeneral(methode, params); /* game363 */
   const maxEssais = Math.max(3, hotesL.length);
@@ -2782,6 +2790,7 @@ let railsEnVol = 0;
  *   pour un echec. Un refus de la chaine (revert) n est PAS reessaye : c est une reponse, pas une panne. */
 let idRails = 0;
 async function rpcRails(methode, params) {
+  compterAppel('rails', methode); /* game366 */
   if (methode !== 'eth_call') return rpcServeur(methode, params);
   let dernier = new Error('no endpoint tried');
   const ordreF = SANTE_RPC.ordonner(RPC_FAITS_POOL, tourFaits++, libelleNoeud); /* game362: available hosts first */
@@ -3438,6 +3447,7 @@ const RPC_SIMULATION = ESSAI_SRV.actif ? [ESSAI_SRV.rpc] : ['https://mainnet.bas
 let tourSim = 0;
 async function rpcNaissance(methode, params) {
   if (methode !== 'eth_simulateV1') return rpcRails(methode, params);
+  compterAppel('simulation', methode); /* game366 */
   let dernier = new Error('no endpoint tried');
   const ordreS = SANTE_RPC.ordonner(RPC_SIMULATION, tourSim++, libelleNoeud); /* game362 */
   for (let k = 0; k < RPC_SIMULATION.length * 2; k += 1) {
@@ -7500,7 +7510,8 @@ function traiterRequete(req, res) {
       const adr = chemin.slice('/api/fly/account/'.length).toLowerCase(), q = new URL(req.url, 'http://x').searchParams, tok = String(q.get('token') || '').toLowerCase();
       if (!/^0x[0-9a-f]{40}$/.test(adr)) { send(400, { ok: false, why: 'usage: /api/fly/account/<address>[?token=<stock of the pool table>]' }); return; }
       if (tok && !POOLS_ACTIONS_AERODROME.get(tok)) { send(404, { ok: false, why: 'token: not a stock of the measured pool table' }); return; }
-      compteMouche(adr, tok || null).then((r) => send(200, r)).catch(panne);
+      /* game366: + the ETH price (the server's own, cached 60 s) so the fly prices its gas; null when unread (the fly then does not buy) */
+      compteMouche(adr, tok || null).then(async (r) => send(200, { ...r, ethUsd: await prixUsdPourPlan(null).catch(() => null) })).catch(panne);
       return;
     }
     if (route === 'receipt') {
@@ -9056,7 +9067,7 @@ function traiterRequete(req, res) {
       /* 2026-10-10 : chaque requete JSON-RPC envoyee, par hote (jamais le chemin) et par issue, depuis le demarrage (compterEnvoi ;
        *   ce qui est compte et ce qui ne l est pas : voir envoisNoeuds) */
       envois: envoisNoeuds,
-      santeRpc: { misDeCote: SANTE_RPC.instantane(), secoursCle: { ...secoursCompte, maxJour: SECOURS_MAX_JOUR, pose: !!RELAIS_CLE } }, /* game362 */
+      santeRpc: { appelsLecteurs, misDeCote: SANTE_RPC.instantane(), secoursCle: { ...secoursCompte, maxJour: SECOURS_MAX_JOUR, pose: !!RELAIS_CLE } }, /* game362 */
       /* game341: the page's last-resort read relay — counts only; the keyed node is named by its host, never its path */
       relais: { noeudCle: RELAIS_CLE ? libelleNoeud(RELAIS_CLE) : null, cleDediee: !!String(process.env.BASE_RPC_RELAIS || '').trim(),
         maxJour: RELAIS_MAX_JOUR, jour: RELAIS.jour, appelsCle: RELAIS.cles, servis: RELAIS.servis, refus: RELAIS.refus, echecs: RELAIS.echecs },

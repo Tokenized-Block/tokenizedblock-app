@@ -13,7 +13,7 @@ t('B20 chip = the same sentence', /else if \(q\.paire\.type === 'B20'\) chip\.te
 t('no "Quote = B20 " chip left', !/'Quote = B20 '/.test(APP));
 t('review recap: $5, TBLOCK first, no 0.001 ETH line', /\? \['Price: \$5 in all, TBLOCK first — your wallet shows each exact request'\]\n\s+: \['Price: \$5 in all, TBLOCK first — your wallet shows each exact request'\]\)\] : \[\];/.test(APP)
   && !/'Create \+ 0\.001 ETH \(your wallet shows the exact request\)'/.test(APP) && !/'Instant Birth = create \+ open fee 0\.001 ETH/.test(APP));
-t('Create choice card: $5, TBLOCK first', /born and brought to life for \$5, TBLOCK first\.<\/span>/.test(APP));
+t('Create button: $5 (game365: the choice card that said "$5, TBLOCK first" is gone)', APP.includes('Connect wallet → review → Instant Birth · $5') && !/born and brought to life for \$5, TBLOCK first/.test(APP));
 t('share cards (meta, og, twitter) say $5', /name="description" content="Make a living block on Base for \$5 —/.test(APP) && /og:description" content="\$5: your block is born/.test(APP) && /twitter:description" content="\$5: your block is born/.test(APP));
 console.log(ok + '/' + (ok + ko) + (ko ? ' — RED' : ' — green'));
 process.exit(ko ? 1 : 0);

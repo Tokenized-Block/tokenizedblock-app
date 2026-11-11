@@ -2239,16 +2239,8 @@ details[open] > summary::before{transform:rotate(90deg)}
          (un block OU un token OpenLaunch), puis le parcours du block en 3 cartes : le nommer, son apparence et son cerveau,
          le mettre en vie. Les reglages avances (sel, paire, detail de ce que le wallet signe) sont replies.
          ⛔ Tous les id existants sont conserves : le code qui les lit ne change pas. -->
-    <div class="carte creaChoix" role="tablist" aria-label="What do you want to create">
-      <button type="button" class="creaMode on" role="tab" aria-selected="true" data-cmode="block">
-        <span class="creaModeIc">🧱</span><b>A block</b>
-        <span>Its own face, a living brain, a place on the map — born and brought to life for $5, TBLOCK first.</span>
-      </button>
-      <button type="button" class="creaMode" role="tab" aria-selected="false" data-cmode="token">
-        <span class="creaModeIc">🚀</span><b>A plain token</b>
-        <span>With <b>openlaunch.lol</b>, by their rules. No face, no brain. Gas only.</span>
-      </button>
-    </div>
+    <!-- game365 (Phil 2026-11-11: "retire ça … vu que t'as que 1 choix"): the "A block / A plain token" choice and the OpenLaunch card are gone;
+         Create is the block path only. #cModeBlock stays (the code reads it). -->
 
     <div id="cModeBlock">
     <div class="carte">
@@ -2518,30 +2510,6 @@ details[open] > summary::before{transform:rotate(90deg)}
     </div>
     </div>
 
-    <!-- tip 0024 — launch OpenLaunch DIRECT depuis l app (factory OL, Base). Preuve fork 2026-09-16 : launch OK, achat 0,1 ETH,
-         collect -> frais LP repartis selon recipientsOf. tip 0028 : regles d OpenLaunch, 100 % des frais au lanceur (Phil). -->
-    <div class="carte" id="cModeToken" hidden>
-      <p class="titre">A plain token with <a href="https://openlaunch.lol" target="_blank" rel="noopener">openlaunch.lol ↗</a></p>
-      <p class="sous">Their contract, their rules: 1B supply, all of it locked in a pool paired with ETH. No face, no brain, not on the map.
-        The trading fee you pick goes <b>100% to you</b>, in ETH, forever.</p>
-      <label class="champ">Name<input id="olNom" maxlength="32" placeholder="My token" autocomplete="off"></label>
-      <label class="champ">Symbol<input id="olSym" maxlength="11" placeholder="MYTKN" autocomplete="off"></label>
-      <label class="champ">Starting value (whole supply)<select id="olFdv"><option value="3">≈ 3 ETH</option><option value="10" selected>≈ 10 ETH</option><option value="30">≈ 30 ETH</option></select></label>
-      <!-- ⛔⛔ L OPTION « 0 % (no fee, nobody earns) » EST RETIREE (Phil, 2026-09-23 : « evidemment
-           tout le monde va prendre free, enleve-le, c est fini le free modele »).
-           ⛔ CE N ETAIT PAS UN BOUTON, C ETAIT UN CHOIX DANS UNE LISTE — c est pour ca qu il avait
-             survecu au retrait du « free block » du 2026-09-19 : on avait cherche des boutons.
-             Offrir « payer » et « gratuit » cote a cote ne mesure pas une preference, ca la
-             fabrique : personne ne choisit de payer quand la case d a cote est vide.
-           ⛔ ET LE 0 % EST DEFINITIF : le taux est grave dans la PoolKey. Un marche ouvert a 0 %
-             ne rapporte JAMAIS rien, ni a son createur ni a nous — aucune migration n existe.
-             Ce n etait donc pas une option bon marche, c etait une option morte. -->
-      <label class="champ">LP fee on trades<select id="olFee"><option value="10000" selected>1%</option><option value="30000">3%</option></select></label>
-      <button class="bouton" id="olPreparer" type="button">Prepare the OpenLaunch launch</button>
-      <ol class="pmLignes" id="olLignes"></ol>
-      <div id="olActions"></div>
-      <p class="note" id="olEtat"></p>
-    </div>
   </section>
 
   <!-- ══ BRAIN AI ════════════════════════════════════════════════════════════════════════════
@@ -3718,7 +3686,7 @@ details[open] > summary::before{transform:rotate(90deg)}
       <!-- ⛔ L EMPREINTE EST AFFICHEE, DONC ELLE EST DE L ANGLAIS. `20261001-pont-dans-lui` a fait
            rougir `test-texte-a-l-ecran.mjs` : le mot « dans » est de la prose francaise partie a
            l ecran anglais. La garde a fait son travail du premier coup. -->
-      <p class="note" data-build="20261109-game364" hidden>Build <code>20261109-game364</code> ·Contract labels say what they do, not our internal names.</p>
+      <p class="note" data-build="20261109-game366" hidden>Build <code>20261109-game366</code> ·Contract labels say what they do, not our internal names.</p>
       <p class="sous">Everything happening to blocks on Base, live.</p>
       <!-- tip 0013: sticky — Hooked chip = Dex fees; unhooked → Launch beside. No fee addr. -->
       <p class="note" id="sfHookedSticky" hidden>Blocks alive on TokenizedBlock pay their creator on every trade. Example:<button type="button" class="puce" id="sfStickyTbgas">Open TBGAS</button>.</p>
@@ -5439,7 +5407,6 @@ import { dollarsCourts, lienOL } from './openlaunch.js';
 import { creerMoteur3D, skyStars } from './map3d.js';
 import { usdCourt } from './trending.js';
 import { tirageUniforme } from './tirage.js';
-import { planLaunchOL, tickPourFdv, OL_FACTORY } from './openlaunch-launch.js';
 import { planMessagePaye, prixMessageLisible } from './messagerie-blocks.js';
 import { rencontre as rencontreCerveaux, cercle as cercleCerveaux, rejouer as rejouerCerveau, faitsLus, repliqueDe, humeurCourte, conseilDe, texteRencontre, pourcentSynchro, BATTEMENTS_RENCONTRE } from './interactions-cerveaux.js';
 /* ⛔ LES ENTREES DU CERVEAU VIENNENT D UN SEUL ENDROIT : map, onglet Brain et profil liraient sinon trois
@@ -24372,80 +24339,6 @@ function peindreALancer() {
 }
 queueMicrotask(peindreALancer);
 
-/* tip 0024 — launch OpenLaunch depuis l app. Simulation (eth_estimateGas) AVANT d afficher le bouton de signature. */
-let olEnCours = false;
-$('#olPreparer').addEventListener('click', async () => {
-  const etat = $('#olEtat'), lignes = $('#olLignes'), actions = $('#olActions');
-  lignes.innerHTML = ''; actions.innerHTML = '';
-  if (Number(CHAINE) !== 8453) { etat.className = 'note wKo'; etat.textContent = 'OpenLaunch launches run on Base mainnet only — switch network.'; return; }
-  /* ⛔⛔ LE 0 % EST REFUSE ICI AUSSI, PAS SEULEMENT RETIRE DE LA LISTE. Retirer une `<option>` ne
-   *    ferme rien : un `select` garde la valeur d une session precedente, une extension ou un
-   *    outil de dev peut en poser une autre, et `Number('')` vaut 0. La garde appartient la ou la
-   *    DECISION se prend, pas la ou le choix s affiche.
-   *    ⛔ ET ELLE ECHOUE FERMEE, AVEC SA RAISON A L ECRAN : un `lpFee` illisible ne doit pas
-   *      devenir 0 en silence — `nan-walks-through-every-bound`. Un marche ouvert a 0 % ne
-   *      rapporte jamais rien, a personne, et aucune migration n existe pour le reparer. */
-  const lpFee = Number($('#olFee').value);
-  if (!Number.isFinite(lpFee) || lpFee <= 0) {
-    etat.className = 'note wKo';
-    etat.textContent = 'Pick a trading fee above 0% — a 0% market is engraved forever and can never pay anyone.';
-    return;
-  }
-  const sel = crypto.getRandomValues(new Uint8Array(32));
-  const plan = planLaunchOL({ nom: $('#olNom').value, symbole: $('#olSym').value, lanceur: compte,
-    startTick: tickPourFdv(Number($('#olFdv').value)), lpFee,
-    salt: '0x' + [...sel].map((b) => b.toString(16).padStart(2, '0')).join('') });
-  if (plan.etat !== 'OK') { etat.className = 'note wKo'; etat.textContent = plan.pourquoi + '. Nothing was prepared.'; return; }
-  etat.className = 'note'; etat.textContent = 'Simulating on Base…';
-  try {
-    await rpc('eth_estimateGas', [{ from: compte, to: plan.tx.to, data: plan.tx.data, value: '0x0' }]);
-  } catch (err) {
-    etat.className = 'note wKo';
-    etat.textContent = 'The simulation refused this launch, so there is nothing to sign: ' + String((err && err.message) || err).slice(0, 160);
-    return;
-  }
-  const r = plan.resume;
-  lignes.innerHTML = [
-    '<b>' + enTexte(r.nom) + '</b> (' + enTexte(r.symbole) + ') · ' + r.supply + ' tokens, all locked in the pool',
-    'Paired with ETH · starting value ≈ ' + r.fdvEth.toFixed(2) + ' ETH for the whole supply',
-    /* ⛔ LA BRANCHE « 0 % » EST SUPPRIMEE, PAS RENOMMEE. Elle est devenue INATTEIGNABLE : le choix
-     *    n existe plus dans la liste et `olPreparer` refuse un lpFee <= 0 avant d arriver ici.
-     *    La laisser decrirait a l ecran un produit qu on n offre plus — et le prochain lecteur la
-     *    prendrait pour une option encore valable, exactement comme l `<option>` qui avait survecu
-     *    six jours au retrait du « free block ».
-     *    ⛔ ET ELLE NE DEVIENT PAS UN TEXTE NEUTRE : si un 0 % arrivait quand meme jusqu ici, il
-     *      faut que ca se VOIE, pas que ca s affiche joliment — `neutral-return-swallows-failure`. */
-    r.lpFeePct > 0
-      ? r.lpFeePct + '% trading fee → 100% to your wallet (fixed forever)'
-      : 'Unreadable trading fee — do not sign. Reload and pick a fee.',
-    'Contract: OpenLaunch LaunchFactory · you pay gas only · no ETH sent',
-    'Simulation passed on Base just now',
-  ].map((t) => '<li>' + t + '</li>').join('');
-  actions.innerHTML = '<button class="bouton" id="olSigner" type="button">Sign the OpenLaunch launch</button>';
-  $('#olSigner').addEventListener('click', async () => {
-    if (olEnCours) return;
-    olEnCours = true;
-    try {
-      etat.className = 'note'; etat.textContent = 'Check it in your wallet.';
-      const rc = await envoyerDepuisWallet({ eth: window.ethereum, rpc, chaineAttendue: CHAINE, compte, to: OL_FACTORY, data: plan.tx.data, value: '0x0' });
-      const lien = rc.hash ? ' <a href="' + RESEAUX[CHAINE].explorateur + '/tx/' + enTexte(rc.hash) + '" target="_blank" rel="noopener">tx</a>' : '';
-      if (rc.etat === 'CONFIRME') {
-        let token = null;
-        try {
-          const rec = await rpc('eth_getTransactionReceipt', [rc.hash]);
-          const lg = (rec.logs || []).find((l) => String(l.address).toLowerCase() === OL_FACTORY.toLowerCase() && l.topics && l.topics.length === 4);
-          if (lg) token = '0x' + lg.topics[1].slice(26);
-        } catch (_) { token = null; }
-        etat.className = 'note wOk';
-        etat.innerHTML = 'Launched on OpenLaunch.' + (token && lienOL(token) ? ' <a href="' + lienOL(token) + '" target="_blank" rel="noopener noreferrer">Open it on OpenLaunch ↗</a>' : '') + lien;
-        actions.innerHTML = '';
-      } else {
-        etat.className = 'note wKo'; etat.innerHTML = enTexte(rc.pourquoi || rc.etat) + lien;
-      }
-    } finally { olEnCours = false; }
-  });
-  etat.className = 'note'; etat.textContent = 'Read it, then sign. Nothing is sent until your wallet confirms.';
-});
 
 /* ══ tip 0034 — TRADE : classement Trending + achat en un geste ════════════════════════════════════════════════════
  * Donnees : /api/trending (serveur : creations B20 lues sur la chaine + DexScreener). « Buy » ouvre le profil du block,
@@ -24875,15 +24768,6 @@ setInterval(() => { if ($('#v-trade').classList.contains('on') && !document.hidd
 /* tip 0041 : le libelle du bouton suit la case « bring it to life right after » */
 /* (case retiree le 2026-09-19 : un seul chemin, creer puis donner vie) */
 
-/* tip 0032 — choix du mode dans Create : un block (parcours complet + apercu) ou un token OpenLaunch (sa carte seule) */
-document.querySelectorAll('[data-cmode]').forEach((b) => b.addEventListener('click', () => {
-  const token = b.getAttribute('data-cmode') === 'token';
-  document.querySelectorAll('[data-cmode]').forEach((x) => { const on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-selected', on ? 'true' : 'false'); });
-  const bloc = $('#cModeBlock'), tok = $('#cModeToken'), sticky = document.querySelector('#v-creer .creaSticky');
-  if (bloc) bloc.hidden = token;
-  if (tok) tok.hidden = !token;
-  if (sticky) sticky.hidden = token;
-}));
 
 /** L adresse que la factory rendra pour ce sel et ce compte — calculee par verifierAdresseCreation, jamais devinee. */
 let adressePrevue = null;
@@ -32870,11 +32754,20 @@ async function etape1AchatTblock(e) {
   if (bal >= need) return true;
   const wei = TIP.ethWeiForTblock({ tblock: need - bal, tblockUsd: px, ethUsd });
   if (wei === null) return true;
+  /* game366 (live audit 2026-11-11, measured on 0x31e0: 0.002033 ETH, step 1 + reserve asked 0.003436): a wallet that can pay the BIRTH but
+   *   not also the TBLOCK buy had its birth cancelled — against this file's own rule (create-vault-tip.js: "a missing TBLOCK can never block a
+   *   birth"). Now: enough for the birth -> step 1 is skipped and said, the birth goes on, the TBLOCK part is offered after it (step 3);
+   *   only a wallet that cannot pay the birth itself stops here. */
   if (ethBal < wei + TIP.BIRTH_ETH_RESERVE_WEI) {
-    e.className = 'note wKo';
-    e.textContent = 'Step 1 of 3 needs ' + (Number(wei) / 1e18).toFixed(6) + ' ETH to buy the TBLOCK part, and the birth needs about '
-      + (Number(TIP.BIRTH_ETH_RESERVE_WEI) / 1e18).toFixed(4) + ' ETH more. This wallet holds ' + (Number(ethBal) / 1e18).toFixed(6) + ' ETH. Nothing was sent.';
     tipAuto = false;
+    if (ethBal >= TIP.BIRTH_ETH_RESERVE_WEI) {
+      e.className = 'note';
+      e.textContent = 'Step 1 skipped: buying the TBLOCK part needs ' + (Number(wei) / 1e18).toFixed(6) + ' ETH more than this wallet keeps for the birth ('
+        + (Number(ethBal) / 1e18).toFixed(6) + ' ETH held). The birth goes on now; the TBLOCK part is offered after it (step 3), never required.';
+      return true;
+    }
+    e.className = 'note wKo';
+    e.textContent = 'The birth needs about ' + (Number(TIP.BIRTH_ETH_RESERVE_WEI) / 1e18).toFixed(4) + ' ETH; this wallet holds ' + (Number(ethBal) / 1e18).toFixed(6) + ' ETH. Nothing was sent.';
     return false;
   }
   let pl;

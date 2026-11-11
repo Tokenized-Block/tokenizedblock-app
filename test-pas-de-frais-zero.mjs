@@ -40,6 +40,14 @@ const v = (nom, fn) => { fn(); n++; };
 /* ⛔ LA GARDE S ACCUSE D ABORD : si le selecteur de frais a ete renomme, tous les controles
  *    ci-dessous passeraient sur du vide et rendraient un vert qui ne prouve rien. */
 const bloc = html.match(/<select id="olFee">[\s\S]{0,400}?<\/select>/);
+/* game365 (Phil 2026-11-11): the OpenLaunch launch was removed from Create — there is no fee choice left at all. The guard now proves that:
+ *   no selector, no launch code, and still no "free market" promise on screen. */
+if (!bloc) {
+  assert.ok(!html.includes('planLaunchOL') && !html.includes('id="olPreparer"'), 'the fee selector is gone but a launch path remains');
+  assert.doesNotMatch(ecran, /nobody earns/i, 'the promise of a free market is still on screen');
+  console.log('pas-de-frais-zero : OpenLaunch launch removed (game365) — no fee choice exists; 2 checks');
+  process.exit(0);
+}
 assert.ok(bloc, 'selecteur #olFee introuvable — cette garde ne protege plus rien');
 assert.ok(bloc[0].includes('<option'), 'aucune option lue dans #olFee');
 

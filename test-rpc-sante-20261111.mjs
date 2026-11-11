@@ -44,6 +44,6 @@ t('server: the 4 readers are ordered by it', (SRV.match(/SANTE_RPC\.ordonner\(/g
 const sec = SRV.slice(SRV.indexOf('async function secoursCle('), SRV.indexOf('async function secoursCle(') + 1500);
 t('server: keyed fallback on eth_call only, never in test mode, own daily budget', sec.includes("if (!RELAIS_CLE || ESSAI_SRV.actif || methode !== 'eth_call') return { ok: false };") && sec.includes('if (secoursCompte.appels >= SECOURS_MAX_JOUR)'));
 t('server: a read answered 0x is not taken from the keyed node either', sec.includes("!(lecture && j.result === '0x')"));
-t('server: /sante publishes the hosts set aside and the keyed budget (never the key)', SRV.includes('santeRpc: { misDeCote: SANTE_RPC.instantane(), secoursCle: { ...secoursCompte, maxJour: SECOURS_MAX_JOUR, pose: !!RELAIS_CLE } }'));
+t('server: /sante publishes the hosts set aside and the keyed budget (never the key)', SRV.includes('santeRpc: { appelsLecteurs, misDeCote: SANTE_RPC.instantane(), secoursCle: { ...secoursCompte, maxJour: SECOURS_MAX_JOUR, pose: !!RELAIS_CLE } }') /* game366 */);
 console.log(ok + '/' + (ok + ko) + (ko ? ' — RED' : ' — green'));
 process.exit(ko ? 1 : 0);

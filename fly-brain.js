@@ -4,7 +4,7 @@
  * Price: /api/fly/price/<address> (the stock's Aerodrome pool, slot0, 24/7). Trades: /api/activite/<address> (Transfer logs, each
  * confirmed by its transaction's signer). Reference: /api/actions/reference/ (Chainlink) shown, never fed. Shared fly: /api/fly/state. */
 import { POOLS_ACTIONS_AERODROME } from './pools-actions-aerodrome.js';
-import { createFly, createSession, foreseeNext, decide, recordEdge, edgeOf, edgePaysFee, FLY } from './fly-core.js';
+import { createFly, createSession, foreseeNext, decide, recordEdge, edgeOf, edgePaysFee, aRetourPaye, gasUsdCote, FLY } from './fly-core.js';
 import { checkPlanCalls } from './fly-guard.js';
 import { memoryFingerprint, sealData, checkSeal } from './fly-seal.js';
 import { dayOf, countedToday, mayTrade, reserveTrade, volume24h, mayBuyVolume, reserveVolume, verdictPerte } from './fly-day.js';
@@ -376,7 +376,11 @@ async function autoTrade(e) {
         /* 09/11 (fly-core.edgePaysFee, kept by simulation): it buys only when the expected gain of a window in, from its RECORD and the
          *   usual move, pays the pool fee; otherwise the fees eat a small edge, and it does not buy */
         const st = session.state(), r = recordEdge(st.tally);
-        if (!edgePaysFee(st.tally, st.typical, st.feePips)) { autoNote(`decided BUY ${stock.symbol}, but its edge does not pay the fee yet: record ${r.k} right, ${r.n - r.k} wrong, usual move ${fmt(st.typical * 100, 3)}% -> expected ${fmt(edgeOf(st.tally, st.typical) * 100, 4)}% a window, cost of a side ${st.feePips == null ? '?' : fmt(st.feePips / 1e4, 3) + '% pool + ' + fmt(FLY.INTERFACE_FEE * 100, 2) + '% interface'}: no buy`); return; }
+        /* game366: the expected gain must pay the WHOLE round trip — both sides' pool + interface fees and both sides' gas at this size;
+         *   the gas is priced from the live base fee and ETH price the account read returns; unknown -> no buy */
+        const gasCote = gasUsdCote(a.baseFeePerGas, Number(a.ethUsd)), taille = Number(amt) / 1e6;
+        const allerRetour = gasCote == null || st.feePips == null ? null : 2 * (st.feePips / 1e6 + FLY.INTERFACE_FEE) + 2 * gasCote / taille;
+        if (!aRetourPaye({ tally: st.tally, typical: st.typical, feePips: st.feePips, gasUsd: gasCote, tailleUsd: taille })) { autoNote(`decided BUY ${stock.symbol}, but its edge does not pay the round trip yet: record ${r.k} right, ${r.n - r.k} wrong, usual move ${fmt(st.typical * 100, 3)}% -> expected ${fmt(edgeOf(st.tally, st.typical) * 100, 4)}% a window, round trip at ${fmt(taille, 2)} USDC ${allerRetour == null ? 'not priced (gas or fee unread)' : fmt(allerRetour * 100, 3) + '% (pool and gas, both sides)'}: no buy`); return; }
         de = USDC_BASE; vers = stock.address; montant = amt.toString(); volumeDuTrade = Number(amt) / 1e6;
       } else { de = stock.address; vers = USDC_BASE; montant = held.toString(); volumeDuTrade = Number.isFinite(lastPrice) ? Number(held) / 10 ** (live.decimals ?? 8) * lastPrice : 0; }
       /* game323: mouche=1 -> the fly's own trades carry no interface fee (Phil 09/11); the route's real fee is still checked below */
@@ -388,7 +392,7 @@ async function autoTrade(e) {
         /* 09/11: the REAL cost of this route (the pool fee + the interface fee the planner states for it): a BUY whose edge does not pay it
          *   is dropped before anything is signed (fork 09/11: a round trip cost 0.30%, three times the pool fee alone) */
         if (action === 'buy' && round === 0) { const st2 = session.state(), bps = Number(p.resume.fraisBps);
-          if (!Number.isFinite(bps) || !edgePaysFee(st2.tally, st2.typical, st2.feePips, bps / 1e4)) { autoNote(`decided BUY ${stock.symbol}, but this route costs ${Number.isFinite(bps) ? fmt(bps / 100, 2) + '% interface + ' : 'an unknown interface fee + '}${st2.feePips == null ? '?' : fmt(st2.feePips / 1e4, 3) + '%'} pool fee a side, more than its expected ${fmt(edgeOf(st2.tally, st2.typical) * 100, 4)}% a window: nothing signed`); return; } }
+          if (!Number.isFinite(bps) || !aRetourPaye({ tally: st2.tally, typical: st2.typical, feePips: st2.feePips, interfaceFee: bps / 1e4, gasUsd: gasUsdCote(a.baseFeePerGas, Number(a.ethUsd)), tailleUsd: Number(montant) / 1e6 })) { autoNote(`decided BUY ${stock.symbol}, but this route costs ${Number.isFinite(bps) ? fmt(bps / 100, 2) + '% interface + ' : 'an unknown interface fee + '}${st2.feePips == null ? '?' : fmt(st2.feePips / 1e4, 3) + '%'} pool fee a side, more than its expected ${fmt(edgeOf(st2.tally, st2.typical) * 100, 4)}% a window: nothing signed`); return; } }
         /* ⛔ H1: nothing is signed that the browser's own guard does not accept */
         const refused = checkPlanCalls({ calls: p.aSigner, fly: s.address, pay: de, receive: vers, amount: montant, nowSec: Math.floor(Date.now() / 1000) });
         if (refused) throw new Error('the fly refused to sign: ' + refused.why);

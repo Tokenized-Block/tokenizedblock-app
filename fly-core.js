@@ -78,6 +78,27 @@ export function edgeOf({ consistent = 0, opposite = 0 } = {}, typical = 0) {
 export function edgePaysFee(tally, typical, feePips, interfaceFee = FLY.INTERFACE_FEE) {
   return Number.isFinite(feePips) && feePips >= 0 && Number.isFinite(interfaceFee) && interfaceFee >= 0 && edgeOf(tally, typical) > feePips / 1e6 + interfaceFee;
 }
+/* game366 (edge research, 2026-11-11: 3 signals walk-forward, none beat the costs out of sample; the circuit 655 right / 683 wrong = 49.0%,
+ *   p 0.79). It found a LATENT defect: edgePaysFee compared one window's expected gain with ONE side's pool fee (0.05%), forgetting the exit
+ *   and the gas the fly pays itself (~$0.0027-0.0030 per swap measured on other users' receipts = 53-61 bps a side at 0.5 USDC). The true
+ *   round trip at 0.5 USDC is ~1.16-1.22%, not 0.05%. Today it changed nothing (the edge was negative); the day luck lifted it above 0.05%
+ *   the fly would have entered a certain loss. */
+export const GAS_UNITES_COTE = 300000n; /* gas units per side (approval + swap); priced at what is PAID (base + tip), not the 2x cap */
+/** true when the expected gain pays the WHOLE round trip: 2 x (pool fee + interface fee) + 2 x gas in USD / trade size in USD.
+ *  gasUsd: one side's gas in USD, measured live (base fee x units x ETH price); unknown / non-positive -> false: it does not trade. */
+export function aRetourPaye({ tally, typical, feePips, interfaceFee = FLY.INTERFACE_FEE, gasUsd, tailleUsd }) {
+  if (!(Number.isFinite(feePips) && feePips >= 0 && Number.isFinite(interfaceFee) && interfaceFee >= 0)) return false;
+  if (!(Number.isFinite(gasUsd) && gasUsd > 0 && Number.isFinite(tailleUsd) && tailleUsd > 0)) return false;
+  return edgeOf(tally, typical) > 2 * (feePips / 1e6 + interfaceFee) + 2 * gasUsd / tailleUsd;
+}
+/** one side's gas in USD at the price actually paid (live base fee + the 0.001 gwei tip flySend sets) and the ETH price; null if unread.
+ *  Cross-check (edge research 2026-11-11): other users' swap receipts paid a median ~$0.0027-0.0030. */
+export function gasUsdCote(baseFeeWei, ethUsd, unites = GAS_UNITES_COTE) {
+  let b; try { b = BigInt(baseFeeWei); } catch (_) { return null; }
+  if (b <= 0n || !(Number.isFinite(ethUsd) && ethUsd > 0)) return null;
+  const wei = BigInt(unites) * (b + 1000000n);
+  return Number(wei) / 1e18 * ethUsd;
+}
 /** The word a tendency gives at a given threshold: approach, avoid or undecided. */
 export const wordOf = (t, threshold = FLY.DECIDE) => (t > threshold ? 'approach' : t < -threshold ? 'avoid' : 'undecided');
 
