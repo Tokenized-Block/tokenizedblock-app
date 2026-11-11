@@ -1689,6 +1689,10 @@ button.mienTuile:hover{border-color:var(--accent)}
 .lkPuce{border:1px solid rgba(255,255,255,.18);background:transparent;color:inherit;border-radius:999px;padding:6px 12px;font:inherit;font-size:13px;cursor:pointer}
 .wPtsGros{font-size:28px;font-weight:800;margin:4px 0;letter-spacing:-.01em}
 .wPli{margin-top:8px}.wPli>summary{cursor:pointer}
+/* game357: Wallet one section at a time; Holders one panel at a time */
+.wSeg{margin:12px 0 4px}
+#v-wallet:not([data-w="hold"]) #wVault,#v-wallet:not([data-w="actifs"]) #wActifsCarte,#v-wallet:not([data-w="fiat"]) #wFiat,#v-wallet:not([data-w="bank"]) #wBankCarte{display:none!important}
+#wVault:not([data-v="lock"]) #wLock,#wVault:not([data-v="pts"]) #wPoints,#wVault:not([data-v="coeurs"]) #wCoeurs,#wVault:not([data-v="how"]) #wVaultHow{display:none!important}
 .lkPuce.on{border-color:var(--accent);background:rgba(var(--accentRgb,90,140,255),.18);font-weight:700}
 /* game356: the "?" guide as a sheet over the map — centred window on a computer, bottom sheet on a phone */
 section#v-learn.feuille{display:block;position:fixed;inset:0;z-index:9000;max-width:none;margin:0;padding:24px 16px;overflow-y:auto;
@@ -2430,6 +2434,10 @@ details[open] > summary::before{transform:rotate(90deg)}
              One path: create + open V8 market + FRAIS_OUVERTURE 0.001 ETH → FEE_WALLET (vieAuto / one-sig). -->
         <!-- tip 20260922-create-sign-ux: kill Advanced free-asleep CTA; Connect→review→sign Instant Birth -->
         <button class="bouton creaGo" id="cCreer" type="button">Connect wallet → review → Instant Birth · $5</button>
+        <!-- game357 (Phil 2026-11-11: "ajouter le community vault du lock des gens, je vois pas l'option dans create"): always in sight,
+             hidden only while TBlockLock is not deployed (LK.LOCK null). Opens Wallet → Holders → Lock; nothing is signed from here. -->
+        <p class="note" id="cLockLien" hidden style="margin-top:8px">🔒 Lock your TBLOCK for community points (7 days minimum; the lock contract has no owner, only you take it back) —
+          <button type="button" class="lienLearn" id="cLockAller">open the lock</button></p>
         <!-- SAFE CTA Plan A (2026-09-22): external Coinbase Onramp only — funds USER wallet.
              No TB custody, no Instant Birth / fee math change, never show fee sink.
              Hosted one-click URL needs CDP sessionToken; public landing used until CDP wired. -->
@@ -3289,7 +3297,7 @@ details[open] > summary::before{transform:rotate(90deg)}
   </section>
 
   <!-- ══ WALLET ══════════════════════════════════════════════════════════════════════════════ -->
-  <section class="volet" id="v-wallet" aria-label="Wallet">
+  <section class="volet" id="v-wallet" aria-label="Wallet" data-w="hold">
     <div class="carte">
       <p class="titre">Wallet</p>
       <div id="wDeconnecte">
@@ -3383,17 +3391,32 @@ details[open] > summary::before{transform:rotate(90deg)}
         <!-- ⛔ DEPOT = RECEVOIR, RETRAIT = ENVOYER. Il n y a pas de compte chez nous a alimenter ou a
              vider : les fonds ne quittent jamais le wallet de l utilisateur. Le dire evite qu on
              cherche un bouton « Deposit » qui supposerait une garde. -->
-        <p class="note">Deposit = Receive, withdraw = Send: your funds never leave your wallet, so
-          there is nothing held here to top up or empty.</p>
+        <p class="note">Deposit = Receive · withdraw = Send. Nothing is held here.</p>
       </div>
+    </div>
+
+    <!-- game357 (Phil 2026-11-11: "ya trop d'info et faut scroller"): one section at a time under the wallet card. CSS hides the
+         others (display:none), never the hidden attribute: each painter keeps owning its own card's hidden state. -->
+    <div class="lkPuces wSeg" id="wSeg" role="group" aria-label="Wallet sections">
+      <button type="button" class="lkPuce on" data-w="hold" aria-pressed="true">Holders</button>
+      <button type="button" class="lkPuce" data-w="actifs" aria-pressed="false">Assets</button>
+      <button type="button" class="lkPuce" data-w="fiat" aria-pressed="false">Cash in</button>
+      <button type="button" class="lkPuce" data-w="bank" aria-pressed="false">Bank</button>
     </div>
 
     <!-- COMMUNITY VAULT (Phil 2026-11-10): what the holders economy holds and what this wallet can claim. Hidden until TBlockVault is
          deployed (economie.js VAULT); the full card with Claim buttons lives on contest.html, this one reads and links there. -->
-    <div class="carte" id="wVault" hidden>
+    <div class="carte" id="wVault" hidden data-v="lock">
       <p class="titre">Holders vault</p>
-      <p class="sous">Reserved for TBLOCK holders. Fed by buybacks and fees, it pays each week’s players first — a share of the TBLOCK they burned with hearts ♥, never more than they burned — then fills the contest pot. A claim needs 17,200,000 TBLOCK in your wallet, checked by the contract.</p>
+      <!-- game357: the threshold is no longer typed here (it is READ in "How it works"); "fees" said who: creators' TBLOCK at birth -->
+      <p class="sous">Filled by TBLOCK buybacks and creators’ birth payments. Each week it pays players back part of the TBLOCK they burned with hearts ♥ — never more than they burned — then feeds the contest pot.</p>
       <div id="wVaultRows"></div>
+      <div class="lkPuces wSeg" id="wVaultSeg" role="group" aria-label="Holders sections">
+        <button type="button" class="lkPuce on" data-v="lock" aria-pressed="true">Lock</button>
+        <button type="button" class="lkPuce" data-v="pts" aria-pressed="false">Points</button>
+        <button type="button" class="lkPuce" data-v="coeurs" aria-pressed="false">Hearts ♥</button>
+        <button type="button" class="lkPuce" data-v="how" aria-pressed="false">How it works</button>
+      </div>
       <!-- game346 (Phil 2026-11-10): the hearts in YOUR wallet — given, received on your blocks, who gave and what you gave back — and the live
            board of the contributors. From /api/coeurs (BlockLikes' own Liked events); read-only. -->
       <!-- game349: the TBLOCK lock (TBlockLock) — hidden until it is deployed; withdraw always offered once the date passed -->
@@ -3411,7 +3434,7 @@ details[open] > summary::before{transform:rotate(90deg)}
         <p class="sousTitre">Most active holders — live</p><div id="wCoeursBoard"></div>
       </div>
       <!-- game356 (Grok's Wallet card plan): how the vault works, folded; the hold amounts are READ from the frozen deploy data -->
-      <details class="wPli"><summary>How the holders vault works</summary><div class="note" id="wVaultComment"></div></details>
+      <div class="wCoeurs" id="wVaultHow"><div class="note" id="wVaultComment"></div></div>
       <a class="bouton sec" href="/contest.html" style="display:inline-block;margin-top:8px">Claim and details</a>
     </div>
 
@@ -3693,7 +3716,7 @@ details[open] > summary::before{transform:rotate(90deg)}
       <!-- ⛔ L EMPREINTE EST AFFICHEE, DONC ELLE EST DE L ANGLAIS. `20261001-pont-dans-lui` a fait
            rougir `test-texte-a-l-ecran.mjs` : le mot « dans » est de la prose francaise partie a
            l ecran anglais. La garde a fait son travail du premier coup. -->
-      <p class="note" data-build="20261109-game356" hidden>Build <code>20261109-game356</code> ·Contract labels say what they do, not our internal names.</p>
+      <p class="note" data-build="20261109-game357" hidden>Build <code>20261109-game357</code> ·Contract labels say what they do, not our internal names.</p>
       <p class="sous">Everything happening to blocks on Base, live.</p>
       <!-- tip 0013: sticky — Hooked chip = Dex fees; unhooked → Launch beside. No fee addr. -->
       <p class="note" id="sfHookedSticky" hidden>Blocks alive on TokenizedBlock pay their creator on every trade. Example:<button type="button" class="puce" id="sfStickyTbgas">Open TBGAS</button>.</p>
@@ -4582,21 +4605,7 @@ details[open] > summary::before{transform:rotate(90deg)}
         <li class="filL"><p class="note" style="margin:0">Connect a wallet to see what you earned.</p></li>
       </ul>
     </div>
-    <!-- UNIT POOLS (Phil 23:45 : « multipool de UNIT ») — les pools de UNIT LUES sur la chaine (/api/cle/UNIT) : ETH sur notre hook 7030
-         (cotee, achetable), mmETH sur un hook launchpad tiers (le Quoter la refuse : dite telle quelle). Mesure 2026-10-17 : deviseAdmise(UNIT)
-         = 0 sur 7030, donc UNIT ne peut PAS etre la devise d un autre block ; une pool UNIT/action s ouvre par « Add a pair », createur de UNIT. -->
-    <!-- Phil 2026-10-18 09:50 : « ca sert a rien … propose de swap avec toutes les actions » -> un SWAP, pas une liste. Le chemin existe
-         deja dans la fiche de UNIT : vendre UNIT et recevoir une action (selecteur Receive, franchissement Aerodrome), acheter UNIT en
-         payant avec une devise d entree (Pay with). Ce bouton ouvre la fiche, pose le choix, et met le champ sous les yeux. -->
-    <div class="carte" id="unitCarte">
-      <span class="jeuKick">Game · Swap UNIT</span>
-      <label class="champ" style="margin-top:6px">With<select id="unitAvec"><option value="">ETH (its own market)</option></select></label>
-      <div class="jourEtapes">
-        <button type="button" class="bouton" id="unitVendre">Sell UNIT for it</button>
-        <button type="button" class="bouton sec" id="unitAcheter">Buy UNIT with it</button>
-      </div>
-      <p class="note" id="unitEtat" style="margin:4px 0 0" hidden></p>
-    </div>
+    <!-- game357 (Phil 2026-11-11): the "Game · Swap UNIT" card was removed; UNIT trades from its own profile (Trade). -->
     <!-- HOW IT WORKS : plie, en bas (le texte long vit ici et dans « ? »). -->
     <div class="carte" id="regleCarte">
       <details id="missionsLien">
@@ -7145,44 +7154,7 @@ $('#missionForm').addEventListener('submit', async (e) => {
   void peindreMissions();
 });
 
-/* ══ SWAP UNIT (Phil 2026-10-18 09:50 : « propose de swap avec toutes les actions tokenized ») — la liste = les actions que la fiche sait
- *   RECEVOIR (actionsRecevables : marche Aerodrome lu), la meme que son selecteur « Receive ». Le geste reel vit dans la fiche de UNIT : ce
- *   bouton l ouvre, pose le choix (Receive pour vendre, Pay with pour acheter) et met le champ sous les yeux. Rien n est signe ici. */
-function peindreUnitPools() {
-  const sel = $('#unitAvec');
-  if (!sel) return;
-  let actions = [];
-  try { actions = actionsRecevables({ marches: marcheParAdr, actions: ACTIONS_COINBASE }); } catch (_) { actions = []; }
-  if (!actions.length) actions = (ACTIONS_COINBASE || []).map((x) => ({ adr: String(x.adr).toLowerCase(), symbole: x.symbole }));
-  const garde = sel.value;
-  sel.innerHTML = '<option value="">ETH (its own market)</option>' + actions.map((x) => '<option value="' + enTexte(x.adr) + '">' + enTexte(x.symbole) + ' — tokenized stock</option>').join('');
-  if (garde && [...sel.options].some((o) => o.value === garde)) sel.value = garde;
-}
-async function swapUnit(sens) {
-  const choix = String($('#unitAvec').value || '').toLowerCase(), e = $('#unitEtat');
-  const dit = (t) => { e.hidden = false; e.textContent = t; };
-  dit('Opening UNIT…');
-  try { await ouvrirProfil(UNIT_APP, 'UNIT'); } catch (_) { dit('UNIT could not be opened just now.'); return; }
-  const poser = (idSel, idBloc) => {
-    const s = $(idSel); if (!s) return false;
-    if (!choix) { s.value = ''; s.dispatchEvent(new Event('change')); return true; }
-    const o = [...s.options].find((x) => String(x.value).toLowerCase() === choix);
-    if (!o) return false;
-    s.value = o.value; s.dispatchEvent(new Event('change'));
-    const b = $(idBloc); if (b) b.hidden = false;
-    return true;
-  };
-  /* la fiche peint ses selecteurs apres lecture du marche : on attend qu ils portent le choix (8 s au plus), sinon on le dit */
-  let ok = false;
-  for (let k = 0; k < 16 && !ok; k++) { ok = sens === 'VENTE' ? poser('#peRecoit', '#peRecoitBloc') : poser('#peDevise', '#peDeviseBloc'); if (!ok) await new Promise((r) => setTimeout(r, 500)); }
-  const champ = $(sens === 'VENTE' ? '#peVente' : '#peAchat');
-  if (champ) { try { champ.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (_) {} champ.focus(); }
-  e.hidden = true;
-  if (!ok && choix) dit('UNIT is open; that stock is not offered there right now — pick it in ' + (sens === 'VENTE' ? 'Receive' : 'Pay with') + ' when it appears.');
-}
-$('#unitVendre').addEventListener('click', () => { void swapUnit('VENTE'); });
-$('#unitAcheter').addEventListener('click', () => { void swapUnit('ACHAT'); });
-
+/* game357 (Phil 2026-11-11: "tu peux retirer l unit"): the Game card "Swap UNIT" is gone; UNIT still trades from its own profile. */
 /* ══ SKIN MARKET dans Game (Phil 23:45) — lit le contrat BlockSkins (lireSkins), montre les skins EN VENTE (prix fixe / enchere) et les
  *   miennes (vendre / mettre aux encheres), par les MEMES lignes que le panneau (bcLigneSkin) : un clic ouvre le panneau, qui dit le partage
  *   (90 % vendeur, 10 % TokenizedBlock) et fait signer le wallet. Une lecture ratee est dite, jamais une liste vide a sa place. */
@@ -9019,7 +8991,7 @@ document.querySelector('.navIn').addEventListener('click', (e) => {
   if (nom === 'wallet') peindreFiatWallet().catch(() => { /* la section garde son dernier etat */ });
   /* tip 20260922-prepaye-inscrire-dust */
   if (nom === 'wallet' || nom === 'bridge') { void peindreBridgeBlocks(); }
-  if (nom === 'missions') { void peindreTirage(); void peindreDernierBlock().catch(() => {}).then(() => { void verifierRollsEnAttente(); void peindreTirageJourPass(); }); void peindreMissions(); void peindreEarn(); void peindreSkinsJeu(); void peindreUnitPools(); }
+  if (nom === 'missions') { void peindreTirage(); void peindreDernierBlock().catch(() => {}).then(() => { void verifierRollsEnAttente(); void peindreTirageJourPass(); }); void peindreMissions(); void peindreEarn(); void peindreSkinsJeu(); }
   /* 2026-10-18 : les duels (carte Game ; marques sur la Map) — une ligne a part, la ligne au-dessus est epinglee par test-tirage-carte */
   if (nom === 'missions') void peindreDuels();
   /* 2026-10-23 : les slots (carte Game, cachee sans contrat) */
@@ -29158,7 +29130,10 @@ if ((location.hash || '').replace(/^#/, '').split('?')[0] === 'bridge') {
   setTimeout(() => allerA('bridge'), 0);
 }
 /* game352: /#wallet (holders.html « LOCK IN THE APP ») opens the Wallet tab on the Holders vault card, where the TBLOCK lock lives */
-function ouvrirWalletVault() { allerA('wallet'); setTimeout(() => { const v = document.getElementById('wVault'); if (v && !v.hidden) v.scrollIntoView({ block: 'start' }); }, 300); }
+/* game357: the Wallet shows one section at a time — the lock links select Holders, then its Lock panel, before scrolling */
+function choisirLockWallet() { const a = document.querySelector('#wSeg [data-w="hold"]'), b = document.querySelector('#wVaultSeg [data-v="lock"]'); if (a) a.click(); if (b) b.click(); }
+if (LK.LOCK && $('#cLockLien')) { $('#cLockLien').hidden = false; $('#cLockAller').addEventListener('click', () => ouvrirWalletVault()); }
+function ouvrirWalletVault() { allerA('wallet'); choisirLockWallet(); setTimeout(() => { const v = document.getElementById('wVault'); if (v && !v.hidden) v.scrollIntoView({ block: 'start' }); }, 300); }
 if ((location.hash || '').replace(/^#/, '').split('?')[0] === 'wallet') setTimeout(ouvrirWalletVault, 0);
 /* 2026-10-18 : un lien /app.html#game (ou #missions, l id interne du volet) ouvrait la Map — il ouvre l onglet Game */
 if (['game', 'missions'].includes((location.hash || '').replace(/^#/, '').split('?')[0])) {
@@ -32618,7 +32593,8 @@ async function peindreCarteCreate(box) {
   peindreCarteNaissance(box, r, { bouton: b, occupe: lu ? null : { secondes: 8, essai: carteCreeEssai } });
   /* game349 (Phil 2026-11-10: "as soon as they made their token, propose the lock to be eligible for everything they can use"): once every
    *   step of the birth is done, the lock offer appears under the card. Hidden while TBlockLock is not deployed (LK.LOCK null). */
-  if (LK.LOCK && lu && r.ne && !r.prochaine && r.restantes === 0) {
+  /* game357: shown once the market is open (step 2 done) — it used to wait for all 10 signatures, the moment the button says "Done" */
+  if (LK.LOCK && lu && r.ne && !(r.prochaine && r.prochaine.etape === 2)) {
     let o = $('#cLockOffre');
     if (!o) { o = document.createElement('div'); o.id = 'cLockOffre'; o.className = 'carte lockOffre'; box.after(o); }
     void peindreLock(o, { offre: true });
@@ -32644,14 +32620,16 @@ async function peindreLock(hote, { offre = false } = {}) {
     hote.dataset.lu = String(Date.now());
     hote.textContent = '';
     const el = (tag, cls, txt) => { const x = document.createElement(tag); if (cls) x.className = cls; if (txt != null) x.textContent = txt; return x; };
-    hote.append(el('p', 'titre', offre ? 'Lock your TBLOCK — the holder stage' : 'Your TBLOCK lock'));
-    hote.append(el('p', 'sous', 'Hearts, the holders’ channel and the Holders vault payouts count what you LOCK, at least 7 days — not a balance that can be sold the next minute. To leave: request the withdrawal (the perks stop at once), then take it all back ' + LK.RETRAIT_JOURS + ' days later.'));
+    hote.append(el('p', 'titre', offre ? 'Lock your TBLOCK — earn community points' : 'Your TBLOCK lock'));
+    /* game357: the v1 hearts, channel and vault claim read the WALLET BALANCE (economie.js MIN_HOLD, TBlockVault.sol _bal); only the undeployed v2
+     *   reads the lock. Locking moves TBLOCK out of the wallet, so the card must never say those perks count the lock. */
+    hote.append(el('p', 'sous', 'Locking earns community points: more TBLOCK and more days earn more. Locked TBLOCK leaves your wallet, and today hearts ♥, the holders’ channel and vault claims still count your wallet balance (the lock-based contracts are not deployed yet). To leave: request the withdrawal (points stop at once), then take it all back ' + LK.RETRAIT_JOURS + ' days later.'));
     const etat = el('p', 'note' + (e.cle === 'actif' ? ' wOk' : ''), e.texte); hote.append(etat);
     const dire = (t, k = '') => { etat.className = 'note' + (k ? ' ' + k : ''); etat.textContent = t; };
     /* the ONE exit action etatLock chooses: request (perks stop, 7-day period starts), cancel (perks back), or take back (period over) */
     const SORTIES = {
-      demander: { label: 'Request the withdrawal (' + LK.RETRAIT_JOURS + '-day period)', call: () => LK.requestWithdrawCall(), attente: 'request the withdrawal', fait: 'Withdrawal requested: the ' + LK.RETRAIT_JOURS + '-day period started, the holder perks stopped.' },
-      annuler: { label: 'Cancel the withdrawal — stay locked', call: () => LK.cancelWithdrawCall(), attente: 'cancel the withdrawal', fait: 'Cancelled: you stay locked, the perks are back while the date is ahead.' },
+      demander: { label: 'Request the withdrawal (' + LK.RETRAIT_JOURS + '-day period)', call: () => LK.requestWithdrawCall(), attente: 'request the withdrawal', fait: 'Withdrawal requested: the ' + LK.RETRAIT_JOURS + '-day period started, your points stopped.' },
+      annuler: { label: 'Cancel the withdrawal — stay locked', call: () => LK.cancelWithdrawCall(), attente: 'cancel the withdrawal', fait: 'Cancelled: you stay locked, your points count again while the date is ahead.' },
       retirer: { label: 'Take back ' + LK.fmt(locked) + ' TBLOCK', call: () => LK.withdrawCall(), attente: 'take back ' + LK.fmt(locked) + ' TBLOCK', fait: 'Done: your TBLOCK is back in your wallet.' },
     };
     const s = e.action ? SORTIES[e.action] : null;
@@ -32670,12 +32648,9 @@ async function peindreLock(hote, { offre = false } = {}) {
       hote.append(w);
     }
     if (bal > 0n) {
-      /* the amount offered: what is missing to $15 of TBLOCK LOCKED at the lower of now and ~10 min ago, never more than held */
-      let px = null;
-      try { const h = await fetch('/api/tblock/hold', { cache: 'no-store', signal: AbortSignal.timeout(15000) }).then((x) => x.json()); px = h && h.ok ? Math.min(Number(h.priceNow), Number(h.priceBefore || h.priceNow)) : null; } catch (_) { px = null; }
-      const besoin = ECO.tblockPourUsd(ECO.SEUIL_USD, px);
-      const manque = besoin !== null && besoin > active ? besoin - active : 0n;
-      const propose = manque > 0n ? (manque < bal ? manque : bal) : bal;
+      /* game357: no 'holder stage' amount while the v1 contracts read the wallet balance — the offer is 1,000 TBLOCK, or all you hold if less */
+      const MILLE = 1000n * 10n ** 18n;
+      const propose = bal < MILLE ? bal : MILLE;
       /* game356 (Grok's Wallet card plan, kept by Phil): amount chips, duration pills with the points they earn, a button that says
        *   exactly what it sends. The points come from points.js — the SAME function the server's board uses (no copy of the rule). */
       /* review 356: '1.5' was read as 15 — whole TBLOCK only (digits, with optional thousands commas/spaces); anything else = 0 = refused */
@@ -32685,7 +32660,6 @@ async function peindreLock(hote, { offre = false } = {}) {
       const puces = el('div', 'lkPuces');
       const puce = (txt, raw) => { const b = el('button', 'lkPuce', txt); b.type = 'button'; b.addEventListener('click', () => { inp.value = LK.fmt(raw).replace(/,/g, ''); majLock(); }); puces.append(b); };
       if (bal >= 1000n * 10n ** 18n) puce('1,000', 1000n * 10n ** 18n);
-      if (manque > 0n && manque <= bal) puce('Holder stage · $' + ECO.SEUIL_USD, manque);
       puce('Max', bal);
       hote.append(puces);
       let jours = LK.DUREES_JOURS[0];
@@ -32698,7 +32672,7 @@ async function peindreLock(hote, { offre = false } = {}) {
       hote.append(pills);
       const ptsNote = el('p', 'note', '');
       hote.append(ptsNote);
-      hote.append(el('p', 'note', 'You hold ' + LK.fmt(bal) + ' TBLOCK' + (besoin !== null ? ' · the holder stage is $' + ECO.SEUIL_USD + ' locked = ' + LK.fmt(besoin) + ' TBLOCK at the price read now' : '') + '. Adding to a lock keeps its later date. Never send TBLOCK to the lock address yourself: only this button counts, a plain transfer is lost.'));
+      hote.append(el('p', 'note', 'You hold ' + LK.fmt(bal) + ' TBLOCK. Adding to a lock keeps its later date. Never send TBLOCK to the lock address yourself: only this button locks, a plain transfer is lost.'));
       /* game354 (Grok live test): a wallet without batched calls (Rabby) asks twice — the label says so, never "one batch" */
       const go = el('button', 'bouton', ''); go.type = 'button';
       hote.append(el('p', 'note', 'Approve, then lock: your wallet may ask twice. Locked TBLOCK cannot be sold until the date, then the ' + LK.RETRAIT_JOURS + '-day withdrawal period.'));
@@ -32729,7 +32703,7 @@ async function peindreLock(hote, { offre = false } = {}) {
         try {
           const appels = LK.lockBatch({ amount: montant, jours, maintenantSec: Math.floor(Date.now() / 1000) });
           const r = await envoyerAppels(appels.map((c) => ({ to: c.to, data: c.data, value: c.value })), compte);
-          if (r && r.etat === 'CONFIRME') { dire('🔒 Locked. Your holder perks read it from now on.', 'wOk'); hote.dataset.lu = '0'; wVaultLu = 0; }
+          if (r && r.etat === 'CONFIRME') { dire('🔒 Locked. Your community points count from now on.', 'wOk'); hote.dataset.lu = '0'; wVaultLu = 0; }
           else { dire('Not done: ' + String((r && (r.pourquoi || r.etat)) || 'no answer').slice(0, 160), 'wKo'); go.disabled = false; }
         } catch (err) { dire('Not sent: ' + String((err && err.message) || err).slice(0, 160), 'wKo'); go.disabled = false; }
       });
@@ -32738,6 +32712,18 @@ async function peindreLock(hote, { offre = false } = {}) {
   } catch (_) { hote.dataset.lu = String(Date.now() - 20000); }
   finally { lockEtat.enVol = false; }
 }
+/* game357: Wallet sections and Holders panels — a click sets data-w / data-v; CSS shows the matching card. */
+function brancherSeg(seg, hote, cle) {
+  if (!seg || !hote) return;
+  for (const b of seg.querySelectorAll('button[data-' + cle + ']')) {
+    b.addEventListener('click', () => {
+      hote.dataset[cle] = b.dataset[cle];
+      for (const x of seg.querySelectorAll('button[data-' + cle + ']')) { const on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-pressed', on ? 'true' : 'false'); }
+    });
+  }
+}
+brancherSeg($('#wSeg'), $('#v-wallet'), 'w');
+brancherSeg($('#wVaultSeg'), $('#wVault'), 'v');
 async function peindreTipApercu() {
   const box = $('#cTipApercu');
   if (!box || !ECO.VAULT) return;
@@ -35564,7 +35550,7 @@ document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !e.defau
 for (const b of document.querySelectorAll('#v-learn [data-l-aller]')) b.addEventListener('click', () => {
   const ou = b.dataset.lAller;
   fermerLearn();
-  if (ou === 'lock') { allerA('wallet'); setTimeout(() => { const s = $('#wVault') && !$('#wVault').hidden ? $('#wVault') : $('#v-wallet'); if (s) s.scrollIntoView({ block: 'start' }); }, 80); return; }
+  if (ou === 'lock') { allerA('wallet'); choisirLockWallet(); setTimeout(() => { const s = $('#wVault') && !$('#wVault').hidden ? $('#wVault') : $('#v-wallet'); if (s) s.scrollIntoView({ block: 'start' }); }, 80); return; }
   allerA(ou);
 });
 $('#lConnecter').addEventListener('click', () => { fermerLearn(); allerA('wallet'); const b = $('#bConnecterW'); if (b && !compte) b.click(); });

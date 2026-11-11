@@ -13,7 +13,7 @@ t('page imports lock.js', /import \* as LK from '\.\/lock\.js';/.test(APP));
 t('server SERVES lock.js, lock-deploiement.js and deployer-lock.html', /'lock\.js', 'lock-deploiement\.js', 'deployer-lock\.html'/.test(SRV));
 t('game352: the frozen data carries the VERIFIED address (verifier 6/6)', /adresse: '0xec46b02bb1f3a58ce37c023f8668f2207bc2b0aa',/.test(LD));
 t('every lock UI hidden while LK.LOCK is null', /if \(!hote \|\| !LK\.LOCK\) \{ if \(hote\) hote\.hidden = true; return; \}/.test(P));
-t('Create offers the lock only once EVERY birth step is done', /if \(LK\.LOCK && lu && r\.ne && !r\.prochaine && r\.restantes === 0\) \{/.test(APP));
+t('game357: Create offers the lock once the market is open (no step-2 signature left), not only after all 10', /if \(LK\.LOCK && lu && r\.ne && !\(r\.prochaine && r\.prochaine\.etape === 2\)\) \{/.test(APP));
 t('the Wallet vault card paints the lock', /void peindreCoeursWallet\(\);\n  void peindreLock\(\$\('#wLock'\)\);\n/.test(APP) && /id="wLock" hidden/.test(APP));
 t('the lock is built by lock.js (exact approve + lock), never by hand', /LK\.lockBatch\(\{ amount: montant, jours, maintenantSec:/.test(P) && !/approve\(/.test(P.replace(/approve \+ lock/g, '')));
 t('checked before the wallet opens', /const chk = LK\.lockCheck\(\{ balance: bal, amount: montant \}\);\n\s+if \(!chk\.ok\)/.test(P));

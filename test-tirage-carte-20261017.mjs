@@ -27,7 +27,7 @@ vu(/Number\(w\.volumeUsd\)/.test(f) && /Number\(t\.seuilVolumeUsd\)/.test(f) && 
   'progression = volume verifie du serveur, seuil du serveur, seulement pour le wallet connecte');
 vu(/etape\('wallet_connect_ok'\); \} catch \(_\) \{\}\s*\r?\n\s*try \{ peindreTirage\(\); \} catch/.test(app), 'repeinte a la connexion');
 /* 2026-10-18 : apres la face, le regleur des rolls en attente et le pot du jour des pass (revue adverse) */
-vu(/if \(nom === 'missions'\) \{ void peindreTirage\(\); void peindreDernierBlock\(\)\.catch\(\(\) => \{\}\)\.then\(\(\) => \{ void verifierRollsEnAttente\(\); void peindreTirageJourPass\(\); \}\); void peindreMissions\(\); void peindreEarn\(\); void peindreSkinsJeu\(\); void peindreUnitPools\(\); \}/.test(app), 'repeinte a l ouverture de l onglet Game (tirage + face + missions + earn + skins + UNIT pools)');
+vu(/if \(nom === 'missions'\) \{ void peindreTirage\(\); void peindreDernierBlock\(\)\.catch\(\(\) => \{\}\)\.then\(\(\) => \{ void verifierRollsEnAttente\(\); void peindreTirageJourPass\(\); \}\); void peindreMissions\(\); void peindreEarn\(\); void peindreSkinsJeu\(\); \}/.test(app), 'repeinte a l ouverture de l onglet Game (tirage + face + missions + earn + skins ; game357 : plus de Swap UNIT)');
 const carte = app.slice(c, app.indexOf('</section>', c));
 /* 2026-10-24 (Phil, capture de game35 : « un seul jeu, au CENTRE ») : le titre dit LE jeu du centre (les rouleaux) ; ce banc affirmait
  *   « Your trades are your ticket. » — le ticket reste plus bas dans la carte, sa phrase dans #jourTicketTxt */

@@ -14,7 +14,7 @@ t('no hard-coded purple left on the buttons or the hero', !/#9560f0|#bd51ec|rgb\
 t('buy = ONE link to OUR token on BaseStonk, by address', /<a class="btn" id="achatBaseStonk" href="https:\/\/basestonk\.io\/tokens\/0xb200000000000000000000ba9bf8330307f8830e" target="_blank" rel="noopener">/.test(H));
 t('the in-page buy batch is gone (no plan, no wallet_sendCalls)', !/acheterIci|montantUsdc|\/api\/rails\/plan|wallet_sendCalls/.test(H));
 t('the address warning (another token shares the name)', /another token uses the same name; check the address before you buy/.test(H));
-t('the holder stage = $15 LOCKED, 7 days', /'The holder stage: \$' \+ prix\.seuil \+ ' of TBLOCK LOCKED, 7 days or more'/.test(H));
+t('game357: the lock row says it earns points only today (v1 reads the wallet balance)', H.includes("'Lock TBLOCK: community points now, the holder stage with vault v2'") && H.includes('Today it earns points only: hearts, the channel and vault claims still count your wallet balance') && !H.includes("'The holder stage: $' + prix.seuil + ' of TBLOCK LOCKED"));
 t('the lock line: "coming" while undeployed, a link to lock in the app once deployed (game352)', /lockPret \? '<a class="st ok" href="\/#wallet">LOCK IN THE APP →<\/a>' : VENIR\('lock contract to deploy'\)/.test(H) && /import \* as LK from '\.\/lock\.js';/.test(H));
 t('games and the TAM mint listed, open to all', /'Games \(Spin, Roll, Duels\) and the TAM mint'/.test(H) && /<span class="st ok">OPEN<\/span>/.test(H));
 t('vault v2 (from $15 locked, amount x time) shown as in review, never as live', /'Vault v2: from \$' \+ prix\.seuil \+ ' locked, weighted by amount × time locked'/.test(H) && /VENIR\('in review'\)/.test(H));

@@ -74,7 +74,7 @@ t('served: economie.js, economie-deploiement.js, deployer-economie.html', ["'eco
 const app = readFileSync(new URL('./app.html', import.meta.url), 'utf8');
 t('app: +1 sits on the name line', /<div class="bcNomLigne"><div class="bcNom" id="bcNom">[^<]*<\/div>\s*<span class="bcLike" id="bcLike" hidden>/.test(app));
 t('app: the click checks (contract hold + $15 now) then sends the likeBatch', /ECO\.likeCheckUsd\(\{ balance: bal, n: 1, prixUsd \}\)[\s\S]{0,400}ECO\.likeBatch\(\{ block: a, n: 1 \}\)/.test(app));
-t('app: Community vault card in the Wallet tab, hidden while the vault is null', /<section class="volet" id="v-wallet"[\s\S]*?<div class="carte" id="wVault" hidden>[\s\S]*?<\/section>/.test(app)
+t('app: Community vault card in the Wallet tab, hidden while the vault is null', /<section class="volet" id="v-wallet"[\s\S]*?<div class="carte" id="wVault" hidden data-v="lock">[\s\S]*?<\/section>/.test(app)
   && /if \(!ECO\.VAULT \|\| !ECO\.LIKES\) \{ carte\.hidden = true; return; \}/.test(app));
 t('app: hidden while BlockLikes is null', /if \(!ECO\.LIKES \|\| !ECO\.isB20\(a\)\) \{ box\.hidden = true;/.test(app));
 /* contest.html: its $ is getElementById, so a '#' selector returns null and stops the render after the fund card (game333) */

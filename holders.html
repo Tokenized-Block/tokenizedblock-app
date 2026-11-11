@@ -106,7 +106,7 @@ input{width:100%;background:var(--bg2);color:var(--fg);border:1px solid var(--li
   <p class="note" style="margin-top:0">TBLOCK trades on BaseStonk, where it was launched. The link opens <b>our</b> token by its address
   (0xb200…830e) — another token uses the same name; check the address before you buy.</p>
   <a class="btn" id="achatBaseStonk" href="https://basestonk.io/tokens/0xb200000000000000000000ba9bf8330307f8830e" target="_blank" rel="noopener">Buy TBLOCK on BaseStonk ↗</a>
-  <p class="note">Then come back here: lock at least $15 of it to reach the holder stage.</p>
+  <p class="note">Then come back here: keep $15 of it in your wallet for hearts and the channel; lock what you keep for community points.</p>
 </div>
 
 <div class="card">
@@ -157,7 +157,8 @@ function peindrePerks() {
   const lockPret = LK.LOCK !== null;
   const VENIR = (q) => '<span class="st na">coming · ' + esc(q) + '</span>';
   const p = [
-    ['🔒', 'The holder stage: $' + prix.seuil + ' of TBLOCK LOCKED, 7 days or more', 'locked in the TBlockLock contract (no owner); leaving = a 7-day withdrawal period, the perks stop at the request', '$' + prix.seuil + (usd15 !== null ? ' = ' + tok(usd15) + ' TBLOCK' : ''), null, false, lockPret ? '<a class="st ok" href="/#wallet">LOCK IN THE APP →</a>' : VENIR('lock contract to deploy')],
+    /* game357: the v1 hearts, channel and claim read the WALLET balance; locking moves TBLOCK out of it. Today the lock earns points only. */
+    ['🔒', 'Lock TBLOCK: community points now, the holder stage with vault v2', 'locked in the TBlockLock contract (no owner), 7 days or more; leaving = a 7-day withdrawal period. Today it earns points only: hearts, the channel and vault claims still count your wallet balance', 'any amount', null, false, lockPret ? '<a class="st ok" href="/#wallet">LOCK IN THE APP →</a>' : VENIR('lock contract to deploy')],
     ['💬', 'Holders\' channel on Telegram', 'checked by our server before the invite (today: $' + prix.seuil + ' held; with the lock: $' + prix.seuil + ' locked)', '$' + prix.seuil + ' of TBLOCK', etat.holder === true, etat.holder != null, null],
     ['♥', 'Heart a block', 'burns ' + tok(LIKE_PRICE) + ' TBLOCK, and you keep $' + prix.seuil + ' of TBLOCK at the price read now; counts as play for the weekly rewards', tok(LIKE_PRICE + garde) + ' TBLOCK' + val(LIKE_PRICE + garde), b != null && b >= LIKE_PRICE + garde, b != null, null],
     ['🎰', 'Games (Spin, Roll, Duels) and the TAM mint', 'open to everyone; a holder\'s plays and hearts count for the holders vault rewards', 'open to all', null, false, '<span class="st ok">OPEN</span>'],

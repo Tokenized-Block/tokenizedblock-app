@@ -72,10 +72,10 @@ export function etatLock({ locked, active, unlockAt, requestedAt = 0, withdrawab
   if (l === 0n) return { cle: 'aucun', texte: 'No TBLOCK locked yet.', action: null };
   if (r > 0) {
     if (t >= w) return { cle: 'pret', texte: fmt(l) + ' TBLOCK: the ' + RETRAIT_JOURS + '-day withdrawal period is over — yours to take back.', action: 'retirer' };
-    return { cle: 'sortie', texte: 'Withdrawal requested: ' + fmt(l) + ' TBLOCK can be taken back on ' + quand(w) + ' (' + jours(w, t) + '). The holder perks stopped at the request; cancel to keep them.', action: 'annuler' };
+    return { cle: 'sortie', texte: 'Withdrawal requested: ' + fmt(l) + ' TBLOCK can be taken back on ' + quand(w) + ' (' + jours(w, t) + '). Your points stopped at the request; cancel to keep them.', action: 'annuler' };
   }
   if (ac > 0n) return { cle: 'actif', texte: fmt(l) + ' TBLOCK locked until ' + quand(u) + ' (' + jours(u, t) + ' left). To leave: request the withdrawal, then wait ' + RETRAIT_JOURS + ' days (never before that date).', action: 'demander' };
-  return { cle: 'expire', texte: fmt(l) + ' TBLOCK: the lock date passed on ' + quand(u) + ' and the holder perks are off. Lock again to keep them, or request the withdrawal (' + RETRAIT_JOURS + ' days).', action: 'demander' };
+  return { cle: 'expire', texte: fmt(l) + ' TBLOCK: the lock date passed on ' + quand(u) + ' and its points stopped. Lock again to keep earning, or request the withdrawal (' + RETRAIT_JOURS + ' days).', action: 'demander' };
 }
 export function fmt(raw) {
   const n = BigInt(raw) / 10n ** 18n;

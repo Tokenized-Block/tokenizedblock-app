@@ -26,7 +26,7 @@ const APP = lire('app.html');
  *   tuile Slots et #game/slots menent a tirCarte (scenario SLOTS). Ce banc listait six cartes de jeu ; il en liste cinq, et REPLI joue
  *   le repli d une tuile cachee sur les Duels (toujours une carte a part, cachee sans contrat) au lieu des Slots. */
 const JEUX = ['tirCarte', 'brainJeuCarte', 'skinCarte', 'missionsCarte', 'duelsCarte'];
-const PAS_JEUX = ['earnCarte', 'unitCarte', 'regleCarte'];
+const PAS_JEUX = ['earnCarte', 'regleCarte']; /* game357: Swap UNIT removed */
 
 /* ---------------------------------------------------------------- extraction (du texte de app.html, eventuellement mute) */
 const entre = (t, a, b) => { const i = t.indexOf(a), j = t.indexOf(b, i + 1); return i >= 0 && j > i ? t.slice(i, j) : ''; };

@@ -10,7 +10,7 @@ const APP = lire('app.html'), SRV = lire('serveur-web.js');
 let ok = 0, ko = 0;
 const t = (m, c) => { if (c) ok++; else { ko++; console.log('KO', m); } };
 const L = APP.slice(APP.indexOf('async function peindreLock('), APP.indexOf('async function peindreTipApercu('));
-t('chips: 1,000 / holder stage / Max', L.includes("puce('1,000', 1000n * 10n ** 18n);") && L.includes("puce('Holder stage · $' + ECO.SEUIL_USD, manque);") && L.includes("puce('Max', bal);"));
+t('chips: 1,000 / holder stage / Max', L.includes("puce('1,000', 1000n * 10n ** 18n);") && !L.includes('Holder stage') /* game357: no holder-stage chip while v1 reads the wallet balance */ && L.includes("puce('Max', bal);"));
 t('pills from lock.js durations', /for \(const j of LK\.DUREES_JOURS\) \{\n\s+const b = el\('button', 'lkPuce', ''\)/.test(L));
 t('the button names the amount AND the days — or the LATER date a top-up keeps (review 356)', L.includes("(garde ? 'Add ' + LK.fmt(m) + ' TBLOCK to your lock (until '") && L.includes(": 'Lock ' + LK.fmt(m) + ' TBLOCK for ' + jours + ' days')"));
 t('review 356: the kept date = the later of the stored date (active, no withdrawal asked) and the asked one', L.includes('const fin = Math.max(t0 + jours * 86400, Number(unlockAt) > t0 && locked > 0n && requestedAt === 0n ? Number(unlockAt) : 0);'));

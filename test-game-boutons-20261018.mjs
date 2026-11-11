@@ -61,7 +61,8 @@ vu(/eth_getBlockByNumber/.test(roll) && !/allerA\('wallet'\)/.test(roll), 'sans 
 /* Phil 2026-10-18 : chaque roll tire une face NEUVE au hasard (test-roll-face-week-pass) ; sans wallet, pas de face ni de score, et c est dit */
 vu(/Connect a wallet: each roll then draws your own random face to score against the block\./.test(roll) && /const fRoll = c \? nouvelleFaceRoll\(\) : null;/.test(roll), 'sans wallet : le score demande un wallet, dit');
 vu(/\$\('#jourSkin'\)\.addEventListener\('click', \(\) => \{ try \{ choisirBrain\(UNIT_APP\); \} catch \(_\) \{\} try \{ bcOuvrirPop\(\{ vue: 'brain'/.test(app), 'Skin ouvre le panneau de UNIT, vue Skin');
-for (const id of ['skinCarte', 'unitCarte', 'earnCarte']) vu(app.split('id="' + id + '"').length === 2, 'carte ' + id + ' presente une fois');
+for (const id of ['skinCarte', 'earnCarte']) vu(app.split('id="' + id + '"').length === 2, 'carte ' + id + ' presente une fois');
+vu(!app.includes('id="unitCarte"') && !app.includes('unitVendre') && !app.includes('peindreUnitPools'), 'game357 : la carte Swap UNIT est retiree (Phil 2026-11-11)');
 /* revue adverse 2026-10-18 (HIGH) : le regleur des rolls en attente ne remonte jamais au-dela des ~1 000 derniers blocs (un roll de plus de
  *   256 blocs ne se regle plus, et les noeuds publics refusent getLogs profond) — sinon il casse ~5 h apres le deploiement */
 const vr = app.slice(app.indexOf('async function verifierRollsEnAttente()'), app.indexOf('async function reglerRollsEnAttente()'));
