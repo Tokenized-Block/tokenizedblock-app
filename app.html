@@ -1684,6 +1684,33 @@ button.mienTuile:hover{border-color:var(--accent)}
 @media (prefers-reduced-motion:no-preference){.volet.on{animation:voletEntre .22s ease-out}}
 @keyframes voletEntre{from{transform:translateY(6px)}to{transform:none}}
 .volet.on{display:block}
+/* game356: lock amount chips and duration pills */
+.lkPuces{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}
+.lkPuce{border:1px solid rgba(255,255,255,.18);background:transparent;color:inherit;border-radius:999px;padding:6px 12px;font:inherit;font-size:13px;cursor:pointer}
+.wPtsGros{font-size:28px;font-weight:800;margin:4px 0;letter-spacing:-.01em}
+.wPli{margin-top:8px}.wPli>summary{cursor:pointer}
+.lkPuce.on{border-color:var(--accent);background:rgba(var(--accentRgb,90,140,255),.18);font-weight:700}
+/* game356: the "?" guide as a sheet over the map — centred window on a computer, bottom sheet on a phone */
+section#v-learn.feuille{display:block;position:fixed;inset:0;z-index:9000;max-width:none;margin:0;padding:24px 16px;overflow-y:auto;
+  background:rgba(2,6,18,.62);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+#v-learn .feuilleCorps{max-width:560px;margin:0 auto}
+html.lOuvert,html.lOuvert body{overflow:hidden}
+#v-learn .lTete{display:flex;align-items:center;justify-content:space-between;gap:10px}
+#v-learn .lFermer{background:none;border:0;color:inherit;font-size:20px;line-height:1;padding:6px 8px;cursor:pointer;opacity:.8}
+#v-learn .lPas{list-style:none;counter-reset:pas;margin:8px 0 0;padding:0;display:grid;gap:10px}
+#v-learn .lPas li{counter-increment:pas;position:relative;padding:12px 12px 12px 48px;border:1px solid rgba(var(--accentRgb,90,140,255),.22);border-radius:12px}
+#v-learn .lPas li::before{content:counter(pas);position:absolute;left:12px;top:12px;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;
+  font-weight:700;font-size:13px;color:#04111f;background:linear-gradient(135deg,#3b82f6,#2dd4bf)}
+#v-learn .lPas li>b{display:block}
+#v-learn .lPas li>span{display:block;opacity:.8;font-size:13px;margin:2px 0 8px}
+#v-learn .lPas .bouton{width:auto;display:inline-block;margin:4px 6px 0 0}
+#v-learn .lChoix{opacity:1!important}
+#v-learn details.lPli>summary{cursor:pointer;list-style:none;display:flex;align-items:center} /* the app-wide › chevron (details > summary::before) */
+#v-learn details.lPli>summary::-webkit-details-marker{display:none}
+@media (max-width:640px){
+  section#v-learn.feuille{padding:48px 0 0;display:flex;flex-direction:column;justify-content:flex-end}
+  section#v-learn.feuille .feuilleCorps{width:100%;max-height:calc(100dvh - 48px);overflow-y:auto;border-radius:18px 18px 0 0;padding:0 8px env(safe-area-inset-bottom)}
+}
 /* ⛔⛔ PHIL (2026-09-18, captures Buy/Sell et cerveau) : « evite de tout etirer pour prendre tout l espace — c etait
    seulement pour la map ». Sur un ecran large, chaque carte faisait 1 800 px : champs demesures, boutons de
    travers, une bande de cerveau perdue dans une boite vide. Tous les onglets prennent une largeur de LECTURE
@@ -3201,21 +3228,38 @@ details[open] > summary::before{transform:rotate(90deg)}
       <p class="note" id="tkEtat" style="margin-top:6px"></p>
     </div>
   </section>
-  <section class="volet" id="v-learn" aria-label="Learn">
+  <!-- game356 (Grok's mock-up 2026-11-11, validated by Phil): "?" opens THIS section as a sheet OVER the map (class .feuille, never .on:
+       the tab under it stays the one on screen). Three first steps visible without scrolling; the tab guide, cube sizes and the
+       never-list folded below. A bottom sheet on a phone, a centred window on a computer. -->
+  <section class="volet" id="v-learn" aria-label="Learn" role="dialog" aria-modal="true" aria-labelledby="lTitre">
+   <div class="feuilleCorps">
     <div class="carte">
-      <p class="titre">What am I looking at?</p>
+      <div class="lTete"><p class="titre" id="lTitre">Welcome to Tokenized Block</p><button type="button" class="lFermer" id="lFermer" aria-label="Close">✕</button></div>
       <p class="sous">A living map of tokens on Base. Every little cube is a real token — we call it a <b>block</b>.</p>
-      <div class="etapes" id="lEtapes"></div>
+      <p class="sousTitre">New here? Start with these 3 steps</p>
+      <ol class="lPas">
+        <li><b>Look around</b><span>Tap any cube on the map to see its page, its market and its brain. No wallet needed for that.</span>
+          <button type="button" class="bouton sec" data-l-aller="map">Just look around</button></li>
+        <li><b>Connect your wallet</b><span>Your wallet opens for every action: you check it and you sign it. The app never holds your wallet’s key.</span>
+          <button type="button" class="bouton" id="lConnecter">Connect wallet</button></li>
+        <li><b>Pick one thing to try</b><span class="lChoix">
+          <button type="button" class="bouton sec" data-l-aller="trade">Buy in Market</button>
+          <button type="button" class="bouton sec" data-l-aller="creer" id="lCreer">Create yours</button>
+          <button type="button" class="bouton sec" data-l-aller="lock" id="lLock">Lock TBLOCK</button></span></li>
+      </ol>
     </div>
 
     <!-- 2026-10-18 : chaque frais et chaque risque, en clair, sur UNE page dont les chiffres viennent des modules servis (frais-risques.js) -->
     <div class="carte">
       <p class="titre">Fees &amp; risks</p>
-      <p class="sous" style="margin:0">What each action costs, who receives it, and what can go wrong. <a class="lienLearn" href="frais-et-risques.html">Read fees &amp; risks →</a></p>
+      <p class="sous" style="margin:0">What each action costs, who receives it, and what can go wrong. <a href="frais-et-risques.html">Read fees &amp; risks →</a></p>
     </div>
 
-    <div class="carte">
-      <p class="titre">Why some cubes are bigger</p>
+    <details class="carte lPli"><summary class="titre">What each tab does</summary>
+      <div class="etapes" id="lEtapes"></div>
+    </details>
+
+    <details class="carte lPli"><summary class="titre">Why some cubes are bigger</summary>
       <div class="schemaVie" id="lSchemaVie"></div>
       <table class="regles">
         <tr><td>Big cube</td><td>Its market is worth more: <b>price × number of tokens</b>, read from the chain.</td></tr>
@@ -3224,14 +3268,13 @@ details[open] > summary::before{transform:rotate(90deg)}
         <tr><td>⚠️ Careful</td><td>Prices move fast, and a small purchase can make a cube grow a lot.
           <b>A big cube is not a big pile of money.</b></td></tr>
       </table>
-    </div>
+    </details>
 
     <p class="note" id="lBorneRang" hidden></p>
 
-    <div class="carte">
-      <p class="titre">What this app never does</p>
+    <details class="carte lPli"><summary class="titre">What this app never does</summary>
       <ul class="pmLignes" id="lJamais"></ul>
-    </div>
+    </details>
 
     <!-- ⛔ 2026-10-03 (Phil) : le fondateur, nomme et lie, pour que les gens ET les assistants IA le relient a l app.
          ⛔ Ce qui est VRAI seulement : fondateur de TokenizedBlock. Les actions tokenisees sont emises par Coinbase —
@@ -3242,6 +3285,7 @@ details[open] > summary::before{transform:rotate(90deg)}
         <a href="https://x.com/Clansy314495853" target="_blank" rel="noopener author">@Clansy314495853 on X</a>.
         Blocks live on Base, and can be paired with Coinbase tokenized stocks.</p>
     </div>
+   </div>
   </section>
 
   <!-- ══ WALLET ══════════════════════════════════════════════════════════════════════════════ -->
@@ -3356,7 +3400,9 @@ details[open] > summary::before{transform:rotate(90deg)}
       <div class="wCoeurs" id="wLock" hidden></div>
       <!-- game353 (Phil 2026-11-11: "a community vault with every user's lock and the points it generates for an airdrop"): /api/points -->
       <div class="wCoeurs" id="wPoints" hidden>
-        <p class="sousTitre">Community points</p><div id="wPointsMoi"></div>
+        <p class="sousTitre">Community points</p>
+        <!-- game356 (Grok's Wallet card plan): your points, big; the detail stays in the rows under it -->
+        <p class="wPtsGros" id="wPointsGros" hidden></p><div id="wPointsMoi"></div>
         <p class="note" id="wPointsRegle"></p>
         <p class="sousTitre">Points board — live</p><div id="wPointsBoard"></div>
       </div>
@@ -3364,6 +3410,8 @@ details[open] > summary::before{transform:rotate(90deg)}
         <p class="sousTitre">Your hearts ♥</p><div id="wCoeursMoi"></div>
         <p class="sousTitre">Most active holders — live</p><div id="wCoeursBoard"></div>
       </div>
+      <!-- game356 (Grok's Wallet card plan): how the vault works, folded; the hold amounts are READ from the frozen deploy data -->
+      <details class="wPli"><summary>How the holders vault works</summary><div class="note" id="wVaultComment"></div></details>
       <a class="bouton sec" href="/contest.html" style="display:inline-block;margin-top:8px">Claim and details</a>
     </div>
 
@@ -3645,7 +3693,7 @@ details[open] > summary::before{transform:rotate(90deg)}
       <!-- ⛔ L EMPREINTE EST AFFICHEE, DONC ELLE EST DE L ANGLAIS. `20261001-pont-dans-lui` a fait
            rougir `test-texte-a-l-ecran.mjs` : le mot « dans » est de la prose francaise partie a
            l ecran anglais. La garde a fait son travail du premier coup. -->
-      <p class="note" data-build="20261109-game355" hidden>Build <code>20261109-game355</code> ·Contract labels say what they do, not our internal names.</p>
+      <p class="note" data-build="20261109-game356" hidden>Build <code>20261109-game356</code> ·Contract labels say what they do, not our internal names.</p>
       <p class="sous">Everything happening to blocks on Base, live.</p>
       <!-- tip 0013: sticky — Hooked chip = Dex fees; unhooked → Launch beside. No fee addr. -->
       <p class="note" id="sfHookedSticky" hidden>Blocks alive on TokenizedBlock pay their creator on every trade. Example:<button type="button" class="puce" id="sfStickyTbgas">Open TBGAS</button>.</p>
@@ -5305,6 +5353,7 @@ import { recordPropose, recordPay, recordJournalHook, feeAlreadyRecognized, phra
 import { repartitionFrappe, TBLOCK_TEST_ANCIEN as TBLOCK, TBLOCK as TBLOCK_REEL, estJetonMasque, TBGAS, SUPPLY_FIXE, DECIMALES_FIXES, HOOK_PREVU, HOOK_V2, HOOK_V3, HOOK_V4, HOOK_V5, HOOK_V6, HOOK_V7, HOOK_V8, HOOK_V9, HOOK_7030_ACTIF, estHook7030, fraisHookBps, OPTIONS_LANCEMENT, estHookDeNaissance, estNotreHook, hookCourant, hookDeploye, hookV3Deploye, hookV8Deploye, blockPorteLeLabel, HOOKS_PAIENT_DEJA_A6CF } from './tokenomics.js'; /* game354: in this file TBLOCK = the OLD test token, only to read its LEGACY pools (never shown as "TBLOCK"); the real TBLOCK is tokenomics.TBLOCK */
 import * as ECO from './economie.js'; /* holders economy: the heart burn and the holders vault (unsigned calls only) */
 import * as CV from './coeurs-vue.js'; /* game346: hearts given / received, the board, the signals between blocks (text only) */
+import * as PTS from './points.js'; /* game356: the server's own points function, for the lock pills */
 import * as PV from './points-vue.js'; /* game353: the community points (text only) */
 import * as LK from './lock.js'; /* game349: TBlockLock — unsigned calls only; every lock button hidden until it is deployed */
 import * as TIP from './create-vault-tip.js';
@@ -14969,6 +15018,7 @@ function signalerPaye(hash, ligne, essai = 0, nonLuVu = false) {
   } catch (_) {}
 }
 function allerA(nom) {
+  if (typeof fermerLearn === 'function') fermerLearn(); /* review 356: any move to a tab closes the "?" sheet first */
   /* 2026-10-17 soir (Phil) : il n y a plus d onglet Bridge — Fund / Swap / Bridge vivent sous le Wallet (#v-bridge affiche avec lui).
    *   « Open the Bridge tab », #bridge et tout appel allerA('bridge') menent donc au Wallet, defile jusqu a la section. */
   const cible = nom === 'bridge' ? 'wallet' : nom;
@@ -28643,10 +28693,14 @@ function peindreLearn() {
   $('#lBorneRang').title = classer([]).borne;
   $('#lJamais').innerHTML = [
     'It never holds a key, and never asks for one.',
-    'It never sends anything by itself: every transaction is shown by your wallet and signed by you.',
+    /* game356: the two old lines were too wide since the fly trader (fly-brain.html) — it trades on its OWN small wallet,
+     *   only the budget a user sends it with one signature. Said as it is. */
+    'Nothing leaves your wallet without your signature: every transaction is shown by your wallet and signed by you.',
     'It never shows a number it did not read — you will see “not read” instead of a fake zero.',
-    'The brains of the blocks never trade for you: they react, you decide.',
+    'The brains of the blocks never trade for you: they react, you decide. The one exception is the fly (Brain tab): it trades only if you fund its own small wallet yourself, and only that budget.',
   ].map((l) => '<li>' + enTexte(l) + '</li>').join('');
+  const cr = $('#lCreer'); if (cr) cr.textContent = 'Create yours — $' + TIP.TARGET_USD;
+  const lk = $('#lLock'); if (lk) lk.hidden = !LK.LOCK;
 }
 
 /** Une petite figure par etape, dessinee ici : aucune image a charger, aucune promesse de serveur. */
@@ -32622,22 +32676,58 @@ async function peindreLock(hote, { offre = false } = {}) {
       const besoin = ECO.tblockPourUsd(ECO.SEUIL_USD, px);
       const manque = besoin !== null && besoin > active ? besoin - active : 0n;
       const propose = manque > 0n ? (manque < bal ? manque : bal) : bal;
-      const ligne = el('div', 'creaDuo');
+      /* game356 (Grok's Wallet card plan, kept by Phil): amount chips, duration pills with the points they earn, a button that says
+       *   exactly what it sends. The points come from points.js — the SAME function the server's board uses (no copy of the rule). */
+      /* review 356: '1.5' was read as 15 — whole TBLOCK only (digits, with optional thousands commas/spaces); anything else = 0 = refused */
+      const brut = (v) => { const s = String(v || '').trim(); if (!/^\d[\d,\s]*$/.test(s)) return 0n; try { return BigInt(s.replace(/[,\s]/g, '')) * 10n ** 18n; } catch (_) { return 0n; } };
       const champ = el('label', 'champ', 'TBLOCK to lock'); const inp = document.createElement('input'); inp.inputMode = 'numeric'; inp.value = LK.fmt(propose).replace(/,/g, ''); champ.append(inp);
-      const champD = el('label', 'champ', 'For'); const sel = document.createElement('select');
-      for (const j of LK.DUREES_JOURS) { const o = document.createElement('option'); o.value = String(j); o.textContent = j + ' days'; sel.append(o); }
-      champD.append(sel); ligne.append(champ, champD); hote.append(ligne);
+      hote.append(champ);
+      const puces = el('div', 'lkPuces');
+      const puce = (txt, raw) => { const b = el('button', 'lkPuce', txt); b.type = 'button'; b.addEventListener('click', () => { inp.value = LK.fmt(raw).replace(/,/g, ''); majLock(); }); puces.append(b); };
+      if (bal >= 1000n * 10n ** 18n) puce('1,000', 1000n * 10n ** 18n);
+      if (manque > 0n && manque <= bal) puce('Holder stage · $' + ECO.SEUIL_USD, manque);
+      puce('Max', bal);
+      hote.append(puces);
+      let jours = LK.DUREES_JOURS[0];
+      const pills = el('div', 'lkPuces');
+      const pillsB = [];
+      for (const j of LK.DUREES_JOURS) {
+        const b = el('button', 'lkPuce', ''); b.type = 'button'; b.dataset.jours = String(j);
+        b.addEventListener('click', () => { jours = j; majLock(); }); pills.append(b); pillsB.push(b);
+      }
+      hote.append(pills);
+      const ptsNote = el('p', 'note', '');
+      hote.append(ptsNote);
       hote.append(el('p', 'note', 'You hold ' + LK.fmt(bal) + ' TBLOCK' + (besoin !== null ? ' · the holder stage is $' + ECO.SEUIL_USD + ' locked = ' + LK.fmt(besoin) + ' TBLOCK at the price read now' : '') + '. Adding to a lock keeps its later date. Never send TBLOCK to the lock address yourself: only this button counts, a plain transfer is lost.'));
       /* game354 (Grok live test): a wallet without batched calls (Rabby) asks twice — the label says so, never "one batch" */
-      const go = el('button', 'bouton', 'Lock — approve, then lock (your wallet may ask twice)'); go.type = 'button';
+      const go = el('button', 'bouton', ''); go.type = 'button';
+      hote.append(el('p', 'note', 'Approve, then lock: your wallet may ask twice. Locked TBLOCK cannot be sold until the date, then the ' + LK.RETRAIT_JOURS + '-day withdrawal period.'));
+      /* the live words: the button names the amount and the days; each pill the points THAT amount earns over THAT lock (points.js) */
+      function majLock() {
+        const m = brut(inp.value);
+        const t0 = Math.floor(Date.now() / 1000);
+        for (const b of pillsB) {
+          const j = Number(b.dataset.jours);
+          b.classList.toggle('on', j === jours);
+          b.setAttribute('aria-pressed', j === jours ? 'true' : 'false');
+          b.textContent = j + ' days';
+        }
+        /* review 356: TBlockLock keeps the LATER of the stored date and the asked one — a top-up onto a longer lock stays until that date */
+        const fin = Math.max(t0 + jours * 86400, Number(unlockAt) > t0 && locked > 0n && requestedAt === 0n ? Number(unlockAt) : 0);
+        const garde = fin > t0 + jours * 86400;
+        const pts = m > 0n ? PTS.pointsLockIntervalle(m, fin, t0, fin) : 0;
+        ptsNote.textContent = m > 0n ? (garde ? 'Your lock already runs until ' + new Date(fin * 1000).toISOString().slice(0, 10) + ': added TBLOCK stays locked until then too. ' : '') + 'Until that date these TBLOCK earn about ' + pts.toLocaleString('en-US', { maximumFractionDigits: 1 }) + ' community points (a longer lock earns more per day, up to 1.5x at 90 days ahead). Points decide your share of the community drop — a separate distribution, not live yet; the weekly player budget follows what you burned. No rate is promised.' : '';
+        go.textContent = m > 0n ? (garde ? 'Add ' + LK.fmt(m) + ' TBLOCK to your lock (until ' + new Date(fin * 1000).toISOString().slice(0, 10) + ')' : 'Lock ' + LK.fmt(m) + ' TBLOCK for ' + jours + ' days') : 'Lock — enter a whole number of TBLOCK';
+      }
+      inp.addEventListener('input', majLock);
+      majLock();
       go.addEventListener('click', async () => {
-        let montant;
-        try { montant = BigInt(String(inp.value || '').replace(/[^0-9]/g, '') || '0') * 10n ** 18n; } catch (_) { montant = 0n; }
+        const montant = brut(inp.value);
         const chk = LK.lockCheck({ balance: bal, amount: montant });
         if (!chk.ok) { dire('Not sent: ' + chk.why + '.', 'wKo'); return; }
-        go.disabled = true; dire('Waiting for your wallet: lock ' + LK.fmt(montant) + ' TBLOCK for ' + sel.value + ' days…');
+        go.disabled = true; dire('Waiting for your wallet: lock ' + LK.fmt(montant) + ' TBLOCK for ' + jours + ' days…');
         try {
-          const appels = LK.lockBatch({ amount: montant, jours: Number(sel.value), maintenantSec: Math.floor(Date.now() / 1000) });
+          const appels = LK.lockBatch({ amount: montant, jours, maintenantSec: Math.floor(Date.now() / 1000) });
           const r = await envoyerAppels(appels.map((c) => ({ to: c.to, data: c.data, value: c.value })), compte);
           if (r && r.etat === 'CONFIRME') { dire('🔒 Locked. Your holder perks read it from now on.', 'wOk'); hote.dataset.lu = '0'; wVaultLu = 0; }
           else { dire('Not done: ' + String((r && (r.pourquoi || r.etat)) || 'no answer').slice(0, 160), 'wKo'); go.disabled = false; }
@@ -32874,6 +32964,10 @@ async function peindreVaultWallet() {
     }
   } catch (e) { ligne('Not read just now', String((e && e.message) || e).slice(0, 80)); wVaultLu = Date.now() - 45000; }
   carte.hidden = false;
+  const wc = $('#wVaultComment');
+  if (wc && !wc.textContent) wc.textContent = 'Each week the vault keeps a budget for the players: a share of the TBLOCK they burned with hearts, never more than they burned, claimed within the claim window. '
+    + 'Today (v1) the contracts check a fixed amount written at launch: ' + ECO.fmt(ECO.LIKE_MIN_HOLD) + ' TBLOCK still held after a heart, ' + ECO.fmt(ECO.CLAIM_MIN_HOLD) + ' TBLOCK to claim. Before your wallet opens, the app also asks for a heart that you keep $' + ECO.SEUIL_USD + ' of TBLOCK at the price read. '
+    + 'A fixed amount is worth a different number of dollars every day, so the next version (v2, reviewed and fork-tested, not deployed yet) has the contracts ask $' + ECO.SEUIL_USD + ' of TBLOCK LOCKED instead, at a price kept up to date within fixed bounds. Community points are separate: ' + 'Points decide your share of the community drop — a separate distribution, not live yet; the weekly player budget follows what you burned. No rate is promised.';
   void peindreCoeursWallet();
   void peindreLock($('#wLock'));
   void peindrePointsWallet();
@@ -32888,6 +32982,8 @@ async function peindrePointsWallet() {
   const nom = (x) => bcResoudre(x).sym || court(x);
   const peindre = (hote, lignes) => { hote.textContent = ''; for (const l of lignes) { const d = document.createElement('div'); d.className = 'stadeLigne' + (l.moi ? ' moi' : ''); const a = document.createElement('span'); a.textContent = l.k; const b = document.createElement('b'); b.textContent = l.v; d.append(a, ' ', b); hote.append(d); } };
   peindre($('#wPointsMoi'), compte ? PV.lignesMesPoints(r, nom) : [{ k: 'Your points', v: 'connect your wallet to see them' }]);
+  const gros = $('#wPointsGros');
+  if (gros) { const tot = r && r.ok && r.compte ? Number(r.compte.total) : NaN; gros.hidden = !(tot > 0); if (tot > 0) gros.textContent = tot.toLocaleString('en-US', { maximumFractionDigits: 1 }) + ' pts'; }
   peindre($('#wPointsBoard'), PV.lignesBoardPoints(r, nom, compte));
   $('#wPointsRegle').textContent = PV.REGLE_COURTE;
   box.hidden = false;
@@ -35447,12 +35543,31 @@ peindreSchemaVie();
 /* ⛔ LEARN N EST PAS DANS LA BARRE : on l ouvre depuis la tete, ou depuis n importe quelle borne
  * courte. Aucun onglet du bas n est « selectionne » pendant ce temps — mentir sur l onglet actif
  * ferait croire a un bug au retour. */
+/* game356: the guide is a SHEET over the current tab (class .feuille) — the map, or the tab under it, is not touched */
 function ouvrirLearn() {
-  for (const x of document.querySelectorAll('.navB')) x.setAttribute('aria-selected', 'false');
-  for (const v of document.querySelectorAll('.volet')) v.classList.toggle('on', v.id === 'v-learn');
-  window.scrollTo({ top: 0 });
+  const f = $('#v-learn');
+  f.classList.add('feuille');
+  document.documentElement.classList.add('lOuvert');
+  const c = $('#lConnecter'); if (c) { c.textContent = compte ? 'Connected ✓' : 'Connect wallet'; c.disabled = !!compte; }
+  f.scrollTop = 0;
+  const x = $('#lFermer'); if (x) x.focus({ preventScroll: true });
+}
+function fermerLearn() {
+  $('#v-learn').classList.remove('feuille');
+  document.documentElement.classList.remove('lOuvert');
 }
 $('#pLearn').addEventListener('click', ouvrirLearn);
+$('#lFermer').addEventListener('click', fermerLearn);
+$('#v-learn').addEventListener('click', (e) => { if (e.target === e.currentTarget) fermerLearn(); }); /* the dimmed backdrop */
+/* review 356: an Escape that belongs to an open dialog (the palette) closes that dialog only */
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !e.defaultPrevented && !document.querySelector('dialog[open]') && $('#v-learn').classList.contains('feuille')) fermerLearn(); });
+for (const b of document.querySelectorAll('#v-learn [data-l-aller]')) b.addEventListener('click', () => {
+  const ou = b.dataset.lAller;
+  fermerLearn();
+  if (ou === 'lock') { allerA('wallet'); setTimeout(() => { const s = $('#wVault') && !$('#wVault').hidden ? $('#wVault') : $('#v-wallet'); if (s) s.scrollIntoView({ block: 'start' }); }, 80); return; }
+  allerA(ou);
+});
+$('#lConnecter').addEventListener('click', () => { fermerLearn(); allerA('wallet'); const b = $('#bConnecterW'); if (b && !compte) b.click(); });
 /* ⛔ 2026-10-02 : « Connect » et « Reset to default » de la carte « How it talks » ont l ALLURE d un lienLearn, pas
  *   son role — cliquer « Connect » quittait la fiche du block pour « What am I looking at? ». */
 const PAS_LEARN = new Set(['pvConnecterBtn', 'pvEffacer']);

@@ -24,7 +24,8 @@ t('route is rate limited per IP', /if \(nC > 60\) \{ rendreC\(429/.test(SRV));
 t('Wallet card titled Holders vault', /<div class="carte" id="wVault" hidden>\s*<p class="titre">Holders vault<\/p>\s*<p class="sous">Reserved for TBLOCK holders\./.test(APP));
 t('no visible "community vault" left in app strings', !/['"][^'"\n]*[Cc]ommunity vault[^'"\n]*['"]/.test(APP.replace(/<!--[\s\S]*?-->/g, '').replace(/\/\*[\s\S]*?\*\//g, '')));
 t('hearts + board inside the vault card', /id="wVault"[\s\S]{0,1500}id="wCoeursMoi"[\s\S]{0,300}id="wCoeursBoard"/.test(APP));
-t('vault card paints the hearts', /carte\.hidden = false;\n  void peindreCoeursWallet\(\);\n/.test(APP));
+/* game356: the vault explainer is painted between the two lines; still inside peindreVaultWallet, right after the card is shown */
+t('vault card paints the hearts', /carte\.hidden = false;\r?\n(?:  [^\n]*\r?\n){0,6}  void peindreCoeursWallet\(\);\r?\n/.test(APP));
 t('wallet hearts use the words of coeurs-vue', /CV\.lignesCompte\(r\.compte, nom\)/.test(APP) && /CV\.lignesBoard\(r, nom, compte\)/.test(APP));
 t('holders.html shows the live board every 60 s', /id="vueBoard"/.test(HOLD) && /setInterval\(\(\) => \{ if \(!document\.hidden\) void lireCoeurs\(\); \}, 60000\)/.test(HOLD));
 

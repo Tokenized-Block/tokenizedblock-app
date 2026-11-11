@@ -15,7 +15,7 @@ t('game352: the frozen data carries the VERIFIED address (verifier 6/6)', /adres
 t('every lock UI hidden while LK.LOCK is null', /if \(!hote \|\| !LK\.LOCK\) \{ if \(hote\) hote\.hidden = true; return; \}/.test(P));
 t('Create offers the lock only once EVERY birth step is done', /if \(LK\.LOCK && lu && r\.ne && !r\.prochaine && r\.restantes === 0\) \{/.test(APP));
 t('the Wallet vault card paints the lock', /void peindreCoeursWallet\(\);\n  void peindreLock\(\$\('#wLock'\)\);\n/.test(APP) && /id="wLock" hidden/.test(APP));
-t('the lock is built by lock.js (exact approve + lock), never by hand', /LK\.lockBatch\(\{ amount: montant, jours: Number\(sel\.value\), maintenantSec:/.test(P) && !/approve\(/.test(P.replace(/approve \+ lock/g, '')));
+t('the lock is built by lock.js (exact approve + lock), never by hand', /LK\.lockBatch\(\{ amount: montant, jours, maintenantSec:/.test(P) && !/approve\(/.test(P.replace(/approve \+ lock/g, '')));
 t('checked before the wallet opens', /const chk = LK\.lockCheck\(\{ balance: bal, amount: montant \}\);\n\s+if \(!chk\.ok\)/.test(P));
 t('a way back, in two steps (7-day period): request / cancel / take back, the ONE action etatLock chooses',
   /demander: \{[^\n]*LK\.requestWithdrawCall\(\)/.test(P) && /annuler: \{[^\n]*LK\.cancelWithdrawCall\(\)/.test(P) && /retirer: \{[^\n]*LK\.withdrawCall\(\)/.test(P)
@@ -24,6 +24,7 @@ t('the exit reads the request and its date', /LK\.VIEW\.requestedAtOf\(moi\)/.te
 t('deploy page states the withdrawal period', /D\.retraitSecondes \/ 86400 \+ ' days later/.test(DEP));
 t('gates read activeLockedOf (SEC-001)', /LK\.VIEW\.activeLockedOf\(moi\)/.test(P));
 t('says never to send TBLOCK to the lock directly (review SEC-003)', /Never send TBLOCK to the lock address yourself/.test(P));
+/* game356: the duration is the pill chosen (jours), the pills come from lock.js */
 t('durations 7 / 30 / 90 days from lock.js', /for \(const j of LK\.DUREES_JOURS\)/.test(P));
 t('deploy page checks the sha256 before its button opens', /const ok = \(await sha256Hex\(D\.creation\)\) === D\.sha256Creation;/.test(DEP) && /\$\('#d1'\)\.disabled = !\(chain === 8453 && ok && !D\.adresse\);/.test(DEP));
 t('deploy page sends exactly the frozen data', /params: \[\{ from: acct, data: D\.creation \}\]/.test(DEP));

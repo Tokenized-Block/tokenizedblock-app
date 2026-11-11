@@ -2,7 +2,7 @@
  * ⛔ Never a rate, never an APY: points decide a SHARE of what the vault actually received; the page says so on every view. */
 const n2 = (x) => (Math.round(Number(x) * 100) / 100).toLocaleString('en-US', { maximumFractionDigits: 2 });
 export const pct = (p) => (Number(p) * 100 >= 0.01 ? (Number(p) * 100).toFixed(2) : (Number(p) > 0 ? '<0.01' : '0')) + '%';
-export const REGLE_COURTE = 'Lock points grow every day your TBLOCK stays locked (more for more, up to 1.5x for 90+ days ahead); hearts count double. Your points decide your share of what the vault actually receives — no rate is promised.';
+export const REGLE_COURTE = 'Lock points grow every day your TBLOCK stays locked (more for more, up to 1.5x for 90+ days ahead); hearts count double. Your points decide your share of the community drop — a separate distribution, not live yet; no rate is promised.';
 
 export function lignesMesPoints(r, nom) {
   if (!r || !r.ok) return [{ k: 'Your points', v: 'not read just now' }];

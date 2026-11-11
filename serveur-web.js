@@ -6146,7 +6146,7 @@ const SERVIS = [
   /* the block contest page for users (reads Base, builds unsigned calls for the wallet of the user) and its pure module */
   'contest.html', 'block-contest.js',
   /* holders economy: the +1 burn and the holders vault, their page module, the unsigned deployment (generated) and its page */
-  'economie.js', 'economie-deploiement.js', 'deployer-economie.html', 'create-vault-tip.js', 'relais-rpc.js', 'etat-naissance.js', 'coffre-paye.js', 'carte-naissance.js', 'coeurs-vue.js', 'lock.js', 'lock-deploiement.js', 'deployer-lock.html', 'economie-v2-deploiement.js', 'deployer-economie-v2.html', 'points-vue.js',
+  'economie.js', 'economie-deploiement.js', 'deployer-economie.html', 'create-vault-tip.js', 'relais-rpc.js', 'etat-naissance.js', 'coffre-paye.js', 'carte-naissance.js', 'coeurs-vue.js', 'lock.js', 'lock-deploiement.js', 'deployer-lock.html', 'economie-v2-deploiement.js', 'deployer-economie-v2.html', 'points-vue.js', 'points.js',
   /* game120 : ondes, lumiere et son */
   'tam-ondes.js',
   /* game122 : electricite */
