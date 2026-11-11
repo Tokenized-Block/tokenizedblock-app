@@ -396,7 +396,13 @@ async function suite(source) {
       assert.ok(a.archive <= b.archive, 'tour ' + (k + 1) + ' : ' + a.archive + ' appels d archive contre ' + b.archive + ' a HEAD');
       /* une seconde simulee = pauses du tour + la cadence de 4 s : le debit d archive ne depasse jamais celui de HEAD */
       assert.ok(a.archive / (a.pauses + 4000) <= b.archive / (b.pauses + 4000), 'tour ' + (k + 1) + ' : ' + a.archive + ' appels en ' + a.pauses + ' ms de pauses, contre ' + b.archive + ' en ' + b.pauses + ' ms a HEAD');
-      assert.deepEqual(a.sigs, b.sigs, 'tour ' + (k + 1) + ' : requetes differentes de HEAD');
+      /* game363: the general reader may now send its head reads (eth_blockNumber, eth_call latest...) to another HEALTHY host once base.org
+       *   is set aside — the property of S stays: the deep eth_getLogs windows are EXACTLY HEAD's (host included), and the other reads keep the
+       *   same methods and ranges in the same order (only their host may differ). */
+      const logs = (x) => x.filter((q) => q.includes(' eth_getLogs '));
+      const sansHote = (x) => x.filter((q) => !q.includes(' eth_getLogs ')).map((q) => q.slice(q.indexOf(' ') + 1));
+      assert.deepEqual(logs(a.sigs), logs(b.sigs), 'tour ' + (k + 1) + ' : eth_getLogs differents de HEAD');
+      assert.deepEqual(sansHote(a.sigs), sansHote(b.sigs), 'tour ' + (k + 1) + ' : autres lectures differentes de HEAD (hote mis a part)');
     }
     return { p, h };
   };

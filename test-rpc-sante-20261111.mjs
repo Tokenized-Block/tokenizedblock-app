@@ -40,7 +40,7 @@ for (const u of U) S.noter(u, 'limite');
 t('all cooled: all still tried', S.ordonner(U, 0).length === 4);
 /* the server */
 t('server: compterEnvoi feeds the health state', SRV.includes('SANTE_RPC.noter(libelleNoeud(url), classe); /* game362 */'));
-t('server: the 4 readers are ordered by it', (SRV.match(/SANTE_RPC\.ordonner\(/g) || []).length === 4 && SRV.includes('SANTE_RPC.ordonner(RPC_SIMULATION') && SRV.includes('SANTE_RPC.ordonner(RPC_LIST'));
+t('server: the 4 readers are ordered by it', (SRV.match(/SANTE_RPC\.ordonner\(/g) || []).length === 4 && SRV.includes('SANTE_RPC.ordonner(RPC_SIMULATION') && SRV.includes('SANTE_RPC.ordonner(hotesL') /* game363: the general reader orders its widened list */);
 const sec = SRV.slice(SRV.indexOf('async function secoursCle('), SRV.indexOf('async function secoursCle(') + 1500);
 t('server: keyed fallback on eth_call only, never in test mode, own daily budget', sec.includes("if (!RELAIS_CLE || ESSAI_SRV.actif || methode !== 'eth_call') return { ok: false };") && sec.includes('if (secoursCompte.appels >= SECOURS_MAX_JOUR)'));
 t('server: a read answered 0x is not taken from the keyed node either', sec.includes("!(lecture && j.result === '0x')"));

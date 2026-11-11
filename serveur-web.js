@@ -1478,10 +1478,25 @@ async function rpcServeur(methode, params) {
   if (!repliServeur) repliServeur = avecRepliLogs(rpcServeurBrut, [...REPLIS_LOGS_SERVEUR.map((u) => lecteurUrl(u)), ...(RPC_ARCHIVE ? [lecteurArchive('repli')] : [])]);
   return repliServeur(methode, params);
 }
+/* game363 (measured on prod 15 min after game362: the pool reads stopped being limited — drpc 8.8 -> 1.5 limits/min, tenderly ~8 -> 0.5 —
+ *   but mainnet.base.org still took 2,170 limits for 1,804 ok: the general reader had ONE host, and a breaker never drops a url). Reads AT THE
+ *   HEAD that every node serves the same way also go to the healthy hosts; everything else keeps RPC_LIST: eth_getLogs (only mainnet.base.org
+ *   serves multi-address logs), receipts and txs by hash (a pruned node answers null = an absence it did not measure), historical blocks
+ *   (publicnode refuses the archive past ~10,000 blocks), and eth_call with a state override. */
+const METHODES_TETE = new Set(['eth_call', 'eth_blockNumber', 'eth_getBlockByNumber', 'eth_getCode', 'eth_getBalance', 'eth_chainId']);
+function hotesLecteurGeneral(methode, params, liste = RPC_LIST, large = RPC_FAITS_POOL) {
+  if (!METHODES_TETE.has(methode)) return liste;
+  const a = Array.isArray(params) ? params : [];
+  if (methode === 'eth_call' && a.length > 2) return liste;                           /* state override: the node must apply it */
+  const tag = methode === 'eth_getBlockByNumber' ? a[0] : (methode === 'eth_call' || methode === 'eth_getCode' || methode === 'eth_getBalance') ? a[1] : 'latest'; /* the block is always the 2nd param */
+  if (!(tag === undefined || tag === 'latest' || tag === 'pending')) return liste;     /* a numbered / historical block: the archive question */
+  return [...new Set([...liste, ...large])];
+}
 async function rpcServeurBrut(methode, params) {
   let dernier = null;
-  const maxEssais = Math.max(3, RPC_LIST.length);
-  const ordreL = SANTE_RPC.ordonner(RPC_LIST, rpcTour, libelleNoeud); /* game362 */
+  const hotesL = hotesLecteurGeneral(methode, params); /* game363 */
+  const maxEssais = Math.max(3, hotesL.length);
+  const ordreL = SANTE_RPC.ordonner(hotesL, rpcTour, libelleNoeud); /* game362 */
   for (let k = 0; k < maxEssais; k++) {
     const url = ordreL[k % ordreL.length];
     rpcTour++;
