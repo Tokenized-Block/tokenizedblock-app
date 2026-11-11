@@ -27,7 +27,8 @@ const ok = (c, m) => { n += 1; if (c) console.log('ok  ' + m); else { ko += 1; c
 const charger = async (src) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'banque-frais-'));
   fs.writeFileSync(path.join(dir, 'banque-morpho.js'), src);
-  for (const f of ['encodeur.js', 'lancer-pool.js', 'paires.js', 'frais-creation.js']) fs.writeFileSync(path.join(dir, f), "export * from '" + pathToFileURL(path.join(ICI, f)).href + "';\n");
+  /* 2026-11-11 (wt-369): + banque-frais.js — the rates moved there (browser-safe), banque-morpho.js imports and re-exports them */
+  for (const f of ['encodeur.js', 'lancer-pool.js', 'paires.js', 'frais-creation.js', 'banque-frais.js']) fs.writeFileSync(path.join(dir, f), "export * from '" + pathToFileURL(path.join(ICI, f)).href + "';\n");
   return await import(pathToFileURL(path.join(dir, 'banque-morpho.js')).href);
 };
 const SRC = fs.readFileSync(process.env.TB_BANQUE || path.join(ICI, 'banque-morpho.js'), 'utf8');

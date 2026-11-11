@@ -19,19 +19,21 @@ import { selecteur } from './encodeur.js';
 import { simulerSequenceLancement } from './lancer-pool.js';
 import { ACTIONS_COINBASE } from './paires.js';
 import { FEE_WALLET } from './frais-creation.js';
+/* 2026-11-11: the rates, the margin and the separate-positions sentence live in banque-frais.js (no imports, no address), so the public
+ *   "Fees & risks" page reads the SAME values; this module re-exports them for the server, the app and the tests. */
+import { FRAIS_EMPRUNT_BPS, FRAIS_PRET_BPS, FRAIS_SORTIE_BPS, MARGE_EMPRUNT_BPS, PHRASE_PANIER_SEPARE } from './banque-frais.js';
+export { FRAIS_EMPRUNT_BPS, FRAIS_PRET_BPS, FRAIS_SORTIE_BPS, MARGE_EMPRUNT_BPS, PHRASE_PANIER_SEPARE };
 
 export const MORPHO_BLUE = '0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb';
 /** Marge d emprunt : au plus 70 % de ce que le LLTV permet (a LLTV 77 %, ≈ 54 % de la valeur de la garantie). Proposition,
- *  pas une decision de Phil — ecrite UNE fois ici. */
-export const MARGE_EMPRUNT_BPS = 7000n;
+ *  pas une decision de Phil — ecrite UNE fois, dans banque-frais.js (MARGE_EMPRUNT_BPS). */
 /** ⛔ LES FRAIS DE SERVICE DE LA BANK - DECISION DE PHIL (chat, 2026-10-11 : « creer un fees comme sur Aave ou Morpho pour que l app
  *  gagne un peu aussi », « ajoute wallet dev comme recipient » ; choix : « 0,1 % de l emprunt », « FEE_WALLET 0xa6cf… »).
  *  0,1 % de l actif EMPRUNTE, arrondi a l unite SUPERIEURE (jamais 0 : un frais qui s arrondit a rien n est pas un frais), pris dans la
  *  MEME sequence que l emprunt (borrow -> transfer a la caisse), donc SIMULE avec elle. Rien pour rembourser ou retirer : on ne
  *  fait pas payer pour sortir. (Preter : gratuit jusqu au 2026-10-26, puis la MEME regle - FRAIS_PRET_BPS ci-dessous.) Le destinataire est la caisse de l app (FEE_WALLET, recopie dans frais-creation.js) ; l ecran dit
  *  « TokenizedBlock », jamais l adresse - le wallet la montre au moment de signer. Ecrit UNE fois ici ; la page le lit dans
- *  /api/banque/marches (fraisEmpruntBps) et dans le resume du plan, jamais en double. */
-export const FRAIS_EMPRUNT_BPS = 10n;
+ *  /api/banque/marches (fraisEmpruntBps) et dans le resume du plan, jamais en double. FRAIS_EMPRUNT_BPS (10n) : banque-frais.js. */
 export const DESTINATAIRE_FRAIS_BANQUE = FEE_WALLET;
 export const fraisEmprunt = (montant) => (BigInt(montant) <= 0n ? 0n : (BigInt(montant) * FRAIS_EMPRUNT_BPS + 9999n) / 10000n);
 /** ⛔ 2026-10-26 - DECISION DE PHIL (« colle toi au data de morpho, ajoute les bons frais ») : le Lend paie la MEME regle que le Borrow.
@@ -40,8 +42,7 @@ export const fraisEmprunt = (montant) => (BigInt(montant) <= 0n ? 0n : (BigInt(m
  *  touche pas Morpho : un transfert ERC-20 du wallet vers la caisse, sans autorisation. Mesure du jour : AUCUN frais Morpho sur nos
  *  19 marches (market(id).fee = 0 sur la chaine, feeRecipient = 0x0) - le frais Morpho, s il apparait, se lit et se dit a part.
  *  SORTIR reste GRATUIT : rembourser, retirer un pret, retirer une garantie = 0 (« on ne fait pas payer pour sortir », 2026-10-11 ;
- *  la decision du jour ne vise que le Lend). Ecrit UNE fois ici. */
-export const FRAIS_PRET_BPS = FRAIS_EMPRUNT_BPS;
+ *  la decision du jour ne vise que le Lend). Ecrit UNE fois, dans banque-frais.js (FRAIS_PRET_BPS = FRAIS_EMPRUNT_BPS). */
 export const fraisPret = (montant) => (BigInt(montant) <= 0n ? 0n : (BigInt(montant) * FRAIS_PRET_BPS + 9999n) / 10000n);
 /** Le plus grand pret M tel que M + fraisPret(M) <= solde (le bouton « All » et « You can lend » ne proposent jamais un pret refuse). */
 export const pretMaxAvecFrais = (solde) => {
@@ -141,7 +142,7 @@ export async function lireMarchesMorpho({ fetchImpl = globalThis.fetch, delaiMs 
   }
   marches.sort((a, b) => (b.offreUsd || 0) - (a.offreUsd || 0));
   /* fraisEmpruntBps / fraisPretBps : la page dit le frais de service AVANT le plan, depuis cette source unique ; fraisSortieBps = 0 (dit, pas tu) */
-  return { ok: true, etat: 'LU', source: 'blue-api.morpho.org', marches, fraisEmpruntBps: Number(FRAIS_EMPRUNT_BPS), fraisPretBps: Number(FRAIS_PRET_BPS), fraisSortieBps: 0 };
+  return { ok: true, etat: 'LU', source: 'blue-api.morpho.org', marches, fraisEmpruntBps: Number(FRAIS_EMPRUNT_BPS), fraisPretBps: Number(FRAIS_PRET_BPS), fraisSortieBps: Number(FRAIS_SORTIE_BPS) };
 }
 
 /** 2026-10-26 (« colle toi au data de morpho ») : le frais de CHAQUE marche, RELU SUR LA CHAINE - Morpho Blue market(id), 6e mot
@@ -270,7 +271,7 @@ export async function planEmprunter({ rpc, compte, id, garantie = 0n, emprunt })
  *   sequence, un verdict). Une ligne refusee refuse le panier en la nommant. Une action deux fois : refuse (une ligne par action -
  *   sinon deux autorisations lues a part se marcheraient dessus). */
 export const PANIER_MAX = 5;
-export const PHRASE_PANIER_SEPARE = 'Each stock is its own Morpho position: if one stock falls to its liquidation price, only that position is liquidated — the other stocks do not protect it.';
+/* PHRASE_PANIER_SEPARE (each stock is its own Morpho position) lives in banque-frais.js since 2026-11-11, re-exported above */
 export async function planEmprunterPanier({ rpc, compte, lignes }) {
   if (!Array.isArray(lignes) || !lignes.length) return refuse('a basket needs at least one stock');
   if (lignes.length > PANIER_MAX) return refuse('at most ' + PANIER_MAX + ' stocks in one basket');
@@ -353,7 +354,7 @@ export async function planPreter({ rpc, compte, id, montant }) {
 }
 
 /** 2026-10-26 : sortir est GRATUIT et le resume le DIT (fraisApp '0'), au lieu de se taire - la carte peut l ecrire sans le deviner. */
-const SANS_FRAIS_SORTIE = Object.freeze({ fraisApp: '0', fraisAppBps: 0, fraisPour: 'TokenizedBlock' });
+const SANS_FRAIS_SORTIE = Object.freeze({ fraisApp: '0', fraisAppBps: Number(FRAIS_SORTIE_BPS), fraisPour: 'TokenizedBlock' });
 
 /** Rembourser : `montant` unites brutes, ou `tout: true` (par parts : la dette entiere, interets courus compris). */
 export async function planRembourser({ rpc, compte, id, montant = null, tout = false }) {

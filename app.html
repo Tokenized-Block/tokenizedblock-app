@@ -2578,7 +2578,7 @@ details[open] > summary::before{transform:rotate(90deg)}
         <div class="bcAvatar" id="bcAvatar" data-phase="NON_LU"><div id="bcAvatarIn">◈</div></div>
         <div class="bcInfos">
           <div class="bcNomLigne"><div class="bcNom" id="bcNom">Pick a block in the Brain tab</div>
-            <span class="bcLike" id="bcLike" hidden><button type="button" id="bcLikeBtn" aria-label="Heart this block" title="Heart this block: burns 86,000 TBLOCK, counts as play for the holders vault (you keep at least 2,580,000 TBLOCK, and $15 of TBLOCK at the live price)">♥</button><b id="bcLikeN" title="Hearts received by this block">—</b></span></div>
+            <span class="bcLike" id="bcLike" hidden><button type="button" id="bcLikeBtn" aria-label="Heart this block" title="Heart this block">♥</button><b id="bcLikeN" title="Hearts received by this block">—</b></span></div>
           <p class="note" id="bcLikeNote" hidden></p>
           <p class="note bcSignaux" id="bcSignaux" hidden aria-live="polite"></p>
           <div class="note" id="bcSousNom" hidden></div>
@@ -3688,7 +3688,7 @@ details[open] > summary::before{transform:rotate(90deg)}
       <!-- ⛔ L EMPREINTE EST AFFICHEE, DONC ELLE EST DE L ANGLAIS. `20261001-pont-dans-lui` a fait
            rougir `test-texte-a-l-ecran.mjs` : le mot « dans » est de la prose francaise partie a
            l ecran anglais. La garde a fait son travail du premier coup. -->
-      <p class="note" data-build="20261109-game368" hidden>Build <code>20261109-game368</code> ·Contract labels say what they do, not our internal names.</p>
+      <p class="note" data-build="20261109-game369" hidden>Build <code>20261109-game369</code> ·Contract labels say what they do, not our internal names.</p>
       <p class="sous">Everything happening to blocks on Base, live.</p>
       <!-- tip 0013: sticky — Hooked chip = Dex fees; unhooked → Launch beside. No fee addr. -->
       <p class="note" id="sfHookedSticky" hidden>Blocks alive on TokenizedBlock pay their creator on every trade. Example:<button type="button" class="puce" id="sfStickyTbgas">Open TBGAS</button>.</p>
@@ -5290,7 +5290,6 @@ import { analyserCommande, enUnitesBrutes, PRECOMMANDES, AIDE_COMMANDES, COMMAND
 import * as PanneauCmd from './panneau-commandes.js';
 /* 2026-10-18 : la palette Ctrl+K du panneau (filtre et classement purs ; la liste vient de COMMANDES, de la barre d onglets et des tuiles du Game) */
 import { entreesCommandes, entreesOnglets, entreesJeu, filtrerPalette, noterUsage, lireUsages, ecrireUsages, deplacer } from './palette.js';
-import { appelAchatSkin, SKIN_PRIX_USDC } from './skins.js';
 import { BLOCKSKINS, SKIN_MINT_USDC, SKIN_MINT_TEXTE, SKIN_MINT_OUVERT, appelMint, appelApprouver, lireSkins, skinsDe, skinPortee, DEVISES_SKIN, montantVersBrut, actionsSkin, appelCredit,
   offreMinimale, partage, appelAcheter, appelEncherir, appelRegler, appelRetirer, appelMettreEnVente, appelOuvrirEnchere, appelRetirerCredit, ETH as ETH_SKIN, propositionSkin, lireDevisesSkin, deviseAdmise, decoderPage, appelPage } from './blockskins.js';
 import { SKM_RAFRAICHIR_MS, SKM_POULS_MS, SKM_FILTRES, SKM_STATUTS, filtrerSkins, ordonnerSkins, compterSkins, gestesSkin, montantOffre, relectureAvantSigner, cleLigneSkin, offresChangees, tempsRestant, apercuSkinFormes, detenteurCourt, statutSkin, brutVersTexte as brutVersTexteSkin, texteMarcheSkins } from './skins-marche.js';
@@ -23887,6 +23886,20 @@ function paireSansGraineEth(p) {
   if (!p || p.type === 'NATIF' || p.type === 'SAISIE' || /^0x0{40}$/i.test(String(p.adr || ''))) return false;
   return paireVa7030(p.adr);
 }
+/** 2026-11-11: what the birth preflight below will ask, for Create step 1 (etape1AchatTblock), so step 1 never keeps a different reserve.
+ *  Same inputs, same rules as preflightInstantBirthEthFixe: fee null -> FRAIS_OUVERTURE_WEI; seed null -> the quote read now; an unread
+ *  or negative seed -> CREATE_FEE_WEI_FLOOR; 0n stays 0n (a 7030 non-ETH pair). test-create-reserve-369-20261111.mjs RUNS both on a grid
+ *  of inputs and requires the same total (the preflight keeps its own lines: test-create-reserve-gaz-dite-20261004.mjs runs it alone). */
+async function besoinEthNaissance({ seedWei = null, fraisWei = null } = {}) {
+  const frais = fraisWei === null || fraisWei === undefined ? FRAIS_OUVERTURE_WEI : BigInt(fraisWei);
+  let seed = seedWei != null ? BigInt(seedWei) : null;
+  if (seed == null) {
+    try { seed = await preparerQuoteEthDefaut(true); } catch (_) { seed = null; }
+  }
+  if (seed == null) seed = CREATE_FEE_WEI_FLOOR;
+  else if (seed < 0n) seed = CREATE_FEE_WEI_FLOOR;
+  return besoinNaissance({ fraisWei: frais, seedWei: seed, gazWei: GAZ_NAISSANCE_WEI });
+}
 async function preflightInstantBirthEthFixe({ e, seedWei = null, fraisWei = null } = {}) {
   const gasBuf = GAZ_NAISSANCE_WEI;
   /* ⛔⛔⛔ LE FRAIS VIENT DE L APPELANT QUAND IL LE CONNAIT — ET SANS CA, UN REPLI DELIBERE DU CODE
@@ -25256,7 +25269,8 @@ async function creerBlock() {
     creationEnCoursPayante = true;
   }
   /* game338: STEP 1 of 3 — buy the missing TBLOCK with ETH BEFORE the birth (the preflight below then judges the ETH left) */
-  if (!(await acheterTblockAvantNaissance(e))) return;
+  /* 2026-11-11: step 1 keeps what the preflight below will ask — same effective fee (the floor fallback) and same seed rule */
+  if (!(await acheterTblockAvantNaissance(e, { fraisWei: fraisReplieAuPlancher, seedWei: paireSansGraineEth(paireChoisie) ? 0n : null }))) return;
     /* tip 20260922-same-sig + eth-fixe: Instant Birth DIRECT — fixed 0.001 ETH fee, wei-only balance gate.
    * NEVER refuse with «Could not read the price». Oracle optional. Fund wallet CTA on shortfall.
    * tip 20260922-same-sig: force CreateRouter BEFORE preflight so paid path is set. */
@@ -32433,6 +32447,8 @@ async function bcPeindreSignaux(a) {
   } catch (_) { if (bcSignauxEtat.de === a) p.hidden = true; } finally { bcSignauxEtat.enVol = false; }
 }
 $('#bcLikeBtn').addEventListener('click', () => { void bcCoeur($('#bcLike').dataset.adr); });
+/* 2026-11-11: the ♥ title is written from the deployment record (never typed), and says what CLAIMING the vault needs too */
+$('#bcLikeBtn').title = 'Heart this block: burns ' + ECO.fmt(ECO.LIKE_PRICE) + ' TBLOCK, counts as play for the holders vault (you keep at least ' + ECO.fmt(ECO.LIKE_MIN_HOLD) + ' TBLOCK, and $' + ECO.SEUIL_USD + ' of TBLOCK at the live price). Claiming the week’s reward needs ' + ECO.fmt(ECO.CLAIM_MIN_HOLD) + ' TBLOCK held.';
 /** ONE heart for block `a`, from the ♥ next to the name or from the panel command « heart <block> ». Checked before the wallet opens
  *  (pay + keep the larger of the contract's hold and $15 at the live price); `dire` writes where the person looks (the note, or the thread). */
 async function bcCoeur(a, dire = null) {
@@ -32440,7 +32456,7 @@ async function bcCoeur(a, dire = null) {
   dire = dire || ((t) => { note.hidden = false; note.textContent = t; });
   if (!a || !ECO.LIKES) return { ok: false };
   if (!ECO.isB20(a)) { dire('Only a block can get a heart (a B20 address).'); return { ok: false }; }
-  if (!compte) { dire('Connect your wallet first. A heart costs ' + ECO.fmt(ECO.LIKE_PRICE) + ' TBLOCK (burned) and needs ' + ECO.fmt(ECO.LIKE_MIN_HOLD) + ' TBLOCK left after paying.'); return { ok: false }; }
+  if (!compte) { dire('Connect your wallet first. A heart costs ' + ECO.fmt(ECO.LIKE_PRICE) + ' TBLOCK (burned) and needs ' + ECO.fmt(ECO.LIKE_MIN_HOLD) + ' TBLOCK left after paying. Claiming the week’s vault reward needs ' + ECO.fmt(ECO.CLAIM_MIN_HOLD) + ' TBLOCK held.'); return { ok: false }; }
   btn.disabled = true;
   try {
     const v = ECO.VIEW.balanceOf(String(compte).toLowerCase());
@@ -32452,7 +32468,7 @@ async function bcCoeur(a, dire = null) {
     if (!chk.ok) { dire('Not sent: ' + chk.why + '.'); return { ok: false }; }
     dire('Waiting for your wallet: a heart for ' + ECO.fmt(chk.cost) + ' TBLOCK, burned, not refundable…');
     const r = await envoyerAppels(ECO.likeBatch({ block: a, n: 1 }).map((c) => ({ to: c.to, data: c.data, value: c.value })), compte);
-    if (r && r.etat === 'CONFIRME') { dire('♥ confirmed. It counts as play for this week’s holders vault.'); bcLikeEtat.lu = 0; bcSignauxEtat.lu = 0; wVaultLu = 0; bcPeindreLike(a); return { ok: true }; }
+    if (r && r.etat === 'CONFIRME') { dire('♥ confirmed. It counts as play for this week’s holders vault; claiming needs ' + ECO.fmt(ECO.CLAIM_MIN_HOLD) + ' TBLOCK held.'); bcLikeEtat.lu = 0; bcSignauxEtat.lu = 0; wVaultLu = 0; bcPeindreLike(a); return { ok: true }; }
     dire('Not done: ' + String((r && (r.pourquoi || r.etat)) || 'no answer').slice(0, 160));
     return { ok: false };
   } catch (e) { dire('Not sent: ' + String((e && e.message) || e).slice(0, 160)); return { ok: false }; }
@@ -32733,12 +32749,12 @@ setInterval(() => { void peindreTipApercu().catch(() => {}); }, 5000);
  *   The wallet refusing the buy, or too little ETH for buy + birth: false, with a sentence, nothing else sent. */
 let tipAuto = false;
 let achatTblockEnCours = false;
-async function acheterTblockAvantNaissance(e) {
+async function acheterTblockAvantNaissance(e, opts = {}) {
   if (achatTblockEnCours) return false; /* a second click during step 1 starts nothing */
   achatTblockEnCours = true;
-  try { return await etape1AchatTblock(e); } finally { achatTblockEnCours = false; }
+  try { return await etape1AchatTblock(e, opts); } finally { achatTblockEnCours = false; }
 }
-async function etape1AchatTblock(e) {
+async function etape1AchatTblock(e, opts = {}) {
   tipAuto = false;
   if (Number(CHAINE) !== 8453 || !ECO.VAULT || !compte) return true;
   let need = null, bal = null, px = null, ethBal = null;
@@ -32778,17 +32794,26 @@ async function etape1AchatTblock(e) {
    *   not also the TBLOCK buy had its birth cancelled — against this file's own rule (create-vault-tip.js: "a missing TBLOCK can never block a
    *   birth"). Now: enough for the birth -> step 1 is skipped and said, the birth goes on, the TBLOCK part is offered after it (step 3);
    *   only a wallet that cannot pay the birth itself stops here. */
-  if (ethBal < wei + TIP.BIRTH_ETH_RESERVE_WEI) {
+  /* 2026-11-11: the ETH kept for the birth is EXACTLY what its preflight will ask (besoinEthNaissance: fee + seed + GAZ_NAISSANCE_WEI),
+   *   no longer a fixed 0.0023 ETH that cancelled payable births (0.002033 ETH on the ETH pair; anything from 0.0015 on a non-ETH pair).
+   *   An unread need (null) skips step 1: the birth goes on and its own preflight judges, nothing is bought on a guess. */
+  let besoinNaiss = null;
+  try { besoinNaiss = await besoinEthNaissance(opts); } catch (_) { besoinNaiss = null; }
+  const choixEtape1 = TIP.stepOneFits({ ethBal, buyWei: wei, birthNeedWei: besoinNaiss ? besoinNaiss.total : null });
+  if (choixEtape1 !== 'BUY') {
     tipAuto = false;
-    if (ethBal >= TIP.BIRTH_ETH_RESERVE_WEI) {
-      e.className = 'note';
-      e.textContent = 'Step 1 skipped: buying the TBLOCK part needs ' + (Number(wei) / 1e18).toFixed(6) + ' ETH more than this wallet keeps for the birth ('
-        + (Number(ethBal) / 1e18).toFixed(6) + ' ETH held). The birth goes on now; the TBLOCK part is offered after it (step 3), never required.';
-      return true;
+    if (choixEtape1 === 'STOP') {
+      e.className = 'note wKo';
+      e.textContent = 'The birth needs about ' + ethLisible(besoinNaiss.total) + ' ETH (gas included); this wallet holds ' + (Number(ethBal) / 1e18).toFixed(6) + ' ETH. Nothing was sent.';
+      return false;
     }
-    e.className = 'note wKo';
-    e.textContent = 'The birth needs about ' + (Number(TIP.BIRTH_ETH_RESERVE_WEI) / 1e18).toFixed(4) + ' ETH; this wallet holds ' + (Number(ethBal) / 1e18).toFixed(6) + ' ETH. Nothing was sent.';
-    return false;
+    e.className = 'note';
+    /* review 2026-11-11: an UNREAD need (null) is not "more than this wallet keeps": say it was not read, never a comparison not made */
+    e.textContent = choixEtape1 === null
+      ? 'Step 1 skipped: the ETH the birth needs was not read just now, so nothing is bought before it. The birth goes on now and checks your ETH itself; the TBLOCK part is offered after it (step 3), never required.'
+      : 'Step 1 skipped: buying the TBLOCK part needs ' + (Number(wei) / 1e18).toFixed(6) + ' ETH more than this wallet keeps for the birth ('
+        + (Number(ethBal) / 1e18).toFixed(6) + ' ETH held). The birth goes on now; the TBLOCK part is offered after it (step 3), never required.';
+    return true;
   }
   let pl;
   try { pl = await fetch('/api/tblock/vault-buy?garder=1&compte=' + String(compte).toLowerCase() + '&eth=' + wei, { cache: 'no-store', signal: AbortSignal.timeout(20000) }).then((x) => x.json()); }
@@ -32980,7 +33005,13 @@ async function peindreCoeursWallet() {
       hote.append(d);
     }
   };
-  peindre($('#wCoeursMoi'), compte ? (r && r.ok && r.compte ? CV.lignesCompte(r.compte, nom) : [{ k: 'Your hearts', v: 'not read just now' }]) : [{ k: 'Your hearts', v: 'connect your wallet to see them' }]);
+  /* 2026-11-11: first line = what CLAIMING the vault needs (ECO.CLAIM_MIN_HOLD, from the record), with the wallet's balance and the
+   *   value at the price read now when both were read; an unread value is left out, never guessed */
+  let balClaim = null, prixClaim = null;
+  if (compte) { try { const v = ECO.VIEW.balanceOf(String(compte).toLowerCase()); balClaim = ECO.word(await rpc('eth_call', [{ to: v.to, data: v.data }, 'latest'])); } catch (_) { balClaim = null; } }
+  try { const h = await fetch('/api/tblock/hold', { cache: 'no-store', signal: AbortSignal.timeout(15000) }).then((x) => x.json()); prixClaim = h && h.ok && Number(h.priceNow) > 0 ? Number(h.priceNow) : null; } catch (_) { prixClaim = null; } /* labelled "now": the price read now, not the lower of now and ~10 min ago */
+  const ligneClaim = CV.ligneSeuilClaim({ claimMinHold: ECO.CLAIM_MIN_HOLD, balance: balClaim, prixUsd: prixClaim });
+  peindre($('#wCoeursMoi'), [ligneClaim].concat(compte ? (r && r.ok && r.compte ? CV.lignesCompte(r.compte, nom) : [{ k: 'Your hearts', v: 'not read just now' }]) : [{ k: 'Your hearts', v: 'connect your wallet to see them' }]));
   peindre($('#wCoeursBoard'), CV.lignesBoard(r, nom, compte));
   box.hidden = false;
 }

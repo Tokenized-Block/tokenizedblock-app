@@ -143,6 +143,7 @@ import { ligneRegistre, totauxParCreateur } from './ref-vitrine.js';
 import { saisonDe, valeurUsd, crediter, tickets, racine, tirer, F_USD_V1, jourDe, moisDe, joursEntre, entreesPeriode, SEUIL_VOLUME_JOUR_USD, JOUR_MS, ticketsJour, joursPass, crediterPassSemaine } from './tirage-saison.js';
 import { volumeVerifie, poolIdDe, passSkinVerifie } from './volume-tirage.js';
 import { BLOCKSKINS as BLOCKSKINS_SRV, BLOCKSKINS_ACTIF as BLOCKSKINS_ACTIF_SRV, SKIN_MINT_USDC as SKIN_MINT_USDC_SRV, lireSkins as lireSkinsSrv, DEVISES_SKIN as DEVISES_SKIN_SRV } from './blockskins.js';
+import { skinsPrixCorps } from './blockskins-actif.js';
 import { lireEvenementsJeu, evenementsPractice, fusionnerJournal, avecBlocks, TOPICS_ROLLS as TOPICS_ROLLS_JOURNAL, TOPICS_SKINS as TOPICS_SKINS_JOURNAL,
   TOPICS_DUELS as TOPICS_DUELS_JOURNAL, TOPICS_MISSIONS as TOPICS_MISSIONS_JOURNAL, JOURNAL_MAX, tempsDeBloc as tempsDeBlocJournal,
   profondeurJournee, premierBlocDuJour, journeeCouverte, garderJournal, completerJournal, ajouterListing } from './journal-jeu.js';
@@ -232,7 +233,7 @@ import { NOS_BLOCKS_GENESE, GRAINE_NOS_BLOCKS, graineNosBlocksAdmise, verifierGr
 import { FEE_WALLET, USDC_BASE, CREATE_ROUTER } from './frais-creation.js';
 import { etatLive, htmlLive } from './live.js';
 import { TBLOCK as TBLOCK_JETON, TBLOCK_TEST_ANCIEN, estJetonMasque, OPTIONS_LANCEMENT, HOOK_7030 } from './tokenomics.js';
-import { verifierAchatSkin, validerRecette, SKIN_PRIX_USDC } from './skins.js';
+import { verifierAchatSkin, validerRecette } from './skins.js';
 import { faceDuBlock } from './face.js';
 import { logoSvg, paramsLogoDepuisApparence } from './logo.js';
 /* ══ RASTERISEUR PNG, CHARGE A LA DEMANDE ══════════════════════════════════════════════════════════
@@ -3376,9 +3377,12 @@ async function lireActiviteServeur(token) {
  * L achat est UNE transaction sur la chaine : transfer(wallet des frais, 1 USDC) + memo `tb-skin:1:<block>:<recette>`. Le serveur ne
  *   detient rien et ne decide rien : il VERIFIE la transaction et son recu (verifierAchatSkin) puis garde une ligne
  *   { tx, bloc, payeur, block, recette } — un index, que n importe qui peut refaire en relisant la chaine.
- *   GET  /api/skins/prix            le prix, le contrat USDC, le beneficiaire (ce que le wallet va signer)
- *   GET  /api/skins/<block>         les skins achetees pour ce block (les plus recentes d abord)
- *   POST /api/skins/achat           { tx, block, skin } -> verifie sur la chaine, puis enregistre (idempotent par transaction)
+ *   GET  /api/skins/prix            (2026-11-11) HOW TO BUY TODAY: the active BlockSkins contract, its price and the USDC contract,
+ *                                   then an exact approve + mint(block, packed skin) (blockskins-actif.js skinsPrixCorps). It names
+ *                                   no beneficiary and no memo: the contract fixes both. The transfer + memo rail below is LEGACY.
+ *   GET  /api/skins/<block>         LEGACY pre-contract index: the skins paid by transfer + memo for this block (most recent first)
+ *   GET  /api/skins/de/<account>    LEGACY pre-contract index: one buyer's last transfer + memo skin per block
+ *   POST /api/skins/achat           LEGACY { tx, block, skin } -> checked on chain, then recorded (idempotent per transaction)
  * ⛔ Une transaction pas encore lisible (noeud en retard) rend NON_LU : le client reessaie ; ce n est jamais un refus.
  * ⛔ BORNES : 2 000 lignes en memoire et sur le volume, 3 verifications en vol ; sans volume, l index vit le temps du processus
  *   (la chaine, elle, garde tout : une ligne perdue se reenregistre avec le meme hash). */
@@ -5887,7 +5891,7 @@ const SERVIS = [
   /* 2026-10-18 : la page PUBLIQUE « Fees & risks » (liee depuis Learn et le Game), son module et ses deux sources neuves cote navigateur.
    *   Chaque chiffre vient d un module deja servi ; tirage-saison.js (pur, importe keccak.js) et frais-contrats.js (genere des .sol)
    *   s ajoutent. test-imports-servis suit ses imports, test-frais-et-risques-20261018 exige ces quatre lignes. */
-  'frais-et-risques.html', 'frais-risques.js', 'frais-contrats.js', 'tirage-saison.js',
+  'frais-et-risques.html', 'frais-risques.js', 'frais-contrats.js', 'tirage-saison.js', 'banque-frais.js',
   'motifs-noto.js', 'photo.js', 'retirer-fond.js', 'apparence.js', 'classement.js', 'consentement.js', 'criblage.js', 'encodeur.js',
   'index-blocks.js', 'keccak.js', 'lancement.js', 'lecteur.js', 'lien-x.js', 'marche.js',
   'montants.js', 'motssimples.js', 'photo.js', 'pointsdevie.js', 'pool.js', 'vitalite.js',
@@ -6619,6 +6623,7 @@ function traiterRequete(req, res) {
   if (chemin === '/robots.txt') {
     res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'public, max-age=3600' });
     res.end(['User-agent: *', 'Allow: /', 'Disallow: /frais.html', 'Disallow: /deploy-v2.html', 'Disallow: /deploy-v3.html', 'Disallow: /deploy-v4.html', 'Disallow: /deploy-v5.html', 'Disallow: /deploy-v6.html', 'Disallow: /deploy-v7.html', 'Disallow: /deploy-v8.html', 'Disallow: /deploy-pot.html', 'Disallow: /pot.html',
+      'Disallow: /deployer-tblock-buyback.html', /* 2026-11-11: the retired buyback v1 page stays served, not indexed */
       'Disallow: /api/', '', 'Sitemap: https://tokenizedblock.space/sitemap.xml', ''].join('\n'));
     return;
   }
@@ -7452,7 +7457,7 @@ function traiterRequete(req, res) {
       rendreS(200, { ok: true, compte: qui, skins: [...parBlock.values()].slice(-200) });
       return;
     }
-    if (chemin === '/api/skins/prix') { rendreS(200, { ok: true, prixUsdc: SKIN_PRIX_USDC.toString(), decimales: 6, usdc: USDC_BASE.toLowerCase(), beneficiaire: FEE_WALLET.toLowerCase(), memo: 'tb-skin:1:<block>:<skin>' }); return; }
+    if (chemin === '/api/skins/prix') { rendreS(200, skinsPrixCorps()); return; }
     const blockS = chemin.slice('/api/skins/'.length).toLowerCase();
     if (!/^0x[0-9a-f]{40}$/.test(blockS)) { rendreS(400, { ok: false, pourquoi: 'whole block address required' }); return; }
     rendreS(200, { ok: true, block: blockS, achats: skinsDuBlock(blockS) });

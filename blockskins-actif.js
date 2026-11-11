@@ -38,6 +38,35 @@ export function usdcTexte(brut) {
 
 export const BLOCKSKINS_ACTIF = contratActif();
 export const BLOCKSKINS = String(BLOCKSKINS_ACTIF.adresse).toLowerCase();
+
+/** The body of GET /api/skins/prix (2026-11-11): how a skin is bought TODAY, on the active BlockSkins contract.
+ *  An exact USDC approve to the contract (only when the allowance is short), then mint(block, packed skin). The contract fixes the
+ *  price and where the money goes, so the body names no beneficiary and no memo: the transfer + memo rail is retired.
+ *  `prixUsdc` and `decimales` are kept for older readers. Everything is read from the deployment record, never typed. */
+export function skinsPrixCorps(actif = BLOCKSKINS_ACTIF) {
+  if (!actif || !ADR.test(String(actif.adresse || ''))) throw new Error('skinsPrixCorps needs a deployed BlockSkins record');
+  if (!/^[1-9]\d*$/.test(String(actif.mintPriceUsdc))) throw new Error('the deployment record carries no read-back mint price');
+  const usdc = String((actif.constructeur && actif.constructeur.usdc) || '');
+  if (!ADR.test(usdc)) throw new Error('the deployment record names no USDC contract');
+  const prix = String(actif.mintPriceUsdc);
+  return {
+    ok: true,
+    format: 'mint',
+    version: actif.version,
+    contract: String(actif.adresse).toLowerCase(),
+    priceUsdc: prix,
+    prixUsdc: prix,
+    decimals: 6,
+    decimales: 6,
+    usdc: usdc.toLowerCase(),
+    steps: [
+      { call: 'approve(address,uint256)', on: 'usdc', spender: 'contract', amount: 'priceUsdc', when: 'only if allowance < priceUsdc', exact: true },
+      { call: 'mint(address,uint64)', on: 'contract', args: ['block address', 'packed skin: 7 x 9-bit values, each a whole hue 0-359 (ring turn, ring 1, ring 2, ring 3, edges, core, background), value i at bit 9*i; the contract reverts on a value above 359'] },
+    ],
+    readBack: ['MINT_PRICE()'],
+    legacy: { memoTransfer: false, why: 'skins are minted on the BlockSkins contract; the transfer + memo rail is retired' },
+  };
+}
 export const BLOCKSKINS_VERSION = BLOCKSKINS_ACTIF.version;
 /** MINT_PRICE du contrat ACTIF (6 decimales), relu sur la chaine quand son adresse a ete notee — jamais une constante tapee */
 export const SKIN_MINT_USDC = BigInt(BLOCKSKINS_ACTIF.mintPriceUsdc);

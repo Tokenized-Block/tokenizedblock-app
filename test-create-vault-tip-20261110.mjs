@@ -59,10 +59,15 @@ t('the preview shows the 3 steps in order, TBLOCK first', ap.indexOf("'1. Before
 t('the preview prices step 1 with the same buy maths as step 1', /TIP\.ethWeiForTblock\(\{ tblock: manque, tblockUsd: px, ethUsd \}\)/.test(ap));
 /* game338: step 1 BEFORE the birth */
 const cb = app.slice(app.indexOf('async function creerBlock('), app.indexOf('async function creerBlock(') + 20000);
-t('step 1 runs inside creerBlock BEFORE the birth preflight', cb.indexOf('if (!(await acheterTblockAvantNaissance(e))) return;') > 0
-  && cb.indexOf('if (!(await acheterTblockAvantNaissance(e))) return;') < cb.indexOf('const ibDirectPre ='));
+/* 2026-11-11 (wt-369): step 1 now receives the effective fee and the seed rule, and keeps EXACTLY what the birth preflight asks
+ *   (besoinEthNaissance + TIP.stepOneFits) instead of the fixed 0.0023 ETH BIRTH_ETH_RESERVE_WEI; test-create-reserve-369-20261111.mjs runs it */
+const appelE1 = 'if (!(await acheterTblockAvantNaissance(e, { fraisWei: fraisReplieAuPlancher, seedWei: paireSansGraineEth(paireChoisie) ? 0n : null }))) return;';
+t('step 1 runs inside creerBlock BEFORE the birth preflight', cb.indexOf(appelE1) > 0
+  && cb.indexOf(appelE1) < cb.indexOf('const ibDirectPre ='));
 const e1 = app.slice(app.indexOf('async function etape1AchatTblock('), app.indexOf('const planAchatCoffre = '));
-t('step 1 keeps the ETH the birth needs (reserve checked before the ETH buy is sent)', /if \(ethBal < wei \+ TIP\.BIRTH_ETH_RESERVE_WEI\)/.test(e1) && e1.indexOf('BIRTH_ETH_RESERVE_WEI') < e1.indexOf('envoyerAppels(pl.appels'));
+t('step 1 keeps the ETH the birth needs (reserve checked before the ETH buy is sent)', /TIP\.stepOneFits\(\{ ethBal, buyWei: wei, birthNeedWei: besoinNaiss \? besoinNaiss\.total : null \}\)/.test(e1)
+  && e1.indexOf('TIP.stepOneFits(') < e1.indexOf('envoyerAppels(pl.appels') && !/BIRTH_ETH_RESERVE_WEI/.test(e1)
+  && T.stepOneFits({ ethBal: 2033000000000000n, buyWei: 1403000000000000n, birthNeedWei: 1978581486057324n }) === 'SKIP');
 t('step 1 asks a KEEP plan (TBLOCK stays in the wallet), never the vault plan', /vault-buy\?garder=1&compte=/.test(e1));
 t('step 1 refused by the wallet: the birth does not start', /if \(!r \|\| r\.etat !== 'CONFIRME'\) \{[\s\S]{0,260}return false;/.test(e1));
 t('step 1 unread prices or plan: the birth goes on (fail-open on a node outage)', /catch \(_\) \{ return true; \}/.test(e1) && /return true; \/\* plan unread/.test(e1));

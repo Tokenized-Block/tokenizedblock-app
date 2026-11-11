@@ -44,6 +44,8 @@ import { CONTEST_DEPLOIEMENT } from './block-contest-deploiement.js';
 import { LOCK_DEPLOIEMENT } from './lock-deploiement.js';
 import { PART_ACHAT_BPS, ACHAT_MIN_USDC } from './achat-tblock-usdc.js';
 import { TBLOCK as TBLOCK_REEL } from './tokenomics.js';
+/* 2026-11-11: the Bank (Morpho borrow / lend) — rates from banque-frais.js, the browser-safe source banque-morpho.js re-exports */
+import { FRAIS_EMPRUNT_BPS, FRAIS_PRET_BPS, FRAIS_SORTIE_BPS, MARGE_EMPRUNT_BPS, PHRASE_PANIER_SEPARE } from './banque-frais.js';
 
 const ADR = /^0x[0-9a-fA-F]{40}$/;
 const deploye = (a) => ADR.test(String(a || ''));
@@ -64,6 +66,7 @@ export const CHIFFRES = Object.freeze({
   tam: { prix: PRIX_TAM, achatBps: PART_ACHAT_BPS, achatMin: ACHAT_MIN_USDC },
   message: { usdc: FRAIS_MESSAGE_USDC, tblock: FRAIS_MESSAGE_TBLOCK },
   coeur: { prix: LIKE_PRICE, garde: LIKE_MIN_HOLD, seuilUsd: SEUIL_USD },
+  banque: { empruntBps: FRAIS_EMPRUNT_BPS, pretBps: FRAIS_PRET_BPS, sortieBps: FRAIS_SORTIE_BPS, margeBps: MARGE_EMPRUNT_BPS },
   contest: { entree: BigInt(CONTEST_DEPLOIEMENT.config.entryFee), vote: BigInt(CONTEST_DEPLOIEMENT.config.votePrice), maxPot: BigInt(CONTEST_DEPLOIEMENT.config.maxPot), burnBps: BigInt(CONTEST_DEPLOIEMENT.config.burnBps) },
   lock: { minS: Number(LOCK_DEPLOIEMENT.minLockSecondes), retraitS: Number(LOCK_DEPLOIEMENT.retraitSecondes) },
   cl: { bps: FRAIS_INTERFACE_BPS_CL }, naissanceUsd: TARGET_USD,
@@ -164,7 +167,7 @@ export function duelsRisque(du, live) {
  * Le contenu HTML de la page. `C` = CHIFFRES (ou une copie modifiee par le test) ; `live` = /api/tirage ou null.
  */
 export function rendre(C, live) {
-  const h = C.hook, nb = C.naissance, sk = C.skins, mi = C.missions, ti = C.tirage;
+  const h = C.hook, nb = C.naissance, sk = C.skins, mi = C.missions, ti = C.tirage, bq = C.banque || null;
   /* 2026-10-24 (audit rolls-duels) : les gains et le score minimum sont ceux LUS sur le contrat (currentRules, servis par /api/tirage) quand
    *   ils le sont — setRules les change ; sinon ceux de la fiche, DITS comme ceux du deploiement. Qui peut les changer : unitCreator() LU. */
   const lr = live && live.rolls ? live.rolls : null;
@@ -203,7 +206,7 @@ export function rendre(C, live) {
     ligne('Buy or sell TBLOCK', pctBps(C.cl.bps) + ' app fee',
       'Route: USDC (or ETH via USDC) → wtCOIN on Aerodrome → TBLOCK on its Uniswap v4 pool, reversed for a sell; one app fee per batch, 0 for TBLOCK holders. On top: the pools\' own fees and the TBLOCK pool\'s hook, which keeps part of each swap and burns part of it. All of it is inside the quote you see before you sign.'),
     ligne('Optional TBLOCK buy after a USDC payment', pctBps(C.tam.achatBps) + ' of the price',
-      'After a USDC payment (today: the TAM mint) the app offers a box, ticked by default, that spends ' + pctBps(C.tam.achatBps) + ' of the price (' + usdc(C.tam.prix * C.tam.achatBps / 10000n) + ' on a ' + usdc(C.tam.prix) + ' mint) to buy TBLOCK into your own wallet, as one all-or-nothing batch after the payment. Not offered below ' + usdc(C.tam.achatMin) + '. It pays the TBLOCK route\'s fees above. Untick it to skip.'),
+      'After a USDC payment (today: the TAM mint) the app offers a box, ticked by default, that spends ' + pctBps(C.tam.achatBps) + ' of the price (' + usdc(C.tam.prix * C.tam.achatBps / 10000n) + ' on a ' + usdc(C.tam.prix) + ' mint) to buy TBLOCK into your own wallet, after the payment: one batch when your wallet can group calls, otherwise the same calls signed one by one (if a step stops, the app offers to finish the buy without a new mint). Not offered below ' + usdc(C.tam.achatMin) + '. It pays the TBLOCK route\'s fees above. Untick it to skip.'),
     ligne('Bring a block to life', eth(nb.totalWei) + ' ETH',
       eth(nb.creationWei) + ' ETH when it is created + ' + eth(nb.inscriptionWei) + ' ETH when its market is registered, inside the same signatures. You also deposit a minimum of about $1 in the paired currency (the hook refuses less); it stays yours and, while it stays in place, earns the creator share of each trade. The app offers the birth as $' + C.naissanceUsd + ' in all: after the birth, an optional separate signature sends the rest in TBLOCK to the holders vault — a gift, not refunded; skipping it never stops the birth.'),
     ligne('GM (send tokens to a friend)', pctBps(C.geste.bps),
@@ -230,6 +233,13 @@ export function rendre(C, live) {
     ligne('Heart (+1)', fmtTb(C.coeur.prix) + ' TBLOCK', 'Sent to the dead address (burned); nothing comes back. After paying, your wallet must still hold the larger of ' + fmtTb(C.coeur.garde) + ' TBLOCK (the contract\'s rule) and $' + C.coeur.seuilUsd + ' of TBLOCK (the app\'s rule).'),
     ligne('Block contest', 'entry ' + fmtTb(C.contest.entree) + ' TBLOCK · vote ' + fmtTb(C.contest.vote) + ' TBLOCK',
       'An entry goes into the prize pot (capped at ' + fmtTb(C.contest.maxPot) + ' TBLOCK). A vote is ' + pctBps(C.contest.burnBps) + ' burned: never refunded. The contract pays the pot by its fixed rules; nobody pays by hand.'),
+    /* 2026-11-11: the Bank row — every rate from banque-frais.js through CHIFFRES.banque; the fee wallet is never printed */
+    ...(bq ? [ligne('Bank (borrow or lend on Morpho)', pctBps(bq.empruntBps) + ' to borrow · ' + pctBps(bq.pretBps) + ' to lend',
+      'The Bank uses existing Morpho Blue markets on Base. No TokenizedBlock contract holds your funds. '
+      + 'Borrow: ' + pctBps(bq.empruntBps) + ' of what you borrow, rounded up, sent to TokenizedBlock in the same batch, after the borrow. '
+      + 'Lend: ' + pctBps(bq.pretBps) + ' on top of what you lend, so your wallet needs the amount plus the fee. '
+      + 'Repaying, withdrawing and taking back collateral: ' + (bq.sortieBps === 0n ? 'no app fee' : pctBps(bq.sortieBps) + ' app fee') + '. '
+      + 'Morpho\'s own market fee is read on chain for each market and shown in the plan before you sign.')] : []),
     ligne('TBLOCK lock', 'no fee', 'You lock your own TBLOCK for ' + jours(C.lock.minS) + ' up to 4 years; it earns community points. Leaving takes two steps (see Risks).'),
     ligne('Daily ticket', 'free', 'Reach $' + ti.seuilUsd + ' of verified volume in a UTC day and that day\'s ticket is yours — nothing extra to pay.'),
   ]) + (mi.deploye ? '' : pasDeploye('Missions: the contract is written and tested, not signed on Base. Nothing can be posted or paid yet.')));
@@ -284,6 +294,8 @@ export function rendre(C, live) {
     + '<li><b>Contest votes are burned.</b> Anyone willing to burn enough votes can move a small contest.</li>'
     + '<li><b>Buybacks are not running.</b> Two TBLOCK buyback contracts are deployed with no owner; neither has been funded or has bought yet.</li>'
     + '<li><b>Two tokens are named TBLOCK.</b> The real one is ' + lienBase(TBLOCK_REEL) + '. Check the address before you buy or lock; the app hides the old test token and any other token showing that name.</li>'
+    + (bq ? '<li><b>Bank: you can be liquidated.</b> ' + PHRASE_PANIER_SEPARE + ' The app lets you borrow at most ' + pctBps(bq.margeBps)
+      + ' of what Morpho allows before liquidation. Morpho is a third-party protocol: its contracts, oracles and liquidations are not ours.</li>' : '')
     + '<li><b>Prices move.</b> A block or a tokenized stock can lose value quickly, and a small pool moves a lot on a small trade.</li>'
     + '</ul>');
 

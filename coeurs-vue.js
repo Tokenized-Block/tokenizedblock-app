@@ -46,3 +46,17 @@ export function signauxBloc(bl, nom) {
   const reste = bl.signaux.length - 4;
   return { texte: '♥ signals from ' + parts.join(', ') + (reste > 0 ? ' and ' + reste + ' more' : ''), blocs: bl.signaux.map((s) => (s.sesBlocks || [])[0]).filter(Boolean).slice(0, 4) };
 }
+
+/** 2026-11-11: what CLAIMING the holders vault needs, shown next to the hearts (a heart's own hold is much lower).
+ *  `claimMinHold` = the vault's fixed hold (raw, 18 decimals, from the deployment record). The dollar value is added only for a real
+ *  price (> 0) and labelled "now"; the balance and the verdict only when a balance was read. Never a guessed number. */
+export function ligneSeuilClaim({ claimMinHold, balance = null, prixUsd = null } = {}) {
+  const min = big(claimMinHold);
+  let v = tblockTexte(min) + ' TBLOCK held';
+  const p = Number(prixUsd);
+  if (prixUsd !== null && prixUsd !== undefined && Number.isFinite(p) && p > 0) v += ' (≈ $' + (Number(min / E18) * p).toFixed(2) + ' now)';
+  let bal = null;
+  if (balance !== null && balance !== undefined && balance !== '') { try { bal = BigInt(balance); } catch (_) { bal = null; } }
+  if (bal !== null) v += ' · you hold ' + tblockTexte(bal) + (bal >= min ? ' · enough' : ' · not enough yet');
+  return { k: 'Vault claim needs', v };
+}

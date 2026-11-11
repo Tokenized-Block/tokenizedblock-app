@@ -8,7 +8,7 @@
  *      usdcTexte exact ; skins.js SKIN_PRIX_USDC === blockskins.js SKIN_MINT_USDC (EXECUTE) ;
  *   C. aucun texte servi ne tape le prix : app.html (les 4 <span class="skinPrix"> remplis depuis SKIN_MINT_TEXTE, bcAcheterSkin, la barre de
  *      skin, l aide « Skins — dress your block »), blockskins.js, skins.js, blockskins-actif.js, deployer-blockskins.html ; le serveur sert
- *      blockskins-actif.js et credite le pass avec SKIN_MINT_USDC_SRV (la meme valeur) ; /api/skins/prix rend SKIN_PRIX_USDC ;
+ *      blockskins-actif.js et credite le pass avec SKIN_MINT_USDC_SRV (la meme valeur) ; /api/skins/prix rend skinsPrixCorps() (2026-11-11) ;
  *   D. l app RELIT MINT_PRICE() sur la chaine avant d acheter et refuse si != SKIN_MINT_USDC ;
  *   E. MUTANTS (chacun doit rougir) : (1) « Pay 10 USDC » tape dans bcAcheterSkin ; (2) « 10 USDC » tape dans le bouton de la carte ;
  *      (3) l enregistrement de v2 passe a 10 USDC SANS la chaine : la comparaison on-chain de l app (prixC !== SKIN_MINT_USDC) REFUSE, avec le
@@ -115,8 +115,12 @@ vu(/^  'blockskins\.js', 'blockskins-actif\.js', 'blockskins-deploiement\.js',$/
 /* 2026-10-18 soir : + BLOCKSKINS_ACTIF (niveaux XP : bloc de deploiement des skins) et DEVISES_SKIN (journal) sur la meme ligne */
 vu(/import \{ BLOCKSKINS as BLOCKSKINS_SRV, (BLOCKSKINS_ACTIF as BLOCKSKINS_ACTIF_SRV, )?SKIN_MINT_USDC as SKIN_MINT_USDC_SRV(, lireSkins as lireSkinsSrv)?(, DEVISES_SKIN as DEVISES_SKIN_SRV)? \} from '\.\/blockskins\.js';/.test(srv)
   && /passSkinVerifie\(\{ tx, recu, skins: BLOCKSKINS_SRV, usdc: USDC_BASE, wallet: FEE_WALLET, prix: SKIN_MINT_USDC_SRV \}\)/.test(srv)
-  && /prixUsdc: SKIN_PRIX_USDC\.toString\(\)/.test(srv),
-  'C le serveur credite le pass avec SKIN_MINT_USDC_SRV (le prix de l enregistrement) et /api/skins/prix rend SKIN_PRIX_USDC (la meme valeur)');
+  /* 2026-11-11 (wt-369) : /api/skins/prix renders skinsPrixCorps() of blockskins-actif.js — the price of the ACTIVE record, same source
+   *   as SKIN_MINT_USDC (the v1 transfer + memo body is retired; test-skins-prix-369-20261111.mjs executes the body) */
+  && /if \(chemin === '\/api\/skins\/prix'\) \{ rendreS\(200, skinsPrixCorps\(\)\); return; \}/.test(srv)
+  && /^import \{ skinsPrixCorps \} from '\.\/blockskins-actif\.js';$/m.test(srv)
+  && AC.skinsPrixCorps().priceUsdc === String(AC.SKIN_MINT_USDC),
+  'C le serveur credite le pass avec SKIN_MINT_USDC_SRV (le prix de l enregistrement) et /api/skins/prix rend skinsPrixCorps() (la meme valeur, lue dans l enregistrement actif)');
 
 /* ── D. la relecture on-chain avant tout achat ── */
 vu(/prixC = BigInt\(await rpc\('eth_call', \[\{ to: BLOCKSKINS, data: '0x' \+ selecteur\('MINT_PRICE\(\)'\) \}, 'latest'\]\)\);/.test(achat) && /if \(prixC !== SKIN_MINT_USDC \|\| fraisC !== beneficiaire\) \{/.test(achat)

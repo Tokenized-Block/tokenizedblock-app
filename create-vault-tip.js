@@ -24,9 +24,19 @@ export function usdLeft(ethUsd) {
   return left > 0n ? left : 0n; /* micro-dollars */
 }
 
-/** game338: ETH kept for the birth itself when step 1 buys TBLOCK first: 0.001 ETH fee + the creator deposit (about $1, 0.000479 ETH
- *  measured on /api/naissance/plan 2026-11-10) + gas, with room: 0.0023 ETH. Step 1 never spends below it. */
-export const BIRTH_ETH_RESERVE_WEI = 2300000000000000n;
+/** 2026-11-11 (replaces the fixed 0.0023 ETH BIRTH_ETH_RESERVE_WEI of game338): step 1 keeps EXACTLY what the birth preflight will ask,
+ *  `birthNeedWei` = besoinNaissance(fee, seed, GAZ_NAISSANCE_WEI).total computed by the page with the same helper as that preflight
+ *  (0.001979 ETH on the ETH pair today, 0.0015 on a 7030 non-ETH pair). The fixed reserve refused payable births in between.
+ *  'BUY'  : the wallet can pay the TBLOCK buy AND the birth.
+ *  'SKIP' : it can pay the birth only: step 1 is skipped, the birth goes on, the TBLOCK part is offered after it.
+ *  'STOP' : it cannot pay the birth itself.
+ *  null   : an input is not a BigInt (unread): the caller treats it as SKIP, so a node outage never blocks a birth nor starves it. */
+export function stepOneFits({ ethBal, buyWei, birthNeedWei } = {}) {
+  if (typeof ethBal !== 'bigint' || typeof buyWei !== 'bigint' || typeof birthNeedWei !== 'bigint') return null;
+  if (ethBal >= buyWei + birthNeedWei) return 'BUY';
+  if (ethBal >= birthNeedWei) return 'SKIP';
+  return 'STOP';
+}
 
 /** game338: the ETH that buys `tblock` (wei) at the read prices, plus `bufferBps` so the guaranteed minimum still covers it
  *  (two 1 % slippage bounds + the TBLOCK hook's ~1 % + pool fees): rounded UP; null when a price is unread */

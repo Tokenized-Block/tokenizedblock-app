@@ -22,9 +22,15 @@ t('the same edge at 50 USDC pays the round trip', aRetourPaye({ tally: fort, typ
 t('unknown gas / size / fee -> no buy', !aRetourPaye({ tally: fort, typical: 0.004, feePips: 500, gasUsd: null, tailleUsd: 50 }) && !aRetourPaye({ tally: fort, typical: 0.004, feePips: 500, gasUsd: g, tailleUsd: 0 }) && !aRetourPaye({ tally: fort, typical: 0.004, feePips: null, gasUsd: g, tailleUsd: 50 }));
 t('page: both buy checks use the round trip with the account\'s base fee and ETH price', (FB.match(/aRetourPaye\(\{/g) || []).length === 2 && FB.includes('gasUsdCote(a.baseFeePerGas, Number(a.ethUsd))') && !/if \(!edgePaysFee\(st\.tally/.test(FB));
 t('server: /api/fly/account adds the ETH price', SRV.includes('send(200, { ...r, ethUsd: await prixUsdPourPlan(null).catch(() => null) })'));
-const c = APP.slice(APP.indexOf('if (ethBal < wei + TIP.BIRTH_ETH_RESERVE_WEI) {'), APP.indexOf('if (ethBal < wei + TIP.BIRTH_ETH_RESERVE_WEI) {') + 1400);
-t('Create: enough for the birth -> step 1 skipped, the birth goes on (return true)', c.includes('if (ethBal >= TIP.BIRTH_ETH_RESERVE_WEI) {') && /Step 1 skipped[\s\S]{0,400}return true;/.test(c));
-t('Create: only a wallet that cannot pay the birth stops', /The birth needs about[\s\S]{0,300}return false;/.test(c));
+/* 2026-11-11 (wt-369): the fixed 0.0023 ETH BIRTH_ETH_RESERVE_WEI is replaced by what the birth preflight asks (besoinEthNaissance) and a
+ *   pure verdict, TIP.stepOneFits — the 0.002033 ETH wallet of the live audit is now EXECUTED, not only matched as text */
+const { stepOneFits } = await import('./create-vault-tip.js');
+const ANCRE_366 = 'const choixEtape1 = TIP.stepOneFits({ ethBal, buyWei: wei, birthNeedWei: besoinNaiss ? besoinNaiss.total : null });';
+const c = APP.slice(APP.indexOf(ANCRE_366), APP.indexOf(ANCRE_366) + 1400);
+t('Create: enough for the birth -> step 1 skipped, the birth goes on (return true)', APP.indexOf(ANCRE_366) > 0 && c.includes("if (choixEtape1 !== 'BUY') {") && /Step 1 skipped[\s\S]{0,400}return true;/.test(c)
+  && stepOneFits({ ethBal: 2033000000000000n, buyWei: 1403000000000000n, birthNeedWei: 1978581486057324n }) === 'SKIP');
+t('Create: only a wallet that cannot pay the birth stops', /if \(choixEtape1 === 'STOP'\) \{[\s\S]{0,300}The birth needs about[\s\S]{0,300}return false;/.test(c)
+  && stepOneFits({ ethBal: 900000000000000n, buyWei: 1403000000000000n, birthNeedWei: 1978581486057324n }) === 'STOP');
 t('server: reader x method counter published', SRV.includes("compterAppel('general', methode);") && SRV.includes("compterAppel('rails', methode);") && SRV.includes('santeRpc: { appelsLecteurs,'));
 console.log(ok + '/' + (ok + ko) + (ko ? ' — RED' : ' — green'));
 process.exit(ko ? 1 : 0);

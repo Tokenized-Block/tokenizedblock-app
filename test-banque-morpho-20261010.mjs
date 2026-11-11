@@ -17,7 +17,8 @@ const charger = async (src) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'banque-'));
   fs.writeFileSync(path.join(dir, 'banque-morpho.js'), src);
   /* 2026-10-11 : + frais-creation.js (FEE_WALLET, destinataire des frais de service de la Bank) */
-  for (const f of ['encodeur.js', 'lancer-pool.js', 'paires.js', 'frais-creation.js']) fs.writeFileSync(path.join(dir, f), "export * from '" + pathToFileURL(path.join(ICI, f)).href + "';\n");
+  /* 2026-11-11 (wt-369): + banque-frais.js — the rates moved there (browser-safe), banque-morpho.js imports and re-exports them */
+  for (const f of ['encodeur.js', 'lancer-pool.js', 'paires.js', 'frais-creation.js', 'banque-frais.js']) fs.writeFileSync(path.join(dir, f), "export * from '" + pathToFileURL(path.join(ICI, f)).href + "';\n");
   return { M: await import(pathToFileURL(path.join(dir, 'banque-morpho.js')).href), dir };
 };
 const SRC = fs.readFileSync(path.join(ICI, 'banque-morpho.js'), 'utf8');

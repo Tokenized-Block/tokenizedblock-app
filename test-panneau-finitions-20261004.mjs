@@ -397,7 +397,9 @@ ok(/if \(!v\.ok\) return \{ ok: false, etat: v\.etat, pourquoi: v\.pourquoi \};/
 ok(/this transaction already paid for another skin or another block/.test(sk) && /etat: 'ENREGISTRE', achat: deja, deja: true/.test(sk), 'D … idempotent par transaction : la meme rend la meme ligne, et ne s enregistre pas pour autre chose');
 ok(/if \(skinsEnVol >= 3\)/.test(sk) && /if \(skinsAchats\.size >= 2000\)/.test(sk) && /\.slice\(-2000\)/.test(srv), 'D … bornes : 3 verifications en vol, 2 000 lignes');
 ok(/validerRecette\(l\.recette\)\.ok\) skinsAchats\.set\(l\.tx, l\);/.test(srv), 'D … au redemarrage, seules des lignes bien formees sont rechargees');
-ok(/prixUsdc: SKIN_PRIX_USDC\.toString\(\), decimales: 6, usdc: USDC_BASE\.toLowerCase\(\), beneficiaire: FEE_WALLET\.toLowerCase\(\)/.test(srv) && /^  'skins\.js',$/m.test(srv), 'D /api/skins/prix rend le prix, l USDC et le beneficiaire du depot ; skins.js est servi a l app');
+/* 2026-11-11 (wt-369) : /api/skins/prix describes the MINT on the active BlockSkins contract (blockskins-actif.js skinsPrixCorps);
+ *   the v1 body (beneficiary + memo) is retired — test-skins-prix-369-20261111.mjs pins the new body and its mutants. */
+ok(/if \(chemin === '\/api\/skins\/prix'\) \{ rendreS\(200, skinsPrixCorps\(\)\); return; \}/.test(srv) && !/beneficiaire: FEE_WALLET\.toLowerCase\(\), memo: 'tb-skin:1/.test(srv) && /^  'skins\.js',$/m.test(srv), 'D /api/skins/prix rend le contrat BlockSkins actif, son prix et l USDC (mint), sans beneficiaire ni memo ; skins.js est servi a l app');
 /* /api/activite : qui bouge ce block */
 const la = srv.slice(srv.indexOf('async function lireActiviteServeur(token) {'), srv.indexOf('async function lireActiviteServeur(token) {') + 4200);
 ok(/const TOPIC_TRANSFER_SRV = topicSrv\('Transfer\(address,address,uint256\)'\);/.test(srv), 'D /api/activite : le topic Transfer est CALCULE (keccak de la signature), jamais recopie de memoire');
