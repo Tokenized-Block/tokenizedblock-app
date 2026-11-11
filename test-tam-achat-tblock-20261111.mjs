@@ -22,7 +22,12 @@ t('the mint is reported done whatever the buy does', clic.includes("dit.textCont
 const f = APP.slice(APP.indexOf('async function acheterTblockUsdc('), APP.indexOf('async function envoyerPaiementJeton('));
 t('app: plan asked by the module URL, checked by the module, THEN sent', f.indexOf('AT.urlPlanAchat(') > 0 && f.indexOf('AT.verifierPlanAchat(') > f.indexOf('AT.urlPlanAchat(')
   && f.indexOf("if (!v.ok) return { ok: false, texte: 'TBLOCK not bought: ' + v.pourquoi + '.' };") > 0 && f.indexOf('envoyerLotAtomique(') > f.indexOf('if (!v.ok) return'));
-t('review 358 HIGH: all-or-nothing only — capability read, envoyerLotAtomique without fallback, never envoyerAppels', f.includes("if (!cap || cap.capacite !== 'OUI') return") && f.includes('sansRepliV1: true') && f.includes('r.sendCallsUnsupported') && !f.includes('envoyerAppels('));
+/* game361 (Phil: "les paiements doivent faire un achat en TBLOCK" — Rabby bought nothing): batch when offered, else one by one, READ result */
+t('game361: a batching wallet gets ONE all-or-nothing batch (no silent fallback inside it)', f.includes("if (cap !== null && cap.capacite === 'OUI') {") && f.includes('sansRepliV1: true'));
+t('game361: a wallet without batching still buys — the same calls signed one by one', f.includes('r = await envoyerUnParUn(appels, c);') && !f.includes('this buy needs one all-or-nothing batch and this wallet does not offer one'));
+t('game361: success is READ (TBLOCK balance before / after), never assumed', f.includes('const t0 = await lireT(), w0 = await lireW();') && f.includes('if (t0 !== null && t1 !== null && t1 > t0) return { ok: true,'));
+t('game361: stopped between the legs -> finished from the wtCOIN (Create step 1 resume route)', f.includes("'/api/tblock/vault-buy?reprise=1&compte='") && f.includes('w1 - w0 >= TIP.WTCOIN_RESUME_MIN'));
+t('game361: never envoyerAppels (its silent fallback) for this buy', !f.includes('envoyerAppels('));
 t('review 358: the buy belongs to the wallet that paid', f.includes("if (payeur && String(payeur).toLowerCase() !== String(c).toLowerCase()) return") && TAM.includes('}, c);') && APP.includes('acheterTblock: (montant, dire, payeur) => acheterTblockUsdc(montant, dire, payeur)'));
 t('review 358: a change of the box or of Pay with clears the summary', TAM.includes("selPay.addEventListener('change', perime);") && TAM.includes("cbAchat.addEventListener('change', perime);"));
 t('review 358: gallery refreshed before the buy', clic.indexOf('void galerie();') > 0 && clic.indexOf('void galerie();') < clic.indexOf('ctx.acheterTblock('));

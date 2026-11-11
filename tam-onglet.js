@@ -2516,7 +2516,7 @@ export function monter(racine, ctx = {}) {
       el('p', { text: maskFeeAddresses('You sign: 5 USDC to ' + String(FEE_WALLET).toLowerCase() + ' (TamArt ' + displayShort(contrat) + ' moves it, in the mint).') }),
       el('p', { text: maskFeeAddresses('The work: ' + rs.octets + ' bytes, keccak ' + rs.empreinte + '. Seed ' + rs.graine + '.') }),
       el('p', { text: maskFeeAddresses(pj.phrase + ' ' + pj.plan.appels.length + ' calls: ' + pj.plan.appels.map((a) => a.quoi).join(' · ') + '.') }),
-      montantAchat > 0n ? el('p', { text: 'Then: ' + AT.texteOption(montantAchat).replace(/^Also buy/, 'buy') + ' — a second signature after the mint, all or nothing (a wallet that cannot batch is told so, and nothing is sent).' }) : null,
+      montantAchat > 0n ? el('p', { text: 'Then: ' + AT.texteOption(montantAchat).replace(/^Also buy/, 'buy') + ' — after the mint: one more signature if your wallet batches, otherwise a few in order (the app finishes the buy if it stops halfway).' }) : null,
       el('button', { type: 'button', class: 'tamPrim', text: 'Sign in my wallet', onclick: async () => {
         dit.textContent = 'Waiting for your wallet…';
         const res = await ctx.envoyer(pj, c, (t) => { dit.textContent = t; });

@@ -117,7 +117,7 @@ ok(evMax > evUni, 'le meilleur guess (valeurs biaisees par le modulo) paie un pe
 /* ---- 3. le rendu suit les sources : appele avec des sources FAUSSES, il doit dire les valeurs fausses */
 const vrai = FR.rendre(FR.CHIFFRES, null);
 for (const attendu of ['>0.1%<', '0.07% to TokenizedBlock', '0.03% to the block', '0.001 ETH', '0.0007 ETH when', '0.0003 ETH when', '>0.50 USDC<', '>10 USDC<', '30 rolls',
-  '24 hours', '50% goes to the roll pot', '0.5% on a single market', '0.2% below $100', '0.1% from $100', 'Doer 90%', 'earn pool 7%', 'TokenizedBlock 3%',
+  '24 hours', '50% goes to the roll pot', '0.5% on a single Uniswap v4 market', '0.2% below $100', '0.1% from $100', 'Doer 90%', 'earn pool 7%', 'TokenizedBlock 3%',
   'takes 10% of each sale', '>1 USDC<', 'at 10 USDC is prepared', FR.usdc4(E.uniforme) + ' USDC on average', FR.usdc4(E.meilleur) + ' USDC (', 'Rolls lose on average.',
   'A pass loses on average too.', 'within 256 blocks', 'taxBps() = 9999', '0.0099%', '15 of 15']) ok(vrai.includes(attendu), 'rendu reel contient « ' + attendu + ' »');
 ok(/\$10(?!\d)/.test(vrai), 'rendu reel : le seuil du ticket $10');
@@ -132,11 +132,11 @@ faux.rolls.rollPrice = 700000n; faux.rolls.passPrice = 12000000n; faux.rolls.pas
 faux.rolls.prize2 = 600000n; faux.rolls.fenetreBlocs = 128;
 faux.skins.venteBps = 1200n; faux.skins.mintUsdc = 2000000n; faux.skins.prochain.mintUsdc = 11000000n;
 faux.missions.faiseurBps = 8800n; faux.missions.reserveBps = 800n; faux.missions.devBps = 400n;
-faux.tirage.seuilUsd = 12; faux.routeur.marcheBps = 60n; faux.missions.deploye = true;
+faux.tirage.seuilUsd = 12; faux.slots.spinPrice = 900000n; faux.tam.prix = 6000000n; /* game360: the new rows read CHIFFRES too */ faux.routeur.marcheBps = 60n; faux.missions.deploye = true;
 const r = FR.rendre(faux, null);
 for (const attendu of ['>0.15%<', '0.11% to TokenizedBlock', '0.04% to the block', '0.002 ETH', '0.0015 ETH when', '0.0005 ETH when', '>0.70 USDC<', '>12 USDC<', '25 rolls',
-  '48 hours', '60% goes to the roll pot', '0.6% on a single market', 'Doer 88%', 'earn pool 8%', 'TokenizedBlock 4%', 'takes 12% of each sale', '>2 USDC<', 'at 11 USDC is prepared',
-  'within 128 blocks', '0.60 USDC'])
+  '48 hours', '60% goes to the roll pot', '0.6% on a single Uniswap v4 market', 'Doer 88%', 'earn pool 8%', 'TokenizedBlock 4%', 'takes 12% of each sale', '>2 USDC<', 'at 11 USDC is prepared',
+  'within 128 blocks', '0.60 USDC', '>0.90 USDC<', '>6 USDC<'])
   ok(r.includes(attendu), 'rendu FAUX contient « ' + attendu + ' » (sinon : chiffre tape a la main)');
 ok(/\$12(?!\d)/.test(r) && !/\$10(?!\d)/.test(r), 'rendu FAUX : seuil $12, plus de $10');
 for (const ancien of ['0.50 USDC', '>10 USDC<', '0.07%', '0.03%', '0.0007', '24 hours', 'Doer 90%', 'takes 10%', '>1 USDC<', 'at 10 USDC', 'within 256'])

@@ -77,7 +77,7 @@ const contenu = document.getElementById('contenu');
 contenu.innerHTML = rendre(CHIFFRES, null);
 /* le pot des rolls et le mode du tirage, LUS par notre serveur ; un echec laisse « not read », jamais un zero */
 fetch('/api/tirage', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).then((d) => {
-  if (d && d.ok) contenu.innerHTML = rendre(CHIFFRES, { mode: d.mode, rolls: d.rolls || null, tempsDeBloc: d.tempsDeBloc || null });
+  if (d && d.ok) contenu.innerHTML = rendre(CHIFFRES, { mode: d.mode, rolls: d.rolls || null, tempsDeBloc: d.tempsDeBloc || null, ticketpot: d.ticketpot || null });
 }).catch(() => {});
 </script>
 </body>

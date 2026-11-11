@@ -1678,6 +1678,8 @@ button.mienTuile:hover{border-color:var(--accent)}
   font-weight:700;padding:7px 3px;border-radius:10px;cursor:pointer;display:flex;flex-direction:column;
   align-items:center;gap:3px;min-height:48px}
 .navB b{font-size:17px;line-height:1}
+.navB .navIc{display:flex;line-height:0}.navB .navIc svg{display:block}
+.navB[aria-selected="true"] .navIc{color:var(--accent)} /* game360: the chosen tab's icon in the accent colour (mock-up) */
 .navB[aria-selected="true"]{color:var(--texte);background:hsl(var(--h) 32% 19%)}
 .navB{transition:color .12s ease,background .12s ease}
 .volet{display:none}
@@ -3716,7 +3718,7 @@ details[open] > summary::before{transform:rotate(90deg)}
       <!-- ⛔ L EMPREINTE EST AFFICHEE, DONC ELLE EST DE L ANGLAIS. `20261001-pont-dans-lui` a fait
            rougir `test-texte-a-l-ecran.mjs` : le mot « dans » est de la prose francaise partie a
            l ecran anglais. La garde a fait son travail du premier coup. -->
-      <p class="note" data-build="20261109-game359" hidden>Build <code>20261109-game359</code> ·Contract labels say what they do, not our internal names.</p>
+      <p class="note" data-build="20261109-game360" hidden>Build <code>20261109-game360</code> ·Contract labels say what they do, not our internal names.</p>
       <p class="sous">Everything happening to blocks on Base, live.</p>
       <!-- tip 0013: sticky — Hooked chip = Dex fees; unhooked → Launch beside. No fee addr. -->
       <p class="note" id="sfHookedSticky" hidden>Blocks alive on TokenizedBlock pay their creator on every trade. Example:<button type="button" class="puce" id="sfStickyTbgas">Open TBGAS</button>.</p>
@@ -4714,7 +4716,7 @@ details[open] > summary::before{transform:rotate(90deg)}
 
 <nav class="nav" aria-label="Sections">
   <div class="navIn" role="tablist">
-    <button class="navB" role="tab" aria-selected="true"  data-volet="map"><b>◈</b>Map</button>
+    <button class="navB" role="tab" aria-selected="true"  data-volet="map"><b class="navIc"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14M15 6v14"/></svg></b>Map</button>
     <!-- ⛔⛔ RENOMME « Market » LE 2026-09-24, PAR CONSEQUENCE ET PAS PAR ENVIE. Phil a demande que
          l onglet « My block » s appelle « Blocks ». Or ce libelle etait DEJA pris ici : deux
          boutons identiques dans la meme barre auraient ete pires que le nom qu on corrigeait.
@@ -4723,15 +4725,15 @@ details[open] > summary::before{transform:rotate(90deg)}
          neuf onglets a 375 px (contrainte mesuree, expliquee juste en dessous).
          ⚠️ PHIL N A PAS DEMANDE CE RENOMMAGE-CI : c est le seul moyen d honorer l autre sans creer
             une ambiguite dans la barre. A annuler d un mot si ca ne lui va pas. -->
-    <button class="navB" role="tab" aria-selected="false" data-volet="trade"><b>📈</b>Market</button>
-    <button class="navB" role="tab" aria-selected="false" data-volet="creer"><b>✚</b>Create</button>
+    <button class="navB" role="tab" aria-selected="false" data-volet="trade"><b class="navIc"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4v16M12 3v18M18 6v12"/><rect x="4" y="8" width="4" height="6" rx="1"/><rect x="10" y="6" width="4" height="9" rx="1"/><rect x="16" y="9" width="4" height="5" rx="1"/></svg></b>Market</button>
+    <button class="navB" role="tab" aria-selected="false" data-volet="creer"><b class="navIc"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg></b>Create</button>
     <!-- 2026-10-17 soir (Phil) : l onglet Bridge devient Missions. Fund / Swap / Bridge s affichent sous le Wallet (allerA('bridge') y mene). -->
     <!-- Phil 2026-10-18 09:00 : le logo de Game = un DE (reference au roll), meme couleur que les autres (heritee du <b> du nav) -->
-    <button class="navB" role="tab" aria-selected="false" data-volet="missions"><b>⚄</b>Game</button>
-    <button class="navB" role="tab" aria-selected="false" data-volet="brain"><b>❋</b>Brain</button>
-    <button class="navB" role="tab" aria-selected="false" data-volet="wallet"><b>▤</b>Wallet</button>
-    <button class="navB" role="tab" aria-selected="false" data-volet="social"><b>✦</b>Feed</button>
-    <button class="navB" role="tab" aria-selected="false" data-volet="mien"><b>★</b>Blocks</button>
+    <button class="navB" role="tab" aria-selected="false" data-volet="missions"><b class="navIc"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="7" width="19" height="11" rx="5"/><path d="M7.5 10.5v4M5.5 12.5h4"/><circle cx="15.5" cy="11.5" r=".9"/><circle cx="18" cy="14" r=".9"/></svg></b>Game</button>
+    <button class="navB" role="tab" aria-selected="false" data-volet="brain"><b class="navIc"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 4.5a2.8 2.8 0 0 0-4.4 2.3A2.8 2.8 0 0 0 4 11.5a2.8 2.8 0 0 0 1.2 4.3 2.8 2.8 0 0 0 4.3 3.7V4.5z"/><path d="M14.5 4.5a2.8 2.8 0 0 1 4.4 2.3A2.8 2.8 0 0 1 20 11.5a2.8 2.8 0 0 1-1.2 4.3 2.8 2.8 0 0 1-4.3 3.7V4.5z"/></svg></b>Brain</button>
+    <button class="navB" role="tab" aria-selected="false" data-volet="wallet"><b class="navIc"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="2.5"/><path d="M16 6V4.5H6A3 3 0 0 0 3 7.5"/><path d="M21 11h-4a1.5 1.5 0 0 0 0 3h4"/></svg></b>Wallet</button>
+    <button class="navB" role="tab" aria-selected="false" data-volet="social"><b class="navIc"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="1.8"/><path d="M8.6 8.6a4.8 4.8 0 0 0 0 6.8M15.4 8.6a4.8 4.8 0 0 1 0 6.8M5.8 5.8a8.8 8.8 0 0 0 0 12.4M18.2 5.8a8.8 8.8 0 0 1 0 12.4"/></svg></b>Feed</button>
+    <button class="navB" role="tab" aria-selected="false" data-volet="mien"><b class="navIc"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 4 7.5v9L12 21l8-4.5v-9L12 3z"/><path d="M4 7.5 12 12l8-4.5M12 12v9"/></svg></b>Blocks</button>
     <!-- ⛔ L ICONE EST UN CARACTERE DE 1993 (Dingbats), PAS « 𝕏 ». La regle est deja ecrite dans
          `stades.js` : un glyphe absent d une police sort en carre vide, et Phil en a envoye une
          capture le 2026-09-17. Le logo de X est bien plus recent que la plupart des polices systeme.
@@ -4759,11 +4761,11 @@ details[open] > summary::before{transform:rotate(90deg)}
          le LIBELLE, pas par le glyphe, qui vit sur sa propre ligne. J ai failli choisir le moins
          lisible pour economiser une largeur qui n existait pas.
          ⛔ ET IL REND : temoin tofu a 10,97 px, `⬢` mesure 13,46 — donc pas un tofu. -->
-    <button class="navB" role="tab" aria-selected="false" data-volet="tokenx"><b>⬢</b>Tokenized</button>
+    <button class="navB" role="tab" aria-selected="false" data-volet="tokenx"><b class="navIc"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M14.8 9.4c-.3-1.1-1.4-1.9-2.8-1.9-1.6 0-2.8.9-2.8 2.1 0 2.8 5.8 1.5 5.8 4.4 0 1.3-1.3 2.4-3 2.4-1.5 0-2.7-.8-3-2M12 6v1.5M12 16.5V18"/></svg></b>Tokenized</button>
     <!-- 2026-10-31 (TAM phase C) : un ONZIEME onglet. « φ » (le nombre d or, grec : present dans toutes les polices) ; libelle de 3 lettres.
          ⛔ MESURE (375 px emules) : a `repeat(9,1fr)` TAM tombait sur une 2e rangee (nav 100 px) ; a `repeat(10,1fr)` : une rangee, 50 px,
             355 == 355, aucun debordement, Tokenized 51,6 px, les autres ~33 px (sous 44 px de large, comme avant : 37,9 a 9 onglets). -->
-    <button class="navB" role="tab" aria-selected="false" data-volet="tam"><b>φ</b>TAM</button>
+    <button class="navB" role="tab" aria-selected="false" data-volet="tam"><b class="navIc"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 3.5 8 20.5M16 3.5l-1.5 17M4.5 8.5h15M4 15.5h15"/></svg></b>TAM</button>
   </div>
 </nav>
 <!-- 2026-10-18 : LA PALETTE (Ctrl+K · Cmd+K · « / » · le bouton loupe du panneau). Hors des volets : un volet masque masquerait son enfant.
@@ -6133,18 +6135,41 @@ async function acheterTblockUsdc(montant, dire = () => {}, payeur = null) {
   try { p = await fetch(AT.urlPlanAchat({ montant, compte: c }), { cache: 'no-store', signal: AbortSignal.timeout(30000) }).then((x) => x.json()); } catch (_) { p = null; }
   const v = AT.verifierPlanAchat(p, { montant });
   if (!v.ok) return { ok: false, texte: 'TBLOCK not bought: ' + v.pourquoi + '.' };
-  /* review 358 (HIGH): all or nothing, like envoyerPaiementJeton for an exigeAtomique plan — never call by call (the USDC could become
-   *   wtCOIN with no TBLOCK after it). A wallet without batching is told so, and nothing is sent. */
+  /* game361 (Phil 2026-11-11, after Grok's Rabby test: the 5 USDC reached the dev and NO TBLOCK was bought — "les paiements doivent faire un
+   *   achat en TBLOCK"): one all-or-nothing batch when the wallet offers it; otherwise the SAME calls signed one by one, and the result is
+   *   READ (TBLOCK and wtCOIN balances before / after), never assumed. If the wallet stopped between the two legs, the app finishes the buy
+   *   from the wtCOIN now in the wallet (/api/tblock/vault-buy?reprise=1, the route Create's step 1 already uses). */
+  const lireT = async () => { try { const q = ECO.VIEW.balanceOf(String(c).toLowerCase()); return ECO.word(await rpc('eth_call', [{ to: q.to, data: q.data }, 'latest'])); } catch (_) { return null; } };
+  const lireW = async () => { try { return ECO.word(await rpc('eth_call', [{ to: TIP.WTCOIN, data: '0x70a08231' + ECO.wAddr(String(c).toLowerCase()) }, 'latest'])); } catch (_) { return null; } };
+  const t0 = await lireT(), w0 = await lireW();
+  const appels = v.appels.map((a) => ({ to: a.to, data: a.data, value: a.value }));
   let cap = null;
   try { cap = await capaciteDeGroupement({ eth: window.ethereum, compte: c, chaineHex: '0x' + Number(CHAINE).toString(16) }); } catch (_) { cap = null; }
-  if (!cap || cap.capacite !== 'OUI') return { ok: false, texte: 'TBLOCK not bought: this buy needs one all-or-nothing batch and this wallet does not offer one — nothing was sent. Buy TBLOCK from the Wallet tab (Swap) instead.' };
-  dire(AT.texteAttente({ montant, recoitAuMoins: v.recoitAuMoins, frais: v.frais, fmt: (x) => ECO.fmt(x) }));
-  try {
-    const r = await envoyerLotAtomique({ eth: window.ethereum, rpc, chaineAttendue: CHAINE, compte: c, calls: v.appels.map((a) => ({ to: a.to, data: a.data, value: a.value })), sansRepliV1: true });
-    if (r && r.sendCallsUnsupported) return { ok: false, texte: 'TBLOCK not bought: this wallet does not offer an all-or-nothing batch — nothing was sent.' };
+  if (cap !== null && cap.capacite === 'OUI') {
+    dire(AT.texteAttente({ montant, recoitAuMoins: v.recoitAuMoins, frais: v.frais, fmt: (x) => ECO.fmt(x) }));
+    let r = null;
+    try { r = await envoyerLotAtomique({ eth: window.ethereum, rpc, chaineAttendue: CHAINE, compte: c, calls: appels, sansRepliV1: true }); } catch (e) { r = { etat: 'ECHEC_ENVOI', pourquoi: String((e && e.message) || e) }; }
     if (r && r.etat === 'CONFIRME') return { ok: true, texte: 'TBLOCK bought: at least ' + ECO.fmt(v.recoitAuMoins) + ' TBLOCK in your wallet.' };
-    return { ok: false, texte: 'TBLOCK not bought: ' + String((r && (r.pourquoi || r.etat)) || 'no answer').slice(0, 160) };
-  } catch (e) { return { ok: false, texte: 'TBLOCK not bought: ' + String((e && e.message) || e).slice(0, 160) }; }
+    if (!(r && r.sendCallsUnsupported)) return { ok: false, texte: 'TBLOCK not bought: ' + String((r && (r.pourquoi || r.etat)) || 'no answer').slice(0, 160) + ' (an all-or-nothing batch: nothing moved).' };
+  }
+  dire('Your wallet signs the TBLOCK buy in ' + appels.length + ' steps, in order: USDC → wtCOIN, then wtCOIN → TBLOCK. If it stops halfway, the app finishes from the wtCOIN.');
+  let r = null;
+  try { r = await envoyerUnParUn(appels, c); } catch (e) { r = { etat: 'ECHEC_ENVOI', pourquoi: String((e && e.message) || e) }; }
+  let t1 = await lireT(), w1 = await lireW();
+  if (t0 !== null && t1 !== null && t1 > t0) return { ok: true, texte: 'TBLOCK bought: +' + ECO.fmt(t1 - t0) + ' TBLOCK in your wallet' + (r && r.etat === 'CONFIRME' ? '.' : ' (the last step, the app fee, was not signed).') };
+  if (w0 !== null && w1 !== null && w1 - w0 >= TIP.WTCOIN_RESUME_MIN) {
+    const wt = w1 - w0;
+    dire('The USDC became ' + (Number(wt) / 1e18).toFixed(4) + ' wtCOIN in your wallet; finishing the buy: wtCOIN → TBLOCK…');
+    let pr = null;
+    try { pr = await fetch('/api/tblock/vault-buy?reprise=1&compte=' + String(c).toLowerCase() + '&wt=' + wt, { cache: 'no-store', signal: AbortSignal.timeout(20000) }).then((x) => x.json()); } catch (_) { pr = null; }
+    if (pr && pr.ok && Array.isArray(pr.appels) && pr.appels.length) {
+      try { await envoyerUnParUn(pr.appels.map((a) => ({ to: a.to, data: a.data, value: a.value })), c); } catch (_) { /* the balances below say what happened */ }
+      t1 = await lireT();
+      if (t0 !== null && t1 !== null && t1 > t0) return { ok: true, texte: 'TBLOCK bought: +' + ECO.fmt(t1 - t0) + ' TBLOCK in your wallet (finished from the wtCOIN).' };
+    }
+    return { ok: false, texte: 'TBLOCK not bought yet: ' + (Number(wt) / 1e18).toFixed(4) + ' wtCOIN (the route’s pivot) is in your wallet — nothing is lost, it stays yours.' };
+  }
+  return { ok: false, texte: 'TBLOCK not bought: ' + String((r && (r.pourquoi || r.etat)) || 'no answer').slice(0, 160) + '.' };
 }
 async function envoyerPaiementJeton(pj, c, dit, suite = '') {
   const appels = pj.plan.appels;

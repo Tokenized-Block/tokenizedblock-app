@@ -53,7 +53,7 @@ const usd = (raw) => (Number(BigInt(raw)) / 1e6).toFixed(2);
 /** the checkbox label, before paying */
 export function texteOption(montant) { return 'Also buy TBLOCK with ' + usd(montant) + ' USDC (10%) — it goes to your wallet'; }
 /** after the payment: what is asked next */
-export function texteEtape(montant) { return 'Now the TBLOCK buy: ' + usd(montant) + ' USDC → TBLOCK on its pool, in your wallet (one more signature, all or nothing).'; }
+export function texteEtape(montant) { return 'Now the TBLOCK buy: ' + usd(montant) + ' USDC → TBLOCK on its pool, in your wallet (one signature if your wallet batches the steps, otherwise a few in order).'; }
 /** review 358: what the wallet is about to sign, the app fee and the possible wtCOIN leftover named (from the plan, never a constant) */
 export function texteAttente({ montant, recoitAuMoins, frais = 0n, fmt }) {
   return 'Waiting for your wallet: ' + usd(montant) + ' USDC → at least ' + fmt(recoitAuMoins) + ' TBLOCK'

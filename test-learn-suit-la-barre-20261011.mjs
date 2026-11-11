@@ -9,7 +9,7 @@ const html = readFileSync(process.env.TB_APP || new URL('./app.html', import.met
 let n = 0;
 const vu = (c, m) => { assert.ok(c, m); n += 1; };
 const nav = html.slice(html.indexOf('<nav class="nav"'), html.indexOf('</nav>', html.indexOf('<nav class="nav"')));
-const onglets = [...nav.matchAll(/<button class="navB"[^>]*data-volet="[a-z]+"[^>]*><b>[^<]*<\/b>([^<]+)<\/button>/g)].map((m) => m[1].trim());
+const onglets = [...nav.matchAll(/<button class="navB"[^>]*data-volet="[a-z]+"[^>]*><b[^>]*>(?:[^<]|<(?!\/b>)[^>]*>)*<\/b>([^<]+)<\/button>/g) /* game360: the icon is an inline svg inside <b> */].map((m) => m[1].trim());
 vu(onglets.length >= 8, 'onglets de la barre introuvables : ' + JSON.stringify(onglets));
 const i = html.indexOf('const ETAPES = [');
 const finBloc = /\r?\n\];/.exec(html.slice(i)); /* quelle que soit la fin de ligne (test-tests-portables) */

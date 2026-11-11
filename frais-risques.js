@@ -33,6 +33,17 @@ import { secondesPour } from './temps-de-bloc.js';
 import { SEUIL_VOLUME_JOUR_USD, JOURS_PASS_SEMAINE, BONUS_PASS_SEMAINE, JOURS_PASS_SKIN } from './tirage-saison.js';
 import { FRAIS_CONTRATS } from './frais-contrats.js';
 import { reglesValides } from './rolls-regles.js';
+/* game360 (audit of this page, 2026-11-11): every new figure read from the module the app runs, never typed */
+import { FRAIS_INTERFACE_BPS_CL } from './calldata-aerodrome.js';
+import { SEUIL_USD, LIKE_PRICE, LIKE_MIN_HOLD, fmt as fmtTb } from './economie.js';
+import { TARGET_USD } from './create-vault-tip.js';
+import { SLOTS_DEPLOIEMENT } from './slots-deploiement.js';
+import { PRIX_TAM } from './tam-plan.js';
+import { FRAIS_MESSAGE_USDC, FRAIS_MESSAGE_TBLOCK } from './messagerie-blocks.js';
+import { CONTEST_DEPLOIEMENT } from './block-contest-deploiement.js';
+import { LOCK_DEPLOIEMENT } from './lock-deploiement.js';
+import { PART_ACHAT_BPS, ACHAT_MIN_USDC } from './achat-tblock-usdc.js';
+import { TBLOCK as TBLOCK_REEL } from './tokenomics.js';
 
 const ADR = /^0x[0-9a-fA-F]{40}$/;
 const deploye = (a) => ADR.test(String(a || ''));
@@ -47,6 +58,15 @@ const missionsTb = BigInt(MI.FEE_BPS) * BigInt(MI.TB_SHARE_BPS) / 10000n;
 export const MESURE_LAUNCHPAD = Object.freeze({ taxBps: 9999, retourHorsListe: '0.0099%', poolsVides: 15, poolsLues: 15, date: '2026-10-18' });
 
 export const CHIFFRES = Object.freeze({
+  /* game360: the products the page did not list, read from their deployment data / modules */
+  slots: { spinPrice: BigInt(SLOTS_DEPLOIEMENT.constructeur.spinPrice), potShareBps: BigInt(SLOTS_DEPLOIEMENT.constructeur.potShareBps),
+    prizes: SLOTS_DEPLOIEMENT.constructeur.prizes.map(BigInt), probGainBps: Number(SLOTS_DEPLOIEMENT.probGainBps), esperance: BigInt(SLOTS_DEPLOIEMENT.esperanceBrut) },
+  tam: { prix: PRIX_TAM, achatBps: PART_ACHAT_BPS, achatMin: ACHAT_MIN_USDC },
+  message: { usdc: FRAIS_MESSAGE_USDC, tblock: FRAIS_MESSAGE_TBLOCK },
+  coeur: { prix: LIKE_PRICE, garde: LIKE_MIN_HOLD, seuilUsd: SEUIL_USD },
+  contest: { entree: BigInt(CONTEST_DEPLOIEMENT.config.entryFee), vote: BigInt(CONTEST_DEPLOIEMENT.config.votePrice), maxPot: BigInt(CONTEST_DEPLOIEMENT.config.maxPot), burnBps: BigInt(CONTEST_DEPLOIEMENT.config.burnBps) },
+  lock: { minS: Number(LOCK_DEPLOIEMENT.minLockSecondes), retraitS: Number(LOCK_DEPLOIEMENT.retraitSecondes) },
+  cl: { bps: FRAIS_INTERFACE_BPS_CL }, naissanceUsd: TARGET_USD,
   hook: { adresse: HOOK_7030.toLowerCase(), walletPpm: BigInt(HOOK_7030_PPM.walletDeFrais), createurPpm: BigInt(HOOK_7030_PPM.createur),
     routeurEnPlus: !HOOKS_PAIENT_DEJA_A6CF.some((h) => h.hook.toLowerCase() === HOOK_7030.toLowerCase()) },
   naissance: { totalWei: FRAIS_OUVERTURE_WEI, creationWei: FRAIS_OUVERTURE_WEI - CREATE_FEE_WEI_FLOOR, inscriptionWei: CREATE_FEE_WEI_FLOOR },
@@ -175,10 +195,17 @@ export function rendre(C, live) {
       + ' to the block\'s creator (while the creator\'s deposit stays in place). Always in the paired currency (ETH, USDC or the stock), never in the block. '
       + (h.routeurEnPlus ? 'The app may add its router fee.' : 'The app adds nothing on top for this market.')),
     ligne('Other trades routed by the app', pctBps(C.routeur.marcheBps) + ' max',
-      'Only when the pool\'s own hook does not already pay us: ' + pctBps(C.routeur.marcheBps) + ' on a single market, or ' + paliers
+      'Only when the pool\'s own hook does not already pay us: ' + pctBps(C.routeur.marcheBps) + ' on a single Uniswap v4 market; ' + pctBps(C.cl.bps)
+      + ' on an Aerodrome or Uniswap v3 pool (USDC ↔ a stock on its Aerodrome pool, buying or selling TBLOCK), one fee per batch; ' + paliers
       + ' on a route through several pools. Shown on the screen before you sign.'),
+    ligne('TBLOCK holders', '0% app fee',
+      'A wallet holding at least $' + C.coeur.seuilUsd + ' of TBLOCK pays no app fee on TBLOCK buys and sells and on USDC ↔ stock trades on Aerodrome. Our server checks the wallet balance (not the lock) at the lower of the price now and about 10 minutes ago; if the check fails, the normal fee applies. Pool and hook fees still apply.'),
+    ligne('Buy or sell TBLOCK', pctBps(C.cl.bps) + ' app fee',
+      'Route: USDC (or ETH via USDC) → wtCOIN on Aerodrome → TBLOCK on its Uniswap v4 pool, reversed for a sell; one app fee per batch, 0 for TBLOCK holders. On top: the pools\' own fees and the TBLOCK pool\'s hook, which keeps part of each swap and burns part of it. All of it is inside the quote you see before you sign.'),
+    ligne('Optional TBLOCK buy after a USDC payment', pctBps(C.tam.achatBps) + ' of the price',
+      'After a USDC payment (today: the TAM mint) the app offers a box, ticked by default, that spends ' + pctBps(C.tam.achatBps) + ' of the price (' + usdc(C.tam.prix * C.tam.achatBps / 10000n) + ' on a ' + usdc(C.tam.prix) + ' mint) to buy TBLOCK into your own wallet, as one all-or-nothing batch after the payment. Not offered below ' + usdc(C.tam.achatMin) + '. It pays the TBLOCK route\'s fees above. Untick it to skip.'),
     ligne('Bring a block to life', eth(nb.totalWei) + ' ETH',
-      eth(nb.creationWei) + ' ETH when it is created + ' + eth(nb.inscriptionWei) + ' ETH when its market is registered, inside the same signatures.'),
+      eth(nb.creationWei) + ' ETH when it is created + ' + eth(nb.inscriptionWei) + ' ETH when its market is registered, inside the same signatures. You also deposit a minimum of about $1 in the paired currency (the hook refuses less); it stays yours and, while it stays in place, earns the creator share of each trade. The app offers the birth as $' + C.naissanceUsd + ' in all: after the birth, an optional separate signature sends the rest in TBLOCK to the holders vault — a gift, not refunded; skipping it never stops the birth.'),
     ligne('GM (send tokens to a friend)', pctBps(C.geste.bps),
       'A separate, visible transfer: your friend receives exactly what you typed. Too small to take, or an ETH send: no fee.'),
     ligne('Roll', usdc(ro.rollPrice),
@@ -194,6 +221,16 @@ export function rendre(C, live) {
     ligne('Duel', pctBps(C.duels.poolBps + C.duels.devBps) + ' of the pot',
       'Both players stake the same. A decided duel pays ' + pctBps(C.duels.gagnantBps) + ' of the pot to the winner, ' + pctBps(C.duels.poolBps) + ' to the community reward pool and '
       + pctBps(C.duels.devBps) + ' to TokenizedBlock (plus rounding dust). A tie settled in its window refunds both, no fee.'),
+    ligne('Slots spin', usdc(C.slots.spinPrice),
+      pctBps(C.slots.potShareBps) + ' goes to the slots prize pot, the rest to TokenizedBlock. Prizes from '
+      + usdc(C.slots.prizes.filter((x) => x > 0n).reduce((a, b) => (b < a ? b : a))) + ' to ' + usdc(C.slots.prizes.reduce((a, b) => (b > a ? b : a)))
+      + ', paid by the contract from the pot only. A spin wins something ' + (C.slots.probGainBps / 100).toFixed(2) + '% of the time.'),
+    ligne('TAM art mint', usdc(C.tam.prix), 'All of it goes from you to TokenizedBlock in the mint itself. The TamArt contract has no owner and takes no resale fee.'),
+    ligne('Message to a block', usdc(C.message.usdc) + ' or ' + fmtTb(C.message.tblock) + ' TBLOCK', 'One transfer to TokenizedBlock with your message attached: a fee, not a buyback; nothing comes back.'),
+    ligne('Heart (+1)', fmtTb(C.coeur.prix) + ' TBLOCK', 'Sent to the dead address (burned); nothing comes back. After paying, your wallet must still hold the larger of ' + fmtTb(C.coeur.garde) + ' TBLOCK (the contract\'s rule) and $' + C.coeur.seuilUsd + ' of TBLOCK (the app\'s rule).'),
+    ligne('Block contest', 'entry ' + fmtTb(C.contest.entree) + ' TBLOCK · vote ' + fmtTb(C.contest.vote) + ' TBLOCK',
+      'An entry goes into the prize pot (capped at ' + fmtTb(C.contest.maxPot) + ' TBLOCK). A vote is ' + pctBps(C.contest.burnBps) + ' burned: never refunded. The contract pays the pot by its fixed rules; nobody pays by hand.'),
+    ligne('TBLOCK lock', 'no fee', 'You lock your own TBLOCK for ' + jours(C.lock.minS) + ' up to 4 years; it earns community points. Leaving takes two steps (see Risks).'),
     ligne('Daily ticket', 'free', 'Reach $' + ti.seuilUsd + ' of verified volume in a UTC day and that day\'s ticket is yours — nothing extra to pay.'),
   ]) + (mi.deploye ? '' : pasDeploye('Missions: the contract is written and tested, not signed on Base. Nothing can be posted or paid yet.')));
 
@@ -217,7 +254,8 @@ export function rendre(C, live) {
     + (C.duels.deploye ? '' : pasDeploye('Duels: no contract exists for them in this app.')));
 
   const risques = carte('Risks', 'Read this before you sign', '<ul class="risques">'
-    + '<li><b>No custody.</b> Your wallet signs every transaction; the app holds no key and cannot move your funds. A brain or a batch only prepares the calls — your wallet shows them before you sign.</li>'
+    + '<li><b>No custody for your main wallet.</b> It signs every transaction you make in the app; a brain or a batch only prepares the calls, which your wallet shows before you sign. Our server never holds your keys. The server holds two operational keys (a slots keeper and a missions verifier): they cannot move your wallet, but mission payouts depend on the verifier\'s signature.</li>'
+    + '<li><b>The fly trader signs on its own.</b> If you fund the fly (its own page, fly-brain.html), it gets its own wallet, whose key is kept unencrypted in this browser only. That key signs the fly\'s trades with no wallet preview, within the budget you sent and its caps. Stop and Withdraw all are your protection. The money can be lost.</li>'
     + '<li><b>' + (E.meilleur.num < E.meilleur.den * ro.rollPrice ? 'Rolls lose on average.' : 'Rolls can win on average with the best guess — check the numbers.') + '</b> A ' + usdc(ro.rollPrice) + ' roll pays back ' + evU + ' USDC on average with a random guess (' + pctFrac(E.uniforme.num, E.uniforme.den * ro.rollPrice) + ' of its price), and at most '
       + evM + ' USDC (' + pctFrac(E.meilleur.num, E.meilleur.den * ro.rollPrice) + ') with the best possible guess — computed exactly from the contract\'s rules, before the pot cap, which can only lower it.</li>'
     + '<li><b>' + (passPerd ? 'A pass loses on average too.' : 'A pass, on average:') + '</b> Its ' + ro.passRolls + ' rolls pay back at most ' + usdc4(passRollsEv) + ' USDC on average; your share of the pass pot is that day\'s pot divided by its buyers — '
@@ -238,6 +276,14 @@ export function rendre(C, live) {
       + ': a wallet off the hook\'s list got back ' + MESURE_LAUNCHPAD.retourHorsListe + ' of its sale in a test on a copy of the chain, and ' + MESURE_LAUNCHPAD.poolsVides + ' of ' + MESURE_LAUNCHPAD.poolsLues
       + ' such ETH pools had no liquidity to quote (' + MESURE_LAUNCHPAD.date + '). The app shows no Buy for them. This describes how those contracts are built, not anyone\'s intent.</li>'
     + '<li><b>Third-party data can be late.</b> Prices, token lists and charts come from public nodes and indexers that lag or refuse at times. When something was not read, the app says so instead of showing a guess; your wallet\'s own preview is the final word.</li>'
+    + '<li><b>Slots lose on average.</b> A ' + usdc(C.slots.spinPrice) + ' spin pays back ' + usdc4({ num: C.slots.esperance, den: 1n }) + ' USDC on average.</li>'
+    + '<li><b>Holders vault.</b> Two fixed dev wallets can take TBLOCK out of the vault\'s free part: one announces the amount on chain, and after 7 days only that dev can execute it, within a 2-day window. Budgets reserved for players are never touched. This power has not been given up. Anyone can also call feedContest(), which moves free vault TBLOCK to the contest pot.</li>'
+    + '<li><b>Who controls the week\'s reward pot.</b> TicketPot pays a winner only with a signature from our server\'s verifier key, so claims depend on that server; the owner or a guardian can pause claims; the owner can never withdraw the pot.</li>'
+    + '<li><b>The holder 0% fee is a server decision, not an on-chain right.</b> It stops if your TBLOCK falls below $' + C.coeur.seuilUsd + ' or if our price read fails.</li>'
+    + '<li><b>Locked TBLOCK cannot leave at once.</b> Requesting the withdrawal stops your points at once; you take it back ' + jours(C.lock.retraitS) + ' after the request, or at the lock date if that is later. Cancelling the request keeps the lock.</li>'
+    + '<li><b>Contest votes are burned.</b> Anyone willing to burn enough votes can move a small contest.</li>'
+    + '<li><b>Buybacks are not running.</b> Two TBLOCK buyback contracts are deployed with no owner; neither has been funded or has bought yet.</li>'
+    + '<li><b>Two tokens are named TBLOCK.</b> The real one is ' + lienBase(TBLOCK_REEL) + '. Check the address before you buy or lock; the app hides the old test token and any other token showing that name.</li>'
     + '<li><b>Prices move.</b> A block or a tokenized stock can lose value quickly, and a small pool moves a lot on a small trade.</li>'
     + '</ul>');
 
