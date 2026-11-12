@@ -91,7 +91,7 @@ export function creerKeeperBuyback({ cle = null, rec = null, ancien = null, rpc 
   if (typeof rpc !== 'function') return off('no RPC reader');
   let moi;
   try { moi = bas(adresseDe(cle)); } catch (_) { return off('BUYBACK_KEEPER_KEY is malformed (its value is never shown)'); }
-  if (moi !== adr(rec.parametres && rec.parametres.keeper)) return off('BUYBACK_KEEPER_KEY is not the buyback keeper named in its record (' + (rec.parametres && rec.parametres.keeper) + '): nothing is called');
+  if (moi !== adr(rec.parametres && rec.parametres.keeper)) return off('BUYBACK_KEEPER_KEY is not the buyback keeper named in its record (' + (rec.parametres && rec.parametres.keeper) + '): the key set is the key of ' + moi + ' (an address, never the key): nothing is called');
   const envoi = typeof rpcEnvoi === 'function' ? rpcEnvoi : rpc;
   const chainId = Number(rec.chaine);
   const cibles = [nouveau, ...(adr(ancien) && adr(ancien) !== nouveau ? [adr(ancien)] : [])];
