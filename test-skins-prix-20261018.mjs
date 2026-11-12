@@ -16,7 +16,9 @@
  *      (4) l enregistrement dit un autre prix que la source : la garde A rougit.
  * NE PROUVE PAS : le rendu (le span rempli au chargement), un vrai wallet, le deploiement de v3 (attend la signature de Phil).
  * 2026-11-12: the standalone v3 is RETIRED (Skins ships as step S of the economy pack). A now pins the record as FROZEN from the pre-pack
- *   source and checks the forge artefact is the CURRENT (router game) source, whose bytecode the frozen creation does NOT start with. */
+ *   source and checks the forge artefact is the CURRENT (router game) source, whose bytecode the frozen creation does NOT start with.
+ * 2026-11-13: the 1 USDC Skins is deployed and noted (skins-spin-deploiement.js): B now pins it as the active contract at 1 USDC (from its
+ *   source), the pack's Skins (10 USDC) as its precedent; the pre-note branch (pack's Skins active) is replayed on a null copy of the record. */
 import { strict as assert } from 'node:assert';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -65,10 +67,18 @@ const AC = await imp('blockskins-actif.js'), BS = await imp('blockskins.js'), SK
 /* 2026-11-12 (the economy pack is live): the app mints on the pack's Skins (router only), price = MINT_PRICE of its source; the record's
  *   own rule (first deployed of the chain: v2 while v3 has no address) is kept and checked with contratActif */
 const FCk = (await imp('frais-contrats.js')).FRAIS_CONTRATS;
-vu(AC.BLOCKSKINS_ACTIF === AC.SKINS_PACK && AC.SKINS_PACK.precedent.sha256Creation === D.sha256Creation && AC.BLOCKSKINS === AC.SKINS_PACK.adresse && !!AC.SKINS_PACK.routeur
-  && AC.contratActif(D).adresse === D.precedent.adresse && AC.contratActif(D).version === 2,
-  'B le contrat actif est Skins du pack (paye par le routeur) ; la fiche, elle, designe toujours v2 tant que v3 n est pas note');
-vu(AC.SKIN_MINT_USDC === BigInt(FCk.BlockSkins.MINT_PRICE) && AC.SKIN_MINT_TEXTE === '10 USDC' && AC.SKIN_MINT_OUVERT === true, 'B SKIN_MINT_USDC / SKIN_MINT_TEXTE = MINT_PRICE de la source de Skins (10 USDC), mint ouvert');
+/* 2026-11-13: the 1 USDC Skins is deployed and noted (skins-spin-deploiement.js, nonceN 214): it is the active contract, the pack's Skins is
+ *   its `precedent` (still read, 10 USDC). The pre-note branch (no 1 USDC Skins -> the pack's Skins active) is replayed on a null COPY. */
+const { SKINS_SPIN_DEPLOIEMENT: SSR } = await imp('skins-spin-deploiement.js');
+const SSR_NUL = (() => { const x = JSON.parse(JSON.stringify(SSR)); x.nonceN = null; for (const e of x.etapes) { e.adresse = null; e.tx = null; e.bloc = null; } return x; })();
+vu(AC.SKINS_UN && AC.BLOCKSKINS_ACTIF === AC.SKINS_UN && AC.SKINS_UN.precedent === AC.SKINS_PACK && AC.BLOCKSKINS === SSR.etapes[0].adresse && AC.SKINS_UN.routeur === AC.SKINS_PACK.routeur
+  && AC.SKINS_PACK.precedent.sha256Creation === D.sha256Creation && !!AC.SKINS_PACK.routeur && AC.contratActif(D).adresse === D.precedent.adresse && AC.contratActif(D).version === 2,
+  'B le contrat actif est le Skins a 1 USDC note (paye par le meme routeur), Skins du pack en precedent ; la fiche, elle, designe toujours v2 tant que v3 n est pas note');
+vu(AC.skinsUnDepuis(SSR_NUL, AC.SKINS_PACK) === null && AC.contratActif(AC.SKINS_PACK) === AC.SKINS_PACK && AC.usdcTexte(AC.SKINS_PACK.mintPriceUsdc) === '10'
+  && AC.SKINS_PACK.mintPriceUsdc === FCk.BlockSkins.MINT_PRICE,
+  'B avant la note (copie nulle) : pas de Skins a 1 USDC, l actif reste Skins du pack a 10 USDC (MINT_PRICE de sa source)');
+vu(AC.SKIN_MINT_USDC === BigInt(FCk.BlockSkinsUn.MINT_PRICE) && AC.SKIN_MINT_USDC === BigInt(AC.SKINS_UN.mintPriceUsdc) && AC.SKIN_MINT_TEXTE === '1 USDC' && AC.SKIN_MINT_OUVERT === true,
+  'B SKIN_MINT_USDC / SKIN_MINT_TEXTE = MINT_PRICE de la source du Skins a 1 USDC (frais-contrats BlockSkinsUn) = le prix de l enregistrement, mint ouvert');
 vu(AC.usdcTexte(10000000n) === '10' && AC.usdcTexte('1000000') === '1' && AC.usdcTexte(500000n) === '0.5' && AC.usdcTexte(10500000n) === '10.5' && AC.usdcTexte(0n) === '0', 'B usdcTexte exact, sans zero inutile');
 vu(BS.SKIN_MINT_USDC === AC.SKIN_MINT_USDC && BS.SKIN_MINT_TEXTE === AC.SKIN_MINT_TEXTE && BS.BLOCKSKINS === AC.BLOCKSKINS && SK.SKIN_PRIX_USDC === AC.SKIN_MINT_USDC,
   'B blockskins.js et skins.js (SKIN_PRIX_USDC) portent la MEME valeur, celle de l enregistrement actif');

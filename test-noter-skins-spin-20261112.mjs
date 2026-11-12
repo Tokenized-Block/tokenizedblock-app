@@ -22,13 +22,16 @@ const t = (label, cond) => { n += 1; if (cond === true) console.log('  ok   ' + 
 const hx = (x) => '0x' + BigInt(x).toString(16);
 const W = R.deployeur, N = 412;
 const H = ['0x' + 'a1'.repeat(32), '0x' + 'b2'.repeat(32)];
+/* 2026-11-13 the real record is NOTED (nonceN 214). The note itself is exercised on a COPY of it with adresse / tx / bloc / nonceN reset
+ *   to null (NUL = the record exactly as the noter found it), so a fresh record is still covered; the real record must be refused. */
+const NUL = (() => { const x = JSON.parse(JSON.stringify(R)); x.nonceN = null; for (const e of x.etapes) { e.adresse = null; e.tx = null; e.bloc = null; } return x; })();
 function recus(o = {}) {
   const txs = [0, 1].map((k) => ({ hash: H[k], from: (o.de && o.de[k]) || W, to: null, nonce: hx((o.nonces && o.nonces[k]) ?? N + k), input: SS.creationEtape(R, k), blockNumber: hx((o.blocs && o.blocs[k]) || 56700000 + k) }));
   const rs = [0, 1].map((k) => ({ transactionHash: (o.rh && o.rh[k]) || H[k], status: '0x1', contractAddress: (o.ou && o.ou[k]) || adresseCreate(W, N + k), blockNumber: hx((o.blocs && o.blocs[k]) || 56700000 + k) }));
   return { txs, recus: rs };
 }
 const OK2 = [{ ok: true }, { ok: true }];
-const noter = (o = {}, x = {}) => SS.noterPaire({ rec: x.rec || R, hashes: x.hashes || H, ...recus(o), verdicts: x.verdicts || OK2 });
+const noter = (o = {}, x = {}) => SS.noterPaire({ rec: x.rec || NUL, hashes: x.hashes || H, ...recus(o), verdicts: x.verdicts || OK2 });
 
 console.log('— A. a good note');
 const a = await noter();
@@ -53,21 +56,29 @@ await non({ ou: [null, '0x' + '88'.repeat(20)] }, {}, 'the Spin at another addre
 await non({ rh: [null, '0x' + 'cc'.repeat(32)] }, {}, 'a receipt of another transaction', /not the one/);
 await non({ blocs: [56700005, 56700001] }, {}, 'step 2 mined before step 1', /before/);
 await non({}, { rec: a.rec }, 'a record already noted', /already names/);
-await non({}, { rec: { ...JSON.parse(JSON.stringify(R)), fixtureDeTest: true } }, 'a test fixture', /fixture/);
+await non({}, { rec: R }, 'the REAL record, noted on 2026-11-13 (nonceN 214): never rewritten', /already names/);
+await non({}, { rec: { ...JSON.parse(JSON.stringify(NUL)), fixtureDeTest: true } }, 'a test fixture', /fixture/);
+t('B the real record is the note of nonce 214: the CREATE addresses of (deployer, 214) and (deployer, 215), blocks increasing',
+  R.nonceN === 214 && R.etapes.every((e, k) => e.adresse === adresseCreate(W, 214 + k).toLowerCase() && /^0x[0-9a-f]{64}$/.test(e.tx)) && R.etapes[0].bloc === 56675741 && R.etapes[1].bloc === 56675860);
+t('B the real record = NUL with its four noted fields, by the ONE writer (nothing else changed by the note)', (() => { const y = JSON.parse(JSON.stringify(NUL)); y.nonceN = R.nonceN;
+  y.etapes.forEach((e, k) => { e.adresse = R.etapes[k].adresse; e.tx = R.etapes[k].tx; e.bloc = R.etapes[k].bloc; }); return SS.texteRecord(y) === readFileSync(join(ICI, 'skins-spin-deploiement.js'), 'utf8'); })());
 
 console.log('— C. the CLI');
 {
   const dir = mkdtempSync(join(tmpdir(), 'skspin-noter-'));
   try {
-    const copie = join(dir, 'skins-spin-deploiement.js');
-    copyFileSync(join(ICI, 'skins-spin-deploiement.js'), copie);
-    const avant = readFileSync(copie, 'utf8');
     const cli = join(ICI, 'contracts', 'noter-deploiement-skins-spin.mjs');
-    const u = spawnSync(process.execPath, [cli, H[0]], { encoding: 'utf8', env: { ...process.env, SKINS_SPIN_RECORD: copie } });
-    t('C one hash: usage, exit 2', u.status === 2 && /usage/.test(u.stderr));
-    const s = spawnSync(process.execPath, [cli, ...H], { encoding: 'utf8', env: { ...process.env, SKINS_SPIN_RECORD: copie, SKINS_SPIN_NOEUDS: 'http://127.0.0.1:9' } });
-    t('C a single node: refused, exit 1', s.status === 1 && /two nodes are needed/.test(s.stderr));
-    t('C the record file is untouched after the refusals', readFileSync(copie, 'utf8') === avant);
+    /* on a copy of the record before the note (NUL) AND on a copy of the real noted record */
+    for (const [quoi, texte] of [['before the note', SS.texteRecord(NUL)], ['the noted record', readFileSync(join(ICI, 'skins-spin-deploiement.js'), 'utf8')]]) {
+      const copie = join(dir, 'skins-spin-deploiement.js');
+      writeFileSync(copie, texte);
+      const avant = readFileSync(copie, 'utf8');
+      const u = spawnSync(process.execPath, [cli, H[0]], { encoding: 'utf8', env: { ...process.env, SKINS_SPIN_RECORD: copie } });
+      t('C (' + quoi + ') one hash: usage, exit 2', u.status === 2 && /usage/.test(u.stderr));
+      const s = spawnSync(process.execPath, [cli, ...H], { encoding: 'utf8', env: { ...process.env, SKINS_SPIN_RECORD: copie, SKINS_SPIN_NOEUDS: 'http://127.0.0.1:9' } });
+      t('C (' + quoi + ') a single node: refused, exit 1', s.status === 1 && /two nodes are needed/.test(s.stderr));
+      t('C (' + quoi + ') the record file is untouched after the refusals', readFileSync(copie, 'utf8') === avant);
+    }
   } finally { rmSync(dir, { recursive: true, force: true }); }
 }
 const src = readFileSync(join(ICI, 'contracts', 'noter-deploiement-skins-spin.mjs'), 'utf8');

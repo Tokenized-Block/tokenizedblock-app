@@ -15,9 +15,17 @@ const D = BLOCKSKINS_DEPLOIEMENT;
 /* 2026-10-18 (v3 a 10 USDC prepare, pas encore signe) : l app prend le PREMIER enregistrement DEPLOYE de la chaine racine -> precedent -> … ;
  *   son adresse ET son prix (mintPriceUsdc, relu sur la chaine quand l adresse a ete notee) viennent de lui (blockskins-actif.js). */
 /* 2026-11-12 (the economy pack is live): the chain starts at the pack's Skins (blockskins-actif.js SKINS_PACK), whose precedent IS this record */
-const chaine = []; for (let x = (S.BLOCKSKINS_ACTIF.precedent === D ? S.BLOCKSKINS_ACTIF : D); x; x = x.precedent) chaine.push(x);
+/* 2026-11-13: the 1 USDC Skins is deployed and noted (skins-spin-deploiement.js): the chain now starts at it (blockskins-actif.js SKINS_UN),
+ *   then the pack's Skins, then this record. The chain is walked from the active record as long as THIS record is somewhere in it. */
+const contient = (r) => { for (let x = r, i = 0; x && i < 16; x = x.precedent, i += 1) if (x === D) return true; return false; };
+const chaine = []; for (let x = (contient(S.BLOCKSKINS_ACTIF) ? S.BLOCKSKINS_ACTIF : D); x; x = x.precedent) chaine.push(x);
 const actif = chaine.find((x) => /^0x[0-9a-f]{40}$/i.test(String(x.adresse || '')));
 vu(!!actif && S.BLOCKSKINS === String(actif.adresse).toLowerCase() && S.BLOCKSKINS_ACTIF === actif, 'l adresse lue n est pas celle du premier enregistrement deploye');
+{
+  const { SKINS_SPIN_DEPLOIEMENT: SSR } = await import('./skins-spin-deploiement.js');
+  vu(contient(S.BLOCKSKINS_ACTIF) && S.BLOCKSKINS === SSR.etapes[0].adresse && S.BLOCKSKINS_ACTIF.version === 'un' && S.BLOCKSKINS_ACTIF.precedent && S.BLOCKSKINS_ACTIF.precedent.version === 'pack'
+    && chaine.length >= 4, 'l actif n est pas le Skins a 1 USDC note (skins-spin-deploiement.js), suivi de Skins du pack puis de cet enregistrement');
+}
 vu(S.SKIN_MINT_USDC === BigInt(actif.mintPriceUsdc) && S.SKIN_MINT_TEXTE === (S.SKIN_MINT_USDC / 1000000n).toString() + ' USDC', 'le prix de mint ne vient pas de l enregistrement du contrat actif');
 /* Phil, 2026-10-11 : « v2 avant tout mint ». La porte suit l ENREGISTREMENT de deploiement (genere), jamais un drapeau a la main :
  *   ouverte si et seulement si imageDansLeWallet === true (derive de la source) sur le contrat ACTIF (deploye) ; v1 (0xea6c…, tokenURI sans

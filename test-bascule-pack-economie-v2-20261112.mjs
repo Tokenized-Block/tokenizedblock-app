@@ -12,7 +12,8 @@
  *              reads it), pay(TAM art, ...) with the work; refusals on a wrong price, router or minimum.
  * C  EXECUTED  coeurs-index.js creerIndexCoeursSuite: two contracts, complete only when both are; each heart tagged with its contract.
  * D  EXECUTED  tam-serveur.js serveurTam with \`autres\`: the works of both contracts, and distinctness refused while one is unread.
- * E  EXECUTED  blockskins: the active contract is the pack's Skins (router only, price from its source), the earlier ones stay read,
+ * E  EXECUTED  blockskins: the pack's Skins S (router only, price from its source) is EP.SKINS and stays read; since 2026-11-13 the active
+ *              contract is the 1 USDC Skins of skins-spin-deploiement.js (same router, price from its own source), the earlier ones stay read,
  *              every market call goes to the skin's own contract; /api/skins/prix describes the router payment.
  * F  SOURCE    app.html, serveur-web.js, tam-onglet.js, holders.html, contest.html, frais-risques.js wire the above; no typed address.
  * G  EXECUTED  the fees page renders the live rules (router, hearts in dollars, vault tiers, lock rewards), no optional buy row.
@@ -140,9 +141,16 @@ console.log('— E. skins');
 const BA = await imp('blockskins-actif.js'), BS = await imp('blockskins.js');
 const BD = (await imp('blockskins-deploiement.js')).BLOCKSKINS_DEPLOIEMENT;
 const FC = (await imp('frais-contrats.js')).FRAIS_CONTRATS;
-t('E the active skins contract is the pack\'s Skins, paid through the router', !!EP && BA.BLOCKSKINS === EP.SKINS && BA.BLOCKSKINS_ACTIF.routeur === EP.ROUTER);
-t('E its price is MINT_PRICE of its source (frais-contrats.js, the source step S hashes)', BA.SKIN_MINT_USDC === BigInt(FC.BlockSkins.MINT_PRICE) && FC.BlockSkins.sha256Source === PACK.etapes.find((e) => e.lettre === 'S').sha256Source);
-t('E its source carries the image in tokenURI (imageDansLeWallet)', /"image":"data:image\/svg\+xml;base64,/.test(lire('contracts/src/BlockSkins.sol')) && BA.SKIN_MINT_OUVERT === true);
+/* 2026-11-13: the 1 USDC Skins (skins-spin-deploiement.js, noted at nonce 214) is now the contract the app mints on; the pack's Skins S stays
+ *   EP.SKINS (vault and rewards game) and stays read, as the active one's `precedent`. Both are paid through the same router, prices from source. */
+const SSR = (await imp('skins-spin-deploiement.js')).SKINS_SPIN_DEPLOIEMENT;
+t('E the pack\'s Skins (S) is built from the record, paid through the router, and is EP.SKINS', !!EP && !!BA.SKINS_PACK && BA.SKINS_PACK.adresse === EP.SKINS && EP.SKINS === A.S && BA.SKINS_PACK.routeur === EP.ROUTER);
+t('E the active skins contract is the 1 USDC Skins of the noted record (EP.SKINS_MINT), paid through the same router; S is its precedent', !!EP && BA.BLOCKSKINS === EP.SKINS_MINT
+  && BA.BLOCKSKINS === SSR.etapes[0].adresse && BA.BLOCKSKINS_ACTIF.routeur === EP.ROUTER && BA.SKINS_UN && BA.SKINS_UN.precedent === BA.SKINS_PACK);
+t('E S\'s price is MINT_PRICE of its source (frais-contrats.js, the source step S hashes)', BA.SKINS_PACK && BA.SKINS_PACK.mintPriceUsdc === FC.BlockSkins.MINT_PRICE && FC.BlockSkins.sha256Source === PACK.etapes.find((e) => e.lettre === 'S').sha256Source);
+t('E the active price is MINT_PRICE of the 1 USDC Skins source (frais-contrats.js BlockSkinsUn, the source the record hashes): 1 USDC', BA.SKIN_MINT_USDC === BigInt(FC.BlockSkinsUn.MINT_PRICE)
+  && BA.SKIN_MINT_USDC === 1000000n && FC.BlockSkinsUn.sha256Source === SSR.etapes[0].sha256Source);
+t('E both sources carry the image in tokenURI (imageDansLeWallet)', /"image":"data:image\/svg\+xml;base64,/.test(lire('contracts/src/BlockSkins.sol')) && /"image":"data:image\/svg\+xml;base64,/.test(lire(SSR.etapes[0].source)) && BA.SKIN_MINT_OUVERT === true);
 const anciens = []; for (let x = BD; x; x = x.precedent) if (x.adresse) anciens.push(String(x.adresse).toLowerCase());
 t('E every earlier deployed skins contract stays read, oldest first, the active one last', Array.isArray(BA.BLOCKSKINS_LUS) && BA.BLOCKSKINS_LUS[BA.BLOCKSKINS_LUS.length - 1] === BA.BLOCKSKINS && anciens.every((a) => BA.BLOCKSKINS_LUS.includes(a)));
 t('E a market call goes to the skin\'s own contract; a foreign contract is refused', anciens.length > 0 && BS.appelRetirer(1n, anciens[0]).to === anciens[0] && BS.appelRegler(1n).to === BA.BLOCKSKINS
@@ -204,9 +212,9 @@ t('F the new on-screen sentences carry no version or internal status word', !/\b
 console.log('— G. the fees page');
 const FR = await imp('frais-risques.js');
 const page = FR.rendre(FR.CHIFFRES, null).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
-t('G the skins shown are the active contract (the pack\'s Skins)', !!EP && FR.CHIFFRES.skins.adresse === EP.SKINS);
+t('G the skins shown are the active contract (the 1 USDC Skins, EP.SKINS_MINT)', !!EP && FR.CHIFFRES.skins.adresse === EP.SKINS_MINT && FR.CHIFFRES.skins.adresse === BA.BLOCKSKINS);
 t('G TAM art and skins: paid through the router, the dev part and the router floor from their sources', page.includes('TAM art mint 5 USDC Paid through the TBLOCK payment router: 10% (0.50 USDC) stays USDC for TokenizedBlock')
-  && page.includes('the router refuses any minimum under 75% of the pools\' spot value') && page.includes('Skin 10 USDC Paid through the TBLOCK payment router, like TAM art: 10% (1 USDC)'));
+  && page.includes('the router refuses any minimum under 75% of the pools\' spot value') && page.includes('Skin 1 USDC Paid through the TBLOCK payment router, like TAM art: 10% (0.10 USDC)') && !page.includes('Skin 10 USDC'));
 t('G the optional buy after a USDC payment is gone', !page.includes('Optional TBLOCK buy after a USDC payment'));
 t('G hearts in dollars at the kept price, needing a lock', page.includes('Heart (+1) $0.50 of TBLOCK') && page.includes('A heart needs $15 of TBLOCK locked'));
 t('G the weekly vault with its tiers, and the monthly lock rewards with the 60 days minimum', page.includes('+15% from $100 locked, +30% from $500 locked, +50% from $1,000 locked') && page.includes('60 days minimum to be sure of one') && page.includes('Monthly lock rewards.'));

@@ -4,8 +4,10 @@
  *   (Spin, 15,554 bytes, with dev batches 1 to 10 USDC), every address copied from the records, never typed.
  * A  EXECUTED  the record = its ONE writer's text (texteRecord), = a fresh regeneration by the preparer (the generation time aside), and
  *              the preparer refuses to run without the two dev batch bounds (never defaulted).
- * B  EXECUTED  integrity holds; each creation's sha256 and size = the fork-tested bytes; adresse / tx / bloc / nonceN are null; the app
- *              follows nothing (deployes -> null, null).
+ * B  EXECUTED  integrity holds; each creation's sha256 and size = the fork-tested bytes. 2026-11-13 the pair is DEPLOYED (Grok's wallet,
+ *              nonces 214 and 215): nonceN = 214, each adresse = CREATE(deployer, 214 + k) (computed, never typed), the tx hashes and blocks
+ *              the noter read from the receipts, and the app follows exactly those two. The pre-deploy branch stays covered on a COPY of the
+ *              record with adresse / tx / bloc / nonceN reset to null (NUL): integrity holds, the app follows nothing (deployes -> null, null).
  * C  EXECUTED  every address and value comes from its record: P and V (economie-v2-pack-deploye.js), TBLOCK, USDC, the fee wallet and the
  *              deployer (economie-v2-pack-deploiement.js), the Spin config (slots-deploiement.js); the 1 USDC price and the 10 % from the
  *              sources (frais-contrats.js, the SAME sha256Source).
@@ -31,6 +33,8 @@ const { adresseCreate } = await imp('pack-economie-v2.js');
 let n = 0, ko = 0;
 const t = (label, cond) => { n += 1; if (cond === true) console.log('  ok   ' + label); else { ko += 1; console.log('  KO   ' + label); } };
 const clone = (o) => JSON.parse(JSON.stringify(o));
+/* the record as it was BEFORE the noter (adresse / tx / bloc / nonceN null): the pre-deploy branch, kept covered on a copy */
+const NUL = (() => { const x = clone(R); x.nonceN = null; for (const e of x.etapes) { e.adresse = null; e.tx = null; e.bloc = null; } return x; })();
 const castOk = (() => { try { execFileSync('cast', ['--version'], { stdio: 'ignore' }); return true; } catch (_) { return false; } })();
 
 console.log('— A. one writer, a fresh regeneration');
@@ -44,7 +48,9 @@ t('A the record has no CR byte', !texte.includes('\r'));
     const r = spawnSync(process.execPath, [join(ICI, 'contracts', 'preparer-deploiement-skins-spin.mjs')], { env, encoding: 'utf8' });
     const neuf = r.status === 0 ? readFileSync(join(dir, 'skins-spin-deploiement.js'), 'utf8') : '';
     const sansDate = (s) => s.replace(/"genereLe": "[^"]*"/, '"genereLe": "-"');
-    t('A a fresh regeneration (same bounds) is byte for byte the record, the generation time aside', r.status === 0 && sansDate(neuf) === sansDate(texte));
+    t('A a fresh regeneration (same bounds) is byte for byte the record before the noter (NUL), the generation time aside', r.status === 0 && sansDate(neuf) === sansDate(SS.texteRecord(NUL)));
+    t('A the noter changed nothing but adresse / tx / bloc / nonceN (NUL with those four written back = the record text)', (() => { const y = clone(NUL); y.nonceN = R.nonceN;
+      y.etapes.forEach((e, k) => { e.adresse = R.etapes[k].adresse; e.tx = R.etapes[k].tx; e.bloc = R.etapes[k].bloc; }); return SS.texteRecord(y) === texte; })());
     const sans = spawnSync(process.execPath, [join(ICI, 'contracts', 'preparer-deploiement-skins-spin.mjs')], { env: { ...env, SPIN_MAX_DEV_BATCH: '' }, encoding: 'utf8' });
     t('A without SPIN_MAX_DEV_BATCH the preparer refuses (Phil\'s choice, never defaulted)', sans.status !== 0 && /SPIN_MAX_DEV_BATCH is required/.test(sans.stderr));
     const trop = spawnSync(process.execPath, [join(ICI, 'contracts', 'preparer-deploiement-skins-spin.mjs')], { env: { ...env, SPIN_MAX_DEV_BATCH: String(BigInt(PK.etapes[1].config.maxUsdcPerPay) + 1n) }, encoding: 'utf8' });
@@ -52,14 +58,24 @@ t('A the record has no CR byte', !texte.includes('\r'));
   } finally { rmSync(dir, { recursive: true, force: true }); }
 }
 
-console.log('— B. integrity, the fork-tested bytes, nothing deployed yet');
+console.log('— B. integrity, the fork-tested bytes, the deployed pair (and, on a copy, nothing deployed)');
 t('B integrity holds (sha256 of both creations and of the pair; words = displayed config)', (await SS.integrite(R)).length === 0);
 t('B Skins creation = the fork-tested bytes (sha256 9c9cd793…3e32, 22,211 bytes)', R.etapes[0].sha256Creation === '9c9cd793bdd034fa06c98a819c6dff12140721fc0bf9dec04f444e2ef6cb3e32' && R.etapes[0].octetsCreation === 22211);
 t('B Spin creation = the fork-tested bytes (sha256 8ac1360d…cd03, 15,554 bytes)', R.etapes[1].sha256Creation === '8ac1360d9a403baad86294d81684f189b3435b4b52e031af21340c08b7cacd03' && R.etapes[1].octetsCreation === 15554);
 t('B two steps, Skins at N then Spin at N+1', R.etapes.map((e) => e.cle + e.nonce).join() === 'skinsN+0,spinN+1');
-t('B adresse, tx, bloc and nonceN are null', R.etapes.every((e) => e.adresse === null && e.tx === null && e.bloc === null) && R.nonceN === null);
+t('B (copy NUL) adresse, tx, bloc and nonceN null: integrity still holds (same deploy data)', NUL.etapes.every((e) => e.adresse === null && e.tx === null && e.bloc === null) && NUL.nonceN === null && (await SS.integrite(NUL)).length === 0);
+t('B deployed: nonceN = 214 (Grok\'s wallet: Skins at 214, Spin at 215)', R.nonceN === 214);
+t('B deployed: each adresse = CREATE(deployer, 214 + k), computed, never typed', R.etapes.every((e, k) => e.adresse === adresseCreate(R.deployeur, 214 + k).toLowerCase()) && R.etapes[0].adresse !== R.etapes[1].adresse);
+t('B deployed: Skins block 56675741, Spin block 56675860', R.etapes[0].bloc === 56675741 && R.etapes[1].bloc === 56675860);
+t('B deployed: the two creation tx hashes the noter read from the receipts', R.etapes[0].tx === '0xb3ac35c22567a16dbf28504b48bd084c56c77c43de1c4a0cde9c3ce463c48cad'
+  && R.etapes[1].tx === '0xdf8fbe78565b0d7488563618c3315527ed9263d7b817e3481c4316a567628ebe');
 t('B not a test fixture', R.fixtureDeTest === false);
-t('B the app follows nothing yet (deployes: null, null)', JSON.stringify(SS.deployes(R)) === '{"skins":null,"spin":null}');
+t('B (copy NUL) the app follows nothing (deployes: null, null)', JSON.stringify(SS.deployes(NUL)) === '{"skins":null,"spin":null}');
+{
+  const d = SS.deployes(R);
+  t('B deployed: the app follows exactly the two recorded contracts, with their blocks and txs', !!(d.skins && d.spin) && d.skins.adresse === R.etapes[0].adresse && d.spin.adresse === R.etapes[1].adresse
+    && d.skins.bloc === 56675741 && d.spin.bloc === 56675860 && d.skins.tx === R.etapes[0].tx && d.spin.tx === R.etapes[1].tx);
+}
 t('B compiler 0.8.24, optimizer 200 runs, cancun (as the fork run)', R.compilateur === '0.8.24+commit.e11b9ed9' && R.optimiseur && R.optimiseur.runs === 200 && R.evm === 'cancun');
 
 console.log('— C. every value from its record');

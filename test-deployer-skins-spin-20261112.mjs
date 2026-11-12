@@ -24,7 +24,10 @@ const { adresseCreate } = await import(pathToFileURL(join(ICI, 'pack-economie-v2
 let n = 0, ko = 0;
 const t = (label, cond) => { n += 1; if (cond === true) console.log('  ok   ' + label); else { ko += 1; console.log('  KO   ' + label); } };
 const clone = (o) => JSON.parse(JSON.stringify(o));
-const hx = (x) => '0x' + BigInt(x).toString(16);
+/* 2026-11-13 the real record is NOTED (both deployed, nonceN 214): the page must offer nothing on it. The page logic (A to D) is exercised on
+ *   a COPY with adresse / tx / bloc / nonceN reset to null (NUL = the record as the page had it before the deploys, same deploy data). */
+const NUL = (() => { const x = clone(R); x.nonceN = null; for (const e of x.etapes) { e.adresse = null; e.tx = null; e.bloc = null; } return x; })();
+const hx =(x) => '0x' + BigInt(x).toString(16);
 const u = (x) => BigInt(x).toString(16).padStart(64, '0');
 const ua = (a) => String(a).toLowerCase().slice(2).padStart(64, '0');
 const art = (s, nom) => JSON.parse(readFileSync(join(ICI, 'contracts', 'out', s, nom + '.json'), 'utf8'));
@@ -68,20 +71,27 @@ function chaine(o = {}) {
 
 console.log('— A. refusals before anything is offered');
 const ref = async (rec, ch, w = W, etat = { N: null, hashes: [] }) => (await SS.etapeSuivante(rec, ch.rpc, w, etat));
-t('A another wallet is refused (only the record\'s deployer)', /is not the deployer/.test((await ref(R, chaine(), '0x' + '44'.repeat(20))).raison));
-t('A a test fixture is refused', /TEST FIXTURE/.test((await ref({ ...clone(R), fixtureDeTest: true }, chaine())).raison));
-t('A a record that already names a contract is refused', (await ref((() => { const x = clone(R); x.etapes[0].adresse = adresseCreate(W, 1); return x; })(), chaine())).pret === false);
-t('A a tampered record is refused (integrity)', /integrity MISMATCH/.test((await ref((() => { const x = clone(R); x.etapes[0].config.feeWallet = '0x' + '11'.repeat(20); return x; })(), chaine())).raison));
-t('A another chain is refused', /switch the wallet to Base/.test((await ref(R, chaine({ chainId: 1 }))).raison));
-t('A a pending transaction is refused', /pending transaction/.test((await ref(R, chaine({ pending: N0 + 1 }))).raison));
-{ const ch = chaine(); ch.code.set(adresseCreate(W, N0), '0x60'); const r = await ref(R, ch); t('A code already at the predicted address: STOP', r.pret === false && r.arret === true && /code already/.test(r.raison)); }
-{ const ch = chaine({ simuleFn: () => { throw new Error('execution reverted: BadAddress()'); } }); t('A a simulation that reverts: nothing offered', /fails in simulation/.test((await ref(R, ch)).raison)); }
-{ const ch = chaine({ simuleFn: () => autre(RUNTIME.skins) }); t('A a simulation answering other code: nothing offered', /does not answer the frozen runtime/.test((await ref(R, ch)).raison)); }
-{ const ch = chaine({ gasJette: true }); t('A a gas estimate that fails: nothing offered', /gas could not be estimated/.test((await ref(R, ch)).raison)); }
+t('A another wallet is refused (only the record\'s deployer)', /is not the deployer/.test((await ref(NUL, chaine(), '0x' + '44'.repeat(20))).raison));
+t('A a test fixture is refused', /TEST FIXTURE/.test((await ref({ ...clone(NUL), fixtureDeTest: true }, chaine())).raison));
+t('A a record that already names a contract is refused', (await ref((() => { const x = clone(NUL); x.etapes[0].adresse = adresseCreate(W, 1); return x; })(), chaine())).pret === false);
+t('A a tampered record is refused (integrity)', /integrity MISMATCH/.test((await ref((() => { const x = clone(NUL); x.etapes[0].config.feeWallet = '0x' + '11'.repeat(20); return x; })(), chaine())).raison));
+t('A another chain is refused', /switch the wallet to Base/.test((await ref(NUL, chaine({ chainId: 1 }))).raison));
+t('A a pending transaction is refused', /pending transaction/.test((await ref(NUL, chaine({ pending: N0 + 1 }))).raison));
+{ const ch = chaine(); ch.code.set(adresseCreate(W, N0), '0x60'); const r = await ref(NUL, ch); t('A code already at the predicted address: STOP', r.pret === false && r.arret === true && /code already/.test(r.raison)); }
+{ const ch = chaine({ simuleFn: () => { throw new Error('execution reverted: BadAddress()'); } }); t('A a simulation that reverts: nothing offered', /fails in simulation/.test((await ref(NUL, ch)).raison)); }
+{ const ch = chaine({ simuleFn: () => autre(RUNTIME.skins) }); t('A a simulation answering other code: nothing offered', /does not answer the frozen runtime/.test((await ref(NUL, ch)).raison)); }
+{ const ch = chaine({ gasJette: true }); t('A a gas estimate that fails: nothing offered', /gas could not be estimated/.test((await ref(NUL, ch)).raison)); }
+{
+  const ch = chaine();
+  const r = await SS.etapeSuivante(R, ch.rpc, W, { N: null, hashes: [] });
+  t('A the REAL record (noted 2026-11-13, nonceN 214) is done: nothing to sign, fini, no simulation run', r.pret === false && r.fini === true && /already names deployed contracts/.test(r.raison) && ch.sim.length === 0
+    && R.nonceN === 214 && R.etapes.every((e, k) => e.adresse === adresseCreate(W, 214 + k).toLowerCase()));
+  t('A (control) the same call on NUL from the same chain offers step 1: the refusal above is the note, nothing else', (await SS.etapeSuivante(NUL, chaine().rpc, W, { N: null, hashes: [] })).pret === true);
+}
 
 console.log('— B. step 1 offered');
 const ch = chaine();
-const r1 = await ref(R, ch);
+const r1 = await ref(NUL, ch);
 t('B step 1 ready, nonce N, at CREATE(deployer, N)', r1.pret === true && r1.k === 0 && r1.nonce === hx(N0) && r1.attendu === adresseCreate(W, N0).toLowerCase());
 t('B its data = the frozen Skins creation (the fork-tested bytes: sha256 9c9cd793…3e32)', r1.data === SS.creationEtape(R, 0) && require256(r1.data) === '9c9cd793bdd034fa06c98a819c6dff12140721fc0bf9dec04f444e2ef6cb3e32');
 t('B simulated FROM the deployer with that exact data before it is offered', ch.sim.length === 1 && ch.sim[0].from === W && ch.sim[0].data === r1.data);
@@ -90,21 +100,21 @@ t('B gas estimated (4,452,166 stub) and sent with 20 % margin', r1.gas === '4452
 console.log('— C. step 2, and every STOP');
 {
   const h1 = ch.miner(0);
-  const r2 = await ref(R, ch, W, { N: r1.N, hashes: [h1] });
+  const r2 = await ref(NUL, ch, W, { N: r1.N, hashes: [h1] });
   t('C after a good step 1: step 2 (Spin) at N+1, its frozen creation', r2.pret === true && r2.k === 1 && r2.nonce === hx(N0 + 1) && r2.data === SS.creationEtape(R, 1) && r2.attendu === adresseCreate(W, N0 + 1).toLowerCase());
   const h2 = ch.miner(1);
-  const r3 = await ref(R, ch, W, { N: r1.N, hashes: [h1, h2] });
+  const r3 = await ref(NUL, ch, W, { N: r1.N, hashes: [h1, h2] });
   t('C both done: fini, nothing more offered', r3.pret === false && r3.fini === true);
-  t('C controleEtape holds on both receipts', SS.controleEtape(R, 0, W, N0, ch.txs.get(h1), ch.recus.get(h1)).length === 0 && SS.controleEtape(R, 1, W, N0, ch.txs.get(h2), ch.recus.get(h2)).length === 0);
+  t('C controleEtape holds on both receipts', SS.controleEtape(NUL, 0, W, N0, ch.txs.get(h1), ch.recus.get(h1)).length === 0 && SS.controleEtape(NUL, 1, W, N0, ch.txs.get(h2), ch.recus.get(h2)).length === 0);
 }
-const stop = async (opts, quoi) => { const c = chaine(); const h = c.miner(0, opts); const r = await ref(R, c, W, { N: String(N0), hashes: [h] }); t('C STOP: ' + quoi, r.pret === false && r.arret === true); };
+const stop = async (opts, quoi) => { const c = chaine(); const h = c.miner(0, opts); const r = await ref(NUL, c, W, { N: String(N0), hashes: [h] }); t('C STOP: ' + quoi, r.pret === false && r.arret === true); };
 await stop({ nonce: N0 + 1 }, 'step 1 mined at another nonce');
 await stop({ de: '0x' + '55'.repeat(20) }, 'step 1 signed by another wallet');
 await stop({ ou: '0x' + '66'.repeat(20) }, 'step 1 landed at another address');
 await stop({ data: SS.creationEtape(R, 1) }, 'step 1 carried other data');
 await stop({ status: '0x0' }, 'step 1 failed (status 0)');
 await stop({ code: autre(RUNTIME.skins) }, 'other code at the step 1 address');
-{ const c = chaine(); const h = c.miner(0); c.latest = N0 + 2; c.pending = N0 + 2; const r = await ref(R, c, W, { N: String(N0), hashes: [h] }); t('C another transaction used nonce N+1: STOP', r.pret === false && r.arret === true && /another transaction/.test(r.raison)); }
+{ const c = chaine(); const h = c.miner(0); c.latest = N0 + 2; c.pending = N0 + 2; const r = await ref(NUL, c, W, { N: String(N0), hashes: [h] }); t('C another transaction used nonce N+1: STOP', r.pret === false && r.arret === true && /another transaction/.test(r.raison)); }
 
 console.log('— D. the read-only checks');
 {
@@ -120,13 +130,13 @@ console.log('— D. the read-only checks');
   vue(B, 'USDC()', ua(G.usdc)); vue(B, 'DEV_WALLET()', ua(G.devWallet)); vue(B, 'SPIN_PRICE()', u(G.spinPrice)); vue(B, 'POT_SHARE_BPS()', u(G.potShareBps)); vue(B, 'TO_POT()', u(G.toPot));
   vue(B, 'DEV_SHARE()', u(G.devShare)); vue(B, 'prizes()', G.prizes.map(u).join('')); vue(B, 'ROUTER()', ua(X.router)); vue(B, 'DEST()', ua(X.vault)); vue(B, 'TBLOCK()', ua(X.tblock));
   vue(B, 'MIN_DEV_BATCH()', u(G.minDevBatch)); vue(B, 'MAX_DEV_BATCH()', u(G.maxDevBatch)); vue(B, 'PRICE_USDC()', u(0)); vue(B, 'USDC_SPLIT()', ua(G.devWallet) + u(G.devBps));
-  const v = await SS.verifierPaire(R, [h1, h2], c.rpc);
+  const v = await SS.verifierPaire(NUL, [h1, h2], c.rpc);
   t('D every check holds on the fake chain (' + v.lignes.length + ' lines)', v.ok === true && v.lignes.length >= 30);
   vue(S, 'MINT_PRICE()', u(10_000_000));
-  const v2 = await SS.verifierPaire(R, [h1, h2], c.rpc);
+  const v2 = await SS.verifierPaire(NUL, [h1, h2], c.rpc);
   t('D the Skins price read as 10 USDC -> NOT VERIFIED, that line named', v2.ok === false && v2.lignes.filter((l) => !l.ok).map((l) => l.quoi).join() === 'Skins.MINT_PRICE() = 1000000 (1 USDC)');
   vue(S, 'MINT_PRICE()', u(K.mintPriceUsdc)); vue(X.vault, 'isGame(address)', u(1), ua(B));
-  t('D the vault listing the Spin -> NOT VERIFIED', (await SS.verifierPaire(R, [h1, h2], c.rpc)).ok === false);
+  t('D the vault listing the Spin -> NOT VERIFIED', (await SS.verifierPaire(NUL, [h1, h2], c.rpc)).ok === false);
 }
 
 console.log('— E. the page source');

@@ -3,12 +3,15 @@
  *   both addresses: the Skins tile and market mint on the 1 USDC Skins (the earlier collections stay read, so skin #1 stays visible and
  *   sellable), the Games spin uses the new Spin, the keeper settles the new Spin AND the earlier one, the fees page says 1 USDC, that a skin
  *   mint is not a play, and that the spin's dev share buys TBLOCK through the router.
- * A  EXECUTED  today (adresse null): the active Skins is the pack's Skins at 10 USDC, SKINS_MINT = S, a skin counts as play, the served Spin
+ * A  EXECUTED  BEFORE the note (a COPY of the record with adresse / tx / bloc / nonceN reset to null): the active Skins is the pack's Skins at 10 USDC, SKINS_MINT = S, a skin counts as play, the served Spin
  *              is the live one (no router part, no earlier Spin), the XP sources are the two of before, the fees page says as before.
- * B  EXECUTED  a NOTED record (built by noterPaire from stub receipts, in a COPY of the app modules, the tree untouched): every module
+ * B  EXECUTED  a NOTED record (built by noterPaire from stub receipts on that null copy, in a COPY of the app modules, the tree untouched): every module
  *              above switches as said; the earlier skins contracts stay in BLOCKSKINS_LUS; a market call on the pack's Skins still builds;
  *              the router batch for the 1 USDC Skins = approve(P, 1 USDC) + pay(new Skins, 1 USDC, ...); the new sentences carry no jargon.
  * C  EXECUTED  a new Spin whose prize table differs from the live one is NOT served (the stated odds would be wrong): the live one stays.
+ * E  EXECUTED  the REAL record, noted 2026-11-13 (nonceN 214): the app modules as they are in the tree follow the deployed pair: the 1 USDC
+ *              Skins (CREATE(deployer, 214)) paid through P, not a play; the served Spin = CREATE(deployer, 215) with devRouteur, the earlier
+ *              Spin (slots-deploiement.js, = the record's spinVivant) kept as avant; the fees page says 1 USDC. Addresses read, never typed.
  * D  SOURCE    serveur-web.js serves /api/slots from spin-actif.js with devRouteur, gives the keeper slotsAvant, uses sourcesSkins, serves
  *              the new files; app.html mints on EP.SKINS_MINT and says the router part of a spin; holders.html follows EP.SKINS_JOUE.
  * MUTANT_FICHIER + MUTANT_CHEMIN (muter-skins-spin.mjs): a mutated module is put in the module COPY under its own name. Counts itself. */
@@ -42,10 +45,12 @@ const { SLOTS_DEPLOIEMENT: SL } = await imp(ICI, 'slots-deploiement.js');
 const { ADRESSES_PACK_ECONOMIE_V2: AP } = await imp(ICI, 'economie-v2-pack-deploye.js');
 const { BLOCKSKINS_DEPLOIEMENT } = await imp(ICI, 'blockskins-deploiement.js');
 const { adresseCreate } = await imp(ICI, 'pack-economie-v2.js');
+/* the record BEFORE the note: the real one with adresse / tx / bloc / nonceN reset to null (the noter changed nothing else) */
+const NUL = (() => { const x = JSON.parse(JSON.stringify(R)); x.nonceN = null; for (const e of x.etapes) { e.adresse = null; e.tx = null; e.bloc = null; } return x; })();
 
-console.log('— A. today: adresse null, nothing changes');
+console.log('— A. before the note (a null copy of the record): nothing changes');
 {
-  const dir = copie(null, MUT);
+  const dir = copie(SS.texteRecord(NUL), MUT);
   try {
     const AC = await imp(dir, 'blockskins-actif.js'), EP = await imp(dir, 'economie-pack.js'), SA = await imp(dir, 'spin-actif.js'), FR = await imp(dir, 'frais-risques.js');
     t('A the active Skins is the pack\'s Skins (S) at 10 USDC', AC.BLOCKSKINS === AP.S && AC.SKIN_MINT_TEXTE === '10 USDC' && AC.SKINS_UN === null);
@@ -65,7 +70,7 @@ console.log('— B. a noted record: everything follows it');
 const N = 412, W = R.deployeur;
 const H = ['0x' + 'a1'.repeat(32), '0x' + 'b2'.repeat(32)];
 const hx = (x) => '0x' + BigInt(x).toString(16);
-const note = await SS.noterPaire({ rec: R, hashes: H, verdicts: [{ ok: true }, { ok: true }],
+const note = await SS.noterPaire({ rec: NUL, hashes: H, verdicts: [{ ok: true }, { ok: true }],
   txs: [0, 1].map((k) => ({ hash: H[k], from: W, to: null, nonce: hx(N + k), input: SS.creationEtape(R, k), blockNumber: hx(56700000 + k) })),
   recus: [0, 1].map((k) => ({ transactionHash: H[k], status: '0x1', contractAddress: adresseCreate(W, N + k), blockNumber: hx(56700000 + k) })) });
 t('B the stub note is accepted by noterPaire', note.ok === true);
@@ -111,6 +116,36 @@ console.log('— C. a new Spin with another table is not served');
   t('C another prize table: the live Spin stays served, the reason said', s.contrat === SL.adresse && s.devRouteur === null && /does not keep the price, pot share and prizes/.test(s.refus));
   const s2 = (await import(pathToFileURL(SPIN_ACTIF_SRC).href)).spinActif(SL, note.rec);
   t('C the same table: the new Spin is served', s2.contrat === SP1 && s2.refus === null);
+}
+
+console.log('— E. the REAL record (noted 2026-11-13): the app as it is in the tree');
+{
+  const SKR = R.etapes[0].adresse, SPR = R.etapes[1].adresse;
+  t('E the record is the note of nonce 214: Skins = CREATE(deployer, 214), Spin = CREATE(deployer, 215)', R.nonceN === 214 && SKR === adresseCreate(W, 214).toLowerCase() && SPR === adresseCreate(W, 215).toLowerCase());
+  const dir = copie(null, MUT);
+  try {
+    const AC = await imp(dir, 'blockskins-actif.js'), EP = await imp(dir, 'economie-pack.js'), SA = await imp(dir, 'spin-actif.js'), FR = await imp(dir, 'frais-risques.js');
+    t('E the active Skins is the deployed 1 USDC Skins, paid through the router P', AC.BLOCKSKINS === SKR && AC.SKIN_MINT_TEXTE === '1 USDC' && AC.BLOCKSKINS_ACTIF.routeur === AP.P && AC.SKINS_UN && AC.SKINS_UN.adresse === SKR && AC.SKINS_UN.mintPriceUsdc === '1000000');
+    t('E the earlier skins contracts stay read, the deployed one last', AC.BLOCKSKINS_LUS[AC.BLOCKSKINS_LUS.length - 1] === SKR && AC.BLOCKSKINS_LUS.includes(AP.S) && AC.BLOCKSKINS_LUS.length === 4);
+    t('E XP sources: skins, skinsPack, then skinsUn = the deployed Skins from its block 56675741', JSON.stringify(AC.sourcesSkins().map((s) => s.cle)) === '["skins","skinsPack","skinsUn"]' && AC.sourcesSkins()[2].contrat === SKR && AC.sourcesSkins()[2].bloc === 56675741);
+    const corps = AC.skinsPrixCorps();
+    t('E /api/skins/prix: router payment on the deployed Skins, 1 USDC', corps.format === 'router' && corps.contract === SKR && corps.priceUsdc === '1000000' && corps.router === AP.P);
+    t('E economie-pack: SKINS stays S, SKINS_MINT = the deployed Skins, a skin does NOT count as play', EP.SKINS === AP.S && EP.SKINS_MINT === SKR && EP.SKINS_JOUE === false && EP.VIEW.mintPriceSkin().to === SKR);
+    t('E the holders vault rule text no longer names skins', /\(hearts, TAM art\)/.test(EP.texteRegleVault(Object.fromEntries(EP.REGLES_VAULT.map((k) => [k, 1n])))));
+    const S = SA.SPIN_ACTIF;
+    t('E the served Spin is the deployed one (block 56675860), served without refusal', S.contrat === SPR && S.bloc === 56675860 && S.refus === null);
+    t('E its devRouteur is set: P to V, 10 %, 1 to 10 USDC a batch', !!S.devRouteur && S.devRouteur.routeur === AP.P && S.devRouteur.vault === AP.V && S.devRouteur.devBps === 1000 && S.devRouteur.minBatch === '1000000' && S.devRouteur.maxBatch === '10000000');
+    t('E avant = the earlier Spin (slots-deploiement.js, = the record\'s spinVivant), its block and table, for the keeper', !!S.avant && S.avant.contrat === SL.adresse && SL.adresse === R.sources.spinVivant && S.avant.bloc === SL.bloc
+      && S.avant.table.join() === SL.constructeur.prizes.map(String).join() && S.avant.contrat !== SPR);
+    t('E the price, pot share and prizes served are the earlier Spin\'s', S.config.spinPrice === String(SL.constructeur.spinPrice) && S.config.potShareBps === SL.constructeur.potShareBps && S.config.prizes.join() === SL.constructeur.prizes.map(String).join());
+    const page = texte(FR.rendre(FR.CHIFFRES, null));
+    t('E fees page: Skin 1 USDC through the router, not a play; the spin dev part in router batches', /Skin 1 USDC Paid through the TBLOCK payment router/.test(page) && /A skin mint does not count as play for the holders vault or the monthly lock rewards\./.test(page)
+      && /paid out in batches of 1 USDC to 10 USDC through the TBLOCK payment router/.test(page) && !/Skin 10 USDC/.test(page));
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+  /* and the tree itself (not a copy): the same modules, imported where the server imports them */
+  const AC0 = await imp(ICI, 'blockskins-actif.js'), EP0 = await imp(ICI, 'economie-pack.js'), SA0 = await imp(ICI, 'spin-actif.js');
+  t('E in the tree itself: active Skins, SKINS_MINT and served Spin are the deployed pair; skins not a play', AC0.BLOCKSKINS === SKR && EP0.SKINS_MINT === SKR && EP0.SKINS_JOUE === false
+    && SA0.SPIN_ACTIF.contrat === SPR && !!SA0.SPIN_ACTIF.devRouteur && SA0.SPIN_ACTIF.avant && SA0.SPIN_ACTIF.avant.contrat === SL.adresse);
 }
 
 console.log('— D. the server, the app, the holders page (source)');
