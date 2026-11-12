@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TokenizedBlock · Fund the holders vault</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="icon.png" type="image/png">
+<!-- 2026-11-12 (Phil): the first holders vault's TBLOCK can only leave on 2026-11-19 (contract delay). This page lets a wallet
+     send that same amount to the live holders vault today, as an advance. One plain TBLOCK transfer, simulated before the
+     wallet opens, receipt checked after (tx.from, status, Transfer log emitted by TBLOCK). Addresses come from the records. -->
+<style>
+  :root{--fond:#0f0a17;--carte:#1c1430;--ligne:#2f2545;--texte:#f3effb;--doux:#b9a9dd;--accent:#a78bfa;--vif:#3ddc97;--dur:#ff6b6b}
+  *{box-sizing:border-box} body{margin:0;background:var(--fond);color:var(--texte);font:15px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  .w{max-width:640px;margin:0 auto;padding:16px 16px 48px} h1{font-size:21px;margin:8px 0 4px} .sous{color:var(--doux);font-size:13px;margin:0 0 14px}
+  .c{background:var(--carte);border:1px solid var(--ligne);border-radius:16px;padding:16px;margin:0 0 14px}
+  .r{display:flex;gap:10px;padding:6px 0;border-top:1px solid var(--ligne);font-size:13.5px} .r:first-child{border-top:0}
+  .k{color:var(--doux);flex:0 0 150px} .v{flex:1;overflow-wrap:anywhere}
+  button{font:inherit;font-weight:700;padding:11px 16px;border-radius:12px;border:0;background:var(--accent);color:#120c1e;cursor:pointer;margin:6px 8px 0 0}
+  button:disabled{opacity:.45;cursor:default} .ok{color:var(--vif)} .ko{color:var(--dur)} #etat{margin-top:10px;font-size:13.5px} a{color:var(--accent)}
+  @media (max-width:520px){.r{flex-direction:column;gap:0}.k{flex:none}}
+</style>
+</head>
+<body>
+<div class="w">
+  <h1>Fund the holders vault today</h1>
+  <p class="sous">The first holders vault can only release its TBLOCK after its 7-day public notice. This sends the same amount to the holders vault now, from your own wallet, in one transfer. Nothing else is signed.</p>
+  <div class="c" id="info"><p class="sous">Reading Base…</p></div>
+  <div class="c">
+    <button id="connect">Connect wallet</button>
+    <button id="go" disabled>Send to the holders vault (sign in the wallet)</button>
+    <div id="etat"></div>
+  </div>
+</div>
+<script type="module">
+import { TBLOCK, VAULT } from './economie-pack.js';
+import { displayShort } from './frais-creation.js';
+const FIRST_VAULT_ANNOUNCED = 699434711532762563285026n; /* the amount announced on the first holders vault, tx 0x7ae0967d…62b4 */
+const NODES = ['https://mainnet.base.org', 'https://base-rpc.publicnode.com'];
+const $ = (id) => document.getElementById(id);
+const fmt = (w) => { const s = (w / 10n ** 16n).toString().padStart(3, '0'); return Number(s.slice(0, -2)).toLocaleString('en-US') + '.' + s.slice(-2); };
+const pad = (h) => h.replace(/^0x/, '').toLowerCase().padStart(64, '0');
+const rpc = async (method, params) => {
+  let last;
+  for (const u of NODES) {
+    try { const r = await fetch(u, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }) }).then((x) => x.json());
+      if (r.error) { last = r.error; if (/revert/i.test(r.error.message || '')) throw Object.assign(new Error(r.error.message), { revert: true }); continue; }
+      return r.result; } catch (e) { if (e.revert) throw e; last = e; }
+  }
+  throw new Error('not read: ' + (last && last.message || last));
+};
+const bal = async (who) => BigInt(await rpc('eth_call', [{ to: TBLOCK, data: '0x70a08231' + pad(who) }, 'latest']));
+const data = '0xa9059cbb' + pad(VAULT) + FIRST_VAULT_ANNOUNCED.toString(16).padStart(64, '0');
+let compte = null, vaultAvant = null;
+async function lire() {
+  try {
+    vaultAvant = await bal(VAULT);
+    $('info').innerHTML = [
+      ['holders vault', '<a href="https://basescan.org/address/' + VAULT + '" target="_blank" rel="noopener">' + displayShort(VAULT) + '</a>'],
+      ['it holds now', fmt(vaultAvant) + ' TBLOCK'],
+      ['you send', fmt(FIRST_VAULT_ANNOUNCED) + ' TBLOCK (the amount announced on the first holders vault)'],
+      ['exact call', 'to ' + TBLOCK + ' · value 0 · transfer(holders vault, ' + FIRST_VAULT_ANNOUNCED + ')'],
+      ['your wallet', compte ? displayShort(compte) + ' · holds ' + fmt(await bal(compte)) + ' TBLOCK' : 'connect to check'],
+    ].map(([k, v]) => '<div class="r"><span class="k">' + k + '</span><span class="v">' + v + '</span></div>').join('');
+  } catch (e) { $('info').innerHTML = '<p class="sous ko">' + e.message + ' — reload to read again.</p>'; }
+}
+async function verifier() {
+  $('go').disabled = true;
+  if (!compte) return;
+  try {
+    if ((await window.ethereum.request({ method: 'eth_chainId' })) !== '0x2105') { $('etat').innerHTML = '<span class="ko">Switch the wallet to Base.</span>'; return; }
+    const b = await bal(compte);
+    if (b < FIRST_VAULT_ANNOUNCED) { $('etat').innerHTML = '<span class="ko">This wallet holds ' + fmt(b) + ' TBLOCK, less than ' + fmt(FIRST_VAULT_ANNOUNCED) + '.</span>'; return; }
+    const r = await rpc('eth_call', [{ from: compte, to: TBLOCK, data }, 'latest']);
+    if (BigInt(r) !== 1n) { $('etat').innerHTML = '<span class="ko">Simulation did not return true.</span>'; return; }
+    $('etat').innerHTML = '<span class="ok">Simulated from your wallet on Base: the transfer succeeds.</span>';
+    $('go').disabled = false;
+  } catch (e) { $('etat').innerHTML = '<span class="ko">Simulation refused: ' + e.message + '</span>'; }
+}
+$('connect').onclick = async () => {
+  if (!window.ethereum) { $('etat').textContent = 'No wallet found in this browser.'; return; }
+  try { [compte] = await window.ethereum.request({ method: 'eth_requestAccounts' }); compte = compte.toLowerCase(); await lire(); await verifier(); }
+  catch (e) { $('etat').textContent = 'Not connected: ' + (e.message || e); }
+};
+$('go').onclick = async () => {
+  $('go').disabled = true;
+  try {
+    const [a] = await window.ethereum.request({ method: 'eth_accounts' });
+    if (!a || a.toLowerCase() !== compte) { $('etat').textContent = 'The wallet account changed: connect again.'; return; }
+    await verifier(); if ($('go').disabled) return;
+    $('go').disabled = true;
+    const hash = await window.ethereum.request({ method: 'eth_sendTransaction', params: [{ from: compte, to: TBLOCK, data, value: '0x0' }] });
+    $('etat').innerHTML = 'Sent: <a href="https://basescan.org/tx/' + hash + '" target="_blank" rel="noopener">' + hash + '</a> — waiting for Base…';
+    let rc = null; for (let i = 0; i < 60 && !rc; i++) { await new Promise((r) => setTimeout(r, 3000)); try { rc = await rpc('eth_getTransactionReceipt', [hash]); } catch (_) {} }
+    if (!rc) { $('etat').innerHTML += '<br>Not confirmed yet: open the link to follow it.'; return; }
+    const tx = await rpc('eth_getTransactionByHash', [hash]);
+    const T = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
+    const log = rc.logs.find((l) => l.address.toLowerCase() === TBLOCK && l.topics[0] === T && l.topics[2] === '0x' + pad(VAULT));
+    const bon = rc.status === '0x1' && tx.from.toLowerCase() === compte && log && BigInt(log.data) === FIRST_VAULT_ANNOUNCED;
+    const apres = await bal(VAULT).catch(() => null);
+    $('etat').innerHTML = (bon ? '<span class="ok">Confirmed on Base: ' + fmt(FIRST_VAULT_ANNOUNCED) + ' TBLOCK sent by your wallet to the holders vault.</span>' : '<span class="ko">The receipt does not match the transfer: check it on Basescan.</span>')
+      + '<br><a href="https://basescan.org/tx/' + hash + '" target="_blank" rel="noopener">' + hash + '</a>' + (apres !== null ? '<br>The holders vault holds ' + fmt(apres) + ' TBLOCK now.' : '');
+  } catch (e) { $('etat').innerHTML = '<span class="ko">Not sent: ' + (e.message || e) + '</span>'; $('go').disabled = false; }
+};
+lire();
+</script>
+</body>
+</html>

@@ -6352,6 +6352,8 @@ const SERVIS = [
   'payee-slot.js',
   /* 2026-11-12: the pack page shows the six deployed steps without a wallet (record judged, code read on Base) */
   'pack-deployed-view.js',
+  /* 2026-11-12: one plain TBLOCK transfer to the holders vault, as an advance on the first vault rescue (simulated, receipt checked) */
+  'advance-vault.html',
   /* 2026-11-12 (game378): the creator gives up the admin role of a block (grant 0x…dEaD, then renounce): the page and its pure module */
   'renounce-admin.html', 'renounce-admin.js',
   /* 2026-11-12: move every TBLOCK of the first holders vault (and of the TBLOCK buyback that pays into it) to the holders vault:
