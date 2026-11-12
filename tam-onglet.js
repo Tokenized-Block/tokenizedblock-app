@@ -678,6 +678,26 @@ export function planRejeuMintee(paramsTexte, donnees) {
     pourquoi: verdict.identique ? null : 'its parameters do not replay to the bytes stored on Base' };
 }
 
+/* game378 (Phil pasted the Minted works list: "TAM #1", then "TAM #1 · first collection", "TAM #2 · first collection"…): ONE public
+ *   number across both collections, in mint order. The first collection (TamArt, tokenId = ++totalSupply, no burn) minted #1..#N before
+ *   TAM art went live — N is its totalSupply READ at TAM art's deploy block —, then TAM art's token k is #(N+k). Nothing is guessed: N not
+ *   read, or a first-collection token above N (minted there after TAM art went live), and the work is named by its contract and token id.
+ *   Pure: the gallery, the Replay lines and the card all show what this returns. */
+export function nomPublicTam(id, premiere, nPremiere) {
+  const k = Number(id);
+  const detail = (premiere ? 'First collection' : 'TAM art') + ' · token ' + k;
+  const nLu = Number.isSafeInteger(nPremiere) && nPremiere >= 0;
+  const numero = !Number.isSafeInteger(k) || k < 1 || !nLu ? null : premiere ? (k <= nPremiere ? k : null) : nPremiere + k;
+  return { numero, nom: numero === null ? detail : 'TAM #' + numero, detail };
+}
+/* the gallery's order: every work read ([{ s: { contrat, premiere }, id }], in the order read) named once, newest first — the highest
+ *   number on top ; a work without a number (N not read) keeps the order it was read in (TAM art first, as before) */
+export function ordreGalerie(lus, nPremiere) {
+  const cle = (x) => (x.nom.numero === null ? Infinity : x.nom.numero);
+  return (lus || []).map((x, i) => ({ ...x, i, nom: nomPublicTam(x.id, x.s.premiere, nPremiere) }))
+    .sort((a, b) => (cle(b) - cle(a)) || (a.i - b.i)).map(({ i, ...x }) => x);
+}
+
 /**
  * @param {HTMLElement} racine  le conteneur de l onglet (#tamRacine)
  * @param {object} ctx  { rpc, compte(), payer: { lignes(), taille(l, usdc), soldes, dec, sym(l), qte(brut, dec), lire(moi) }, preparer(o), envoyer(pj, c, dit) }
@@ -688,7 +708,7 @@ export function monter(racine, ctx = {}) {
   /* 2026-11-01 (test-ids-fantomes) : le style est pose UNE fois par chargement du module — un drapeau du module, pas un id relu dans le DOM */
   if (!cssPose) { document.head.append(el('style', { text: CSS })); cssPose = true; }
   const S = { P: null, o: null, c: null, choix: null, z: null, n: 0, D: 0, couches: null, t: 0, rotation: !reduit(), dessines: 0, cam: null, survol: null,
-    sale: true, son: null, dom: null, ser: null, nMintees: 0, minteesLues: null };
+    sale: true, son: null, dom: null, ser: null, nMintees: 0, minteesLues: null, nPremiere: null };
 
   /* ── l explorateur ── */
   const selGroupe = el('select', { 'aria-label': 'Kind of graph', id: 'tamGroupe' }, ...GROUPES.map(([v, t]) => el('option', { value: v, text: t })));
@@ -734,7 +754,7 @@ export function monter(racine, ctx = {}) {
   const qui = el('p', { class: 'tamQui', id: 'tamQui', text: 'No work yet: let a brain choose, or pick a family.' });
   function peindreQui() {
     /* game374 : a replayed minted work says so (not "you set it", not the brain of the work shown before) */
-    if (S.rejeu) { qui.dataset.phase = ''; qui.replaceChildren(document.createTextNode('Replay of '), el('b', { text: 'TAM #' + S.rejeu.id + collectionRejeu() }), document.createTextNode(' — minted on Base, drawn again from its stored parameters')); return; }
+    if (S.rejeu) { qui.dataset.phase = ''; qui.replaceChildren(document.createTextNode('Replay of '), el('b', { text: nomRejeu() }), document.createTextNode(detailRejeu() + ' — minted on Base, drawn again from its stored parameters')); return; }
     if (S.science && !((S.choix && S.choix.cerveau) || S.origine)) { qui.dataset.phase = ''; qui.replaceChildren(document.createTextNode('Live simulation: '), el('b', { text: S.science.s.nom }), document.createTextNode(' · ' + S.science.s.science + ' · you set it')); return; }
     /* le cerveau qui a choisi reste nomme apres un reglage (S.origine) : « then tuned » le dit */
     const ch = (S.choix && S.choix.cerveau) || S.origine;
@@ -2393,7 +2413,7 @@ export function monter(racine, ctx = {}) {
    *   line would be false there ; they say which minted work it is instead */
   function lignesRejeu(lignes) {
     if (!S.rejeu) return lignes;
-    const minte = { k: 'Minted', v: 'yes — this is TAM #' + S.rejeu.id + collectionRejeu() + ', read from Base. Anyone can replay its parameters to the same bytes.' };
+    const minte = { k: 'Minted', v: 'yes — this is ' + nomRejeu() + detailRejeu() + ', read from Base. Anyone can replay its parameters to the same bytes.' };
     /* "You did" / "You set the variables yourself" speak to the viewer: on a replay the choice was its minter's */
     return lignes.map((l) => l.k === 'Distinct from the minted works' || l.k === 'Mint' ? minte
       : l.k === 'Who chose' && /^You did/.test(l.v) ? { k: l.k, v: 'Its minter, in the free explorer.' }
@@ -2543,7 +2563,7 @@ export function monter(racine, ctx = {}) {
   /* ── game374 : Replay = the minted work loaded into the SCENE and drawn again from zero (same renderer as every work) ── */
   /* attractor : charger() with the bytes read from Base (the stored view draws THOSE bytes) ; science : chargerScience(), then the
    *   params exactly as minted (their angles, their minter — the projection reads S.P.angles) and the bytes read from Base */
-  function rejouerMintee(id, plan, donnees, graineHex, premiere = false) {
+  function rejouerMintee(id, plan, donnees, graineHex, premiere = false, nom = null) {
     const P = plan.P;
     if (plan.genre === 'science') {
       const s = SYSTEMES_SCI.find((x) => x.id === P.science); if (!s) return false;
@@ -2561,19 +2581,21 @@ export function monter(racine, ctx = {}) {
       charger(P, null, hexDe(donnees));
       if (!S.o) return false;
     }
-    S.rejeu = { id, premiere: !!premiere, verdict: plan.verdict.texte, graine: String(graineHex || '') }; S.choix = null; S.origine = null;
+    S.rejeu = { id, premiere: !!premiere, nom: nom || nomPublicTam(id, premiere, null), verdict: plan.verdict.texte, graine: String(graineHex || '') }; S.choix = null; S.origine = null;
     S.t = 0; S.dessines = reduit() ? S.n : 0; S.pause = 0; S.survol = null;
     peindreQui(); peindreCarte(); peindreReglages(); peindreMint();
     S.sale = true;
     return true;
   }
-  /* the gallery holds TAM art and the first TamArt: the same number can exist in both, so a replay of the first one says so */
-  function collectionRejeu() { return S.rejeu && S.rejeu.premiere ? ' (first collection)' : ''; }
+  /* game378 : the replayed work's ONE public name ("TAM #4"), and beside it its contract and on-chain token id ("TAM art · token 1") —
+   *   the detail is said only when a number is shown (without N the name already IS the contract and token id) */
+  function nomRejeu() { return S.rejeu ? S.rejeu.nom.nom : ''; }
+  function detailRejeu() { return S.rejeu && S.rejeu.nom.numero !== null ? ' (' + S.rejeu.nom.detail + ')' : ''; }
   function peindreRejeu() {
     rejeuLigne.hidden = !S.rejeu;
     if (!S.rejeu) { rejeuLigne.replaceChildren(); racine.dataset.rejeu = ''; return; }
     racine.dataset.rejeu = String(S.rejeu.id) + (S.rejeu.premiere ? '-first' : '');
-    rejeuLigne.replaceChildren(document.createTextNode('Replay of TAM #' + S.rejeu.id + collectionRejeu() + ' (read from Base' + (S.rejeu.graine ? ', seed ' + S.rejeu.graine.slice(0, 10) + '…' : '') + '). Check: '),
+    rejeuLigne.replaceChildren(document.createTextNode('Replay of ' + nomRejeu() + ' (' + (S.rejeu.nom.numero !== null ? S.rejeu.nom.detail + ', ' : '') + 'read from Base' + (S.rejeu.graine ? ', seed ' + S.rejeu.graine.slice(0, 10) + '…' : '') + '). Check: '),
       el('b', { text: S.rejeu.verdict }), document.createTextNode(' — its stored parameters replay to the same bytes as the ones stored on Base.'));
   }
 
@@ -2584,14 +2606,17 @@ export function monter(racine, ctx = {}) {
     if (!sources.length) { galEtat.textContent = 'No work is minted yet: TAM minting is coming soon.'; gal.replaceChildren(); racine.dataset.galerie = 'pas-deploye'; return; }
     let j = null;
     try { j = await fetch('/api/tam/oeuvres', { cache: 'no-store' }).then((r) => r.json()); } catch (_) { j = null; }
-    const cartes = [];
+    const lus = [];
     let toutLu = true, total = 0; /* game377: the count is known only when every collection was read (server list or totalSupply, uncapped) */
     for (const s of sources) {
       const lu = j && Array.isArray(j.parContrat) ? j.parContrat.find((x) => String(x.contrat || '').toLowerCase() === s.contrat) : (j && String(j.contrat || '').toLowerCase() === s.contrat ? j : null);
       let ids = lu && Array.isArray(lu.oeuvres) ? lu.oeuvres.map((o) => o.tokenId) : [];
       if (!ids.length) { try { const n = Number(BigInt(decoderMot(await ctx.rpc('eth_call', [appelLecture(s.contrat, SIG_TAM.totalSupply), 'latest'])))); ids = Array.from({ length: Math.min(n, 60) }, (_, i) => i + 1); total += n; } catch (_) { ids = []; toutLu = false; } } else total += ids.length;
-      for (const id of ids) cartes.push(carteOeuvre(s.contrat, id, s.premiere));
+      for (const id of ids) lus.push({ s, id });
     }
+    /* game378 : N read on Base, then ONE public number per work (ordreGalerie) */
+    S.nPremiere = lus.length ? await lireNPremiere() : null;
+    const cartes = ordreGalerie(lus, S.nPremiere).map((x) => carteOeuvre(x.s.contrat, x.id, x.s.premiere, x.nom));
     galEtat.textContent = cartes.length ? cartes.length + ' work' + (cartes.length === 1 ? '' : 's') + ', read from Base.' : 'No work minted yet.';
     carteGal.hidden = cartes.length === 0;
     /* game377: the explorer card says how many minted works the server will compare a work with — the count read here, never "none"
@@ -2600,10 +2625,19 @@ export function monter(racine, ctx = {}) {
     gal.replaceChildren(...cartes);
     if (S.P && !S.science) { try { peindreCarte(); } catch (_) { /* the card repaints on the next change */ } }
   }
-  function carteOeuvre(contrat, id, premiere = false) {
+  /* game378 : N = the first collection's totalSupply at TAM art's deploy block (its works minted before TAM art went live) — read, or null */
+  async function lireNPremiere() {
+    const premiere = adresseTam(TAMART_DEPLOIEMENT), bloc = EP.TAM_DEPLOIEMENT && EP.TAM_DEPLOIEMENT.bloc;
+    if (!premiere || !Number.isSafeInteger(bloc) || bloc <= 0) return null;
+    try {
+      const n = Number(BigInt(decoderMot(await ctx.rpc('eth_call', [appelLecture(premiere, SIG_TAM.totalSupply), '0x' + bloc.toString(16)]))));
+      return Number.isSafeInteger(n) && n >= 0 ? n : null;
+    } catch (_) { return null; }
+  }
+  function carteOeuvre(contrat, id, premiere = false, nom = nomPublicTam(id, premiere, null)) {
     const c = el('canvas'), badge = el('span', { class: 'tamBadge' }), txt = el('p', { class: 'tamDoux' });
     const bRejouer = el('button', { type: 'button', text: 'Replay' });
-    const f = el('div', { class: 'tamOeuvre' }, c, el('b', { text: 'TAM #' + id + (premiere ? ' · first collection' : '') }), txt, el('div', { class: 'tamRang' }, bRejouer, badge));
+    const f = el('div', { class: 'tamOeuvre' }, c, el('b', { text: nom.nom }), nom.numero !== null ? el('p', { class: 'tamDoux tamJeton', text: nom.detail }) : null, txt, el('div', { class: 'tamRang' }, bRejouer, badge));
     let donnees = null, params = null, graineHex = null;
     (async () => {
       try {
@@ -2621,7 +2655,7 @@ export function monter(racine, ctx = {}) {
       const p = planRejeuMintee(params, donnees);
       badge.className = 'tamBadge ' + (p.verdict.identique ? 'ok' : 'ko'); badge.textContent = p.verdict.texte; badge.title = p.pourquoi || '';
       if (!p.ok) return;
-      if (!rejouerMintee(id, p, donnees, graineHex, premiere)) { badge.className = 'tamBadge ko'; badge.textContent = p.verdict.texte + ' · not drawn'; badge.title = 'this page could not draw it'; return; }
+      if (!rejouerMintee(id, p, donnees, graineHex, premiere, nom)) { badge.className = 'tamBadge ko'; badge.textContent = p.verdict.texte + ' · not drawn'; badge.title = 'this page could not draw it'; return; }
       scene.scrollIntoView({ behavior: reduit() ? 'auto' : 'smooth', block: 'center' });
     });
     return f;

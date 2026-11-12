@@ -274,6 +274,7 @@ import { lireCoffrePaye } from './coffre-paye.js';
 import { classement, vueCompte, joueursParSemaine } from './coeurs.js'; /* game346: hearts given / received / board */
 import { creerSante } from './rpc-sante.js'; /* game362: one health state per RPC host */
 import { creerIndexCoeursSuite, LIKES_DEPLOY_BLOC } from './coeurs-index.js';
+import { creerSignataires, derniersCoeurs, coeursPourLeFil } from './coeurs-fil.js'; /* game378: hearts in the Live feed, each checked on its receipt (tx.from) */
 import * as EP_PACK from './economie-pack.js'; /* 2026-11-12: the live economy pack (addresses from its deployment record) */
 import { creerIndexLogs } from './index-logs.js'; /* game353: the community points */
 import { TOPICS as TOPICS_LOCK, decoderLock, LOCK_DEPLOY_BLOC } from './lock-evenements.js';
@@ -4122,6 +4123,10 @@ if (ECONOMIE_DEPLOIEMENT.adresseLikes || EP_PACK.HEARTS) {
     ...(ECONOMIE_DEPLOIEMENT.adresseLikes ? [{ likes: String(ECONOMIE_DEPLOIEMENT.adresseLikes).toLowerCase(), depuis: LIKES_DEPLOY_BLOC }] : []),
     ...(EP_PACK.HEARTS ? [{ likes: EP_PACK.HEARTS, depuis: EP_PACK.BLOC_DEPLOIEMENT.L }] : []),
   ] });
+  /* game378: each pass then reads the receipts of the latest Hearts hearts (10 at most a pass; a verdict is kept, a miss is read again) */
+  COEURS.signataires = creerSignataires({ rpc: rpcCoeurs });
+  const avancerIndexCoeurs = COEURS.index.avancer;
+  COEURS.index.avancer = async () => { const e = await avancerIndexCoeurs(); try { await COEURS.signataires.resoudre(derniersCoeurs(COEURS.index.coeurs().filter((c) => c.contrat === EP_PACK.HEARTS))); } catch (_) { /* read again next pass */ } return e; };
   if (process.env.TB_SONDES !== '0' && !ESSAI_SRV.actif) {
     setTimeout(() => { void COEURS.index.avancer(); setInterval(() => { void COEURS.index.avancer(); }, 60000).unref?.(); }, 20000).unref?.();
   }
@@ -6361,7 +6366,7 @@ const SERVIS = [
   /* holders economy: the +1 burn and the holders vault, their page module, the unsigned deployment (generated) and its page.
    * 2026-11-12: deployer-economie-v2.html is the six-step pack (economie-v2-pack-deploiement.js + pack-economie-v2.js); the stale
    * two-signature record economie-v2-deploiement.js is deliberately NOT served any more, so no page can offer it. */
-  'economie.js', 'economie-deploiement.js', 'deployer-economie.html', 'create-vault-tip.js', 'relais-rpc.js', 'etat-naissance.js', 'coffre-paye.js', 'carte-naissance.js', 'coeurs-vue.js', 'lock.js', 'lock-deploiement.js', 'deployer-lock.html', 'deployer-economie-v2.html', 'economie-v2-pack-deploiement.js', 'pack-economie-v2.js', 'points-vue.js', 'points.js',
+  'economie.js', 'economie-deploiement.js', 'deployer-economie.html', 'create-vault-tip.js', 'relais-rpc.js', 'etat-naissance.js', 'coffre-paye.js', 'carte-naissance.js', 'coeurs-vue.js', 'coeurs-fil.js', 'lock.js', 'lock-deploiement.js', 'deployer-lock.html', 'deployer-economie-v2.html', 'economie-v2-pack-deploiement.js', 'pack-economie-v2.js', 'points-vue.js', 'points.js',
   /* 2026-11-12: the economy pack is live: its deployment record (generated from the six receipts) and the page module that reads it */
   'economie-v2-pack-deploye.js', 'economie-pack.js',
   /* 2026-11-12: the last step of the pack page, the hook payee moves its creator fee slot to the lock rewards (payee-slot.js) */
@@ -6377,6 +6382,8 @@ const SERVIS = [
   'move-first-vault.html', 'move-first-vault.js',
   /* 2026-11-12 (game377): the pure lines of the "Your wallet" card on holders.html (the lock for hearts and the vault, the wallet for the channel) */
   'holders-wallet.js',
+  /* lot 378 task 6: the Holders cards drawn (bars, steps, gauge, timeline), imported by app.html */
+  'holders-vue.js',
   /* game120 : ondes, lumiere et son */
   'tam-ondes.js',
   /* game122 : electricite */
@@ -8119,6 +8126,8 @@ function traiterRequete(req, res) {
       semaines: joueursParSemaine(tous),
       /* 2026-11-12: the same, per hearts contract (the live vault counts only the hearts given on Hearts) */
       semainesParContrat: Object.fromEntries(ix.contrats().map((k) => [k.adresse, joueursParSemaine(tous.filter((c) => c.contrat === k.adresse))])),
+      /* game378: the latest hearts given on Hearts, for the Live feed; signePar = tx.from of the checked receipt, null until it is read */
+      fil: COEURS.signataires && EP_PACK.HEARTS ? coeursPourLeFil(tous, COEURS.signataires.de, { contrat: EP_PACK.HEARTS }) : [],
     };
     if (compteC) {
       const v = vueCompte(tous, compteC, crDe);
@@ -8134,6 +8143,7 @@ function traiterRequete(req, res) {
     for (const e of corps.board) for (const b of e.sesBlocks) adrsC.add(b);
     if (corps.compte) { for (const d of corps.compte.recus.de) for (const b of d.sesBlocks) adrsC.add(b); for (const v of corps.compte.donnes.vers) adrsC.add(v.bloc); for (const b of corps.compte.sesBlocks) adrsC.add(b); }
     if (corps.bloc) for (const s of corps.bloc.signaux) for (const b of s.sesBlocks) adrsC.add(b);
+    for (const c of corps.fil) adrsC.add(c.bloc);
     const trendC = new Map((lignesNomsTrending.lignes || []).map((l) => [String(l.adr || '').toLowerCase(), l.sym]));
     corps.symboles = {};
     for (const b of adrsC) { const f = faitsCreation.get(b); const s = (f && f.symbole) || trendC.get(b); if (s) corps.symboles[b] = String(s).slice(0, 16); }

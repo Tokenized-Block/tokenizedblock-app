@@ -121,7 +121,7 @@ async function verifier(F) {
   t('3n the 5 s tick calls it too (covers a connect from another tab)', APP.includes('setInterval(() => { try { wLockSuitCompte(); } catch (_) { /* next tick */ } void peindreVaultWallet().catch(() => {}); }, 5000);'));
   const lock = fonction(APP, 'async function peindreLock(') || '';
   t('3o peindreLock records the account it painted (and "" for the connect message)', lock.includes("if (!compte) { hote.textContent = ''; hote.dataset.compte = '';") && lock.includes('hote.dataset.lu = String(Date.now()); hote.dataset.compte = moi;'));
-  t('3p the vault reads keep their 60 s pace', vaultW.includes('Date.now() - wVaultLu < 60000) return;'));
+  t('3p the vault reads keep their 60 s pace', vaultW.includes('Date.now() - wVaultLu < 60000) return;') || vaultW.includes('Date.now() - wVaultLu < 60000 && pour === wVaultPour)) return;') /* merge game378: the pace is per wallet (lot 378) */);
 
   /* ── 4. TAM: distinct from the minted works ── */
   await tente('4 tam-vue.js imports', async () => {

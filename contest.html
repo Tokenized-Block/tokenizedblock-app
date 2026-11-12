@@ -147,10 +147,11 @@ async function refresh() {
 
 async function readWallet() {
   const r = S.chainRound, w = wallet;
-  const out = { balance: C.decodeUint(await rd(C.VIEW.balanceOf(w))), claimable: C.decodeUint(await rd(C.VIEW.claimable(w))),
+  if (!w) return;
+  const out = { wallet: w, balance: C.decodeUint(await rd(C.VIEW.balanceOf(w))), claimable: C.decodeUint(await rd(C.VIEW.claimable(w))),
     enteredBy: C.decodeBool(await rd(C.VIEW.enteredBy(r, w))), room: C.decodeUint(await rd(C.VIEW.fundRoom(r))), voted: new Map() };
   for (const e of S.current.entries) out.voted.set(e.id, C.decodeBool(await rd(C.VIEW.hasVoted(r, e.id, w))));
-  my = out;
+  if (w === wallet) my = out; /* task 3 (lot 378): a late answer for a wallet that is no longer connected is dropped, never shown under another */
 }
 
 /* ---------------------------------------------------------------- the holders vault — 2026-11-12: the live one (EP.VAULT). Its claim needs
@@ -159,26 +160,29 @@ async function readWallet() {
 let V = null;
 async function readVault() {
   if (!EP.VAULT || !EP.HEARTS) { V = null; return; }
+  const who = wallet;
   try {
     const w = (v) => rd(v).then((h) => EP.word(h));
     const v = { balance: await w(EP.VIEW.vaultBalance()), reserved: await w(EP.VIEW.reserved()), rescueAmount: await w(EP.VIEW.rescueAmount()),
       rescueAt: await w(EP.VIEW.rescueAt()), renounced: EP.word(await call(EP.VAULT, '0x' + ECO.SEL.rescueRenounced)) !== 0n, epoch: await w(EP.VIEW.currentEpoch()),
-      need: await w(EP.VIEW.minHold()), minCommit: await w(EP.VIEW.minCommit()), mine: [], first: [] };
-    if (wallet) {
-      v.locked = await w(LK.VIEW.activeLockedOf(wallet)); v.unlockAt = await w(LK.VIEW.unlockAtOf(wallet)); v.factor = await w(EP.VIEW.lockFactor(wallet));
+      need: await w(EP.VIEW.minHold()), minCommit: await w(EP.VIEW.minCommit()), mine: [], first: [], wallet: who };
+    if (who) {
+      v.locked = await w(LK.VIEW.activeLockedOf(who)); v.unlockAt = await w(LK.VIEW.unlockAtOf(who)); v.factor = await w(EP.VIEW.lockFactor(who));
       for (const e of [v.epoch - 1n, v.epoch - 2n].filter((x) => x >= 0n)) {
         const ep = EP.decoderEpoque(await rd(EP.VIEW.epochs(e)));
-        const o = await rd(EP.VIEW.owed(e, wallet));
-        v.mine.push({ e, closed: ep.closed, share: EP.word(o, 0), bonus: EP.word(o, 1), need: await w(EP.VIEW.needFor(e)) });
+        const o = await rd(EP.VIEW.owed(e, who));
+        v.mine.push({ e, closed: ep.closed, budget: ep.budget, share: EP.word(o, 0), bonus: EP.word(o, 1), need: await w(EP.VIEW.needFor(e)),
+          claimed: (await w(EP.VIEW.claimed(e, who))) !== 0n, played: await w(EP.VIEW.playOf(e, who)) });
       }
       if (ECO.VAULT) for (const e of [v.epoch - 1n, v.epoch - 2n].filter((x) => x >= 0n)) {
-        const o = await rd(ECO.VIEW.owed(e, wallet));
+        const o = await rd(ECO.VIEW.owed(e, who));
         const s = ECO.word(o, 0), b = ECO.word(o, 1);
         if (s + b > 0n) v.first.push({ e, share: s, bonus: b });
       }
     }
+    if (who !== wallet) return; /* the wallet changed during the read: this one is dropped, the next read paints the right wallet */
     V = v;
-  } catch (e) { V = { error: String((e && e.message) || e).slice(0, 100) }; }
+  } catch (e) { if (who === wallet) V = { error: String((e && e.message) || e).slice(0, 100) }; }
 }
 function renderVault() {
   if (!V) { $('vault').hidden = true; return; }
@@ -193,8 +197,15 @@ function renderVault() {
   if (!wallet) h += '<div class="act"><button class="ghost" data-connect="1">Connect wallet to see your rewards</button></div>';
   for (const m of V.mine) {
     const sum = m.share + m.bonus;
-    h += '<div class="entry"><div class="top"><span><b>Week ' + m.e + '</b></span><span>' + (m.closed ? (sum > 0n ? pill('to claim', 'ok') : pill('nothing for this wallet', 'warn')) : pill('not closed yet', 'warn')) + '</span></div>';
-    if (m.closed && sum > 0n) h += row('Your share', tok(m.share)) + (m.bonus > 0n ? row('Top contributor bonus', tok(m.bonus)) : '') + '<div class="act"><button data-claimweek="' + m.e + '">Claim ' + tok(sum) + '</button></div>';
+    const short = V.locked < m.need || V.unlockAt < BigInt(chainNow()) + V.minCommit;
+    const st = !m.closed ? pill('not closed yet', 'warn') : m.claimed ? pill('claimed', 'ok') : sum > 0n ? pill('to claim', 'ok')
+      : m.played === 0n ? pill('nothing for this wallet', 'warn') : short ? pill('lock needed', 'warn') : pill('nothing to pay', 'warn');
+    h += '<div class="entry"><div class="top"><span><b>Week ' + m.e + '</b></span><span>' + st + '</span></div>';
+    if (m.closed && m.claimed) h += '<p class="note">This wallet already claimed this week.</p>';
+    else if (m.closed && sum > 0n) h += row('Your share', tok(m.share)) + (m.bonus > 0n ? row('Top contributor bonus', tok(m.bonus)) : '') + '<div class="act"><button data-claimweek="' + m.e + '">Claim ' + tok(sum) + '</button></div>';
+    else if (m.closed && m.played === 0n) h += '<p class="note">This wallet did not play this week.</p>';
+    else if (m.closed && short) h += '<p class="note">This wallet played ' + tok(m.played) + ' this week. Claiming needs ' + tok(m.need) + ' locked and a lock that lasts at least ' + Math.round(Number(V.minCommit) / 86400) + ' more days; it has ' + tok(V.locked) + ' locked.</p>';
+    else if (m.closed) h += '<p class="note">This wallet played ' + tok(m.played) + ' this week; the week closed with a budget of ' + tok(m.budget) + '.</p>';
     if (!m.closed) h += '<p class="note">Anyone can close a finished week; then each player claims.</p><div class="act"><button class="ghost" data-closeweek="' + m.e + '">Close week ' + m.e + '</button></div>';
     h += '</div>';
   }
@@ -208,10 +219,12 @@ function renderVault() {
 
 /* ---------------------------------------------------------------- the connected wallet's own blocks */
 async function readMine(extra) {
+  const who = wallet;
+  if (!who) return;
   mine.list = null; mine.why = 'Looking for the blocks this wallet created…'; render();
   let blocks = [];
   try {
-    const j = await fetch('/api/blocks-de?' + new URLSearchParams({ adr: wallet }), { cache: 'no-store', signal: AbortSignal.timeout(15000) }).then((x) => x.json());
+    const j = await fetch('/api/blocks-de?' + new URLSearchParams({ adr: who }), { cache: 'no-store', signal: AbortSignal.timeout(15000) }).then((x) => x.json());
     if (j && j.ok && Array.isArray(j.blocks)) blocks = j.blocks.map((b) => String(b).toLowerCase()).filter((b) => /^0x[0-9a-f]{40}$/.test(b));
   } catch (_) { /* the index is a shortcut only: the address field below still works */ }
   if (extra && !blocks.includes(extra)) blocks.unshift(extra);
@@ -222,18 +235,24 @@ async function readMine(extra) {
     try {
       const k = await fetch('/api/cle/' + b, { cache: 'no-store', signal: AbortSignal.timeout(20000) }).then((x) => x.json());
       const keys = k && k.ok && Array.isArray(k.cles) ? k.cles.filter((c) => String(c.hooks).toLowerCase() === C.HOOK) : null;
-      if (!keys) item.why = 'its pool was not read just now; try again in a minute';
+      /* /api/cle: ok:false with a window (balaye) and no NON_LU = the server READ that window and found no pool (it keeps that answer):
+       *   trying again cannot find an older one. Only NON_LU, or no answer at all, is a read that failed. */
+      if (!keys) item.why = k && k.ok === false && k.etat !== 'NON_LU' && Number(k.balaye) > 0
+        ? 'no pool of this block was found in the last ' + Number(k.balaye).toLocaleString('en-US') + ' Base blocks the server reads, so the contest cannot be given its pool from this page; trying again will not find an older one'
+        : 'its pool was not read just now; try again in a minute';
       else if (!keys.length) item.why = 'this block has no pool on the creator registry the contest reads';
       for (const c of keys || []) {
         const key = { currency0: String(c.currency0).toLowerCase(), currency1: String(c.currency1).toLowerCase(), fee: Number(c.fee), tickSpacing: Number(c.tickSpacing), hooks: String(c.hooks).toLowerCase() };
-        const chk = await C.readCreatorCheck(call, { blockToken: b, key, wallet });
+        const chk = await C.readCreatorCheck(call, { blockToken: b, key, wallet: who });
         if (chk.ok) { item.ok = true; item.key = key; item.why = ''; break; }
         item.why = chk.why;
       }
       if (item.ok) item.entered = C.decodeBool(await rd(C.VIEW.entered(S.chainRound, b)));
     } catch (e) { item.why = 'not read just now (' + String((e && e.message) || e).slice(0, 80) + ')'; }
     list.push(item);
+    if (who !== wallet) return;
   }
+  if (who !== wallet) return;
   mine.list = list;
   mine.why = blocks.length ? '' : 'No block created by this wallet is in the index yet. An empty list means the index has not seen one, not that there is none: paste the block address below to check it on the contract.';
   if (blocks.length > 12) mine.why = 'Only the first 12 blocks are checked here. Paste an address below to check another one.';
@@ -268,11 +287,21 @@ async function send(calls, what) {
   if (wallet && mine.list) readMine();
 }
 
+let listening = false;
+function onAccounts(a) {
+  const next = a && a[0] ? String(a[0]).toLowerCase() : null;
+  if (next === wallet) return;
+  wallet = next; my = null; mine.list = null; mine.why = ''; message = '';
+  if (V && !V.error) V = { ...V, wallet: null, locked: undefined, unlockAt: undefined, factor: undefined, mine: [], first: [] };
+  render();
+  refresh().then(() => { if (wallet) readMine(); });
+}
 async function connect() {
   if (!window.ethereum) { message = 'No wallet found in this browser.'; render(); return; }
   try {
     const a = await window.ethereum.request({ method: 'eth_requestAccounts' });
     wallet = a && a[0] ? String(a[0]).toLowerCase() : null;
+    if (!listening && typeof window.ethereum.on === 'function') { window.ethereum.on('accountsChanged', onAccounts); listening = true; }
   } catch (e) { message = 'Wallet not connected: ' + String((e && e.message) || e).slice(0, 120); }
   if (wallet) { await refresh(); readMine(); } else render();
 }

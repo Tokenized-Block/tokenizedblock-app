@@ -68,7 +68,7 @@ if (typeof plan === 'function') {
 const finCorps = (s, i) => { const re = /\r?\n {2}\}\r?\n/g; re.lastIndex = i; const m = re.exec(s); return m ? m.index : -1; };
 const corps = (nom) => { const i = src.indexOf('function ' + nom + '('); if (i < 0) return ''; const j = finCorps(src, i); return j < 0 ? src.slice(i) : src.slice(i, j); };
 const cB1 = (s) => { const i = s.indexOf("const bRejouer = el('button'"); const j = s.indexOf('return f;', i); const h = i < 0 || j < 0 ? '' : s.slice(i, j);
-  return /planRejeuMintee\(params, donnees\)/.test(h) && /rejouerMintee\(id, p, donnees, graineHex, premiere\)/.test(h) && /scene\.scrollIntoView\(/.test(h); };
+  return /planRejeuMintee\(params, donnees\)/.test(h) && /rejouerMintee\(id, p, donnees, graineHex, premiere, nom\)/.test(h) && /scene\.scrollIntoView\(/.test(h); };
 vu(cB1(src), 'B Replay click: planRejeuMintee, then rejouerMintee (the scene), then scene.scrollIntoView');
 const cB2 = (s) => { const i = s.indexOf('function rejouerMintee('); const j = finCorps(s, i); const h = i < 0 ? '' : s.slice(i, j);
   return /charger\(P, null, hexDe\(donnees\)\)/.test(h) && /chargerScience\(s\.id, P\.params/.test(h) && /S\.P = JSON\.parse\(JSON\.stringify\(P\)\); S\.octets = hexDe\(donnees\)/.test(h)
@@ -81,24 +81,24 @@ const cB4 = (s) => { const h = (() => { const i = s.indexOf('function peindreMin
 vu(cB4(src), 'B a replayed (already minted) work does not offer Mint again');
 const cB5 = (s) => ['charger', 'chargerScience', 'chargerFormule'].every((f) => { const i = s.indexOf('function ' + f + '('); return i >= 0 && /S\.rejeu = null;/.test(s.slice(i, s.indexOf('\n', s.indexOf('\n', i) + 1))); });
 vu(cB5(src), 'B charger / chargerScience / chargerFormule clear the replay state on their first line (a later change is not called a replay)');
-const cB6 = (s) => { const h = corps('peindreRejeu'); return /identical|verdict/.test(h) && /'Replay of TAM #'/.test(h) && /rejeuLigne\.hidden = !S\.rejeu/.test(h); };
+const cB6 = (s) => { const h = corps('peindreRejeu'); return /identical|verdict/.test(h) && /'Replay of ' \+ nomRejeu\(\)/.test(h) && /rejeuLigne\.hidden = !S\.rejeu/.test(h); };
 vu(cB6(src), 'B peindreRejeu: the line says "Replay of TAM #…" and the check, hidden when no replay');
 
-const cB7 = (s) => { const h = corps('lignesRejeu'); return /if \(!S\.rejeu\) return lignes;/.test(h) && /'Distinct from the minted works'/.test(h) && /this is TAM #' \+ S\.rejeu\.id/.test(h) && /'Who chose'/.test(h) && /'Tuned'/.test(h)
+const cB7 = (s) => { const h = corps('lignesRejeu'); return /if \(!S\.rejeu\) return lignes;/.test(h) && /'Distinct from the minted works'/.test(h) && /this is ' \+ nomRejeu\(\)/.test(h) && /'Who chose'/.test(h) && /'Tuned'/.test(h)
   && (s.match(/lignesRejeu\(lignes\)\.flatMap/g) || []).length === 2; };
 vu(cB7(src), 'B the card of a replayed work says "Minted: yes — this is TAM #…" (not "Distinct … no minted work yet", not "You did"), science and attractor');
-/* merged on the economy pack (2026-11-12): the same number can exist in TAM art and in the first TamArt — a replay of the first one says so,
- *   in the top line, the check line and the card */
-const cB8 = (s) => /S\.rejeu = \{ id, premiere: !!premiere,/.test(s) && /function collectionRejeu\(\) \{ return S\.rejeu && S\.rejeu\.premiere \? ' \(first collection\)' : ''; \}/.test(s)
-  && /'TAM #' \+ S\.rejeu\.id \+ collectionRejeu\(\)/.test(s) && /'Replay of TAM #' \+ S\.rejeu\.id \+ collectionRejeu\(\)/.test(s) && /this is TAM #' \+ S\.rejeu\.id \+ collectionRejeu\(\)/.test(s)
-  && /carteOeuvre\(s\.contrat, id, s\.premiere\)/.test(s);
-vu(cB8(src), 'B a replay of a work of the first TamArt is named "(first collection)" in the top line, the check line and the card');
+/* game378 (Phil: "TAM #1" then "TAM #1 · first collection"): ONE public number across both collections — the replay carries the card's
+ *   public name (nomPublicTam, tested in test-tam-numero-378) and shows it in the top line, the check line and the card ; no "(first collection)" */
+const cB8 = (s) => /S\.rejeu = \{ id, premiere: !!premiere, nom: nom \|\| nomPublicTam\(id, premiere, null\),/.test(s) && /function nomRejeu\(\) \{ return S\.rejeu \? S\.rejeu\.nom\.nom : ''; \}/.test(s)
+  && /el\('b', \{ text: nomRejeu\(\) \}\)/.test(s) && /'Replay of ' \+ nomRejeu\(\)/.test(s) && /this is ' \+ nomRejeu\(\) \+ detailRejeu\(\)/.test(s)
+  && /carteOeuvre\(x\.s\.contrat, x\.id, x\.s\.premiere, x\.nom\)/.test(s) && !/\(first collection\)|collectionRejeu/.test(s);
+vu(cB8(src), 'B a replay is named by the ONE public name of its card ("TAM #4") in the top line, the check line and the card — no "(first collection)"');
 
 /* ── M. mutants ── */
 const mut = (nom, de, vers, c) => { const s2 = src.replace(de, vers); vu(s2 !== src && c(s2) === false, 'M ' + nom); };
 mut('no scroll -> B1 red', 'scene.scrollIntoView(', 'scene.focus(', cB1);
 /* merged on the economy pack (2026-11-12): the gallery holds TAM art and the first TamArt, so the click passes which collection */
-mut('Replay back to the badge only -> B1 red', 'rejouerMintee(id, p, donnees, graineHex, premiere)', 'void 0', cB1);
+mut('Replay back to the badge only -> B1 red', 'rejouerMintee(id, p, donnees, graineHex, premiere, nom)', 'void 0', cB1);
 mut('attractor drawn without the on-chain bytes -> B2 red', 'charger(P, null, hexDe(donnees))', 'charger(P, null, null)', cB2);
 mut('science keeps this wallet\'s params -> B2 red', 'S.P = JSON.parse(JSON.stringify(P)); S.octets = hexDe(donnees)', 'S.octets = hexDe(donnees)', cB2);
 mut('no animation from 0 -> B2 red', /(function rejouerMintee[\s\S]*?)S\.dessines = reduit\(\) \? S\.n : 0/, '$1S.dessines = S.n', cB2);
@@ -107,7 +107,7 @@ mut('Mint offered on a replay -> B4 red', "if (S.rejeu) { zMint.hidden = true; r
 mut('charger keeps the replay state -> B5 red', /(function charger\(P, choix = null, octetsServeur = null\) \{\n)    S\.rejeu = null;/, '$1', cB5);
 
 mut('card not rewritten on a replay -> B7 red', "dl.replaceChildren(...lignesRejeu(lignes).flatMap", 'dl.replaceChildren(...lignes.flatMap', cB7);
-mut('collection dropped from the replay state -> B8 red', 'S.rejeu = { id, premiere: !!premiere,', 'S.rejeu = { id, premiere: false,', cB8);
-mut('check line without the collection -> B8 red', "'Replay of TAM #' + S.rejeu.id + collectionRejeu()", "'Replay of TAM #' + S.rejeu.id", cB8);
+mut('card name dropped from the replay state -> B8 red', 'nom: nom || nomPublicTam(id, premiere, null),', 'nom: nomPublicTam(id, premiere, null),', cB8);
+mut('check line back to the raw token id -> B8 red', "'Replay of ' + nomRejeu()", "'Replay of TAM #' + S.rejeu.id", cB8);
 console.log(rouges ? '\nRED: ' + rouges + ' failed, ' + n + ' passed' : '\nGREEN: ' + n + ' passed');
 process.exit(rouges ? 1 : 0);
