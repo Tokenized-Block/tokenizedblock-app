@@ -3101,7 +3101,7 @@ details[open] > summary::before{transform:rotate(90deg)}
            not move, wrap or lock the token itself »). Une verite CACHEE sous un titre FAUX reste
            un titre faux : c est le titre qu on lit, pas le repli. La correction est en haut, et
            visible sans cliquer. -->
-      <p class="sous">Mint a <b>new</b> block on Base, named after something that already exists. The original is never moved, wrapped or converted — your block is a new token that simply carries its name. Nothing here signs anything.</p>
+      <p class="sous">Create a <b>new</b> block on Base that carries the name of something that already exists. The original stays where it is: nothing is moved, wrapped or converted. Nothing on this screen asks you to sign.</p>
       <div class="stadeLigne" data-itabs="tkQuoi" role="tablist" style="margin-top:2px">
         <button type="button" class="puce on" role="tab" aria-selected="true" data-itab="jeton">⬢ A token</button>
         <button type="button" class="puce" role="tab" aria-selected="false" data-itab="post">❞ A post on X</button>
@@ -3164,11 +3164,11 @@ details[open] > summary::before{transform:rotate(90deg)}
 
       <!-- ── UN POST SUR X ─────────────────────────────────────────────────────────────── -->
       <div class="infoPane" data-itabs-pane="tkQuoi" data-itab="post" hidden>
-        <p class="sous" style="margin-top:12px">A block can carry a link to a post on X, engraved with it. Paste the link when you create the block — it goes on chain with the name, the symbol and the face, in the same transaction.</p>
+        <p class="sous" style="margin-top:12px">Give your block a post from X. The link is written on chain with the block's name, symbol and face, in the same transaction, and it can never be changed.</p>
         <ol class="creaPas">
-          <li><b>Copy the post link</b> <span>the address bar of any post on x.com</span></li>
-          <li><b>Tick “Tokenize a post”</b> <span>in Create, under the face settings</span></li>
-          <li><b>Paste and create</b> <span>the link is engraved and cannot be changed after</span></li>
+          <li><b>Copy the post's link</b> <span>from the address bar on x.com</span></li>
+          <li><b>Open Create → “Tokenize a post from X”</b> <span>and tick “Tokenize a post”</span></li>
+          <li><b>Paste the link and create</b> <span>it is engraved for good</span></li>
         </ol>
         <!-- ⛔ LA MEME PHRASE QUE LE MODULE, ET ELLE DIT CE QU ON NE SAIT PAS. Rien n ouvre le lien
              au moment de la gravure : ni ici, ni dans Create, ni dans le validateur. On ne sait
@@ -3176,7 +3176,7 @@ details[open] > summary::before{transform:rotate(90deg)}
              verification qui n a jamais eu lieu — et le lien, lui, est permanent.
              ⛔ PRECISE LE 2026-09-25 : la phrase disait « nothing here opens the link », devenue
              fausse par omission depuis que la fiche du block affiche le post. -->
-        <p class="note">Nothing is checked when the link is engraved: we do not verify that the post exists, and we cannot tell whether it is yours — the block simply points at it, for good. Later, on the block's page, we do fetch what X publishes for that link, to show it.</p>
+        <p class="note">We do not check the link when it is engraved: we cannot tell whether the post exists or who wrote it. Your block just points to it, forever. On the block's page, we later show what X returns for that link.</p>
         <button type="button" class="bouton" id="tkGo" style="margin-top:12px">Create a block with a post</button>
       </div>
     </div>
@@ -3190,14 +3190,13 @@ details[open] > summary::before{transform:rotate(90deg)}
            la difference entre un message prive par accident et un message public. -->
     <div class="carte" style="margin-top:14px">
       <p class="titre">Say it on X</p>
-      <p class="sous">Write it, read it, then decide. Nothing is published from here — the button opens X
-        with the text ready, and you send it yourself.</p>
+      <p class="sous">Get a post ready, read it, and send it yourself: nothing is published from here. The button opens X with the text filled in.</p>
       <!-- ⛔ UN SEUL CHAMP. Phil, 2026-09-25 : « tu regardes simplement le lien que l user va
            remplir, et y a le nom de l utilisateur, donc t as la donnee ». Exact : un lien de post
            X contient deja le handle (x.com/<handle>/status/…), et un lien de block mene au post
            grave, donc a son auteur. Demander le handle a cote, c etait faire retaper une donnee
            qu on avait deja — et ouvrir la porte a ce que les deux se contredisent. -->
-      <label class="champ">Paste a link
+      <label class="champ">Your link
         <input id="tkLien" placeholder="a post on x.com, or a block page here" autocomplete="off" spellcheck="false">
       </label>
       <p class="note" id="tkApercu" style="border:1px solid rgba(255,255,255,.18);border-radius:12px;padding:10px 12px;white-space:pre-wrap"></p>
@@ -3688,7 +3687,7 @@ details[open] > summary::before{transform:rotate(90deg)}
       <!-- ⛔ L EMPREINTE EST AFFICHEE, DONC ELLE EST DE L ANGLAIS. `20261001-pont-dans-lui` a fait
            rougir `test-texte-a-l-ecran.mjs` : le mot « dans » est de la prose francaise partie a
            l ecran anglais. La garde a fait son travail du premier coup. -->
-      <p class="note" data-build="20261109-game372" hidden>Build <code>20261109-game372</code> ·Contract labels say what they do, not our internal names.</p>
+      <p class="note" data-build="20261109-game373" hidden>Build <code>20261109-game373</code> ·Contract labels say what they do, not our internal names.</p>
       <p class="sous">Everything happening to blocks on Base, live.</p>
       <!-- tip 0013: sticky — Hooked chip = Dex fees; unhooked → Launch beside. No fee addr. -->
       <p class="note" id="sfHookedSticky" hidden>Blocks alive on TokenizedBlock pay their creator on every trade. Example:<button type="button" class="puce" id="sfStickyTbgas">Open TBGAS</button>.</p>
@@ -22575,9 +22574,9 @@ for (const id of ['#cTweetOui', '#cTweetLien']) {
       const r = lu();
       const h = r.genre === 'POST' ? r.handle : (r.genre === 'BLOCK' ? handleDuBlock : null);
       /* ⛔ Sans handle, pas de « .@ » vide : on ecrit une phrase qui se tient toute seule. */
-      const debut = h ? '.@' + h + ' tokenized a block.' : 'Someone tokenized a block.';
+      const debut = h ? '.@' + h + ' just tokenized a block on Base.' : 'A new block was just tokenized on Base.';
       const url = r.genre === 'BLOCK' ? r.url : 'https://tokenizedblock.space';
-      return debut + '\nA real token on Base, with a face and a market.\n' + url;
+      return debut + '\nA real token, with its own face and its own market.\n' + url;
     };
 
     const repeindre = () => { apercu.textContent = texteDuPost(); };
