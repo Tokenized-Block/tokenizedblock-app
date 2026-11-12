@@ -39,8 +39,10 @@
   table.frais{width:100%;border-collapse:collapse;font-size:13.5px}
   table.frais th,table.frais td{padding:9px 6px;border-top:1px solid var(--ligne);vertical-align:top;text-align:left}
   table.frais tr:first-child th,table.frais tr:first-child td{border-top:0}
-  table.frais th{font-weight:600;width:34%}
-  table.frais td.n{white-space:nowrap;font-weight:700;color:var(--accent2);font-variant-numeric:tabular-nums;width:1%}
+  table.frais th{font-weight:600;width:26%}
+  /* the amount column wraps: one long amount ("entry 17,241 TBLOCK · vote 8,621 TBLOCK") used to widen the column for every row
+     and squeeze the explanation into a thin strip on the right (Phil's screenshot, 2026-11-12) */
+  table.frais td.n{white-space:normal;font-weight:700;color:var(--accent2);font-variant-numeric:tabular-nums;width:9.5em;max-width:9.5em;overflow-wrap:anywhere}
   table.frais td:last-child{color:var(--doux)}
   .note{color:var(--doux);font-size:12.5px;line-height:1.55;margin:10px 0 0}
   .etat{color:var(--tiede)}
