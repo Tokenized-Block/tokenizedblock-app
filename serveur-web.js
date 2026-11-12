@@ -6317,6 +6317,9 @@ const SERVIS = [
   'payee-slot.js',
   /* 2026-11-12: the pack page shows the six deployed steps without a wallet (record judged, code read on Base) */
   'pack-deployed-view.js',
+  /* 2026-11-12: move every TBLOCK of the first holders vault (and of the TBLOCK buyback that pays into it) to the holders vault:
+   * the page and its pure module (reads Base, builds unsigned calls for the dev wallet, checks each receipt) */
+  'move-first-vault.html', 'move-first-vault.js',
   /* game120 : ondes, lumiere et son */
   'tam-ondes.js',
   /* game122 : electricite */

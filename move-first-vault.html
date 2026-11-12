@@ -1,0 +1,259 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Move the first holders vault</title>
+<!--
+  2026-11-12 (Phil): move ALL the TBLOCK of the first holders vault, and of the TBLOCK buyback that pays into it, into the holders vault.
+  Built and judged by move-first-vault.js (read its header: the only path, the amount decided and why, the risks). This page only shows
+  the chain, offers the step the CONNECTED wallet may sign, and checks each receipt.
+  ⛔ Nothing is signed here: the wallet signs. No address is typed here: they come from the records, through move-first-vault.js.
+  ⛔ Before the wallet opens: fresh reads, the step must be offered to THIS wallet (step 1: any wallet; step 2: a dev wallet of the first
+     vault; step 3: only the wallet that announced, only inside the window read from the chain's clock), every call is simulated with
+     eth_call from the wallet, and step 3 is also run on a simulation (eth_simulateV1, public node) that must show the holders vault
+     counting exactly the amount as free TBLOCK (free() before / after).
+  ⛔ Step 3 is ONE atomic batch (wallet_sendCalls, atomicRequired) only when the wallet supports it AND no public call can lower the
+     amount in the same block; otherwise two signatures: the rescue, then exactly the amount its receipt shows arriving.
+  ⛔ After each receipt: tx.from = the wallet, status 1, the exact call, and the TBLOCK Transfer logs emitted by TBLOCK in that receipt
+     (an event is not a transaction). Then the chain is read again.
+-->
+<style>
+:root{--bg:#050d24;--card:#0f1d3d;--line:#1e2f57;--fg:#e9f0ff;--dim:#8ba0c9;--or:#f7a318;--ok:#3ecf8e;--ko:#ff6b6b}
+*{box-sizing:border-box}html,body{margin:0}
+body{background:var(--bg);color:var(--fg);font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;padding:16px}
+main{max-width:760px;margin:0 auto}h1{font-size:19px}h2{font-size:15px;margin:0 0 6px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:12px}
+.row{display:flex;gap:10px;padding:5px 0;border-bottom:1px solid var(--line)}.row:last-child{border:0}
+.k{color:var(--dim);flex:0 0 190px;font-size:12px}.v{flex:1;font-size:12px;word-break:break-all;min-width:0}
+@media (max-width:560px){.row{flex-direction:column;gap:2px}.k{flex:none}}
+button{width:100%;background:var(--or);color:#20160a;border:0;border-radius:8px;padding:14px;font:inherit;font-weight:700;margin-top:10px;cursor:pointer}
+button:disabled{opacity:.45;cursor:not-allowed}.note{color:var(--dim);font-size:12px}
+a{color:var(--or);word-break:break-all}
+.etape{border-top:1px solid var(--line);padding-top:10px;margin-top:10px}.etape:first-of-type{border:0;margin:0;padding:0}
+.st{font-weight:700}.st.ok{color:var(--ok)}.st.ko{color:var(--ko)}.warn{color:var(--ko);font-weight:700}
+input{width:100%;background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:10px;font:inherit;font-size:12px;margin-top:8px}
+</style>
+<main>
+<h1>Move the first holders vault to the holders vault</h1>
+<p class="note">Every TBLOCK of the first holders vault, and of the TBLOCK buyback that pays into it, goes to the holders vault in three
+steps. Step 1 is public. Step 2 is a public notice on Base, signed by a dev wallet of the first holders vault: the TBLOCK can only leave
+7 days later, during a 2-day window. Step 3 is signed by the wallet that made the notice: the first holders vault pays it, and it sends
+exactly that amount on to the holders vault.</p>
+<div class="card" id="today"><span class="note">Reading Base…</span></div>
+<div class="card" id="steps"></div>
+<div class="card">
+  <button id="connect" disabled>Connect wallet</button>
+  <div id="state" class="note" style="margin-top:10px"></div>
+</div>
+<div class="card">
+  <h2>Resume step 3</h2>
+  <p class="note">If the rescue was signed from another browser, paste its transaction hash: the page checks the receipt on Base before
+  offering the transfer of exactly that amount.</p>
+  <input id="hash" placeholder="rescue transaction hash" autocomplete="off" spellcheck="false">
+  <button id="resume" disabled>Check this rescue</button>
+</div>
+</main>
+<script type="module">
+const $ = (s) => document.querySelector(s);
+const esc = (x) => String(x ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const row = (k, v) => '<div class="row"><span class="k">' + esc(k) + '</span><span class="v">' + v + '</span></div>';
+const lien = (h) => '<a href="https://basescan.org/tx/' + esc(h) + '" target="_blank" rel="noopener">' + esc(h) + '</a>';
+const warn = (s) => '<span class="warn">' + esc(s) + '</span>';
+const pause = (ms) => new Promise((o) => setTimeout(o, ms));
+let M = null, PV = null, FC = null;
+try { M = await import('./move-first-vault.js'); PV = await import('./pack-deployed-view.js'); } catch (_) { M = null; }
+try { FC = await import('./frais-creation.js'); } catch (_) { FC = null; }
+/* the fee wallet is never shown raw (frais-creation.js displayShort); none of the addresses here is it, the guard stays anyway */
+const montre = (a) => esc(FC && FC.FEE_ADDRESSES && FC.FEE_ADDRESSES.includes(String(a).toLowerCase()) ? FC.displayShort(a) : a);
+const tb = (x) => esc(M.fmtTb(x)) + ' TBLOCK';
+
+/* public nodes for the reads without a wallet and for the step-3 simulation; one retry on the other node */
+const NODES = PV ? PV.PUBLIC_NODES.map((u) => PV.nodeReader(u)) : [];
+const lecteur = async (m, p) => { let err; for (let i = 0; i < 4; i++) { try { return await NODES[i % NODES.length](m, p); } catch (x) { err = x; if (/revert/i.test(String(x && x.message))) throw x; await pause(500 * (i + 1)); } } throw err; };
+const wrpc = (method, params) => window.ethereum.request({ method, params });
+let acct = null, atomique = false, E = null, lu = 0, busy = false;
+let suivi = { rescue: null, versV: null };
+const cle = () => 'move-first-vault:' + acct;
+function charger() { try { const j = JSON.parse(localStorage.getItem(cle()) || 'null'); if (j) suivi = { rescue: j.rescue ? { ...j.rescue, montant: BigInt(j.rescue.montant) } : null, versV: j.versV ? { ...j.versV, montant: BigInt(j.versV.montant) } : null }; } catch (_) {} }
+function garder() { try { localStorage.setItem(cle(), JSON.stringify(suivi, (k, v) => (typeof v === 'bigint' ? v.toString() : v))); } catch (_) {} }
+
+const NOMS = ['', '1. Empty the TBLOCK buyback into the first holders vault', '2. Announce the move (public notice, 7 days)', '3. Rescue, then send exactly that amount to the holders vault'];
+const STATUT = { fait: ['ok', 'done'], 'a-faire': ['', 'to do'], attente: ['', 'waiting'], ouverte: ['ok', 'window open'], expiree: ['ko', 'window expired'], bloque: ['ko', 'blocked'] };
+
+function dessinerAujourdhui(e) {
+  const f = M.fenetre(e);
+  const ann = f.etat === 'aucune' ? 'none'
+    : tb(f.montant) + ' by ' + montre(f.par) + ' · opens ' + esc(M.iso(f.ouvre)) + ' · closes ' + esc(M.iso(f.ferme))
+      + ' · <b id="cd">' + esc(f.etat === 'attente' ? 'opens in ' + M.duree(f.resteS) : f.etat === 'ouverte' ? 'open, closes in ' + M.duree(f.resteS) : 'expired') + '</b>';
+  const men = e.menaces.length ? e.menaces.map((m) => m.quoi === 'feedContest'
+      ? warn('anyone can call feedContest() now: it would move ' + M.fmtTb(m.montant) + ' TBLOCK of the first holders vault to the block contest pot')
+      : warn('anyone can close week ' + m.semaine + ' now: it would reserve ' + M.fmtTb(m.montant) + ' TBLOCK for its players')).join('<br>')
+    : '<span class="st ok">none right now</span>';
+  $('#today').innerHTML = '<h2>Today on Base (block ' + esc(e.bloc) + ', ' + esc(M.iso(e.now)) + ')</h2>'
+    + row('first holders vault', montre(M.VAULT1)) + row('· TBLOCK held', tb(e.vault1.balance)) + row('· free (what can be moved)', tb(e.vault1.free))
+    + row('· reserved for players', tb(e.vault1.reserved)) + row('· dev wallets (may announce)', montre(e.vault1.dev2) + ' (Grok) · ' + montre(e.vault1.dev))
+    + row('TBLOCK buyback', montre(M.BUYBACK)) + row('· TBLOCK held', tb(e.buyback.balance)) + row('· pays into', montre(e.buyback.dest))
+    + row('holders vault (destination)', montre(M.V)) + row('· TBLOCK held', tb(e.v.balance)) + row('· free', tb(e.v.free))
+    + row('announcement', ann)
+    + row('could lower the amount', men)
+    + (e.wallet ? row('connected wallet holds', tb(e.wallet.tblock)) : '')
+    + '<p class="note">The rescue pays min(announced amount, free TBLOCK) when it runs. Until then anyone may call feedContest() of the first holders vault '
+    + '(once a day, up to ' + esc(M.fmtTb(e.vault1.feedMax, 0)) + ' TBLOCK to the block contest pot) or close an ended week that had players: '
+    + 'either lowers what step 3 moves. What is left stays in the first holders vault and needs a new announcement.</p>';
+}
+
+function dessinerEtapes(e) {
+  const ss = M.etapes(e, acct, suivi, { atomique });
+  const coh = M.coherence(e);
+  $('#steps').innerHTML = '<h2>The three steps</h2>' + (coh.length ? '<p>' + warn('STOP: ' + coh.join(' · ')) + '</p>' : '') + ss.map((s) => {
+    const [ton, mot] = STATUT[s.statut] || ['', s.statut];
+    const appels = s.appels || [];
+    let extra = '';
+    if (s.k === 2 && s.statut === 'a-faire') extra = row('if announced now', 'the window opens ' + esc(M.iso(e.now + M.RESCUE_DELAY)) + ' and closes ' + esc(M.iso(e.now + M.RESCUE_DELAY + M.RESCUE_WINDOW)));
+    if (s.k === 3 && s.mode) extra = row('how', s.mode === 'lot' ? 'one atomic batch of two calls' : s.mode === 'suite' ? 'the transfer of the rescued amount' : 'two signatures: rescue, then the transfer of exactly what arrived');
+    return '<div class="etape"><b>' + esc(NOMS[s.k]) + '</b><br><span class="st ' + ton + '">' + esc(mot) + '</span> · ' + esc(s.raison)
+      + row('who may sign', esc(s.qui)) + (s.montant !== undefined ? row('amount', tb(s.montant)) : '') + extra
+      + appels.map((a, i) => row('exact call ' + (appels.length > 1 ? (i + 1) + ': ' : '') + 'to', montre(a.to)) + row('· value', '0 ETH') + row('· data', esc(a.data))).join('')
+      + '<button data-k="' + s.k + '" ' + (s.offert && acct && !busy ? '' : 'disabled') + '>Sign step ' + s.k + (s.k === 3 && s.mode === 'sequence' ? ' (rescue)' : s.k === 3 && s.mode === 'suite' ? ' (send to the holders vault)' : '') + ' in the wallet</button></div>';
+  }).join('');
+  for (const b of document.querySelectorAll('#steps button[data-k]')) b.onclick = () => signer(Number(b.dataset.k));
+}
+
+async function relire() {
+  const src = acct ? wrpc : lecteur;
+  try { E = await M.lireEtat(src, acct); lu = Date.now(); } catch (x) { $('#state').innerHTML = warn('Cannot read Base: ' + ((x && x.message) || x)); return null; }
+  dessinerAujourdhui(E); dessinerEtapes(E);
+  return E;
+}
+
+setInterval(() => {
+  if (!E) return;
+  const cd = document.getElementById('cd');
+  if (!cd) return;
+  const now = E.now + BigInt(Math.floor((Date.now() - lu) / 1000));
+  const f = M.fenetre({ ...E, now });
+  cd.textContent = f.etat === 'attente' ? 'opens in ' + M.duree(f.resteS) : f.etat === 'ouverte' ? 'open, closes in ' + M.duree(f.resteS) : f.etat === 'expiree' ? 'expired' : '';
+}, 1000);
+
+async function recuDe(h) {
+  for (let i = 0; i < 120; i++) { const r = await wrpc('eth_getTransactionReceipt', [h]).catch(() => null); if (r) return r; await pause(2000); }
+  return null;
+}
+const txDe = (h) => wrpc('eth_getTransactionByHash', [h]).catch(() => null);
+
+async function signer(k) {
+  if (busy) return;
+  busy = true;
+  try {
+    const [now] = await wrpc('eth_accounts', []).catch(() => []);
+    if (String(now || '').toLowerCase() !== acct) { acct = String(now || '').toLowerCase() || null; charger(); await relire(); return; }
+    $('#state').textContent = 'Reading Base and simulating step ' + k + ' from this wallet…';
+    const p = await M.preparer(wrpc, lecteur, acct, k, suivi, { atomique }); /* fresh reads and simulations right before the wallet opens */
+    if (!p.pret) { $('#state').innerHTML = warn('Not offered: ' + p.raison); await relire(); return; }
+    const sim = p.simulation.find((x) => x && x.vAvant !== undefined);
+    $('#state').innerHTML = 'Simulated from this wallet: every call succeeds' + (sim ? ' · holders vault free ' + esc(M.fmtTb(sim.vAvant)) + ' → ' + esc(M.fmtTb(sim.vApres)) : '') + '. Opening the wallet…';
+    const s = p.etape;
+    if (k === 3 && s.mode === 'lot') return await envoyerLot(p);
+    let h;
+    try { h = await wrpc('eth_sendTransaction', [{ from: acct, to: p.appels[0].to, data: p.appels[0].data, value: '0x0' }]); }
+    catch (x) { $('#state').textContent = 'Not sent: ' + ((x && x.message) || x); return; }
+    $('#state').innerHTML = 'Sent: ' + lien(h) + ' · waiting for the receipt…';
+    const recu = await recuDe(h);
+    if (!recu) { $('#state').innerHTML += '<br>' + warn('No receipt yet: check Basescan, then reload this page.'); return; }
+    const tx = await txDe(h);
+    let c;
+    if (k === 1) c = M.controleSweep(p.appels[0], acct, tx, recu, s.montant);
+    else if (k === 2) { c = M.controleAnnonce(p.appels[0], acct, tx, recu, s.montant); if (!c.ko.length && suivi.versV) { suivi = { rescue: null, versV: null }; garder(); } }
+    else if (s.mode === 'suite') { c = M.controleVersV(p.appels[0], acct, tx, recu, s.montant); if (!c.ko.length) { suivi.versV = { montant: c.montant, hash: String(h).toLowerCase() }; garder(); } }
+    else { c = M.controleRescue(p.appels[0], acct, tx, recu); if (!c.ko.length) { suivi.rescue = { montant: c.montant, par: acct, hash: String(h).toLowerCase(), bloc: String(c.bloc) }; garder(); } }
+    if (c.ko.length) { $('#state').innerHTML = warn('STOP after step ' + k + ': ' + c.ko.join(' · ')) + '<br>' + lien(h); await relire(); return; }
+    $('#state').innerHTML = '<span class="st ok">Step ' + k + ' confirmed on Base' + (c.montant !== undefined ? ': ' + esc(M.fmtTb(c.montant)) + ' TBLOCK' : '') + '.</span><br>' + lien(h)
+      + (k === 3 && s.mode === 'sequence' ? '<br>Now sign the transfer of exactly this amount to the holders vault (step 3 again).' : '');
+    await relire();
+  } finally { busy = false; if (E) dessinerEtapes(E); }
+}
+
+async function envoyerLot(p) {
+  const P = p.etape.montant;
+  let id;
+  try {
+    const r = await wrpc('wallet_sendCalls', [{ version: '2.0.0', chainId: M.CHAINE_HEX, from: acct, atomicRequired: true, calls: p.appels.map((a) => ({ to: a.to, data: a.data, value: '0x0' })) }]);
+    id = r && typeof r === 'object' ? r.id : r;
+  } catch (x) { $('#state').textContent = 'Not sent: ' + ((x && x.message) || x); return; }
+  $('#state').innerHTML = 'Batch sent (' + esc(id) + ') · waiting for its receipts…';
+  let st = null;
+  for (let i = 0; i < 120; i++) {
+    st = await wrpc('wallet_getCallsStatus', [id]).catch(() => null);
+    if (st && (st.status === 200 || st.status === 'CONFIRMED' || (Array.isArray(st.receipts) && st.receipts.length && st.status !== 100 && st.status !== 'PENDING'))) break;
+    await pause(2000);
+  }
+  const hs = st && Array.isArray(st.receipts) ? st.receipts.map((r) => r.transactionHash).filter(Boolean) : [];
+  if (!hs.length) { $('#state').innerHTML = warn('No receipt for the batch yet: check the wallet, then reload this page.'); return; }
+  const paires = [];
+  for (const h of hs) paires.push({ tx: await txDe(h), recu: await recuDe(h) });
+  const c = M.controleLot(acct, paires, P);
+  if (c.ko.length) { $('#state').innerHTML = warn('STOP after the batch: ' + c.ko.join(' · ')) + '<br>' + hs.map(lien).join('<br>'); await relire(); return; }
+  suivi.rescue = { montant: c.paye, par: acct, hash: String(hs[0]).toLowerCase(), bloc: String(paires[0].recu.blockNumber ? BigInt(paires[0].recu.blockNumber) : 0n) }; suivi.versV = { montant: c.montant, hash: String(hs[hs.length - 1]).toLowerCase() }; garder();
+  $('#state').innerHTML = '<span class="st ok">Confirmed on Base: ' + esc(M.fmtTb(c.montant)) + ' TBLOCK arrived at the holders vault.</span><br>' + hs.map(lien).join('<br>');
+  await relire();
+}
+
+/* receipts kept from an earlier visit are judged again on Base before they count */
+async function reverifier() {
+  if (suivi.rescue) { const h = suivi.rescue.hash; const c = M.controleRescue(M.appelRescue(), acct, await txDe(h), await wrpc('eth_getTransactionReceipt', [h]).catch(() => null)); if (c.ko.length || c.montant !== suivi.rescue.montant) suivi.rescue = null; else suivi.rescue.bloc = String(c.bloc); }
+  if (suivi.versV && suivi.rescue) { const h = suivi.versV.hash; const c = M.controleVersV(M.appelVersV(suivi.rescue.montant), acct, await txDe(h), await wrpc('eth_getTransactionReceipt', [h]).catch(() => null), suivi.rescue.montant); if (c.ko.length) suivi.versV = null; }
+  else suivi.versV = null;
+  if (suivi.rescue && !suivi.versV) await dejaEnvoye();
+  garder();
+}
+/* a rescue already sent on to the holders vault (another browser) is never offered twice: the TBLOCK logs wallet -> holders vault since
+ * the rescue block are read, and a transfer of exactly the rescued amount counts once its own transaction is checked */
+async function dejaEnvoye() {
+  let vus = [];
+  try { vus = await M.envoisVersV(wrpc, acct, BigInt(suivi.rescue.bloc)); }
+  catch (x) { suivi.rescue = null; $('#state').innerHTML = warn('Cannot read the transfers since the rescue (' + ((x && x.message) || x) + '): step 3 is not offered until they can be read.'); return; }
+  for (const v of vus) {
+    if (v.value !== suivi.rescue.montant) continue;
+    const c = M.controleVersV(M.appelVersV(suivi.rescue.montant), acct, await txDe(v.hash), await wrpc('eth_getTransactionReceipt', [v.hash]).catch(() => null), suivi.rescue.montant);
+    if (!c.ko.length) { suivi.versV = { montant: c.montant, hash: v.hash }; return; }
+  }
+}
+
+if (!M || !PV) {
+  $('#today').innerHTML = warn('This page cannot load its module: nothing can be signed.');
+} else {
+  await relire();
+  $('#connect').disabled = false;
+}
+
+$('#connect').onclick = async () => {
+  if (!window.ethereum) { $('#state').textContent = 'No wallet in this browser.'; return; }
+  try { [acct] = await wrpc('eth_requestAccounts', []); acct = String(acct).toLowerCase(); }
+  catch (x) { $('#state').textContent = 'Wallet refused: ' + ((x && x.message) || x); acct = null; return; }
+  try {
+    const c = await wrpc('wallet_getCapabilities', [acct, [M.CHAINE_HEX]]);
+    const x = c && (c[M.CHAINE_HEX] || c['8453']);
+    atomique = !!x && ((x.atomic && (x.atomic.status === 'supported' || x.atomic.status === 'ready')) || (x.atomicBatch && x.atomicBatch.supported === true));
+  } catch (_) { atomique = false; }
+  charger();
+  await reverifier();
+  const e = await relire();
+  $('#resume').disabled = false;
+  if (e) {
+    const ss = M.etapes(e, acct, suivi, { atomique });
+    const n = ss.find((s) => s.offert);
+    $('#state').innerHTML = 'Connected: ' + montre(acct) + ' · atomic batch: ' + (atomique ? 'yes' : 'no') + ' · '
+      + (n ? 'this wallet may sign step ' + n.k + '.' : 'nothing for this wallet to sign now.');
+  }
+};
+
+$('#resume').onclick = async () => {
+  const h = String($('#hash').value || '').trim().toLowerCase();
+  if (!/^0x[0-9a-f]{64}$/.test(h)) { $('#state').innerHTML = warn('That is not a transaction hash.'); return; }
+  const c = M.controleRescue(M.appelRescue(), acct, await txDe(h), await wrpc('eth_getTransactionReceipt', [h]).catch(() => null));
+  if (c.ko.length) { $('#state').innerHTML = warn('Not a rescue signed by this wallet: ' + c.ko.join(' · ')); return; }
+  suivi.rescue = { montant: c.montant, par: acct, hash: h, bloc: String(c.bloc) }; suivi.versV = null;
+  await dejaEnvoye(); garder();
+  $('#state').innerHTML = '<span class="st ok">Rescue checked on Base: ' + esc(M.fmtTb(c.montant)) + ' TBLOCK arrived in this wallet.</span>';
+  await relire();
+};
+</script>
