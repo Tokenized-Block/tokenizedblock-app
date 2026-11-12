@@ -5,6 +5,7 @@
  * ⛔ A gate reads activeLockedOf (0 once the date passed — review SEC-001), never lockedOf. */
 import { selecteur } from './keccak.js';
 import { LOCK_DEPLOIEMENT as D } from './lock-deploiement.js';
+import { FRAIS_CONTRATS } from './frais-contrats.js'; /* game374: MAX_LOCK read from TBlockLock.sol by the generator */
 
 export const TBLOCK = '0xb200000000000000000000ba9bf8330307f8830e';
 export const LOCK = D.adresse ? String(D.adresse).toLowerCase() : null;
@@ -12,6 +13,8 @@ export const MIN_JOURS = 7;
 export const DUREES_JOURS = Object.freeze([7, 30, 90, 365]); /* game359: 365 days shows the ×2 commitment band (points.js) */
 /* the date is computed when the plan is built; the tx is mined later. One hour of margin keeps "7 days" valid at execution. */
 export const MARGE_SECONDES = 3600;
+/** the longest lock this module builds: MAX_LOCK of the contract minus the margin, in whole days (game374) */
+export const MAX_JOURS = Math.floor((Number(FRAIS_CONTRATS.TBlockLock.MAX_LOCK) - MARGE_SECONDES) / 86400);
 
 const strip = (h) => h.replace(/^0x/, '');
 const S = (sig) => strip(selecteur(sig));
@@ -31,19 +34,20 @@ const call = (to, sel, args = '') => Object.freeze({ to, data: '0x' + sel + args
 /** the unlock date for `jours` days from `maintenantSec` (seconds), with the margin; refuses under 7 days */
 export function dateDeverrou(jours, maintenantSec) {
   const j = Number(jours), t = Number(maintenantSec);
-  if (!Number.isInteger(j) || j < MIN_JOURS || j > 4 * 365) throw new Error('a lock lasts 7 days to 4 years');
+  /* ⛔ game374: the date (with its margin) must stay within the contract's MAX_LOCK, or lock() reverts BadDate — 4*365 days + 1 h did */
+  if (!Number.isInteger(j) || j < MIN_JOURS || j > MAX_JOURS) throw new Error('a lock lasts ' + MIN_JOURS + ' to ' + MAX_JOURS + ' days');
   if (!Number.isFinite(t) || t <= 0) throw new Error('no clock');
   return BigInt(Math.floor(t)) + BigInt(j) * 86400n + BigInt(MARGE_SECONDES);
 }
 /** ONE batch: approve EXACTLY `amount` to the lock, then lock(amount, date). Never an unlimited approval. */
 export function lockBatch({ amount, jours, maintenantSec }) {
-  if (!LOCK) throw new Error('the TBLOCK lock is not deployed yet');
+  if (!LOCK) throw new Error('the TBLOCK lock is coming soon');
   const a = BigInt(amount);
   if (a <= 0n) throw new Error('lock a positive amount');
   const at = dateDeverrou(jours, maintenantSec);
   return Object.freeze([call(TBLOCK, SEL.approve, wAddr(LOCK) + wUint(a)), call(LOCK, SEL.lock, wUint(a) + wUint(at))]);
 }
-const surLock = (sel) => { if (!LOCK) throw new Error('the TBLOCK lock is not deployed yet'); return call(LOCK, sel); };
+const surLock = (sel) => { if (!LOCK) throw new Error('the TBLOCK lock is coming soon'); return call(LOCK, sel); };
 export function withdrawCall() { return surLock(SEL.withdraw); }
 export function requestWithdrawCall() { return surLock(SEL.requestWithdraw); }
 export function cancelWithdrawCall() { return surLock(SEL.cancelWithdraw); }

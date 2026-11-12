@@ -104,7 +104,7 @@ export const DESC_MISSION_TRADE = 'trade my block on its TokenizedBlock pool';
  * (clesRails) ; sans pool sur notre hook : REFUSE. Sans contrat de missions (fiche non deployee) : REFUSE, tableau PAS_OUVERT.
  */
 export function planTaskAgent({ contrat, block, reward, maxDone, hold, cles, poolManager, maintenant = Math.floor(Date.now() / 1000) }) {
-  if (!ADR.test(bas(contrat))) return refus('the mission board is not deployed yet', { tableau: 'PAS_OUVERT' });
+  if (!ADR.test(bas(contrat))) return refus('the mission board is coming soon', { tableau: 'PAS_OUVERT' });
   const b = bas(block);
   if (!ADR.test(b)) return refus('a whole block address is needed');
   const max = Number(maxDone);

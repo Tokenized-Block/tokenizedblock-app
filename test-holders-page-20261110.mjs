@@ -14,12 +14,13 @@ t('no hard-coded purple left on the buttons or the hero', !/#9560f0|#bd51ec|rgb\
 t('buy = ONE link to OUR token on BaseStonk, by address', /<a class="btn" id="achatBaseStonk" href="https:\/\/basestonk\.io\/tokens\/0xb200000000000000000000ba9bf8330307f8830e" target="_blank" rel="noopener">/.test(H));
 t('the in-page buy batch is gone (no plan, no wallet_sendCalls)', !/acheterIci|montantUsdc|\/api\/rails\/plan|wallet_sendCalls/.test(H));
 t('the address warning (another token shares the name)', /another token uses the same name; check the address before you buy/.test(H));
-t('game357: the lock row says it earns points only today (v1 reads the wallet balance)', H.includes("'Lock TBLOCK: community points now, the holder stage with vault v2'") && H.includes('Today it earns points only: hearts, the channel and vault claims still count your wallet balance') && !H.includes("'The holder stage: $' + prix.seuil + ' of TBLOCK LOCKED"));
-t('the lock line: "coming" while undeployed, a link to lock in the app once deployed (game352)', /lockPret \? '<a class="st ok" href="\/#wallet">LOCK IN THE APP →<\/a>' : VENIR\('lock contract to deploy'\)/.test(H) && /import \* as LK from '\.\/lock\.js';/.test(H));
+/* 2026-11-12 (UI copy rule, Phil): no version or internal status on screen; test-copy-pack-375-20261112.mjs scans the rendered text */
+t('game357: the lock row says it earns points only today (today\'s contracts read the wallet balance)', H.includes("'Lock TBLOCK: community points now, bigger vault rewards soon'") && H.includes('Today it earns points only: hearts, the channel and vault claims still count your wallet balance') && !H.includes("'The holder stage: $' + prix.seuil + ' of TBLOCK LOCKED"));
+t('the lock line: "coming soon" while undeployed, a link to lock in the app once deployed (game352)', /lockPret \? '<a class="st ok" href="\/#wallet">LOCK IN THE APP →<\/a>' : VENIR\(\)/.test(H) && H.includes("const VENIR = () => '<span class=\"st na\">coming soon</span>';") && /import \* as LK from '\.\/lock\.js';/.test(H));
 t('games and the TAM mint listed, open to all', /'Games \(Spin, Roll, Duels\) and the TAM mint'/.test(H) && /<span class="st ok">OPEN<\/span>/.test(H));
 /* game370 (Phil 2026-11-11: "$15 gives access; the biggest holders gain more from $100 locked"): the tiers, word for word in test-vault-v2-paliers-370 */
-t('vault v2 ($15 locked to claim, more from $100 locked) shown as in review, never as live', /'Vault v2: more from \$100 locked', '\$15 locked to claim; more from \$100 locked: /.test(H) && /VENIR\('in review'\)/.test(H));
-t('today\'s real vault rule still shown (17.2M held, contract)', /today: the week\\'s players claim with ' \+ tok\(CLAIM_MIN_HOLD\)/.test(H));
+t('the coming vault ($15 locked to claim, more from $100 locked) shown as "coming soon", never as live', /'Coming soon — the holders vault', '\$15 locked to claim; more from \$100 locked \(/.test(H) && /you must play that week \(a heart, a TAM mint or a skin\)', '\$15 locked', null, false, VENIR\(\)\]/.test(H));
+t('today\'s real vault rule still shown (17.2M held, contract)', /today, the week\\'s players claim with ' \+ tok\(CLAIM_MIN_HOLD\)/.test(H));
 t('lock.js and its data are served', /'lock\.js', 'lock-deploiement\.js'/.test(SRV));
 console.log(ok + '/' + (ok + ko) + (ko ? ' — RED' : ' — green'));
 process.exit(ko ? 1 : 0);

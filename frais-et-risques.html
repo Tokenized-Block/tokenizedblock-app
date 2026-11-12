@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>TokenizedBlock · Fees &amp; risks</title>
-<meta name="description" content="Every fee and every risk of TokenizedBlock, in plain words, read from the files the app runs.">
+<meta name="description" content="Every fee and every risk of TokenizedBlock, in plain words. The rates come from the app's files and contracts.">
 <link rel="icon" href="icon.png" type="image/png">
 <!-- ⛔ PAGE PUBLIQUE « Fees & risks » (2026-10-18). Liee depuis le « ? » (Learn) et le pli « How it works » du Game.
      ⛔ AUCUN CHIFFRE DANS CE FICHIER : tout le contenu vient de frais-risques.js, qui lit les fiches de deploiement et les modules de frais
@@ -77,9 +77,13 @@ import { CHIFFRES, rendre } from './frais-risques.js';
 try { const t = localStorage.getItem('tb.teinte'); if (t && t !== 'a') document.documentElement.setAttribute('data-teinte', t); } catch (_) { /* prive : coloris par defaut */ }
 const contenu = document.getElementById('contenu');
 contenu.innerHTML = rendre(CHIFFRES, null);
-/* le pot des rolls et le mode du tirage, LUS par notre serveur ; un echec laisse « not read », jamais un zero */
-fetch('/api/tirage', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).then((d) => {
-  if (d && d.ok) contenu.innerHTML = rendre(CHIFFRES, { mode: d.mode, rolls: d.rolls || null, tempsDeBloc: d.tempsDeBloc || null, ticketpot: d.ticketpot || null });
+/* le pot des rolls et le mode du tirage, LUS par notre serveur ; un echec laisse « not read », jamais un zero.
+ * game374 : + l etat du regleur du jeu (/api/slots .regleur.etat, deja public) — la page dit s il tourne, jamais suppose */
+const lireJson = (u) => fetch(u, { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+Promise.all([lireJson('/api/tirage'), lireJson('/api/slots')]).then(([d, s]) => {
+  const live = d && d.ok ? { mode: d.mode, rolls: d.rolls || null, tempsDeBloc: d.tempsDeBloc || null, ticketpot: d.ticketpot || null } : {};
+  if (s && s.regleur && typeof s.regleur.etat === 'string') live.regleur = { etat: s.regleur.etat };
+  if (Object.keys(live).length) contenu.innerHTML = rendre(CHIFFRES, live);
 }).catch(() => {});
 </script>
 </body>

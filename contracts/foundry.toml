@@ -10,6 +10,8 @@ evm_version = "cancun"
 # contract (BlockDuelsV2, BlockSlots, ... verified Exact Match on Basescan only with it): without lib/forge-std the CBOR tail
 # changes. Declared here so a build without the junction still reproduces the deployed bytecode. See test-forge-remappings.
 remappings = ["forge-std/=lib/forge-std/src/"]
+# 2026-11-11 pack: the copied router / lock-rewards tests write witness logs under ./scratch (no effect on bytecode)
+fs_permissions = [{ access = "read-write", path = "./scratch" }]
 
 # UNIT TESTS ONLY — NO broadcast / NO mainnet deploy this tip.
 # Align decide() with brain-tasks.js decideOffre (THRESHOLD=5, toy weights).

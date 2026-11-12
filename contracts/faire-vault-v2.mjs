@@ -1,6 +1,9 @@
 // faire-vault-v2.mjs <v1 path> <v2 path> — derives TBlockVaultV2 from the REVIEWED TBlockVault v1 by EXACT replacements (each anchor must exist
 // once), so everything not named here (contest feeding, dev rescue, release, token plumbing) stays byte-identical to v1.
 import fs from 'node:fs';
+/* RETIRED 2026-11-11 (game370): TBlockVaultV2.sol is now edited directly (USD tiers $15/$100/$500/$1000, MAX_FACTOR 17,500, cap before the factor).
+ * Re-running this generator would bring back the old 1.0x-1.5x factor and overwrite the reviewed source. */
+throw new Error('faire-vault-v2.mjs is retired: edit contracts/src/TBlockVaultV2.sol directly');
 let s = fs.readFileSync(process.argv[2], 'utf8');
 const rep = (a, b) => { const n = s.split(a).length - 1; if (n !== 1) throw new Error('anchor x' + n + ': ' + a.slice(0, 80)); s = s.replace(a, () => b); };
 

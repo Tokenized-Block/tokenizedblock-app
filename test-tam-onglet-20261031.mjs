@@ -163,7 +163,7 @@ const viesLues = [];
 const lireVie = async (a) => { viesLues.push(a); if (a === IB022) throw new Error('rpc en panne'); return { etat: 'LUE', vie: 1234.5, bloc: 100 }; };
 const srv = serveurTam({ rpc: rpcFaux, deploiement: VIERGE, lireVie, lireSymbole: async () => 'ZZZ' });
 const oe = await srv.oeuvres();
-ok(oe.ok === true && oe.etat === 'PAS_DEPLOYE' && Array.isArray(oe.oeuvres) && oe.oeuvres.length === 0 && /not deployed/.test(oe.pourquoi), '/api/tam/oeuvres avant deploiement : liste vide + raison');
+ok(oe.ok === true && oe.etat === 'PAS_DEPLOYE' && Array.isArray(oe.oeuvres) && oe.oeuvres.length === 0 && /coming soon/.test(oe.pourquoi), '/api/tam/oeuvres avant deploiement : liste vide + raison');
 ok(!appels.includes('eth_getLogs'), 'avant deploiement : aucun eth_getLogs');
 const c1 = await srv.choix(null);
 ok(c1.ok && c1.graine === HASH && c1.bloc === 100, '/api/tam/choix sans graine : le hash du dernier bloc');

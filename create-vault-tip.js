@@ -60,7 +60,7 @@ export function ethWeiForTopUp(ethUsd) {
  * amount is in TBLOCK wei (18 decimals), rounded DOWN so the creator never pays above the target.
  */
 export function plan({ ethUsd, tblockUsd, balance }) {
-  if (!VAULT) return { ok: false, why: 'The holders vault is not deployed yet.' };
+  if (!VAULT) return { ok: false, why: 'The holders vault is coming soon.' };
   const left = usdLeft(ethUsd);
   if (left === null) return { ok: false, why: 'The ETH price could not be read just now.' };
   if (left === 0n) return { ok: false, why: 'The ETH fee already reaches $' + TARGET_USD + ': nothing to add.' };

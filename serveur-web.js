@@ -232,7 +232,7 @@ import { scanFrais, verifierArrivee, resumerFrais } from './veille-frais.js';
 import { NOS_BLOCKS_GENESE, GRAINE_NOS_BLOCKS, graineNosBlocksAdmise, verifierGraineNos } from './origine.js';
 import { FEE_WALLET, USDC_BASE, CREATE_ROUTER } from './frais-creation.js';
 import { etatLive, htmlLive } from './live.js';
-import { TBLOCK as TBLOCK_JETON, TBLOCK_TEST_ANCIEN, estJetonMasque, OPTIONS_LANCEMENT, HOOK_7030 } from './tokenomics.js';
+import { TBLOCK as TBLOCK_JETON, TBLOCK_TEST_ANCIEN, estJetonMasque, OPTIONS_LANCEMENT, HOOK_7030, estNotreHook as estNotreHookAchat } from './tokenomics.js';
 import { verifierAchatSkin, validerRecette, jugerBlocSkinV1, COUPURE_SKINS_V1 } from './skins.js';
 import { faceDuBlock } from './face.js';
 import { logoSvg, paramsLogoDepuisApparence } from './logo.js';
@@ -284,7 +284,7 @@ import { creerRegistrePanel } from './panel-sessions.js';
 import { vieDuBlock } from './marche.js';
 /* 2026-10-17 : le Buy de Market, par ligne — cle deja connue ici + filtres du planificateur + devis reel (achat-marche.js) */
 import { verdictAchatMarche, quoterV4 } from './achat-marche.js';
-import { lireCauseRefusPool, phraseRefusPool } from './pool-lanceur-taxe.js';
+import { lireCauseRefusPool, phraseRefusPool, gardeTaxeAvantAchat } from './pool-lanceur-taxe.js'; /* game374: the resale tax is read BEFORE a Buy */
 import { poolId as poolIdV4 } from './pool.js';
 import { lireReferenceAction, estActionCoinbase } from './reference-action.js';
 import { etatInitial as etatInitialCerveau, pas as pasCerveau } from './cerveau.js';
@@ -4722,6 +4722,15 @@ async function achatsMarche(lignes) {
           v = { ...v, refus: phraseRefusPool(cause) };
         } catch (_) { /* cause non lue : la phrase generale reste */ }
       }
+      /* ⛔ game374 (audit R-launch-5): a QUOTED pool on a third-party hook could get a Buy while that hook taxes resale at 99.99 % (prod
+       *   /api/trending 2026-11-12: 3 rows). The hook's taxBps() is now read BEFORE the Buy (pool-lanceur-taxe.js gardeTaxeAvantAchat):
+       *   a tax above TAXE_MAX_FRACTION -> refused with TAXE_REVENTE (kept with the verdict); not read -> no Buy this round, not kept. */
+      if (!lectureRatee && v.achetable && v.cle && !estNotreHookAchat(v.cle.hooks)) {
+        const taxe = await gardeTaxeAvantAchat({ appel: (to, data) => rpcRails('eth_call', [{ to, data }, 'latest']), hook: v.cle.hooks });
+        compte.lecturesTaxe = (compte.lecturesTaxe || 0) + 1;
+        if (taxe && taxe.code === 'TAXE_NON_LUE') { compte.nonMesures += 1; continue; }
+        if (taxe) v = { ...v, achetable: false, refus: taxe };
+      }
       if (!lectureRatee) achatsParJeton.set(jeton, { t: Date.now(), empreinte, v });
       if (lectureRatee) { compte.nonMesures += 1; continue; }
     }
@@ -5964,6 +5973,8 @@ const SERVIS = [
    *   Chaque chiffre vient d un module deja servi ; tirage-saison.js (pur, importe keccak.js) et frais-contrats.js (genere des .sol)
    *   s ajoutent. test-imports-servis suit ses imports, test-frais-et-risques-20261018 exige ces quatre lignes. */
   'frais-et-risques.html', 'frais-risques.js', 'frais-contrats.js', 'tirage-saison.js', 'banque-frais.js',
+  /* game374: the fees page reads the holder rule (tblock-hold-regle.js, pure) and the launchpad measure + tax cap (pool-lanceur-taxe.js, pure) */
+  'tblock-hold-regle.js', 'pool-lanceur-taxe.js',
   'motifs-noto.js', 'photo.js', 'retirer-fond.js', 'apparence.js', 'classement.js', 'consentement.js', 'criblage.js', 'encodeur.js',
   'index-blocks.js', 'keccak.js', 'lancement.js', 'lecteur.js', 'lien-x.js', 'marche.js',
   'montants.js', 'motssimples.js', 'photo.js', 'pointsdevie.js', 'pool.js', 'vitalite.js',
@@ -6121,10 +6132,11 @@ const SERVIS = [
   /* 2026-10-04 : l etat des devises de paire (born / not_born / not_read) et LA regle de l ecran qui grise (importe par app.html :
    *   absent d ici = 404 = app morte). Sa seule dependance, keccak.js, est deja servie plus haut. */
   'etat-paires.js',
-  /* 2026-10-04 : la page qui propose AU WALLET CONNECTE le deploiement de BlockSkins, et la donnee figee qu elle envoie. Elle ne
-   * signe rien : un bouton, puis le wallet. Aucun lien depuis l app ; `noindex`. */
-  'deployer-blockskins.html',
-  'blockskins-deploiement.js',
+  /* 2026-10-04 : deployer-blockskins.html proposait AU WALLET CONNECTE le deploiement standalone de BlockSkins v3.
+   * 2026-11-12: RETIRED, deliberately NOT served any more (same rule as economie-v2-deploiement.js): BlockSkins.sol is now a router
+   *   game, deployed as step S of the economy pack (deployer-economie-v2.html). The standalone v3 creation frozen in
+   *   blockskins-deploiement.js was built from the pre-pack source and must never be offered. blockskins-deploiement.js itself stays
+   *   served (above): the app reads the DEPLOYED v2 from its `precedent` until the pack is deployed. */
   /* 2026-10-17 : la page qui propose AU WALLET CONNECTE le deploiement de BlockMissionsV3 et sa donnee figee (preparer-deploiement-missions.mjs).
    *   Elle ne signe rien ; bouton eteint tant que les 4 adresses de Phil (reserve, verifier, guardian, rail) manquent. noindex, aucun lien. */
   'deployer-missions.html',
@@ -6281,8 +6293,10 @@ const SERVIS = [
   'deployer-block-contest.html', 'block-contest-deploiement.js',
   /* the block contest page for users (reads Base, builds unsigned calls for the wallet of the user) and its pure module */
   'contest.html', 'block-contest.js',
-  /* holders economy: the +1 burn and the holders vault, their page module, the unsigned deployment (generated) and its page */
-  'economie.js', 'economie-deploiement.js', 'deployer-economie.html', 'create-vault-tip.js', 'relais-rpc.js', 'etat-naissance.js', 'coffre-paye.js', 'carte-naissance.js', 'coeurs-vue.js', 'lock.js', 'lock-deploiement.js', 'deployer-lock.html', 'economie-v2-deploiement.js', 'deployer-economie-v2.html', 'points-vue.js', 'points.js',
+  /* holders economy: the +1 burn and the holders vault, their page module, the unsigned deployment (generated) and its page.
+   * 2026-11-12: deployer-economie-v2.html is the six-step pack (economie-v2-pack-deploiement.js + pack-economie-v2.js); the stale
+   * two-signature record economie-v2-deploiement.js is deliberately NOT served any more, so no page can offer it. */
+  'economie.js', 'economie-deploiement.js', 'deployer-economie.html', 'create-vault-tip.js', 'relais-rpc.js', 'etat-naissance.js', 'coffre-paye.js', 'carte-naissance.js', 'coeurs-vue.js', 'lock.js', 'lock-deploiement.js', 'deployer-lock.html', 'deployer-economie-v2.html', 'economie-v2-pack-deploiement.js', 'pack-economie-v2.js', 'points-vue.js', 'points.js',
   /* game120 : ondes, lumiere et son */
   'tam-ondes.js',
   /* game122 : electricite */
@@ -7874,7 +7888,7 @@ function traiterRequete(req, res) {
           tblock_plan_task: avecBudget(async (a) => planTaskAgent({ contrat: MISSIONS_DEPLOIEMENT.adresse, block: a.block, reward: a.reward, maxDone: a.maxDone, hold: a.hold,
             cles: MISSIONS_DEPLOIEMENT.adresse ? await clesRails(a.block) : [], poolManager: V4_ADRESSES[8453].poolm })),
           tblock_missions: async () => {
-            if (!MISSIONS_DEPLOIEMENT.adresse) return { ok: false, etat: 'REFUSE', tableau: 'PAS_OUVERT', pourquoi: 'the mission board is not deployed yet' };
+            if (!MISSIONS_DEPLOIEMENT.adresse) return { ok: false, etat: 'REFUSE', tableau: 'PAS_OUVERT', pourquoi: 'the mission board is coming soon' };
             try { const r = await lireMissions({ rpc: rpcServeur, contrat: MISSIONS_DEPLOIEMENT.adresse }); return { ok: true, etat: 'PRET', contrat: MISSIONS_DEPLOIEMENT.adresse, ...r }; }
             catch (_) { return { ok: false, etat: 'NON_MESURE', pourquoi: 'the mission board could not be read just now' }; }
           },
@@ -7961,7 +7975,7 @@ function traiterRequete(req, res) {
     const nP = (POINTS.parIp.get(ipP) || 0) + 1;
     if (nP > 60) { rendreP(429, { ok: false, pourquoi: 'busy: retry in a minute' }); return; }
     POINTS.parIp.set(ipP, nP);
-    if (!POINTS.index || !COEURS.index) { rendreP(200, { ok: false, pourquoi: 'the lock or the hearts are not deployed' }); return; }
+    if (!POINTS.index || !COEURS.index) { rendreP(200, { ok: false, pourquoi: 'the lock and the hearts are coming soon' }); return; }
     const lockOk = POINTS.index.complet(), coeursOk = COEURS.index.complet();
     const evs = POINTS.index.recs().filter((r) => r.t !== undefined);
     const tab = tableauPoints({ evenementsLock: evs, coeurs: COEURS.index.coeurs(), maintenant: Math.floor(Date.now() / 1000) });
@@ -7991,7 +8005,7 @@ function traiterRequete(req, res) {
     const nC = (COEURS.parIp.get(ipC) || 0) + 1;
     if (nC > 60) { rendreC(429, { ok: false, pourquoi: 'busy: retry in a minute' }); return; }
     COEURS.parIp.set(ipC, nC);
-    if (!COEURS.index) { rendreC(200, { ok: false, pourquoi: 'BlockLikes is not deployed' }); return; }
+    if (!COEURS.index) { rendreC(200, { ok: false, pourquoi: 'hearts are coming soon' }); return; }
     const ix = COEURS.index, tous = ix.coeurs(), inv = blocksDuCreateur();
     const crDe = (b) => createurParBlock.get(b) || null;
     const sesBlocks = (a) => (inv.get(a) || []).slice(0, 3);
@@ -8070,7 +8084,7 @@ function traiterRequete(req, res) {
     /* game339: reprise=1&wt=<raw wtCOIN> resumes an interrupted step 1 from the wtCOIN already in the wallet (leg 2 only) */
     const repriseV = q.get('reprise') === '1', wtV = String(q.get('wt') || '');
     const coffreV = ECONOMIE_DEPLOIEMENT.adresseVault;
-    if (!coffreV) { rendreV(200, { ok: false, etat: 'REFUSE', pourquoi: 'the holders vault is not deployed yet' }); return; }
+    if (!coffreV) { rendreV(200, { ok: false, etat: 'REFUSE', pourquoi: 'the holders vault is coming soon' }); return; }
     if (repriseV && (!/^0x[0-9a-f]{40}$/.test(compteV) || !/^[1-9][0-9]{0,30}$/.test(wtV))) {
       rendreV(400, { ok: false, etat: 'REFUSE', pourquoi: 'usage: /api/tblock/vault-buy?reprise=1&compte=<the wallet that will sign>&wt=<raw wtCOIN to resume from>' }); return;
     }
@@ -8714,7 +8728,7 @@ function traiterRequete(req, res) {
     const contratTP = uniteTP ? POT_TP_UNIT.fiche.adresse : TICKETPOT_DEPLOIEMENT.adresse;
     const cleSigTP = uniteTP ? 'ticketpotSigUnit' : 'ticketpotSig', cleGelTP = uniteTP ? 'ticketpotGelUnit' : 'ticketpotGel';
     const cachePartsTP = uniteTP ? partsCacheTPUnit : partsCacheTP, jetonTP = uniteTP ? 'UNIT' : 'USDC';
-    if (!contratTP) { rendreTP(200, { ok: false, etat: 'PAS_OUVERT', pourquoi: 'the ticket pot is not deployed yet' }); return; }
+    if (!contratTP) { rendreTP(200, { ok: false, etat: 'PAS_OUVERT', pourquoi: 'the ticket pot is coming soon' }); return; }
     /* mode SEMAINE (Phil 2026-10-18 : « chaque week on redistribue au nombre de tickets ») : le pot de la semaine vit sur son DERNIER jour ;
      *   poids = entrees de la semaine (jours avec ticket + Week pass +3 + niveau +1/+2, memes plafonds que /api/tirage). Signatures gardees
      *   sous la cle « jour#S » : une signature d un mode n est jamais rendue dans l autre (le digest differe de toute facon). */
@@ -9058,7 +9072,7 @@ function traiterRequete(req, res) {
    *   profonde que ~9 000 blocs n est servie par aucun noeud gratuit -> NON_MESURE, rien signe. NE PROUVE PAS une fenetre de 7 j. */
   if (chemin === '/api/missions' && req.method === 'GET') {
     const repondreM = (code, o) => { res.writeHead(code, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' }); res.end(JSON.stringify(o)); };
-    if (!MISSIONS_DEPLOIEMENT.adresse) { repondreM(200, { ok: false, etat: 'PAS_OUVERT', pourquoi: 'the mission board is not deployed yet' }); return; }
+    if (!MISSIONS_DEPLOIEMENT.adresse) { repondreM(200, { ok: false, etat: 'PAS_OUVERT', pourquoi: 'the mission board is coming soon' }); return; }
     lireMissions({ rpc: rpcServeur, contrat: MISSIONS_DEPLOIEMENT.adresse })
       .then((r) => repondreM(200, { ok: true, contrat: MISSIONS_DEPLOIEMENT.adresse, ...r }))
       .catch(() => repondreM(202, { ok: false, etat: 'NON_LU', pourquoi: 'the mission board could not be read just now' }));
@@ -9067,7 +9081,7 @@ function traiterRequete(req, res) {
   if (chemin === '/api/missions/attestation' && req.method === 'POST') {
     const q = new URL(req.url, 'http://x').searchParams;
     const repondreA = (code, o) => { res.writeHead(code, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' }); res.end(JSON.stringify(o)); };
-    if (!MISSIONS_DEPLOIEMENT.adresse) { repondreA(200, { ok: false, etat: 'PAS_OUVERT', pourquoi: 'the mission board is not deployed yet' }); return; }
+    if (!MISSIONS_DEPLOIEMENT.adresse) { repondreA(200, { ok: false, etat: 'PAS_OUVERT', pourquoi: 'the mission board is coming soon' }); return; }
     const taskId = Number(q.get('task')), completer = String(q.get('wallet') || '').toLowerCase(), txHash = String(q.get('tx') || '').toLowerCase();
     if (!Number.isSafeInteger(taskId) || taskId < 0 || !/^0x[0-9a-f]{40}$/.test(completer) || !/^0x[0-9a-f]{64}$/.test(txHash)) {
       repondreA(400, { ok: false, etat: 'REFUSE', pourquoi: 'a mission id, a wallet and a transaction hash are needed' }); return;

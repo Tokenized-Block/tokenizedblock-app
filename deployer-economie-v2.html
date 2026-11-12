@@ -1,86 +1,150 @@
+<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Deploy the holders economy v2</title>
+<title>Deploy the holders economy</title>
 <!--
-  game355 (Phil 2026-11-11: "redo a v2 contract that computes, because $15 today is not worth the same later; Grok signs for you") — offers the
-  UNSIGNED deployment of BlockLikesV2 then TBlockVaultV2 to the CONNECTED wallet. ⛔ The data is EXACTLY economie-v2-deploiement.js
-  (contracts/preparer-deploiement-economie-v2.mjs), the same contracts benched on a base-anvil fork wired to the REAL TBlockLock and TBLOCK
-  (banc-economie-v2-fork-20261111.mjs, 17/17). Base (8453) only; each sha256 is checked before its button opens; each receipt status is read.
-  Neither contract has an owner. DEV/DEV2 can only: freeze the keeper's price (or reset it to the start price), replace the keeper after 2 days
-  in public, and (vault) announce a public 7-day rescue of its free part — never a player's reserved budget.
+  game373 (Phil 2026-11-11: economy v2 ships as ONE pack signed by Grok's wallet). Offers the UNSIGNED deploy of six contracts to the
+  CONNECTED wallet, one signature per step, in the order of pack-deploy-order.md: BlockLikesV2 (N), TblockPayRouter (N+1), TamArtV2 (N+2),
+  BlockSkins v3 (N+3), TBlockVaultV2 (N+4), TBlockLockRewards (N+5).
+  ⛔ The data is EXACTLY economie-v2-pack-deploiement.js (contracts/preparer-deploiement-pack-economie-v2.mjs); every sha256 is checked
+     before anything is offered. A TEST FIXTURE record is refused.
+  ⛔ No address is typed: L, P, T, S are read from the receipts, V and R are predicted from the wallet and N (pack-economie-v2.js). Before
+     each signature the page re-reads the chain (every earlier receipt, the wallet nonce, no pending transaction); after each one it checks
+     tx.from, the nonce, the signed data and that the contract landed at its predicted address. Any difference = STOP, nothing more offered.
+  ⛔ The wallet must send NOTHING else between step 1 and step 6. A smart-contract wallet cannot follow this nonce chain: refused.
+  After step 6 the page runs the same read-only checks as verifier-pack-economie-v2.mjs and shows each line.
 -->
 <style>
-:root{--bg:#050d24;--card:#0f1d3d;--line:#1e2f57;--fg:#e9f0ff;--dim:#8ba0c9;--or:#f7a318}
+:root{--bg:#050d24;--card:#0f1d3d;--line:#1e2f57;--fg:#e9f0ff;--dim:#8ba0c9;--or:#f7a318;--ok:#3ecf8e;--ko:#ff6b6b}
 *{box-sizing:border-box}html,body{margin:0}
 body{background:var(--bg);color:var(--fg);font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;padding:16px}
-main{max-width:720px;margin:0 auto}h1{font-size:19px}h2{font-size:15px;margin:0 0 6px}
+main{max-width:760px;margin:0 auto}h1{font-size:19px}h2{font-size:15px;margin:0 0 6px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:12px}
 .row{display:flex;gap:10px;padding:5px 0;border-bottom:1px solid var(--line)}.row:last-child{border:0}
-.k{color:var(--dim);flex:0 0 170px;font-size:12px}.v{flex:1;font-size:12px;word-break:break-all}
+.k{color:var(--dim);flex:0 0 170px;font-size:12px}.v{flex:1;font-size:12px;word-break:break-all;min-width:0}
+@media (max-width:560px){.row{flex-direction:column;gap:2px}.k{flex:none}}
 button{width:100%;background:var(--or);color:#20160a;border:0;border-radius:8px;padding:14px;font:inherit;font-weight:700;margin-top:10px;cursor:pointer}
 button:disabled{opacity:.45;cursor:not-allowed}.note{color:var(--dim);font-size:12px}
+a{color:var(--or);word-break:break-all}
+.etape{border-top:1px solid var(--line);padding-top:10px;margin-top:10px}.etape:first-of-type{border:0;margin:0;padding:0}
+.st{font-weight:700}.st.ok{color:var(--ok)}.st.ko{color:var(--ko)}.warn{color:var(--ko);font-weight:700}
+.ln{font-size:12px;padding:2px 0}.ln.ko{color:var(--ko)}.ln.ok{color:var(--ok)}
 </style>
 <main>
-<h1>Deploy the holders economy v2 (Base)</h1>
-<p class="note">Two contracts, two signatures. <b>BlockLikesV2</b>: a heart costs $0.50 of TBLOCK and needs $15 of TBLOCK LOCKED, both computed at a
-price a keeper writes within fixed bounds. <b>TBlockVaultV2</b>: pays each week's players who have $15 locked (7 days still ahead), a bigger and
-longer lock gets closer to the full play share; never more than a player burned.</p>
-<div class="card" id="what"></div>
+<h1>Deploy the holders economy (Base)</h1>
+<p class="note">Six contracts, six signatures, ONE wallet, consecutive nonces. Hearts, the TBLOCK payment router, TAM art and
+Skins (both paid through the router: 10% USDC to the fee wallet, the rest buys TBLOCK for the vault), the holders vault and the
+lock rewards. A play (heart, TAM mint, Skins mint) counts in the vault (games [T, S], hearts read from L) AND in the lock rewards (games [L, T, S]:
+a heart counts as play everywhere). Step 1 already names R, the lock rewards address PREDICTED at nonce N+5.</p>
+<div class="card" id="rec"><span class="note">Loading the frozen record…</span></div>
+<div class="card" id="steps"></div>
 <div class="card">
-  <button id="connect">Connect wallet</button>
-  <button id="d1" disabled>1. Deploy BlockLikesV2 (sign in the wallet)</button>
-  <button id="d2" disabled>2. Deploy TBlockVaultV2 (sign in the wallet)</button>
+  <button id="connect" disabled>Connect wallet</button>
+  <button id="go" disabled>Sign the next step</button>
   <div id="state" class="note" style="margin-top:10px"></div>
 </div>
+<div class="card" id="verif" hidden><h2>After step 6: read-only checks</h2><div id="lines"></div></div>
 </main>
 <script type="module">
-import { ECONOMIE_V2_DEPLOIEMENT as D, vaultV2Creation } from './economie-v2-deploiement.js';
+import { predire, integrite, etapeSuivante, controleEtape, verifierPack, PRODUIT } from './pack-economie-v2.js';
 const $ = (s) => document.querySelector(s);
 const esc = (x) => String(x ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const row = (k, v) => '<div class="row"><span class="k">' + esc(k) + '</span><span class="v">' + esc(v) + '</span></div>';
-const tok = (raw) => (BigInt(raw) / 10n ** 18n).toLocaleString('en-US') + ' TBLOCK';
-const L = D.likes.config, V = D.vault.config;
-const usd = (p) => '$' + (Number(BigInt(p)) / 1e18).toPrecision(4);
-$('#what').innerHTML = '<h2>BlockLikesV2</h2>' + row('heart', '$0.50 of TBLOCK, burned') + row('hold rule', '$15 of TBLOCK LOCKED in ' + L.lock + ' (activeLockedOf)')
-  + row('start price', usd(L.startPrice) + ' per TBLOCK (the lower of now and ~10 min ago, read before freezing)')
-  + row('price bounds', 'floor ' + usd(L.priceFloor) + ' · ceiling ' + usd(L.priceCeil) + ' · at most ' + L.maxStepBps / 100 + '% per write, once per ' + L.minInterval / 3600 + ' h')
-  + row('keeper (writes the price)', L.keeper) + row('dev wallets (2)', L.dev + ' · ' + L.dev2) + row('dev powers', 'freeze the price at once (or reset it to the start price); replace the keeper after 2 days, in public')
-  + row('weeks start', new Date(L.genesis * 1000).toISOString() + ', every ' + L.epoch / 86400 + ' days') + row('sha256 of the data', D.likes.sha256Creation)
-  + '<h2 style="margin-top:12px">TBlockVaultV2</h2>' + row('claim rule', '$15 locked at the claim (the lower of the minimum at the week\'s close and now), 7 days still ahead')
-  + row('share', 'the play share x lock factor (1.0x .. 1.5x: amount up to 4x the minimum, time up to 90 days)')
-  + row('players budget', V.rewardBps / 100 + '% of the free vault each week, at most ' + tok(V.maxEpochBudget)) + row('claim window', V.claimWindow / 86400 + ' days')
-  + row('nobody gets back more than', 'what they burned (share and top bonus each capped at ' + V.rebateBps / 100 + '%)') + row('contest', V.contest)
-  + row('rescue wallets (2)', V.dev + ' · ' + V.dev2) + row('sha256 of the code + config', D.vault.sha256Init) + row('compiler', D.compilateur);
-let acct = null, likesAt = D.adresseLikes || null, okL = false, okV = false;
-async function sha256Hex(s) { const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)); return [...new Uint8Array(b)].map((x) => x.toString(16).padStart(2, '0')).join(''); }
-async function receipt(h) {
-  for (let k = 0; k < 90; k++) { const r = await window.ethereum.request({ method: 'eth_getTransactionReceipt', params: [h] }).catch(() => null); if (r) return r; await new Promise((o) => setTimeout(o, 2000)); }
-  return null;
+const lien = (h) => '<a href="https://basescan.org/tx/' + esc(h) + '" target="_blank" rel="noopener">' + esc(h) + '</a>';
+/* UI copy rule (Phil 2026-11-12): the page names each product, never a contract version: the SAME names as the check lines (pack-economie-v2.js). */
+const NOM = PRODUIT;
+/* the record's own keys stay as they are; only the ones that carry a version tag get a plain label on screen */
+const LIBELLE = { dev2: 'second dev wallet', v4Key: 'TBLOCK pool key', v4PoolId: 'TBLOCK pool id', v4Hooks: 'TBLOCK pool hook', maxV4ImpactTicks: 'max TBLOCK pool impact (ticks)' };
+const lib = (k) => LIBELLE[k] || k;
+const QUI = { L: 'L (receipt of step 1)', P: 'P (receipt of step 2)', T: 'T (receipt of step 3)', S: 'S (receipt of step 4)', V: 'V (predicted: nonce N+4)', R: 'R (predicted: nonce N+5)' };
+let D = null;
+try { ({ PACK_ECONOMIE_V2: D } = await import('./economie-v2-pack-deploiement.js')); } catch (_) { D = null; }
+let acct = null, pred = null, etat = { N: null, hashes: [] };
+const rpc = (method, params) => window.ethereum.request({ method, params });
+const cle = () => 'pack-economie-v2:' + (D && D.sha256Pack) + ':' + acct;
+function charger() { try { const j = JSON.parse(localStorage.getItem(cle()) || 'null'); if (j && Array.isArray(j.hashes)) etat = { N: j.N, hashes: j.hashes }; } catch (_) {} }
+function garder() { try { localStorage.setItem(cle(), JSON.stringify(etat)); } catch (_) {} }
+const val = (v) => (typeof v === 'string' && v[0] === '@') ? (pred ? pred[v[1]] + ' = ' : '') + QUI[v[1]] : (Array.isArray(v) ? v.map(val).join(' , ') : (v && typeof v === 'object') ? JSON.stringify(v) : v);
+
+function dessinerEtapes() {
+  $('#steps').innerHTML = '<h2>What each signature deploys</h2>' + D.etapes.map((e, k) => {
+    const h = etat.hashes[k];
+    const st = h ? '<span class="st ok">sent · ' + lien(h) + '</span>' : '<span class="st">not signed</span>';
+    return '<div class="etape"><b>' + (k + 1) + '. ' + esc(NOM[e.lettre]) + '</b> · nonce ' + esc(e.nonce) + (pred ? ' · at ' + esc(pred[e.lettre]) : '') + '<br>' + st
+      + Object.entries(e.config).map(([c, v]) => row(lib(c), val(v))).join('')
+      + row('source sha256', e.sha256Source) + row('creation', e.octetsCreation + ' bytes · template sha256 ' + e.sha256Modele) + '</div>';
+  }).join('');
 }
-if (D.adresseLikes && D.adresseVault) { $('#state').innerHTML = 'Already deployed. BlockLikesV2 ' + esc(D.adresseLikes) + ' · TBlockVaultV2 ' + esc(D.adresseVault); $('#connect').disabled = true; }
+
+if (!D) {
+  $('#rec').innerHTML = '<span class="warn">No deploy record here yet: nothing can be signed until it is generated with the deployer, the keeper, the TAM dev wallet, the guardian, t0 and the two caps.</span>';
+} else {
+  const faux = await integrite(D);
+  $('#rec').innerHTML = '<h2>Frozen record</h2>' + (D.fixtureDeTest ? '<p class="warn">TEST FIXTURE: never sign this.</p>' : '')
+    + row('integrity', faux.length ? 'MISMATCH: ' + faux.join(', ') : 'OK (sha256 of the six steps and the pack)') + row('pack sha256', D.sha256Pack)
+    + row('deployer (only wallet allowed)', D.deployeur) + row('compiler', D.compilateur) + row('generated', D.genereLe)
+    + row('step 1 names R', 'Hearts is built with rewards = R, the lock rewards address PREDICTED from the wallet and nonce N+5 (shown once the wallet is connected). R lists [L, T, S]; V lists [T, S].')
+    + row('TBLOCK start price', D.prix.startPriceE18 + ' (USD x 1e18 per TBLOCK) · ' + D.prix.source + (D.prix.bloc ? ' · block ' + D.prix.bloc : ''))
+    + row('existing contracts (read only)', Object.entries(D.existants).map(([k, v]) => lib(k) + ' ' + v).join(' · '));
+  dessinerEtapes();
+  $('#connect').disabled = !!(faux.length || D.fixtureDeTest);
+}
+
+async function rafraichir() {
+  const r = await etapeSuivante(D, rpc, acct, etat);
+  if (r.N !== undefined && etat.N === null && etat.hashes.length) etat.N = r.N;
+  pred = etat.N !== null ? predire(acct, BigInt(etat.N)) : (r.pret ? predire(acct, BigInt(r.N)) : null);
+  dessinerEtapes();
+  if (r.pret) {
+    $('#go').disabled = false;
+    $('#go').textContent = (r.k + 1) + '. Deploy ' + NOM[D.etapes[r.k].lettre] + ' (sign in the wallet, nonce ' + BigInt(r.nonce) + ')';
+    $('#state').innerHTML = 'Ready: step ' + (r.k + 1) + ' lands at ' + esc(r.attendu) + '. Send nothing else from this wallet until step 6.'
+      + (r.k === 0 ? '<br>Step 1 builds Hearts with rewards = R = <b>' + esc(r.adr.R) + '</b> (predicted: nonce ' + esc(BigInt(r.N) + 5n) + ' = N+5). Step 6 must land exactly there, or hearts never count in the lock rewards.' : '');
+  } else {
+    $('#go').disabled = true;
+    $('#state').innerHTML = (r.arret ? '<span class="warn">' : '') + esc(r.raison) + (r.arret ? '</span>' : '');
+  }
+  if (r.fini) await verifierFin();
+  return r;
+}
+
 $('#connect').onclick = async () => {
   if (!window.ethereum) { $('#state').textContent = 'No wallet in this browser.'; return; }
-  try { [acct] = await window.ethereum.request({ method: 'eth_requestAccounts' }); } catch (e) { $('#state').textContent = 'Wallet refused: ' + (e.message || e); return; }
-  const chain = parseInt(await window.ethereum.request({ method: 'eth_chainId' }), 16);
-  okL = (await sha256Hex(D.likes.creation)) === D.likes.sha256Creation;
-  okV = (await sha256Hex(D.vault.init + D.vault.avant + D.vault.apres)) === D.vault.sha256Init;
-  $('#state').innerHTML = 'Connected: ' + esc(acct) + ' · network ' + chain + (chain === 8453 ? '' : ' — switch to Base first') + ' · data integrity ' + (okL && okV ? 'OK' : 'MISMATCH')
-    + (likesAt ? '<br>BlockLikesV2: ' + esc(likesAt) : '');
-  $('#d1').disabled = !(chain === 8453 && okL && !likesAt);
-  $('#d2').disabled = !(chain === 8453 && okV && likesAt && !D.adresseVault);
+  try { [acct] = await rpc('eth_requestAccounts', []); acct = String(acct).toLowerCase(); } catch (e) { $('#state').textContent = 'Wallet refused: ' + (e.message || e); return; }
+  const code = await rpc('eth_getCode', [acct, 'latest']).catch(() => null);
+  if (code === null || (code !== '0x' && code !== '0x0')) { $('#state').innerHTML = '<span class="warn">This wallet has contract code (smart wallet or delegated account): it cannot follow the CREATE nonce chain. Use the plain EOA named in the record.</span>'; return; }
+  charger();
+  await rafraichir();
 };
-async function deploy(btn, data, what) {
-  btn.disabled = true;
-  let h;
-  try { h = await window.ethereum.request({ method: 'eth_sendTransaction', params: [{ from: acct, data }] }); }
-  catch (e) { $('#state').textContent = 'Not sent: ' + (e.message || e); btn.disabled = false; return null; }
-  $('#state').innerHTML = what + ' sent: <a href="https://basescan.org/tx/' + esc(h) + '" target="_blank" rel="noopener">' + esc(h) + '</a> · waiting for the receipt…';
-  const r = await receipt(h);
-  if (!r) { $('#state').innerHTML += ' · no receipt yet: check Basescan before anything else.'; return null; }
-  if (r.status !== '0x1') { $('#state').innerHTML = what + ' FAILED on chain · tx ' + esc(h); return null; }
-  $('#state').innerHTML = what + ' deployed at <b>' + esc(r.contractAddress) + '</b> · tx <a href="https://basescan.org/tx/' + esc(h) + '" target="_blank" rel="noopener">' + esc(h) + '</a>';
-  return String(r.contractAddress).toLowerCase();
+
+async function receipt(h) {
+  for (let i = 0; i < 120; i++) { const r = await rpc('eth_getTransactionReceipt', [h]).catch(() => null); if (r) return r; await new Promise((o) => setTimeout(o, 2000)); }
+  return null;
 }
-$('#d1').onclick = async () => { const a = await deploy($('#d1'), D.likes.creation, 'BlockLikesV2'); if (a) { likesAt = a; $('#d2').disabled = !okV; $('#state').innerHTML += '<br>Now step 2.'; } };
-$('#d2').onclick = async () => { if (!likesAt) return; await deploy($('#d2'), vaultV2Creation(likesAt), 'TBlockVaultV2'); };
+
+$('#go').onclick = async () => {
+  $('#go').disabled = true;
+  const r = await rafraichir();
+  if (!r.pret) return;
+  $('#go').disabled = true;
+  let h;
+  try { h = await rpc('eth_sendTransaction', [{ from: acct, data: r.data, nonce: r.nonce }]); }
+  catch (e) { $('#state').textContent = 'Not sent: ' + (e.message || e); $('#go').disabled = false; return; }
+  etat.N = r.N; etat.hashes = [...etat.hashes, String(h).toLowerCase()]; garder();
+  $('#state').innerHTML = NOM[D.etapes[r.k].lettre] + ' sent: ' + lien(h) + ' · waiting for the receipt…';
+  const recu = await receipt(h);
+  if (!recu) { $('#state').innerHTML += '<br><span class="warn">No receipt yet: check Basescan, then reload this page (progress is kept).</span>'; return; }
+  const t = await rpc('eth_getTransactionByHash', [h]).catch(() => null);
+  const ko = controleEtape(D, r.k, acct, BigInt(r.N), predire(acct, BigInt(r.N)), t, recu);
+  if (ko.length) { $('#state').innerHTML = '<span class="warn">STOP at step ' + (r.k + 1) + ': ' + esc(ko.join(' · ')) + '</span>'; dessinerEtapes(); return; }
+  await rafraichir();
+};
+
+async function verifierFin() {
+  $('#verif').hidden = false;
+  const res = await verifierPack(D, etat.hashes, rpc);
+  $('#lines').innerHTML = res.lignes.map((l) => '<div class="ln ' + (l.ok ? 'ok' : 'ko') + '">' + (l.ok ? 'ok ' : 'KO ') + esc(l.quoi) + (l.ok ? '' : ' · seen ' + esc(l.vu)) + '</div>').join('')
+    + '<p class="st ' + (res.ok ? 'ok' : 'ko') + '">' + (res.ok ? 'ALL CHECKS HOLD. Next, outside this nonce chain: the hook payee moves its payee slot to R (its own signature).' : 'NOT VERIFIED: do not announce it.') + '</p>'
+    + '<p class="note">Same checks from a terminal: run the pack verifier script with these six hashes: ' + esc(etat.hashes.join(' ')) + '</p>';
+}
 </script>

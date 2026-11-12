@@ -9,13 +9,14 @@ const t = (m, c, x = '') => { if (c) ok++; else { ko++; console.log('KO', m, x);
 const ICI = path.dirname(fileURLToPath(import.meta.url));
 const L0 = await import('./lock.js');
 const { LOCK_DEPLOIEMENT } = await import('./lock-deploiement.js');
+const FRAIS_CONTRATS_LOCK = (await import('./frais-contrats.js')).FRAIS_CONTRATS.TBlockLock; /* game374 review */
 /* game352: deployed 2026-11-11 by tx 0xb0611159…03c5b6 (block 55,817,337, sender 0x31e0 read on chain), runtime == the frozen bytes'
  *   (verifier-lock-deploye-20261111.mjs 6/6). The address below is the one that verifier proved — copied, never typed from memory. */
 t('the lock is deployed at the verified address', L0.LOCK === '0xec46b02bb1f3a58ce37c023f8668f2207bc2b0aa' && LOCK_DEPLOIEMENT.adresse === L0.LOCK);
 t('the batch goes to it', L0.lockBatch({ amount: 1n, jours: 7, maintenantSec: 1 })[1].to === L0.LOCK);
 /* the "not deployed" state is still tested on a COPY without the address (every button hidden) */
 const DIR0 = fs.mkdtempSync(path.join(os.tmpdir(), 'lock0-'));
-for (const f of ['lock.js', 'keccak.js']) fs.copyFileSync(path.join(ICI, f), path.join(DIR0, f));
+for (const f of ['lock.js', 'keccak.js', 'frais-contrats.js' /* game374: lock.js reads MAX_LOCK */]) fs.copyFileSync(path.join(ICI, f), path.join(DIR0, f));
 fs.writeFileSync(path.join(DIR0, 'lock-deploiement.js'), fs.readFileSync(path.join(ICI, 'lock-deploiement.js'), 'utf8').replace(/adresse: (null|'0x[0-9a-f]{40}')/, 'adresse: null'));
 const N0 = await import(pathToFileURL(path.join(DIR0, 'lock.js')).href);
 let threw = false; try { N0.lockBatch({ amount: 1n, jours: 7, maintenantSec: 1 }); } catch (_) { threw = true; }
@@ -26,7 +27,7 @@ t('frozen data: 7-day minimum, the real TBLOCK', LOCK_DEPLOIEMENT.minLockSeconde
 /* a copy with an address, as after the deploy */
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'lock-'));
 const ADRL = '0x1111111111111111111111111111111111111111';
-for (const f of ['lock.js', 'keccak.js']) fs.copyFileSync(path.join(ICI, f), path.join(DIR, f));
+for (const f of ['lock.js', 'keccak.js', 'frais-contrats.js' /* game374: lock.js reads MAX_LOCK */]) fs.copyFileSync(path.join(ICI, f), path.join(DIR, f));
 fs.writeFileSync(path.join(DIR, 'lock-deploiement.js'), fs.readFileSync(path.join(ICI, 'lock-deploiement.js'), 'utf8').replace(/adresse: (null|'0x[0-9a-f]{40}')/, "adresse: '" + ADRL + "'"));
 const L = await import(pathToFileURL(path.join(DIR, 'lock.js')).href);
 const now = 1_800_000_000, E = 10n ** 18n;
@@ -37,6 +38,10 @@ const at = BigInt('0x' + b[1].data.slice(74, 138));
 t('lock(amount, now + 7 days + 1 h margin)', b[1].data.startsWith(selecteur('lock(uint256,uint256)')) && at === BigInt(now + 7 * 86400 + 3600), String(at));
 t('no ETH in either call', b.every((c) => c.value === '0x0'));
 for (const j of [6, 0, 4 * 365 + 1, 1.5]) { let x = false; try { L.lockBatch({ amount: 1n, jours: j, maintenantSec: now }); } catch (_) { x = true; } t('refuses ' + j + ' days', x); }
+/* game374 review: 4*365 days + the 1 h margin passed MAX_LOCK and lock() reverted BadDate — the longest date built must fit the contract */
+{ const maxLock = BigInt(FRAIS_CONTRATS_LOCK.MAX_LOCK); let x = false; try { L0.dateDeverrou(Number(maxLock / 86400n), now); } catch (_) { x = true; }
+  t('refuses MAX_LOCK in whole days (its date + margin is past MAX_LOCK)', x);
+  const d = L0.dateDeverrou(L0.MAX_JOURS, now); t('the longest date built (' + L0.MAX_JOURS + ' days + margin) is within MAX_LOCK', d - BigInt(now) <= maxLock, String(d - BigInt(now))); }
 let z = false; try { L.lockBatch({ amount: 0n, jours: 7, maintenantSec: now }); } catch (_) { z = true; } t('refuses 0 TBLOCK', z);
 t('withdraw call', L.withdrawCall().data === selecteur('withdraw()') && L.withdrawCall().to === ADRL);
 t('gate view = activeLockedOf (SEC-001)', L.VIEW.activeLockedOf('0x31e0dbc9038c82184b9fa6a90057a3ed500bde3b').data.startsWith(selecteur('activeLockedOf(address)')));

@@ -71,7 +71,7 @@ ok(r4 && r4.code === 'NON_COTEE', 'sans cause servie : la phrase d avant, inchan
 /* IV. cablage */
 const srv = readFileSync(process.env.TB_SRV || path.join(ICI, 'serveur-web.js'), 'utf8'); /* TB_SRV : une COPIE mutee, pour prouver le banc rouge */
 const app = readFileSync(path.join(ICI, 'app.html'), 'utf8');
-ok(/import \{ lireCauseRefusPool, phraseRefusPool \} from '\.\/pool-lanceur-taxe\.js'/.test(srv), 'serveur : importe pool-lanceur-taxe.js');
+ok(/import \{ lireCauseRefusPool, phraseRefusPool(?:, [A-Za-z]+)* \} from '\.\/pool-lanceur-taxe\.js'/.test(srv) /* game374: + gardeTaxeAvantAchat */,'serveur : importe pool-lanceur-taxe.js');
 ok(/l\.achatRefus = \{ code: v\.refus\.code, phrase: v\.refus\.phrase \}/.test(srv) && /l\.achatRefus = null;/.test(srv), 'serveur : pose l.achatRefus depuis le verdict, remis a null a chaque tour');
 ok(/refus: phraseRefusPool\(cause\)/.test(srv) && /achatsParJeton\.set\(jeton, \{ t: Date\.now\(\), empreinte, v \}\)/.test(srv), 'serveur : la cause est gardee AVEC le verdict (meme cache)');
 ok(/raisonSansBuy\(vR, \{ liqOk, liqMin: LIQ_MIN_BUY_USD, refusServi: l\.achatRefus \}\)/.test(app), 'ecran : la ligne passe l.achatRefus a raisonSansBuy');
@@ -81,6 +81,7 @@ ok(/raisonSansBuy\(vR, \{ liqOk, liqMin: LIQ_MIN_BUY_USD, refusServi: l\.achatRe
  *   pool-lanceur-taxe.js, pool.js, index-routeur.js) et un faux noeud qui ne connait QUE la vraie poolId de la cle (une autre poolId lit 0,
  *   comme sur la chaine pour une pool qui n existe pas). Deterministe, sans reseau. */
 const vm = await import('node:vm');
+const TK = await imp('tokenomics.js'); /* game374: estNotreHook for the tax guard */
 const AM = await imp('achat-marche.js'), IR = await imp('index-routeur.js'), LP = await imp('lancer-pool.js'), EC = await imp('echange.js');
 const iA = srv.indexOf('const ACHAT_CACHE_MS = '), iF = srv.indexOf('async function achatsMarche(lignes) {');
 const fA = iF < 0 ? null : /\r?\n\}/.exec(srv.slice(iF));
@@ -96,9 +97,14 @@ if (ok(!!srcAchats && !AM.__err && !IR.__err && !LP.__err && !EC.__err, 'serveur
     const rpcRails = async (meth, params) => {
       const to = String(params[0].to).toLowerCase(), data = String(params[0].data).toLowerCase();
       etat.appels.push(to + ' ' + data.slice(0, 10));
-      if (to === QR) throw new Error(etat.quoteErreur);
+      if (to === QR) { if (etat.quote != null) return motH(etat.quote) + '0'.repeat(64); throw new Error(etat.quoteErreur); } /* game374: a QUOTED pool */
       if (to === SVr && data.startsWith('0x' + T.SEL_GET_LIQUIDITY)) { etat.stateView += 1; if (etat.causePanne) throw new Error('429'); return motH('0x' + data.slice(10) === PID ? etat.liquidite : 0n); }
-      if (to === HOOKR && data === '0x' + T.SEL_TAX_BPS) return motH(etat.taxBps);
+      if (to === HOOKR && data === '0x' + T.SEL_TAX_BPS) {
+        etat.lecturesTaxe = (etat.lecturesTaxe || 0) + 1;
+        if (etat.taxe === 'revert') { const e = new Error('execution reverted'); e.definitif = true; throw e; }
+        if (etat.taxe === 'panne') throw new Error('429 Too Many Requests');
+        return motH(etat.taxBps);
+      }
       if (to === HOOKR && data === '0x' + T.SEL_TAX_DENOM) return motH(10000);
       throw new Error('unexpected ' + to + ' ' + data.slice(0, 10));
     };
@@ -107,6 +113,7 @@ if (ok(!!srcAchats && !AM.__err && !IR.__err && !LP.__err && !EC.__err, 'serveur
     const ctx = vm.createContext({ clesCache: new Map([[JETON, { ok: true, cles: [{ ...CLE, poolId: PID }] }]]), clesPool: new Map(),
       chargerIndexRouteur: IR.chargerIndexRouteur, chargerNosBlocksTb: IR.chargerNosBlocksTb, sourcesTbLues: IR.sourcesTbLues, blocksRouteurCorps: corpsIdx, nosBlocksCorps: corpsNos,
       quoterV4: AM.quoterV4, verdictAchatMarche: AM.verdictAchatMarche, lireCauseRefusPool: T.lireCauseRefusPool, phraseRefusPool: T.phraseRefusPool,
+      gardeTaxeAvantAchat: T.gardeTaxeAvantAchat, estNotreHookAchat: TK.estNotreHook, /* game374 */
       V4_ADRESSES: LP.V4_ADRESSES, poolIdV4: P.poolId, rpcRails, console: { log() {} } });
     const achatsMarche = vm.runInContext(src + '\nachatsMarche;', ctx);
     return { achatsMarche, etat };
@@ -129,6 +136,15 @@ if (ok(!!srcAchats && !AM.__err && !IR.__err && !LP.__err && !EC.__err, 'serveur
     /* (e) ligne sans cle connue : remise a null (un refus d un tour precedent ne reste pas affiche) */
     const e = src({ quoteErreur: REVERT, liquidite: 0n, taxBps: 9999n }), le = [{ adr: '0x' + '1'.repeat(40), achatRefus: { code: 'VIEUX' } }]; const ce = await e.achatsMarche(le);
     if (!(le[0].achatRefus === null && ce.sansCle === 1)) fautes.push('(e) sans cle : ' + JSON.stringify(le[0].achatRefus));
+    /* game374 (audit R-launch-5) — a pool the Quoter QUOTES, on a hook that taxes resale: before, it got a Buy (prod 2026-11-12, 3 rows) */
+    const f = await run({ quote: 10n ** 20n, liquidite: 5n, taxBps: 9999n });
+    if (!(f.l[0].achat === null && f.l[0].achatRefus && f.l[0].achatRefus.code === 'TAXE_REVENTE' && f.c.refusCauses.TAXE_REVENTE === 1)) fautes.push('(f) devis + taxe 9999 : achat ' + JSON.stringify(f.l[0].achat) + ' refus ' + JSON.stringify(f.l[0].achatRefus));
+    /* (g) quoted, the hook has no taxBps() (revert): the Buy stays */
+    const g = await run({ quote: 10n ** 20n, liquidite: 5n, taxe: 'revert' });
+    if (!(g.l[0].achat && g.l[0].achatRefus === null && g.s.etat.lecturesTaxe === 1)) fautes.push('(g) devis + pas de taxBps : achat ' + JSON.stringify(g.l[0].achat) + ' lectures ' + g.s.etat.lecturesTaxe);
+    /* (h) quoted, the tax read fails (429): no Buy this round, nothing kept, counted as not measured */
+    const h = await run({ quote: 10n ** 20n, liquidite: 5n, taxe: 'panne' });
+    if (!(h.l[0].achat === null && h.c.nonMesures === 1 && h.c.achetables === 0)) fautes.push('(h) devis + taxe non lue : achat ' + JSON.stringify(h.l[0].achat) + ' nonMesures ' + h.c.nonMesures);
     return fautes;
   };
   const fS = await jugerServeur((o) => serveurVm(o));
@@ -141,6 +157,9 @@ if (ok(!!srcAchats && !AM.__err && !IR.__err && !LP.__err && !EC.__err, 'serveur
     ['S4 cause jamais servie sur la ligne', 'l.achatRefus = { code: v.refus.code, phrase: v.refus.phrase };', 'void 0;'],
     ['S5 cause hors du cache', "if (!lectureRatee) achatsParJeton.set(jeton, { t: Date.now(), empreinte, v });", "if (!lectureRatee) achatsParJeton.set(jeton, { t: Date.now(), empreinte, v: { ...v, refus: null } });"],
     ['S6 achatRefus pas remis a null', '    l.achatRefus = null;\n', '\n'],
+    /* game374 : la garde de taxe AVANT le Buy retiree, puis rendue « fail open » */
+    ['S7 garde de taxe retiree', 'if (taxe) v = { ...v, achetable: false, refus: taxe };', 'void taxe;'],
+    ['S8 taxe non lue = achat garde', "if (taxe && taxe.code === 'TAXE_NON_LUE') { compte.nonMesures += 1; continue; }", 'if (false) {}'],
   ];
   for (const [nom, de, vers] of MUTANTS_SRV) {
     const s = srcAchats.replace(/\r\n/g, '\n');

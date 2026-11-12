@@ -74,3 +74,31 @@ export function phraseRefusPool(c) {
   }
   return null;
 }
+
+/* game374 (audit of the fees page, R-launch-5) — the measure of 2026-10-26 above, as data: what a wallet off the hook's list got back when it
+ *   sold everything it had just bought (fork, 0.001 ETH paid). The fees page computes its percentage from these two integers. */
+export const MESURE_ALLER_RETOUR = Object.freeze({ date: '2026-10-26', taxBps: 9999, payeWei: '1000000000000000', rendusWei: '99980006964', poolsVides: 129, poolsLues: 129 });
+
+/**
+ * ⛔ game374 (R-launch-5) — LA TAXE AVANT LE BUY. Before, the hook's taxBps() was read only for a pool the Quoter REFUSED; a pool on such a
+ * hook that still held liquidity was quoted and got a Buy (prod /api/trending 2026-11-12: 3 rows, taxBps 9999). Now the server reads the tax of
+ * a third-party hook BEFORE it offers a Buy on a quoted pool:
+ *   - the hook answers taxBps() and its denominator, and the tax is above TAXE_MAX_FRACTION -> TAXE_REVENTE (no Buy, the phrase says why);
+ *   - the hook REVERTS on taxBps() (it has no such function — the normal case) -> null, the Buy stays;
+ *   - any other failure (node down, empty answer, incoherent numbers) -> TAXE_NON_LUE: no Buy this round, never a guess (fail closed).
+ * `appel(to, data)` rejects with an Error; a revert of the chain is told by `e.definitif === true` (rpcRails) or « revert » in its message.
+ * @returns {Promise<null|{ code:'TAXE_REVENTE'|'TAXE_NON_LUE', phrase:string }>}
+ */
+export async function gardeTaxeAvantAchat({ appel, hook }) {
+  const h = String(hook || '').toLowerCase();
+  if (!/^0x[0-9a-f]{40}$/.test(h) || h === '0x0000000000000000000000000000000000000000') return null;
+  const nonLue = { code: 'TAXE_NON_LUE', phrase: 'No buy right now: the resale tax of its pool\'s hook was not read just now.' };
+  const estRevert = (e) => !!(e && (e.definitif === true || /revert/i.test(String(e.message || e))));
+  let taxBps;
+  try { taxBps = mot(await appel(h, '0x' + SEL_TAX_BPS)); } catch (e) { return estRevert(e) ? null : nonLue; }
+  if (taxBps === null) return nonLue;
+  let denom;
+  try { denom = mot(await appel(h, '0x' + SEL_TAX_DENOM)); } catch (e) { return nonLue; }
+  if (tauxTaxe({ taxBps, denom }) === null) return nonLue;
+  return phraseRefusPool({ liquidite: null, taxBps, denom });
+}

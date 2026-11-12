@@ -72,7 +72,7 @@ export function encodeClaim(currency) {
  */
 export function planBringToLife({ token, quote, montant, startTick, locker = LOCKER_ADRESSE, lpFee = LOCKER_LP_FEE }) {
   if (!locker || !ADR.test(String(locker))) {
-    return { etat: 'REFUSE', pourquoi: 'the locker is not deployed yet — nothing to sign' };
+    return { etat: 'REFUSE', pourquoi: 'the locker is coming soon — nothing to sign' };
   }
   if (!ADR.test(String(token || ''))) return { etat: 'REFUSE', pourquoi: 'the block address is not whole' };
   if (!ADR.test(String(quote || ''))) return { etat: 'REFUSE', pourquoi: 'the pair address is not whole' };

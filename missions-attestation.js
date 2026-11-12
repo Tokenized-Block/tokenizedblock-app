@@ -69,7 +69,7 @@ export async function mesurerFenetre(io, jeton, compte, window) {
  */
 export async function attester(io, { taskId, completer, txHash }) {
   const c = bas(completer), h = bas(txHash);
-  if (!ADR.test(bas(io.contrat))) return { ok: false, etat: 'PAS_OUVERT', pourquoi: 'the mission board is not deployed yet' };
+  if (!ADR.test(bas(io.contrat))) return { ok: false, etat: 'PAS_OUVERT', pourquoi: 'the mission board is coming soon' };
   if (!ADR.test(c) || !/^0x[0-9a-f]{64}$/.test(h) || !Number.isSafeInteger(taskId) || taskId < 0) return { ok: false, etat: 'REFUSE', pourquoi: 'a mission id, a wallet and a transaction hash are needed' };
   if (!io.cle) return { ok: false, etat: 'PAS_OUVERT', pourquoi: 'the mission checker key is not set on this server' };
   let signataire;

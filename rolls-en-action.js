@@ -183,7 +183,7 @@ export async function planRollEnAction({ rpc, chaine, compte, contrat, usdc = US
   let code = null;
   try { code = await rpc('eth_getCode', [bas(contrat), 'latest']); } catch (_) { code = null; }
   if (code === null) return nonMesure('the BlockRolls code could not be read');
-  if (String(code).length <= 2) return refuse('BlockRolls has no code at ' + bas(contrat) + ': not deployed (or wrong address)');
+  if (String(code).length <= 2) return refuse('BlockRolls has no code at ' + bas(contrat) + ': no contract at this address');
 
   /* combien d action : cible cotee, exact-out puis exact-in */
   const cible = sortieCibleUsdc({ besoin, fraisBps: FRAIS_INTERFACE_BPS_CL, toleranceBps: tol });

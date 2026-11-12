@@ -2411,7 +2411,7 @@ details[open] > summary::before{transform:rotate(90deg)}
         <p class="note" id="cFrais"></p>
         <!-- tip 20260922-create-sign-ux: only Instant Birth cost — kill free-asleep bullet -->
         <ul class="note noteBullets" id="cCostBullets" hidden>
-          <li><b>Instant Birth</b>: 0.001 ETH · V8 — create + open market</li>
+          <li><b>Instant Birth</b>: 0.001 ETH — create + open market</li>
         </ul>
         <ol class="pmLignes" id="cApercuTx"></ol>
         <p class="note" id="cMintFeeHint" hidden></p>
@@ -3687,7 +3687,7 @@ details[open] > summary::before{transform:rotate(90deg)}
       <!-- ⛔ L EMPREINTE EST AFFICHEE, DONC ELLE EST DE L ANGLAIS. `20261001-pont-dans-lui` a fait
            rougir `test-texte-a-l-ecran.mjs` : le mot « dans » est de la prose francaise partie a
            l ecran anglais. La garde a fait son travail du premier coup. -->
-      <p class="note" data-build="20261109-game374" hidden>Build <code>20261109-game374</code> ·Contract labels say what they do, not our internal names.</p>
+      <p class="note" data-build="20261109-game375" hidden>Build <code>20261109-game375</code> ·Contract labels say what they do, not our internal names.</p>
       <p class="sous">Everything happening to blocks on Base, live.</p>
       <!-- tip 0013: sticky — Hooked chip = Dex fees; unhooked → Launch beside. No fee addr. -->
       <p class="note" id="sfHookedSticky" hidden>Blocks alive on TokenizedBlock pay their creator on every trade. Example:<button type="button" class="puce" id="sfStickyTbgas">Open TBGAS</button>.</p>
@@ -20457,7 +20457,7 @@ async function calculerLancement() {
       if (isInscrire && !hookPayee) {
         const minV = CREATE_FEE_WEI_FLOOR;
         return { ...et, value: '0x' + (minV + cautionW).toString(16), payant: true,
-          nom: 'Register on V8 — 0.0003 ETH min (open fee already paid via Create)' };
+          nom: 'Register the market — 0.0003 ETH min (open fee already paid via Create)' };
       }
       /* tip 20260922-no-approx-dollar-step: never keep ≈ $1 in the approval label when fee already paid */
       return { ...et, value: '0x' + cautionW.toString(16), payant: false, nom: 'Bring it to life — open fee already paid on chain' };
@@ -20750,13 +20750,13 @@ function peindrePlan(plan, adr) {
         ? ((feeDejaPaye && !inscrireDust)
           ? 'Not enough ETH for the first micro-swap — top up, then work it out again.'
           : (inscrireDust
-            ? 'Not enough ETH for the V8 register dust (0.0003) + the first micro-swap — top up, then work it out again.'
+            ? 'Not enough ETH for the market registration (0.0003) + the first micro-swap — top up, then work it out again.'
             : 'Not enough ETH for the 0.001 ETH opening fee + the first micro-swap — top up, then work it out again. '
               + 'The pool itself costs you nothing.'))
         : (feeDejaPaye && !inscrireDust
           ? 'Not enough ETH for pool seed + first micro-swap — top up, then work it out again.'
           : (inscrireDust
-            ? 'Not enough ETH for V8 register dust (0.0003) + pool seed + first micro-swap — top up, then work it out again.'
+            ? 'Not enough ETH for the market registration (0.0003) + pool seed + first micro-swap — top up, then work it out again.'
             : 'Not enough ETH for open fee + pool seed + first micro-swap — top up, then work it out again.')))
       : 'Not enough ETH for the 0.001 ETH life fee — top up, then work it out again.';
     return;
@@ -20923,7 +20923,7 @@ async function signerEtapeLancement(etapePlan) {
     if (etapePlan.payant) {
       const v = BigInt(etapePlan.value || '0x0');
       e.textContent = (v > 0n && v <= CREATE_FEE_WEI_FLOOR)
-        ? 'Opening your wallet — V8 register dust (0.0003 ETH; open fee already paid via Create).'
+        ? 'Opening your wallet — market registration (0.0003 ETH; open fee already paid via Create).'
         : 'Opening your wallet — the 0.001 ETH fee brings it to life (paid on chain).';
     }
     r = await envoyerDepuisWallet({ eth: window.ethereum, rpc, chaineAttendue: CHAINE, compte,
@@ -24072,7 +24072,7 @@ function majFraisEtRecap() {
       ? ', after ' + ethLisible(fraisWeiCalcule) + ' ETH'
       : ' — Create closed until life-fee price is measured')
     : (Number(CHAINE) === 8453
-      ? ' — Instant Birth 0.001 ETH · V8'
+      ? ' — Instant Birth 0.001 ETH'
       : ' — Instant Birth free (Practice)');
   /* tip 2354: when ko, just the ko — never paste fee story */
   /* ⛔ PAS D ERREUR ROUGE AVANT LE PREMIER GESTE (capture de Phil, 2026-09-18 : « A block needs a name. » deux fois,
@@ -24967,8 +24967,8 @@ async function creerEtVivreUneSignature({ v, calldata, to, adresse, faceGravee, 
   if (Number(CHAINE) === 8453 && !estHookDeNaissance(hook)) return 'SANS';
   e.className = 'note';
   e.textContent = capsOk
-    ? 'Preparing Instant Birth — one signature (create + 0.001 ETH · V8)…'
-    : 'Preparing Instant Birth — trying one wallet batch (create + 0.001 ETH · V8); caps unread on this wallet…';
+    ? 'Preparing Instant Birth — one signature (create + 0.001 ETH)…'
+    : 'Preparing Instant Birth — trying one wallet batch (create + 0.001 ETH); caps unread on this wallet…';
   const rep = repartitionFrappe(SUPPLY_FIXE, compte);
   const k = rep.destinataires.findIndex((d) => String(d).toLowerCase() === String(compte).toLowerCase());
   const solde = k >= 0 ? BigInt(rep.montants[k]) : 0n;
@@ -25542,14 +25542,14 @@ async function creerBlock() {
             ? ('. Opening fee already paid — next: <b>open its market against ' + enTexte(symQ) + '</b> (no second 0.001 · no ETH seed).')
             : '. Opening fee already paid — next: <b>put ETH in the pool and open its market</b>. You will not pay the 0.001 again.')
           : (quoteAction
-            ? ('. Next = <b>Instant Birth</b> (open V8 vs ' + enTexte(symQ) + ' · open fee 0.001 ETH).')
+            ? ('. Next = <b>Instant Birth</b> (open market vs ' + enTexte(symQ) + ' · open fee 0.001 ETH).')
             : '. Next = <b>Instant Birth</b> (ETH seed into hooked pool + first micro-swap · open fee 0.001 ETH separate).');
         const btnTxt = ibDirect
-          ? (quoteAction ? ('Open V8 market — ' + symQ + ' quote (fee already paid)') : 'Open V8 market — seed ETH (fee already paid)')
-          : (quoteAction ? ('Instant Birth — open V8 vs ' + symQ) : 'Instant Birth — seed ETH + open hooked market');
+          ? (quoteAction ? ('Open market — ' + symQ + ' quote (fee already paid)') : 'Open market — seed ETH (fee already paid)')
+          : (quoteAction ? ('Instant Birth — open market vs ' + symQ) : 'Instant Birth — seed ETH + open market');
         const noteTxt = ibDirect
           ? (quoteAction
-            ? ('CreateRouter already sent the open fee. This step opens the ' + enTexte(symQ) + '↔block V8 pool.')
+            ? ('Create already sent the open fee. This step opens the ' + enTexte(symQ) + '↔block pool.')
             : 'CreateRouter already sent the open fee. This step only seeds the pool.')
           : (quoteAction
             ? ('Quote = ' + enTexte(symQ) + ' — buyers pay in ' + enTexte(symQ) + '.')
@@ -32607,7 +32607,7 @@ async function peindreLock(hote, { offre = false } = {}) {
     hote.append(el('p', 'titre', offre ? 'Lock your TBLOCK — earn community points' : 'Your TBLOCK lock'));
     /* game357: the v1 hearts, channel and vault claim read the WALLET BALANCE (economie.js MIN_HOLD, TBlockVault.sol _bal); only the undeployed v2
      *   reads the lock. Locking moves TBLOCK out of the wallet, so the card must never say those perks count the lock. */
-    hote.append(el('p', 'sous', 'Locking earns community points: more TBLOCK and more days earn more. Locked TBLOCK leaves your wallet, and today hearts ♥, the holders’ channel and vault claims still count your wallet balance (the lock-based contracts are not deployed yet). To leave: request the withdrawal (points stop at once); you take it all back ' + LK.RETRAIT_JOURS + ' days after the request, or at the lock date if that is later.'));
+    hote.append(el('p', 'sous', 'Locking earns community points: more TBLOCK and more days earn more. Locked TBLOCK leaves your wallet, and today hearts ♥, the holders’ channel and vault claims still count your wallet balance; counting your lock there is coming soon. To leave: request the withdrawal (points stop at once); you take it all back ' + LK.RETRAIT_JOURS + ' days after the request, or at the lock date if that is later.'));
     const etat = el('p', 'note' + (e.cle === 'actif' ? ' wOk' : ''), e.texte); hote.append(etat);
     const dire = (t, k = '') => { etat.className = 'note' + (k ? ' ' + k : ''); etat.textContent = t; };
     /* the ONE exit action etatLock chooses: request (perks stop, 7-day period starts), cancel (perks back), or take back (period over) */
@@ -32674,7 +32674,7 @@ async function peindreLock(hote, { offre = false } = {}) {
         const fin = Math.max(t0 + jours * 86400, Number(unlockAt) > t0 && locked > 0n && requestedAt === 0n ? Number(unlockAt) : 0);
         const garde = fin > t0 + jours * 86400;
         const pts = m > 0n ? PTS.pointsLockIntervalle(m, fin, t0, fin) : 0;
-        ptsNote.textContent = m > 0n ? (garde ? 'Your lock already runs until ' + new Date(fin * 1000).toISOString().slice(0, 10) + ': added TBLOCK stays locked until then too. ' : '') + 'Until that date these TBLOCK earn about ' + PV.fmtPts(pts) + ' community points: 1 a day per 100,000 TBLOCK, ×1.25 from 30 days, ×1.5 from 90, ×2 from 1 year. Points decide your share of the community drop — a separate distribution, not live yet; the weekly player budget follows what you burned. No rate is promised.' : '';
+        ptsNote.textContent = m > 0n ? (garde ? 'Your lock already runs until ' + new Date(fin * 1000).toISOString().slice(0, 10) + ': added TBLOCK stays locked until then too. ' : '') + 'Until that date these TBLOCK earn about ' + PV.fmtPts(pts) + ' community points: 1 a day per 100,000 TBLOCK, ×1.25 from 30 days, ×1.5 from 90, ×2 from 1 year. Points decide your share of the community drop, a separate distribution coming soon; the weekly player budget follows what you burned. No rate is promised.' : '';
         go.textContent = m > 0n ? (garde ? 'Add ' + LK.fmt(m) + ' TBLOCK to your lock (until ' + new Date(fin * 1000).toISOString().slice(0, 10) + ')' : 'Lock ' + LK.fmt(m) + ' TBLOCK for ' + jours + ' days') : 'Lock — enter a whole number of TBLOCK';
       }
       inp.addEventListener('input', majLock);
@@ -32972,8 +32972,9 @@ async function peindreVaultWallet() {
   carte.hidden = false;
   const wc = $('#wVaultComment');
   if (wc && !wc.textContent) wc.textContent = 'Each week the vault keeps a budget for the players: a share of the TBLOCK they burned with hearts, never more than they burned, claimed within the claim window. '
-    + 'Today (v1) the contracts check a fixed amount written at launch: ' + ECO.fmt(ECO.LIKE_MIN_HOLD) + ' TBLOCK still held after a heart, ' + ECO.fmt(ECO.CLAIM_MIN_HOLD) + ' TBLOCK to claim. Before your wallet opens, the app also asks for a heart that you keep $' + ECO.SEUIL_USD + ' of TBLOCK at the price read. '
-    + 'A fixed amount is worth a different number of dollars every day, so the next version (v2, reviewed and fork-tested, not deployed yet) has the contracts ask $' + ECO.SEUIL_USD + ' of TBLOCK LOCKED instead, at a price kept up to date within fixed bounds. In v2: $15 locked to claim; more from $100 locked: +15% at $100, +30% at $500, +50% at $1000; up to +25% more for locking 90 days; you must play that week. Community points are separate: ' + 'Points decide your share of the community drop — a separate distribution, not live yet; the weekly player budget follows what you burned. No rate is promised.';
+    + 'Today the contracts check a fixed amount set at launch: ' + ECO.fmt(ECO.LIKE_MIN_HOLD) + ' TBLOCK still held after a heart, ' + ECO.fmt(ECO.CLAIM_MIN_HOLD) + ' TBLOCK to claim. Before your wallet opens, the app also asks, for a heart, that you keep $' + ECO.SEUIL_USD + ' of TBLOCK at the price read now. '
+    + 'A fixed amount is worth a different number of dollars every day. Coming soon, the holders vault asks for $' + ECO.SEUIL_USD + ' of TBLOCK LOCKED instead, at a price kept up to date within fixed bounds: $15 locked to claim; more from $100 locked (+15% at $100, +30% at $500, +50% at $1,000); up to +25% more for 90 days locked; you must play that week (a heart, a TAM mint or a skin). '
+    + 'Community points are separate: they decide your share of the community drop, which is coming soon; the weekly player budget follows what you burned. No rate is promised.';
   void peindreCoeursWallet();
   void peindreLock($('#wLock'));
   void peindrePointsWallet();

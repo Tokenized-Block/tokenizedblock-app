@@ -33,7 +33,7 @@ export const isB20 = (a) => /^0xb2000000000000000000[0-9a-f]{20}$/.test(String(a
 
 /** ONE batch for n "+1": approve EXACTLY n * LIKE_PRICE to BlockLikes, then like(block, n). Never an unlimited approval. */
 export function likeBatch({ block, n = 1 }) {
-  if (!LIKES) throw new Error('BlockLikes is not deployed yet');
+  if (!LIKES) throw new Error('hearts are coming soon');
   const k = BigInt(n);
   if (k < 1n || k > 1000n) throw new Error('1 to 1000 likes per call');
   if (!isB20(block)) throw new Error('not a block address');
@@ -63,7 +63,7 @@ export function likeCheckUsd({ balance, n = 1, prixUsd, seuilUsd = SEUIL_USD }) 
   if (reste < need) return { ok: false, why: 'after paying, this wallet must still hold $' + seuilUsd + ' of TBLOCK at the price read now (' + fmt(need) + ' TBLOCK); it would hold ' + fmt(reste) };
   return { ok: true, cost: base.cost, minHold: need > LIKE_MIN_HOLD ? need : LIKE_MIN_HOLD };
 }
-export const claimCall = (epoch) => { if (!VAULT) throw new Error('the vault is not deployed yet'); return call(VAULT, SEL.claim, wUint(epoch)); };
+export const claimCall = (epoch) => { if (!VAULT) throw new Error('the holders vault is coming soon'); return call(VAULT, SEL.claim, wUint(epoch)); };
 export const VIEW = Object.freeze({
   likesOf: (b) => ({ to: LIKES, data: '0x' + SEL.likesOf + wAddr(b) }),
   balanceOf: (a) => ({ to: TBLOCK, data: '0x' + SEL.balanceOf + wAddr(a) }),

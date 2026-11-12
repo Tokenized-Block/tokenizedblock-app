@@ -306,7 +306,7 @@ export function oeuvreReglee(P, chemin, valeur) {
  * SERVEUR (qui mesure la distance a toutes les oeuvres mintees) sur les MEMES octets, et une oeuvre tiree pour CE wallet.
  */
 export function peutMinter({ dep, local, serveur, octets, P, compte = null }) {
-  if (!mintVisible(dep)) return { ok: false, pourquoi: 'TamArt is not deployed yet' };
+  if (!mintVisible(dep)) return { ok: false, pourquoi: 'TAM minting is coming soon' };
   if (!local || !local.ok) return { ok: false, pourquoi: verdictReglage(local).texte };
   if (!serveur || serveur.ok !== true || serveur.etat !== 'CERTIFIE') return { ok: false, pourquoi: serveur && serveur.pourquoi ? serveur.pourquoi : 'the server has not certified this work' };
   if (!(octets instanceof Uint8Array) || serveur.hash !== keccak256Hex(octets)) return { ok: false, pourquoi: 'the server certified other bytes' };

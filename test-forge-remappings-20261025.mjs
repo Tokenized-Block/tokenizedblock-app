@@ -31,8 +31,17 @@ for (const f of fs.readdirSync(ICI).filter((x) => /^[a-z0-9-]+-deploiement\.js$/
 }
 ok(fiches.length >= 7, 'il y a ' + fiches.length + ' fiches de deploiement avec une creation (>= 7 attendues)');
 
+/* 2026-11-12: blockskins-deploiement.js is the RETIRED standalone Skins record, frozen from the pre-pack BlockSkins.sol (Skins now ships as
+ *   step S of the economy pack). Its creation is no longer the prefix of contracts/out/BlockSkins (the router game) BY DESIGN, so it
+ *   cannot witness the remapping; it is checked apart: still frozen (adresse null) and NOT the current artefact. */
+const RETIREES = new Set(['blockskins-deploiement.js']);
+for (const { f, D } of fiches.filter((x) => RETIREES.has(x.f))) {
+  const p = path.join(ICI, 'contracts', 'out', D.contrat + '.sol', D.contrat + '.json');
+  const code = fs.existsSync(p) ? bas(JSON.parse(fs.readFileSync(p, 'utf8')).bytecode.object) : '';
+  ok(D.adresse === null && /^0x[0-9a-f]{100,}$/.test(code) && !bas(D.creation).startsWith(code), '1 ' + f + ' : retired record, frozen (adresse null) and NOT the current artefact (skipped as a remapping witness)');
+}
 const vus = new Map();
-for (const { f, D } of fiches) {
+for (const { f, D } of fiches.filter((x) => !RETIREES.has(x.f))) {
   const p = path.join(ICI, 'contracts', 'out', D.contrat + '.sol', D.contrat + '.json');
   if (!fs.existsSync(p)) { ok(false, f + ' : artefact ' + D.contrat + ' absent (lancer forge build dans contracts/)'); continue; }
   const a = JSON.parse(fs.readFileSync(p, 'utf8'));

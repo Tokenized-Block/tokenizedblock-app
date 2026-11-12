@@ -40,7 +40,8 @@ contract BlockLikesV2Test is Test {
 
     function cfg() internal view returns (BlockLikesV2.Config memory c) {
         c = BlockLikesV2.Config({ tblock: address(t), lock: address(K_), genesis: G, epoch: 7 days, likeUsdE18: 5e17, holdUsdE18: 15e18,
-            priceFloor: FLOOR, priceCeil: CEIL, startPrice: P0, maxStepBps: 1_000, minInterval: 3600, keeper: K, dev: D1, dev2: D2 });
+            priceFloor: FLOOR, priceCeil: CEIL, startPrice: P0, maxStepBps: 1_000, minInterval: 3600, keeper: K, dev: D1, dev2: D2,
+            rewards: address(0x8E7A8D) });
     }
     function setUp() public {
         vm.warp(1_800_000_000);
@@ -183,6 +184,32 @@ contract BlockLikesV2Test is Test {
         c = cfg(); c.priceCeil = P0 * 100 + 1; vm.expectRevert(BlockLikesV2.BadParams.selector); new BlockLikesV2(c);    /* SEC-001 range */
         c = cfg(); c.priceFloor = P0 / 100 - 1; vm.expectRevert(BlockLikesV2.BadParams.selector); new BlockLikesV2(c);
         c = cfg(); c.lock = address(0xDEAD); vm.expectRevert(BlockLikesV2.BadParams.selector); new BlockLikesV2(c);
+    }
+
+    /* review DT-1 (2026-11-11): the keeper is never a dev, at construction and at every replacement */
+    function test_DT1_keeper_is_never_a_dev() public {
+        BlockLikesV2.Config memory c;
+        c = cfg(); c.keeper = D2; vm.expectRevert(BlockLikesV2.BadParams.selector); new BlockLikesV2(c);
+        c = cfg(); c.keeper = D1; vm.expectRevert(BlockLikesV2.BadParams.selector); new BlockLikesV2(c);
+        c = cfg(); new BlockLikesV2(c); /* control: a third key deploys */
+        vm.prank(D1); vm.expectRevert(BlockLikesV2.BadParams.selector); L.announceKeeper(D2);
+        vm.prank(D2); vm.expectRevert(BlockLikesV2.BadParams.selector); L.announceKeeper(D1);
+        vm.prank(D1); vm.expectRevert(BlockLikesV2.BadParams.selector); L.announceKeeper(D1);
+        vm.prank(D1); L.announceKeeper(address(0x2EE9)); /* control */
+        assertEq(L.nextKeeper(), address(0x2EE9));
+    }
+
+    /* review DT-4 (2026-11-11): two tokens are named TBLOCK; the lock must lock the token the hearts burn */
+    function test_DT4_lock_on_another_tblock_refused() public {
+        V2Token other = new V2Token();
+        TBlockLock otherLock = new TBlockLock(address(other));
+        BlockLikesV2.Config memory c = cfg(); c.lock = address(otherLock);
+        vm.expectRevert(BlockLikesV2.BadParams.selector); new BlockLikesV2(c);
+        c = cfg(); c.tblock = address(other);
+        vm.expectRevert(BlockLikesV2.BadParams.selector); new BlockLikesV2(c);
+        c = cfg(); c.tblock = address(other); c.lock = address(otherLock);
+        BlockLikesV2 ok = new BlockLikesV2(c); /* control: a lock of the same token deploys */
+        assertEq(ok.TBLOCK(), address(other));
     }
 
     /* review SEC-001: a stolen keeper is stopped in ONE dev tx, the price back to the start; only a new keeper unfreezes */

@@ -59,7 +59,7 @@ for (let i = 0; i < order.length; i++) {
 t('vaultCreation = init + tail', E.vaultCreation(LK) === D.vault.init + tail);
 
 /* while an address is null, no call can be built (the UI hides the buttons) */
-if (!E.LIKES) { threw = ''; try { E.likeBatch({ block: '0xb200000000000000000000e4b0c5fbe9c8df579e' }); } catch (e) { threw = e.message; } t('likeBatch refuses while BlockLikes is not deployed', /not deployed/.test(threw)); }
+if (!E.LIKES) { threw = ''; try { E.likeBatch({ block: '0xb200000000000000000000e4b0c5fbe9c8df579e' }); } catch (e) { threw = e.message; } t('likeBatch refuses while BlockLikes is not deployed', /coming soon/.test(threw)); }
 else {
   const b = E.likeBatch({ block: '0xb200000000000000000000e4b0c5fbe9c8df579e', n: 2 });
   t('like batch: approve EXACTLY 2 * price to LIKES, then like', b.length === 2 && b[0].to === E.TBLOCK && b[0].data === '0x' + E.SEL.approve + E.wAddr(E.LIKES) + E.wUint(2n * E.LIKE_PRICE)
@@ -67,7 +67,7 @@ else {
   threw = ''; try { E.likeBatch({ block: '0xb2', n: 1 }); } catch (e) { threw = e.message; } t('like batch refuses a non-block', /not a block/.test(threw));
   threw = ''; try { E.likeBatch({ block: '0xb200000000000000000000e4b0c5fbe9c8df579e', n: 1001 }); } catch (e) { threw = e.message; } t('like batch refuses 1001', /1 to 1000/.test(threw));
 }
-if (!E.VAULT) { threw = ''; try { E.claimCall(0n); } catch (e) { threw = e.message; } t('claimCall refuses while the vault is not deployed', /not deployed/.test(threw)); }
+if (!E.VAULT) { threw = ''; try { E.claimCall(0n); } catch (e) { threw = e.message; } t('claimCall refuses while the vault is not deployed', /coming soon/.test(threw)); }
 
 const serv = readFileSync(new URL('./serveur-web.js', import.meta.url), 'utf8');
 t('served: economie.js, economie-deploiement.js, deployer-economie.html', ["'economie.js'", "'economie-deploiement.js'", "'deployer-economie.html'"].every((s) => serv.includes(s)));

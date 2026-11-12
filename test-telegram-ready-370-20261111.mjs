@@ -113,7 +113,8 @@ t('C1 holders.html is LF only', !H.includes('\r'));
   }
   t('C9 the flag is read from the price read (every 30 s) and from the wallet read', /lirePrix\(\) \{[\s\S]*?peindreTg\(p\.telegramReady\)/.test(H) && /h = await api\('\/api\/tblock\/hold\?wallet=' \+ w\);[\s\S]*?peindreTg\(h\.telegramReady\)/.test(H));
   t('C10 the sign button is enabled only when the channel is open', /\$\('#signer'\)\.disabled = !\(h\.ok && h\.challenge && TGP\.pret\);/.test(H));
-  t('C11 the perk row says "coming · opening soon" while the bot is not configured', /TGP\.pret \? null : VENIR\('opening soon'\)/.test(H));
+  /* 2026-11-12 (UI copy rule, Phil): the badge says "coming soon", one wording for everything not live yet */
+  t('C11 the perk row says "coming soon" while the bot is not configured', /TGP\.pret \? null : VENIR\(\)\]/.test(H) && H.includes("const VENIR = () => '<span class=\"st na\">coming soon</span>';"));
 }
 
 /* ── D. app.html (Wallet > Holders vault card): the link to the channel only when telegramReady === true ── */

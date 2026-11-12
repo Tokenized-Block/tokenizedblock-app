@@ -12,7 +12,7 @@ export const fmtPts = (x) => {
 };
 export const pct = (p) => (Number(p) * 100 >= 0.01 ? (Number(p) * 100).toFixed(2) : (Number(p) > 0 ? '<0.01' : '0')) + '%';
 export const multTexte = (m) => '×' + String(Number(m)).replace(/\.0+$/, '');
-export const REGLE_COURTE = 'Lock: 1 point a day per 100,000 TBLOCK locked, ×1.25 to ×2 the longer you commit (30 days to 1 year). Hearts: 10 points each. Your points decide your share of the community drop — a separate distribution, not live yet; no rate is promised.';
+export const REGLE_COURTE = 'Lock: 1 point a day per 100,000 TBLOCK locked, ×1.25 to ×2 the longer you commit (30 days to 1 year). Hearts: 10 points each. Your points decide your share of the community drop, a separate distribution coming soon; no rate is promised.';
 
 export function lignesMesPoints(r, nom) {
   if (!r || !r.ok) return [{ k: 'Your points', v: 'not read just now' }];

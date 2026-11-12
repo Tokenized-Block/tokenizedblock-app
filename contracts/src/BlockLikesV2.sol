@@ -13,10 +13,31 @@ pragma solidity ^0.8.24;
 ///   - the keeper can write at most once per MIN_INTERVAL, and only within +/- MAX_STEP_BPS of the last price: a wrong or stolen
 ///     keeper moves the price at most that much per interval, and every write is an event anyone can audit.
 ///   - PRICE_FLOOR / PRICE_CEIL (immutable) bound the price forever, so a heart can never become free or impossible.
-///   - the keeper is replaced only by DEV or DEV2, announced, after KEEPER_DELAY; renounceable for good.
+///   - the keeper is replaced only by DEV or DEV2, announced, after KEEPER_DELAY; renounceable for good. The keeper is never DEV or
+///     DEV2 (constructor and announceKeeper refuse it; review DT-1), so a stolen keeper key cannot veto its own replacement.
 ///   - this contract holds nothing and pays nobody: every heart goes to 0x...dEaD, measured by its balance before/after.
+///
+/// A HEART IS A PLAY (Phil 2026-11-12, "a heart counts as play everywhere"):
+///   - TBlockVaultV2 keeps reading hearts through spentIn / totalSpentIn (there the TBLOCK burned is the heart's weight; unchanged).
+///   - TBlockLockRewards (REWARDS) is told about every heart: like() calls REWARDS.recordPlay(msg.sender) LAST, after the TBLOCK
+///     reached 0x...dEaD and every counter was written, with the same body as the router games (PlayRecorder, TamArtV2, BlockSkins
+///     v3): gas capped at PLAY_GAS, outcome ignored, no returndata copied, so a broken or reverting rewards contract can never block a
+///     heart. A gasleft() guard before the call makes a heart sent with too little gas revert whole (PlayGasTooLow) instead of the
+///     heart succeeding while its record silently runs out of gas.
+///   - TBlockLockRewards.recordPlay(player) takes no amount: it stores the player's LOCK weight for the month (a play gate). The TBLOCK
+///     burned is not passed to it; it stays the heart's weight in the vault (spentIn).
+///   - REWARDS is immutable and NOT code-checked: the rewards contract is deployed AFTER this one, at an address predicted from the
+///     deployer's nonce, and its constructor requires REWARDS() == itself for every listed game, so a mispredicted address can only
+///     make the rewards deploy revert. Until a contract that lists this one exists at REWARDS, hearts work and record nothing there.
 /// the holder stage: what a holder has LOCKED in TBlockLock, 0 once its date passed or an exit was requested (game349, review SEC-001)
 interface ILockView { function activeLockedOf(address a) external view returns (uint256); }
+/// TBlockLock names the token it locks: it must be THIS contract's TBLOCK (two tokens are named TBLOCK; review DT-4, 2026-11-11)
+interface ILockToken { function TBLOCK() external view returns (address); }
+/// the calls a listed game makes into TBlockLockRewards (same as PlayRecorder / TamArtV2 / BlockSkins v3)
+interface ILikesPlayRewards {
+    function recordPlay(address player) external;
+    function isGame(address a) external view returns (bool);
+}
 
 contract BlockLikesV2 {
     address public constant DEAD = 0x000000000000000000000000000000000000dEaD;
@@ -24,6 +45,9 @@ contract BlockLikesV2 {
     uint256 public constant MAX_LIKES_PER_CALL = 1000;
     uint256 public constant BPS = 10_000;
     uint256 public constant KEEPER_DELAY = 2 days;
+    /// @dev gas given to the REWARDS.recordPlay call, the same as the router games. Measured worst case of TBlockLockRewards.recordPlay:
+    ///      55,596 gas (cold, first play of the month, games [Likes, TAM, Skins]; forge-pack PackPlay test_gas_recordPlayWorstCases).
+    uint256 internal constant PLAY_GAS = 100_000;
 
     address public immutable TBLOCK;
     address public immutable LOCK;           // TBlockLock: the hold rule reads what is LOCKED (Phil 2026-11-10), not a balance
@@ -37,6 +61,7 @@ contract BlockLikesV2 {
     uint256 public immutable MIN_INTERVAL;   // seconds between two writes
     address public immutable DEV;
     address public immutable DEV2;
+    address public immutable REWARDS;        // TBlockLockRewards: told about each heart (play gate); predicted, not code-checked
 
     uint256 public price;          // USD per whole TBLOCK * 1e18
     uint256 public priceSetAt;
@@ -82,6 +107,7 @@ contract BlockLikesV2 {
     error Renounced();
     error NothingAnnounced();
     error Frozen();
+    error PlayGasTooLow();
 
     modifier lock() { if (_lock != 1) revert Locked(); _lock = 2; _; _lock = 1; }
 
@@ -91,6 +117,7 @@ contract BlockLikesV2 {
         uint256 priceFloor; uint256 priceCeil; uint256 startPrice;
         uint256 maxStepBps; uint256 minInterval;
         address keeper; address dev; address dev2;
+        address rewards; /* TBlockLockRewards, predicted: deployed AFTER this contract */
     }
 
     constructor(Config memory c) {
@@ -100,12 +127,20 @@ contract BlockLikesV2 {
         if (c.maxStepBps == 0 || c.maxStepBps > MAX_STEP_CAP_BPS || c.minInterval < MIN_INTERVAL_FLOOR || c.minInterval > 1 days) revert BadParams();
         if (c.priceFloor < c.startPrice / RANGE_CAP || c.priceCeil > c.startPrice * RANGE_CAP) revert BadParams();
         if (c.keeper == address(0) || c.dev == address(0) || c.dev2 == address(0) || c.dev == c.dev2) revert BadParams();
+        /* review DT-1 (2026-11-11): the keeper is a hot key SEPARATE from both devs. A keeper that is also a dev could veto its own
+           replacement (cancelKeeper) or renounce keeper changes, so a freeze after a keeper-key theft could never be lifted. */
+        if (c.keeper == c.dev || c.keeper == c.dev2) revert BadParams();
+        /* REWARDS: any address but zero and the parties above (a typo there would silently drop every heart's play record) */
+        if (c.rewards == address(0) || c.rewards == c.tblock || c.rewards == c.lock || c.rewards == c.keeper || c.rewards == c.dev
+            || c.rewards == c.dev2 || c.rewards == address(this)) revert BadParams();
+        /* review DT-4 (2026-11-11): the lock must lock THIS TBLOCK, or the hold rule reads a lock of the other token */
+        if (_lockToken(c.lock) != c.tblock) revert BadParams();
         /* the largest heart (at the floor) times the call cap must not overflow */
         if (_tokensFor(c.likeUsdE18, c.priceFloor) > type(uint256).max / MAX_LIKES_PER_CALL) revert BadParams();
         TBLOCK = c.tblock; LOCK = c.lock; GENESIS = c.genesis; EPOCH = c.epoch;
         LIKE_USD_E18 = c.likeUsdE18; HOLD_USD_E18 = c.holdUsdE18;
         PRICE_FLOOR = c.priceFloor; PRICE_CEIL = c.priceCeil; MAX_STEP_BPS = c.maxStepBps; MIN_INTERVAL = c.minInterval;
-        DEV = c.dev; DEV2 = c.dev2; keeper = c.keeper;
+        DEV = c.dev; DEV2 = c.dev2; keeper = c.keeper; REWARDS = c.rewards;
         price = c.startPrice; priceSetAt = block.timestamp; START_PRICE = c.startPrice;
         emit PriceSet(0, c.startPrice, msg.sender);
     }
@@ -121,7 +156,9 @@ contract BlockLikesV2 {
     function minHold() public view returns (uint256) { return HOLD_USD_E18 == 0 ? 0 : _tokensFor(HOLD_USD_E18, price); }
 
     /// @notice heart `blockToken` n times; pays n * likePrice() TBLOCK to 0x...dEaD from the wallet; the caller must have at least minHold()
-    ///         LOCKED and committed (TBlockLock.activeLockedOf: date ahead, no exit requested), read at this call.
+    ///         LOCKED and committed (TBlockLock.activeLockedOf: date ahead, no exit requested), read at this call. Then the heart is
+    ///         recorded as a play of msg.sender in REWARDS (capped, outcome ignored; the call reverts whole only when sent with too
+    ///         little gas for that record).
     function like(address blockToken, uint256 n) external lock returns (uint256 burned) {
         if (uint256(uint160(blockToken)) >> 80 != B20_PREFIX) revert NotABlock();
         if (n == 0 || n > MAX_LIKES_PER_CALL) revert BadCount();
@@ -144,6 +181,25 @@ contract BlockLikesV2 {
         address top = topOf[e];
         if (top != msg.sender && mine > spentIn[e][top]) topOf[e] = msg.sender;
         emit Liked(e, blockToken, msg.sender, n, burned);
+        _recordPlay(msg.sender); /* LAST: after the burn reached 0x...dEaD and every counter was written */
+    }
+
+    /// @notice true once a contract at REWARDS lists this one as a game (hearts are recorded there); hearts work either way
+    function wired() external view returns (bool) {
+        (bool ok, bytes memory r) = REWARDS.staticcall(abi.encodeWithSelector(ILikesPlayRewards.isGame.selector, address(this)));
+        return ok && r.length >= 32 && abi.decode(r, (uint256)) == 1;
+    }
+
+    /// @dev play gate, the same body as PlayRecorder._recordPlay: capped, outcome ignored, no returndata copied; reverts whole when
+    ///      gas is too low for the record to run with its full PLAY_GAS (EIP-150 keeps 1/64 back, hence PLAY_GAS / 63; 5,000 covers the
+    ///      cold call and memory). The `lock` modifier is still held during the call, so the rewards contract cannot re-enter like().
+    function _recordPlay(address p) private {
+        if (gasleft() < PLAY_GAS + PLAY_GAS / 63 + 5_000) revert PlayGasTooLow();
+        address r = REWARDS;
+        bytes memory cd = abi.encodeWithSelector(ILikesPlayRewards.recordPlay.selector, p);
+        assembly {
+            pop(call(PLAY_GAS, r, 0, add(cd, 32), mload(cd), 0, 0))
+        }
     }
 
     /* ── the keeper's price, bounded ───────────────────────────────────────────────────────── */
@@ -163,7 +219,7 @@ contract BlockLikesV2 {
     function announceKeeper(address k) external {
         _onlyDev();
         if (keeperRenounced) revert Renounced();
-        if (k == address(0)) revert BadParams();
+        if (k == address(0) || k == DEV || k == DEV2) revert BadParams(); /* review DT-1: the keeper is never a dev */
         nextKeeper = k; nextKeeperAt = block.timestamp + KEEPER_DELAY;
         emit KeeperAnnounced(k, nextKeeperAt, msg.sender);
     }
@@ -189,6 +245,14 @@ contract BlockLikesV2 {
         if (keeperRenounced) revert Renounced();
         keeperRenounced = true; nextKeeper = address(0); nextKeeperAt = 0;
         emit KeeperRenounced(msg.sender);
+    }
+
+    function _lockToken(address l) private view returns (address) {
+        (bool ok, bytes memory r) = l.staticcall(abi.encodeWithSelector(ILockToken.TBLOCK.selector));
+        if (!ok || r.length < 32) revert BadParams();
+        uint256 v = abi.decode(r, (uint256));
+        if (v >> 160 != 0) revert BadParams();
+        return address(uint160(v));
     }
 
     function _bal(address a) private view returns (uint256) {

@@ -23,13 +23,14 @@ contract ReviewV2Test is Test {
 
     function cfg(uint256 hold) internal view returns (BlockLikesV2.Config memory) {
         return BlockLikesV2.Config({ tblock: address(t), lock: address(K_), genesis: G, epoch: 7 days, likeUsdE18: 5e17, holdUsdE18: hold,
-            priceFloor: FLOOR, priceCeil: CEIL, startPrice: P0, maxStepBps: 1_000, minInterval: 3600, keeper: KP, dev: D1, dev2: D2 });
+            priceFloor: FLOOR, priceCeil: CEIL, startPrice: P0, maxStepBps: 1_000, minInterval: 3600, keeper: KP, dev: D1, dev2: D2,
+            rewards: address(0x8E7A8D) });
     }
     function build(uint256 hold) internal {
         L = new BlockLikesV2(cfg(hold));
         V = new TBlockVaultV2(TBlockVaultV2.Config({ tblock: address(t), likes: address(L), contest: address(new RContest()), lock: address(K_),
             rewardBps: 5_000, topBps: 2_000, rebateBps: 5_000, maxEpochBudget: 50_000_000e18, claimWindow: 7 days,
-            maxFeedPerCall: 1e18, feedCooldown: 1 days, dev: D1, dev2: D2 }));
+            maxFeedPerCall: 1e18, feedCooldown: 1 days, dev: D1, dev2: D2 }), new address[](0));
         address[2] memory ps = [A, B];
         for (uint256 i; i < 2; i++) { t.mint(ps[i], 1e30); vm.startPrank(ps[i]); t.approve(address(K_), type(uint256).max); t.approve(address(L), type(uint256).max); vm.stopPrank(); }
     }

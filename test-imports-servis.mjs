@@ -27,7 +27,9 @@ ok(servis.size > 20, 'la liste servie contient ' + servis.size + ' entrees — p
 ok(servis.has('app.html'), 'temoin : app.html est bien dans la liste lue');
 
 /* les pages dont on suit les imports */
-const PAGES = ['pot.html', 'reclamer.html', 'app.html', 'deploy-v6.html', 'deploy-pot.html', 'frais-et-risques.html', 'essai-autonome.html'];
+const PAGES = ['pot.html', 'reclamer.html', 'app.html', 'deploy-v6.html', 'deploy-pot.html', 'frais-et-risques.html', 'essai-autonome.html',
+  /* 2026-11-12: the six-step pack deploy page (imports pack-economie-v2.js -> keccak.js, and the record economie-v2-pack-deploiement.js) */
+  'deployer-economie-v2.html'];
 const vus = new Set();
 const manquants = [];
 let arcs = 0;

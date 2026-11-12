@@ -18,9 +18,12 @@ t('bounds the review asked for: <= 10 %/write, >= 1 h, range within start x/÷ 1
 const v = vaultV2Creation('0x1111111111111111111111111111111111111111');
 t('vault creation = code + tblock + LIKES + the rest', v === D.vault.init + D.vault.avant + '1111111111111111111111111111111111111111'.padStart(64, '0') + D.vault.apres);
 let threw = false; try { vaultV2Creation('nope'); } catch (_) { threw = true; } t('a bad likes address throws', threw);
-t('page checks both sha256 before the buttons', P.includes('okL = (await sha256Hex(D.likes.creation)) === D.likes.sha256Creation;') && P.includes('okV = (await sha256Hex(D.vault.init + D.vault.avant + D.vault.apres)) === D.vault.sha256Init;'));
-t('page: step 2 needs the likes address read from step 1', P.includes("await deploy($('#d2'), vaultV2Creation(likesAt), 'TBlockVaultV2')") && P.includes("$('#d1').disabled = !(chain === 8453 && okL && !likesAt);"));
-t('page: receipt status read, failure said', P.includes("if (r.status !== '0x1') { $('#state').innerHTML = what + ' FAILED on chain"));
-t('served', S.includes("'economie-v2-deploiement.js', 'deployer-economie-v2.html',"));
+/* game373: deployer-economie-v2.html is now the six-step PACK page (test-deployer-pack-economie-v2-20261111.mjs). This stale two-signature
+ * record (pre-review Likes, keeper == dev2, single-input vault) must never be offered by it again. */
+t('the page no longer offers this stale two-signature record', !P.includes("'./economie-v2-deploiement.js'") && !P.includes('vaultV2Creation'));
+/* 2026-11-12: neutralised — the stale record is no longer served, so no page (and no URL) can offer it; the page is still served */
+const servis = new Set([...((S.match(/const SERVIS\s*=\s*\[([\s\S]*?)\];/) || [])[1] || '').matchAll(/'([^']+)'/g)].map((m) => m[1]));
+t('served list read (witness: the deploy page is in it)', servis.size > 20 && servis.has('deployer-economie-v2.html'));
+t('the stale record is NOT served', !servis.has('economie-v2-deploiement.js'));
 console.log(ok + '/' + (ok + ko) + (ko ? ' — RED' : ' — green'));
 process.exit(ko ? 1 : 0);

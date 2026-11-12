@@ -67,7 +67,7 @@ t('smart wallet answering the magic passes (ERC-1271)', o.ok && o.kind === 'erc1
 o = await verifyOwnership({ rpc: rpcFake('0x6000', '0x' + '0'.repeat(64)), wallet: '0x' + '33'.repeat(20), message: msg, signature: '0x' + 'ab'.repeat(200) });
 t('smart wallet answering anything else fails', !o.ok);
 o = await verifyOwnership({ rpc: rpcFake('0x'), wallet: '0x' + '33'.repeat(20), message: msg, signature: '0x' + 'ab'.repeat(100) + '6492649264926492649264926492649264926492649264926492649264926492' });
-t('undeployed smart wallet (6492) is refused with the reason', !o.ok && /not deployed/.test(o.why), JSON.stringify(o));
+t('undeployed smart wallet (6492) is refused with the reason', !o.ok && /not active on Base yet/.test(o.why), JSON.stringify(o));
 const cd = erc1271Call('0x' + '01'.repeat(32), '0x' + 'ff'.repeat(65));
 t('1271 calldata: selector, digest, offset 0x40, length 65, padded', cd.slice(0, 10) === ERC1271_MAGIC && cd.slice(74, 138) === (64).toString(16).padStart(64, '0') && parseInt(cd.slice(138, 202), 16) === 65 && (cd.length - 2) % 64 === 8);
 

@@ -139,7 +139,7 @@ export function planSettleDefault({ contrat, id, targetBlock = null, blocActuel 
 
 /** refundExpired v2 : un duel JAMAIS rejoint et expire, seulement (si `duel` et l instant sont donnes, verifie avant la signature) */
 export function planRefund({ contrat, id, duel = null, maintenant = null }) {
-  if (duel && duel.joiner) return refuse('a joined duel is never refunded in v2: settle it in the window, or the creator wins by default');
+  if (duel && duel.joiner) return refuse('a joined duel is never refunded: settle it in the window, or the creator wins by default');
   if (duel && maintenant != null && Number(maintenant) < Number(duel.expiresAt)) return refuse('this duel is still open: only its creator can cancel it now');
   return V1.planRefund({ contrat, id });
 }

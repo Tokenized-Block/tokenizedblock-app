@@ -1,7 +1,51 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+/// @notice what the pay router answers (TblockPayRouter): the two tokens it was built with
+interface ISkinsRouterView {
+    function TBLOCK() external view returns (address);
+    function USDC() external view returns (address);
+}
+
+/// @notice the one call this game makes into TBlockVaultV2 (the holders vault, DEST): the payer and the TBLOCK his payment bought
+interface ISkinsVaultPlays {
+    function recordPlay(address player, uint256 tblock) external;
+}
+
+/// @notice the one call this game makes into TBlockLockRewards (the play gate)
+interface ISkinsPlayRewards {
+    function recordPlay(address player) external;
+}
+
+/// @notice both the vault and the lock rewards list their games, fixed at their deploy
+interface ISkinsListsGames {
+    function isGame(address a) external view returns (bool);
+}
+
 /// @title BlockSkins — a skin bound to one block (an ERC-721 token, so wallets list it); its market lives in the same contract.
+/// @notice v3 ROUTER GAME (Phil 2026-11-11, economy v2 pack: "skins count as play"). The ONLY change from the v3 record of 2026-10-18 is
+///         the MINT PAYMENT (and what it reports); the recipe, the block binding, the market, the auction and the 10 % resale fee are
+///         unchanged, byte for byte in their logic:
+///   - there is no direct mint() any more. A skin is minted ONLY through the immutable ROUTER (TblockPayRouter): the payer calls
+///     ROUTER.pay(this, 10 USDC, minTblockOut, deadline, abi.encode(blockToken, recipe)). The router pulls EXACTLY PRICE_USDC
+///     (= MINT_PRICE, 10 USDC) from the payer, sends 10 % (USDC_SPLIT: FEE_WALLET, 1,000 bps) in USDC to FEE_WALLET, buys TBLOCK with
+///     the other 90 %, sends that TBLOCK here, then calls onPaid LAST.
+///   - onPaid (ROUTER only) mints the skin to the PAYER (the address the router pulled the USDC from: the router passes its own
+///     msg.sender), forwards EVERY TBLOCK this contract holds to the immutable DEST (the holders vault TBlockVaultV2, the same DEST
+///     TamArtV2 uses) and checks DEST's balance rose by that much. This contract keeps no TBLOCK. TBLOCK can never be a market
+///     currency (setCurrency refuses it), so no escrow of TBLOCK can ever sit here to be swept by a mint.
+///   - PLAY: the paid mint is ONE play, recorded in BOTH contracts that pay players: DEST.recordPlay(payer, tblockOut) (tblockOut =
+///     the router's measured swap output, never this contract's balance, which a donation could inflate) and REWARDS.recordPlay(payer)
+///     (TBlockLockRewards). Each call is low level, capped at PLAY_GAS, its outcome ignored: a broken vault or rewards record cannot
+///     block a mint. A gasleft() guard before EACH call makes a mint sent with too little gas revert whole (PlayGasTooLow) instead of
+///     silently losing a record. Same body as TamArtV2.
+///   - WIRING (one wallet deploys the pack in sequence): this game deploys BEFORE the vault and the rewards contract, with their
+///     PREDICTED CREATE addresses; neither is code-checked here. Each of them requires VAULT() / REWARDS() == itself in its own
+///     constructor (the vault also requires TBLOCK() == its TBLOCK). onPaid refuses (NotWired) unless BOTH DEST and REWARDS list this
+///     game: a mispredicted address can only make a later deploy revert and leave this game unable to take a payment -- it can
+///     never send TBLOCK, or a play, to a wrong address.
+///   - the BlockSkinsVoucher contract (skins bought on Shopify, claimed with a voucher) is separate and unchanged: a voucher claim
+///     pays nothing on chain, so it records no play.
 /// @notice v2, 2026-10-11: the same rules as v1 (0xea6c…e77d, deployed 2026-10-04, never minted); only tokenURI changed — it now
 ///         carries the skin's image, painted here from its recipe, so a wallet can show the skin (Phil: "visible in the wallet").
 /// @notice Phil, 2026-10-04: "when the user pays 1 USDC he receives the NFT of the skin he chose"; "he can resell it on a market
@@ -35,6 +79,8 @@ pragma solidity ^0.8.24;
 contract BlockSkins {
     // ───────────────────────────── constants
     uint256 public constant MINT_PRICE = 10_000_000; // 10 USDC (6 decimals) — v3, Phil 2026-10-18: "tous les skins a 10 dollars"
+    uint256 public constant PRICE_USDC = MINT_PRICE; // read by the router: a mint is paid exactly this
+    uint16 public constant DEV_BPS = 1000; // 10 % of the mint price stays USDC, to FEE_WALLET (Phil 2026-11-11)
     uint256 public constant SALE_FEE_BPS = 1000; // 10 %
     uint256 public constant MAX_AUCTION = 7 days;
     uint256 public constant EXTENSION = 5 minutes;
@@ -43,6 +89,12 @@ contract BlockSkins {
 
     address public immutable USDC;
     address public immutable FEE_WALLET;
+    address public immutable ROUTER; // TblockPayRouter: the only way to mint
+    address public immutable TBLOCK; // the canonical TBLOCK the router buys (two tokens are named TBLOCK)
+    address public immutable DEST; // the holders vault (TBlockVaultV2): every TBLOCK paid for a mint ends there, and the play is told to it
+    address public immutable REWARDS; // TBlockLockRewards: told about each paid mint (play gate)
+    /// @dev gas given to EACH record call (same value and guard as TamArtV2); measured worst cases in forge-pack
+    uint256 internal constant PLAY_GAS = 100_000;
 
     // ───────────────────────────── ERC-721 state
     string public constant name = "TokenizedBlock Skins";
@@ -97,6 +149,7 @@ contract BlockSkins {
     event Approval(address indexed owner, address indexed approved, uint256 indexed tokenId);
     event ApprovalForAll(address indexed owner, address indexed operator, bool approved);
     event SkinMinted(uint256 indexed tokenId, address indexed minter, address indexed blockToken, uint64 recipe);
+    event PaidTblock(uint256 indexed tokenId, address indexed payer, uint256 usdcIn, uint256 tblockToDest);
     event Listed(uint256 indexed tokenId, address indexed seller, address currency, uint256 price, uint64 end);
     event Unlisted(uint256 indexed tokenId);
     event Bid(uint256 indexed tokenId, address indexed bidder, uint256 amount, uint64 end);
@@ -128,6 +181,11 @@ contract BlockSkins {
     error UnsafeRecipient();
     error FeeOnTransfer();
     error HasBids();
+    error NotRouter();
+    error BadToken();
+    error BadPayment();
+    error PlayGasTooLow();
+    error NotWired();
 
     modifier nonReentrant() {
         if (_lock != 1) revert Reentrancy();
@@ -136,10 +194,31 @@ contract BlockSkins {
         _lock = 1;
     }
 
-    constructor(address usdc, address feeWallet) {
-        if (usdc == address(0) || feeWallet == address(0)) revert BadAddress();
+    /// @param router the TblockPayRouter (deployed before this game)
+    /// @param feeWallet receives the 10 % USDC of each mint (via the router) and the 10 % fee of each resale
+    /// @param dest the TBlockVaultV2 address (PREDICTED: it is deployed AFTER this game); not code-checked on purpose
+    /// @param expectedTblock / expectedUsdc the canonical tokens, written by the deployer: the router must answer exactly these
+    /// @param rewards the TBlockLockRewards address (PREDICTED: deployed AFTER this game); not code-checked on purpose
+    constructor(address router, address feeWallet, address dest, address expectedTblock, address expectedUsdc, address rewards) {
+        if (router.code.length == 0 || dest == address(0)) revert BadAddress();
+        if (feeWallet == address(0) || feeWallet == router || feeWallet == dest || feeWallet == address(this)) revert BadAddress();
+        address tb = ISkinsRouterView(router).TBLOCK();
+        address usdc = ISkinsRouterView(router).USDC();
+        if (expectedTblock == address(0) || tb != expectedTblock || usdc != expectedUsdc) revert BadToken();
+        if (tb.code.length == 0 || usdc.code.length == 0) revert BadToken();
+        (bool ok, bytes memory ret) = usdc.staticcall(abi.encodeWithSelector(0x313ce567)); // decimals()
+        if (!ok || ret.length < 32 || abi.decode(ret, (uint256)) != 6) revert BadToken();
+        // DEST is not this, the router, a token, or the fee wallet (it has no code yet: the vault deploys after this game)
+        if (dest == router || dest == tb || dest == usdc || dest == address(this)) revert BadAddress();
+        // REWARDS: any address but zero and the parties above (a typo there would silently drop every play record)
+        if (rewards == address(0) || rewards == router || rewards == dest || rewards == feeWallet || rewards == tb || rewards == usdc
+            || rewards == address(this)) revert BadAddress();
         USDC = usdc;
         FEE_WALLET = feeWallet;
+        ROUTER = router;
+        TBLOCK = tb;
+        DEST = dest;
+        REWARDS = rewards;
         owner = msg.sender;
         currencyAllowed[address(0)] = true;
         currencyAllowed[usdc] = true;
@@ -151,6 +230,8 @@ contract BlockSkins {
     // ───────────────────────────── owner (currencies only)
     function setCurrency(address currency, bool allowed) external {
         if (msg.sender != owner) revert NotOwner();
+        // v3 router game: TBLOCK is never escrowed here, so onPaid can forward every TBLOCK it holds to DEST
+        if (currency == TBLOCK) revert NotAllowed();
         currencyAllowed[currency] = allowed;
         emit CurrencySet(currency, allowed);
     }
@@ -181,17 +262,68 @@ contract BlockSkins {
         for (uint256 i = 0; i < 7; i++) if (((recipe >> uint64(9 * i)) & 0x1FF) > MAX_HUE) revert BadRecipe();
     }
 
-    // ───────────────────────────── mint: 1 USDC to the fee wallet
-    function mint(address blockToken, uint64 recipe) external nonReentrant returns (uint256 tokenId) {
-        if (blockToken == address(0)) revert BadAddress();
+    // ───────────────────────────── router game: wiring views
+    /// @notice the holders vault this game reports plays to (= DEST); TBlockVaultV2's constructor requires VAULT() == itself
+    function VAULT() external view returns (address) {
+        return DEST;
+    }
+
+    /// @notice read by the router: 10 % of PRICE_USDC to FEE_WALLET in USDC, the rest bought as TBLOCK
+    function USDC_SPLIT() external view returns (address devWallet, uint16 devBps) {
+        return (FEE_WALLET, DEV_BPS);
+    }
+
+    /// @notice true once BOTH the vault and the rewards contract exist and list this game; onPaid refuses any payment before that
+    function wired() public view returns (bool) {
+        return _lists(DEST) && _lists(REWARDS);
+    }
+
+    function _lists(address c) private view returns (bool) {
+        (bool ok, bytes memory ret) = c.staticcall(abi.encodeWithSelector(ISkinsListsGames.isGame.selector, address(this)));
+        return ok && ret.length >= 32 && abi.decode(ret, (uint256)) == 1;
+    }
+
+    // ───────────────────────────── mint: through the router only (10 USDC: 1 to FEE_WALLET, 9 bought as TBLOCK for DEST)
+    /// @notice called by ROUTER, LAST, after it sent `tblockOut` TBLOCK here. data = abi.encode(address blockToken, uint64 recipe).
+    ///         Mints the skin to `payer`, forwards every TBLOCK held here to DEST, then records the play in DEST and REWARDS.
+    function onPaid(address payer, uint256 usdcIn, uint256 tblockOut, bytes calldata data)
+        external
+        nonReentrant
+        returns (uint256 tokenId)
+    {
+        if (msg.sender != ROUTER) revert NotRouter();
+        if (usdcIn != PRICE_USDC || tblockOut == 0) revert BadPayment();
+        if (!wired()) revert NotWired(); // never pay a vault, or report a play, to an address that does not list this game
+        // this contract holds no TBLOCK at rest (never a market currency): what it holds now is what reached it
+        uint256 got = _balance(TBLOCK, address(this));
+        if (got < tblockOut) revert BadPayment();
+        (address blockToken, uint64 recipe) = abi.decode(data, (address, uint64));
+        if (blockToken == address(0) || payer == address(0)) revert BadAddress();
         _checkRecipe(recipe);
-        _pull(USDC, msg.sender, FEE_WALLET, MINT_PRICE);
         tokenId = ++totalSupply;
-        skinOf[tokenId] = Skin({blockToken: blockToken, recipe: recipe, minter: msg.sender});
-        _ownerOf[tokenId] = msg.sender;
-        _balanceOf[msg.sender] += 1;
-        emit Transfer(address(0), msg.sender, tokenId);
-        emit SkinMinted(tokenId, msg.sender, blockToken, recipe);
+        skinOf[tokenId] = Skin({blockToken: blockToken, recipe: recipe, minter: payer});
+        _ownerOf[tokenId] = payer;
+        _balanceOf[payer] += 1;
+        emit Transfer(address(0), payer, tokenId);
+        emit SkinMinted(tokenId, payer, blockToken, recipe);
+
+        uint256 destBefore = _balance(TBLOCK, DEST);
+        (bool ok, bytes memory ret) = TBLOCK.call(abi.encodeWithSelector(0xa9059cbb, DEST, got));
+        if (!ok || (ret.length != 0 && (ret.length < 32 || abi.decode(ret, (uint256)) != 1))) revert TransferFailed();
+        if (_balance(TBLOCK, DEST) - destBefore < got || _balance(TBLOCK, address(this)) != 0) revert TransferFailed();
+        emit PaidTblock(tokenId, payer, usdcIn, got);
+        // after the payment reached DEST; payer = the router's msg.sender; tblockOut = what the router measured it bought
+        _record(DEST, abi.encodeWithSelector(ISkinsVaultPlays.recordPlay.selector, payer, tblockOut));
+        _record(REWARDS, abi.encodeWithSelector(ISkinsPlayRewards.recordPlay.selector, payer));
+    }
+
+    /// @dev play gate: capped, outcome ignored, no returndata copied; reverts whole when gas is too low for THIS record to run with its
+    ///      full PLAY_GAS (EIP-150 keeps 1/64 back, hence PLAY_GAS / 63; 5,000 covers the cold call and memory)
+    function _record(address target, bytes memory cd) private {
+        if (gasleft() < PLAY_GAS + PLAY_GAS / 63 + 5_000) revert PlayGasTooLow();
+        assembly {
+            pop(call(PLAY_GAS, target, 0, add(cd, 32), mload(cd), 0, 0))
+        }
     }
 
     // ───────────────────────────── fixed price

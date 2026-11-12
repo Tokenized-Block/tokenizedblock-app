@@ -61,6 +61,11 @@ export function noter({ fiche, texte, tx, recu, relectures }) {
 
 /* ---------------------------------------------------------------- CLI */
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  /* ⛔ 2026-11-12: RETIRED. The standalone v3 creation of blockskins-deploiement.js was built from the pre-pack BlockSkins.sol; Skins
+   *   now ships as step S of the economy pack and no page offers the standalone deploy any more. Noting an address here would switch
+   *   the app to a contract nobody should deploy, so the CLI refuses and writes nothing. noter() stays a pure, tested function. */
+  console.error('noter-deploiement-blockskins.mjs is retired: Skins is deployed as step S of the economy pack. Nothing written.');
+  process.exit(1);
   const [txHash, rpcUrl = 'https://mainnet.base.org'] = process.argv.slice(2);
   if (!/^0x[0-9a-f]{64}$/i.test(String(txHash || ''))) { console.error('usage: node contracts/noter-deploiement-blockskins.mjs <txHash> [rpcUrl]'); process.exit(2); }
   const ICI = path.dirname(fileURLToPath(import.meta.url)), chemin = path.join(ICI, '..', 'blockskins-deploiement.js');

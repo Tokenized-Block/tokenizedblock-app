@@ -260,7 +260,7 @@ export function serveurTam({ rpc, deploiement, lireVie = null, lireSymbole = nul
 
   async function oeuvres() {
     const contrat = adresseTam(deploiement);
-    if (!contrat) return { ok: true, etat: 'PAS_DEPLOYE', pourquoi: 'TamArt is not deployed yet: no work can have been minted', contrat: null, oeuvres: [] };
+    if (!contrat) return { ok: true, etat: 'PAS_DEPLOYE', pourquoi: 'TAM minting is coming soon: no work can have been minted', contrat: null, oeuvres: [] };
     if (maintenant() - oe.a < TTL_MS && oe.jusqua !== null) return { ok: true, etat: oe.aJour ? 'LU' : 'EN_RETARD', contrat, jusqua: oe.jusqua, oeuvres: oe.oeuvres };
     if (!oe.enVol) oe.enVol = balayer(contrat).then((aJour) => { oe.aJour = aJour; oe.erreur = null; }, (e) => { oe.erreur = String((e && e.message) || e).slice(0, 120); }).finally(() => { oe.a = maintenant(); oe.enVol = null; });
     await oe.enVol;

@@ -53,7 +53,7 @@ export async function lireJour(io, day) {
 export async function attesterPart(io, { day, wallet, ticket, nTickets, amount = null, deadline = null, jour = null, poids = null, total = null }) {
   const w = bas(wallet), t = bas(ticket), d = Number(day), n = Number(nTickets);
   const maintenant = Number.isFinite(io.maintenant) ? Number(io.maintenant) : Math.floor(Date.now() / 1000);
-  if (!ADR.test(bas(io.contrat))) return { ok: false, etat: 'PAS_OUVERT', pourquoi: 'the ticket pot is not deployed yet' };
+  if (!ADR.test(bas(io.contrat))) return { ok: false, etat: 'PAS_OUVERT', pourquoi: 'the ticket pot is coming soon' };
   if (!Number.isInteger(d) || d < 0 || d >= 2 ** 32 || !ADR.test(w) || /^0x0{40}$/.test(w) || !ADR.test(t) || /^0x0{40}$/.test(t)) return { ok: false, etat: 'REFUSE', pourquoi: 'a day, a holder wallet and a 20-byte ticket are needed' };
   if (!Number.isInteger(n) || n < 1) return { ok: false, etat: 'REFUSE', pourquoi: 'the number of tickets of the day must be >= 1' };
   if (!io.cle) return { ok: false, etat: 'PAS_OUVERT', pourquoi: 'the verifier key is not set on this server' };

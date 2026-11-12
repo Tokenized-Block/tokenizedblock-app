@@ -12,7 +12,7 @@ const html = readFileSync(new URL('./app.html', import.meta.url), 'utf8');
  *    L intention — « c est bien une page servie, avec sa ligne de build » — est gardee. */
 assert.match(html, /data-build="[\w-]+"/);
 assert.match(html, /tip 20260922-prepaye-inscrire-dust/);
-assert.match(html, /Register on V8 — 0\.0003 ETH min/);
+assert.match(html, /Register the market — 0\.0003 ETH min/); /* 2026-11-12 copy rule: no version word on screen (was "Register on V8") */
 assert.match(html, /isInscrire && !hookPayee/);
 assert.match(html, /CREATE_FEE_WEI_FLOOR/);
 assert.match(html, /0xbb920fed/);

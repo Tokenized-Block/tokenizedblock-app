@@ -64,6 +64,74 @@ contract JetonListeNoire is Jeton(6) {
     }
 }
 
+/// @dev TblockPayRouter stand-in, with the real router's money path: pulls EXACTLY the game's PRICE_USDC from msg.sender only, sends
+///      the game's USDC_SPLIT cut to its dev wallet, "buys" TBLOCK with the rest at a fixed rate (minted), sends it to the game, then
+///      calls onPaid(msg.sender, ...) LAST. The real router (swaps, floors) is tested in forge-payrouter and with this game in forge-pack.
+interface ISkinGame {
+    function PRICE_USDC() external view returns (uint256);
+    function USDC_SPLIT() external view returns (address, uint16);
+    function onPaid(address payer, uint256 usdcIn, uint256 tblockOut, bytes calldata data) external;
+}
+
+contract RouteurFactice {
+    address public immutable USDC;
+    address public immutable TBLOCK;
+    uint256 public constant TAUX = 1e12 * 1000; // 1 raw USDC (1e-6 USDC) buys 1e15 raw TBLOCK: 1 USDC = 1,000 TBLOCK
+
+    constructor(address usdc, address tblock) {
+        USDC = usdc;
+        TBLOCK = tblock;
+    }
+
+    function pay(address game, uint256 usdcIn, uint256 minOut, uint256, bytes calldata data) external returns (uint256 out) {
+        require(usdcIn == ISkinGame(game).PRICE_USDC(), "price");
+        (address dev, uint16 bps) = ISkinGame(game).USDC_SPLIT();
+        Jeton(USDC).transferFrom(msg.sender, address(this), usdcIn);
+        uint256 cut = usdcIn * bps / 10_000;
+        Jeton(USDC).transfer(dev, cut);
+        out = (usdcIn - cut) * TAUX;
+        require(out >= minOut, "minOut");
+        Jeton(TBLOCK).mint(game, out);
+        ISkinGame(game).onPaid(msg.sender, usdcIn, out, data);
+    }
+}
+
+/// @dev holders vault / lock rewards stand-in: lists every game unless told not to, records each play (cheap: fits PLAY_GAS)
+contract EnregistreurFactice {
+    bool public nonListe;
+    uint8 public mode; // 1 = revert, 2 = burn all its gas
+    uint256 public nb;
+    address public dernierJoueur;
+    uint256 public dernierMontant;
+    address public dernierAppelant;
+
+    function regler(bool nl, uint8 m) external {
+        nonListe = nl;
+        mode = m;
+    }
+
+    function isGame(address) external view returns (bool) {
+        return !nonListe;
+    }
+
+    function recordPlay(address p, uint256 t) external {
+        _rec(p, t);
+    }
+
+    function recordPlay(address p) external {
+        _rec(p, 0);
+    }
+
+    function _rec(address p, uint256 t) private {
+        if (mode == 1) revert("record en panne");
+        if (mode == 2) while (true) {}
+        nb++;
+        dernierJoueur = p;
+        dernierMontant = t;
+        dernierAppelant = msg.sender;
+    }
+}
+
 /// @dev a bidder / seller that refuses ETH.
 contract RefuseEth {
     BlockSkins s;
@@ -87,18 +155,21 @@ contract RefuseEth {
 
 /// @dev re-enters the contract from the ONE callback that carries full gas: the ETH withdrawal. What it tries (a mint, which
 ///      it can pay for) would SUCCEED without the lock — so a green here is the lock, not a lucky revert.
+///      v3 router game: the mint goes through the router, whose onPaid into the skins contract is what the lock refuses.
 contract Reentrant {
     BlockSkins s;
+    RouteurFactice routeur;
     address bloc;
     uint64 recette;
     bool public aTente;
     bool public reentreeReussie;
 
-    constructor(BlockSkins s_, address usdc, address bloc_, uint64 recette_) {
+    constructor(BlockSkins s_, RouteurFactice routeur_, address usdc, address bloc_, uint64 recette_) {
         s = s_;
+        routeur = routeur_;
         bloc = bloc_;
         recette = recette_;
-        Jeton(usdc).approve(address(s_), type(uint256).max);
+        Jeton(usdc).approve(address(routeur_), type(uint256).max);
     }
 
     function encherir(uint256 id, uint256 a) external payable {
@@ -111,7 +182,7 @@ contract Reentrant {
 
     receive() external payable {
         aTente = true;
-        try s.mint(bloc, recette) returns (uint256) {
+        try routeur.pay(address(s), 10_000_000, 1, block.timestamp, abi.encode(bloc, recette)) returns (uint256) {
             reentreeReussie = true;
         } catch {}
     }
@@ -120,7 +191,11 @@ contract Reentrant {
 contract BlockSkinsTest is Test {
     BlockSkins s;
     Jeton usdc;
+    Jeton tblock; // the canonical TBLOCK the router buys
     Jeton action; // a tokenized stock, 8 decimals
+    RouteurFactice routeur;
+    EnregistreurFactice coffre; // the holders vault (DEST) stand-in
+    EnregistreurFactice gains; // TBlockLockRewards stand-in
     address constant FRAIS = address(0xFEE5);
     address constant BLOC = address(0xb200000000000000000000e4B0c5fBE9C8DF579E);
     address alice = address(0xA11CE);
@@ -131,8 +206,12 @@ contract BlockSkinsTest is Test {
 
     function setUp() public {
         usdc = new Jeton(6);
+        tblock = new Jeton(18);
         action = new Jeton(8);
-        s = new BlockSkins(address(usdc), FRAIS);
+        routeur = new RouteurFactice(address(usdc), address(tblock));
+        coffre = new EnregistreurFactice();
+        gains = new EnregistreurFactice();
+        s = new BlockSkins(address(routeur), FRAIS, address(coffre), address(tblock), address(usdc), address(gains));
         for (uint256 i = 0; i < 3; i++) {
             address a = [alice, bob, carol][i];
             usdc.mint(a, 1_000e6);
@@ -140,42 +219,60 @@ contract BlockSkinsTest is Test {
             vm.deal(a, 100 ether);
             vm.startPrank(a);
             usdc.approve(address(s), type(uint256).max);
+            usdc.approve(address(routeur), type(uint256).max);
             action.approve(address(s), type(uint256).max);
             vm.stopPrank();
         }
         recette = s.packRecipe([uint16(210), 267, 263, 92, 120, 300, 200]);
     }
 
-    function _mint(address qui) internal returns (uint256 id) {
+    /// @dev v3 router game: a mint is a router payment of exactly 10 USDC, data = abi.encode(block, recipe)
+    function _payer(address qui, address bloc, uint64 r) internal returns (uint256 id) {
         vm.prank(qui);
-        id = s.mint(BLOC, recette);
+        routeur.pay(address(s), 10_000_000, 1, block.timestamp, abi.encode(bloc, r));
+        id = s.totalSupply();
+    }
+
+    function _mint(address qui) internal returns (uint256 id) {
+        id = _payer(qui, BLOC, recette);
     }
 
     // ─────────────── mint
     /// @dev v3 (Phil, 2026-10-18 : « tous les skins a 10 dollars ») : le prix est une CONSTANTE lue par l app (MINT_PRICE()) et c est
     ///      EXACTEMENT ce que le mint prend. Les chiffres sont ecrits en clair ici (10_000_000), jamais relus depuis le contrat teste.
+    ///      CHANGED by the economy v2 pack (Phil 2026-11-11, skins = a router game): the 10 USDC go through the router, so the fee wallet
+    ///      now receives 10 % (1 USDC) and the other 9 USDC buy TBLOCK for the holders vault. The exact-price rule is unchanged.
     function test_mint_price_est_exactement_10_usdc() public {
         assertEq(s.MINT_PRICE(), 10_000_000, "MINT_PRICE() = 10 USDC (6 decimales)");
+        assertEq(s.PRICE_USDC(), 10_000_000, "PRICE_USDC() lu par le routeur = le meme prix");
         // une approbation d un micro-USDC de moins que le prix : le mint REVERTE (le prix n est pas « au moins », il est exact)
         address dave = address(0xDA7E);
         usdc.mint(dave, 10_000_000);
         vm.startPrank(dave);
-        usdc.approve(address(s), 9_999_999);
-        vm.expectRevert(BlockSkins.TransferFailed.selector);
-        s.mint(BLOC, recette);
-        usdc.approve(address(s), 10_000_000);
-        s.mint(BLOC, recette);
+        usdc.approve(address(routeur), 9_999_999);
+        vm.expectRevert();
+        routeur.pay(address(s), 10_000_000, 1, block.timestamp, abi.encode(BLOC, recette));
+        // un autre montant que le prix exact est refuse par le routeur (PRICE_USDC est exact, pas un minimum)
+        usdc.approve(address(routeur), 20_000_000);
+        vm.expectRevert(bytes("price"));
+        routeur.pay(address(s), 10_000_001, 1, block.timestamp, abi.encode(BLOC, recette));
+        usdc.approve(address(routeur), 10_000_000);
+        routeur.pay(address(s), 10_000_000, 1, block.timestamp, abi.encode(BLOC, recette));
         vm.stopPrank();
         assertEq(usdc.balanceOf(dave), 0, "dave a paye exactement 10 USDC, pas un de plus");
-        assertEq(usdc.balanceOf(FRAIS), 10_000_000, "le wallet des frais a recu exactement 10 USDC");
+        assertEq(usdc.balanceOf(FRAIS), 1_000_000, "le wallet des frais a recu exactement 10 % (1 USDC)");
+        assertEq(tblock.balanceOf(address(coffre)), 9_000_000 * routeur.TAUX(), "les 9 USDC restants, en TBLOCK, au coffre");
     }
 
+    /// @dev CHANGED by the economy v2 pack: was « 10 USDC au wallet des frais »; now 1 USDC to the fee wallet, 9 USDC of TBLOCK to DEST
     function test_mint_paie_exactement_10_usdc_au_wallet_des_frais() public {
         uint256 avant = usdc.balanceOf(alice);
         uint256 id = _mint(alice);
-        assertEq(usdc.balanceOf(FRAIS), 10e6, "le wallet des frais recoit 10 USDC");
+        assertEq(usdc.balanceOf(FRAIS), 1e6, "le wallet des frais recoit 10 % : 1 USDC");
+        assertEq(tblock.balanceOf(address(coffre)), 9e6 * routeur.TAUX(), "le coffre recoit le TBLOCK achete avec 9 USDC");
         assertEq(avant - usdc.balanceOf(alice), 10e6, "l acheteur perd 10 USDC");
         assertEq(usdc.balanceOf(address(s)), 0, "le contrat ne garde rien");
+        assertEq(tblock.balanceOf(address(s)), 0, "le contrat ne garde aucun TBLOCK");
         assertEq(s.ownerOf(id), alice);
         assertEq(s.balanceOf(alice), 1);
         assertEq(s.totalSupply(), 1);
@@ -185,6 +282,7 @@ contract BlockSkinsTest is Test {
         assertEq(m, alice);
     }
 
+    /// @dev mint path changed (router), expectations unchanged: every recipe check refuses the same inputs
     function test_recette_aller_retour_et_bornes() public {
         uint16[7] memory h = s.unpackRecipe(recette);
         assertEq(h[0], 210);
@@ -195,22 +293,120 @@ contract BlockSkinsTest is Test {
         // une recette brute avec une teinte a 511 (9 bits pleins) est refusee au mint
         vm.prank(alice);
         vm.expectRevert(BlockSkins.BadRecipe.selector);
-        s.mint(BLOC, uint64(511));
+        routeur.pay(address(s), 10_000_000, 1, block.timestamp, abi.encode(BLOC, uint64(511)));
+        // 360 dans n importe laquelle des 7 teintes
+        for (uint256 i = 0; i < 7; i++) {
+            vm.prank(alice);
+            vm.expectRevert(BlockSkins.BadRecipe.selector);
+            routeur.pay(address(s), 10_000_000, 1, block.timestamp, abi.encode(BLOC, uint64(360) << uint64(9 * i)));
+        }
         vm.prank(alice);
         vm.expectRevert(BlockSkins.BadRecipe.selector);
-        s.mint(BLOC, uint64(1) << 63);
+        routeur.pay(address(s), 10_000_000, 1, block.timestamp, abi.encode(BLOC, uint64(1) << 63));
         vm.prank(alice);
         vm.expectRevert(BlockSkins.BadAddress.selector);
-        s.mint(address(0), recette);
+        routeur.pay(address(s), 10_000_000, 1, block.timestamp, abi.encode(address(0), recette));
+        assertEq(s.totalSupply(), 0);
+        assertEq(usdc.balanceOf(FRAIS), 0, "aucun paiement refuse n a bouge d USDC");
     }
 
     function test_mint_sans_usdc_ou_sans_approbation_echoue() public {
         address pauvre = address(0xDEAD1);
         vm.prank(pauvre);
         vm.expectRevert();
-        s.mint(BLOC, recette);
+        routeur.pay(address(s), 10_000_000, 1, block.timestamp, abi.encode(BLOC, recette));
         assertEq(s.totalSupply(), 0);
         assertEq(usdc.balanceOf(FRAIS), 0);
+    }
+
+    // ─────────────── v3 router game (economy v2 pack, 2026-11-11)
+    function test_routeur_mint_au_payeur_et_enregistre_le_jeu_deux_fois() public {
+        vm.prank(bob);
+        uint256 out = routeur.pay(address(s), 10_000_000, 1, block.timestamp, abi.encode(BLOC, recette));
+        assertEq(s.ownerOf(1), bob, "le skin va au PAYEUR");
+        assertEq(coffre.nb(), 1);
+        assertEq(coffre.dernierJoueur(), bob);
+        assertEq(coffre.dernierMontant(), out, "poids de jeu au coffre = le TBLOCK mesure par le routeur");
+        assertEq(coffre.dernierAppelant(), address(s));
+        assertEq(gains.nb(), 1);
+        assertEq(gains.dernierJoueur(), bob);
+        assertEq(gains.dernierAppelant(), address(s));
+        assertEq(s.VAULT(), address(coffre));
+        assertEq(s.DEST(), address(coffre));
+        assertEq(s.REWARDS(), address(gains));
+        assertEq(s.TBLOCK(), address(tblock));
+        (address dev, uint16 bps) = s.USDC_SPLIT();
+        assertEq(dev, FRAIS);
+        assertEq(bps, 1000);
+    }
+
+    function test_onPaid_routeur_seulement() public {
+        tblock.mint(address(s), 1e18);
+        vm.prank(alice);
+        vm.expectRevert(BlockSkins.NotRouter.selector);
+        s.onPaid(alice, 10_000_000, 1e18, abi.encode(BLOC, recette));
+        assertEq(s.totalSupply(), 0);
+        assertEq(coffre.nb(), 0);
+        assertEq(gains.nb(), 0);
+    }
+
+    function test_non_cable_aucun_paiement() public {
+        coffre.regler(true, 0);
+        vm.prank(alice);
+        vm.expectRevert(BlockSkins.NotWired.selector);
+        routeur.pay(address(s), 10_000_000, 1, block.timestamp, abi.encode(BLOC, recette));
+        coffre.regler(false, 0);
+        gains.regler(true, 0);
+        vm.prank(alice);
+        vm.expectRevert(BlockSkins.NotWired.selector);
+        routeur.pay(address(s), 10_000_000, 1, block.timestamp, abi.encode(BLOC, recette));
+        assertEq(usdc.balanceOf(alice), 1_000e6, "aucun USDC n a bouge");
+    }
+
+    function test_don_de_tblock_va_au_coffre_mais_ne_compte_pas() public {
+        tblock.mint(address(s), 777e18);
+        vm.prank(alice);
+        uint256 out = routeur.pay(address(s), 10_000_000, 1, block.timestamp, abi.encode(BLOC, recette));
+        assertEq(tblock.balanceOf(address(coffre)), out + 777e18, "tout le TBLOCK tenu part au coffre");
+        assertEq(coffre.dernierMontant(), out, "le jeu compte la sortie du routeur seulement");
+    }
+
+    function test_enregistrement_en_panne_ne_bloque_pas_le_mint() public {
+        for (uint8 m = 1; m <= 2; m++) {
+            coffre.regler(false, m);
+            gains.regler(false, m);
+            uint256 id = _mint(alice);
+            assertEq(s.ownerOf(id), alice, "minte malgre les deux enregistrements en panne");
+        }
+        assertEq(coffre.nb(), 0);
+        assertEq(gains.nb(), 0);
+    }
+
+    function test_tblock_jamais_devise_du_marche() public {
+        vm.expectRevert(BlockSkins.NotAllowed.selector);
+        s.setCurrency(address(tblock), true);
+        assertFalse(s.currencyAllowed(address(tblock)));
+    }
+
+    function test_constructeur_refuse_les_mauvais_cablages() public {
+        vm.expectRevert(BlockSkins.BadToken.selector); // the OTHER TBLOCK
+        new BlockSkins(address(routeur), FRAIS, address(coffre), address(0xBAD), address(usdc), address(gains));
+        vm.expectRevert(BlockSkins.BadToken.selector);
+        new BlockSkins(address(routeur), FRAIS, address(coffre), address(tblock), address(0xBAD), address(gains));
+        vm.expectRevert(BlockSkins.BadAddress.selector); // router without code
+        new BlockSkins(address(0x1234), FRAIS, address(coffre), address(tblock), address(usdc), address(gains));
+        address[6] memory mauvais = [address(0), address(routeur), address(coffre), FRAIS, address(tblock), address(usdc)];
+        for (uint256 i; i < mauvais.length; i++) {
+            vm.expectRevert(BlockSkins.BadAddress.selector);
+            new BlockSkins(address(routeur), FRAIS, address(coffre), address(tblock), address(usdc), mauvais[i]);
+        }
+        vm.expectRevert(BlockSkins.BadAddress.selector);
+        new BlockSkins(address(routeur), FRAIS, address(0), address(tblock), address(usdc), address(gains));
+        vm.expectRevert(BlockSkins.BadAddress.selector);
+        new BlockSkins(address(routeur), address(routeur), address(coffre), address(tblock), address(usdc), address(gains));
+        // predicted (codeless) vault and rewards are accepted on purpose: the game deploys first; it is simply not wired yet
+        BlockSkins t = new BlockSkins(address(routeur), FRAIS, address(0xC0FFEE), address(tblock), address(usdc), address(0xBEEF));
+        assertFalse(t.wired());
     }
 
     // ─────────────── tokenURI (v2, 2026-10-11) : ce qu un wallet lit. L attendu est construit ICI, avec le base64 de REFERENCE de forge
@@ -284,8 +480,7 @@ contract BlockSkinsTest is Test {
         for (uint256 i = 0; i < 7; i++) h[i] = uint16(bound(h[i], 0, 359));
         for (uint256 i = 0; i < avant % 12; i++) _mint(bob); // l id du skin varie de 1 a 12 (un ou deux chiffres)
         uint64 r = s.packRecipe(h); // AVANT le prank : un appel externe en argument consommerait le prank
-        vm.prank(alice);
-        uint256 id = s.mint(BLOC, r);
+        uint256 id = _payer(alice, BLOC, r);
         assertEq(s.tokenURI(id), _uriAttendu(id, BLOC, h));
     }
 
@@ -397,7 +592,8 @@ contract BlockSkinsTest is Test {
         vm.prank(agent);
         s.executeValidated(id, bob);
         assertEq(s.ownerOf(id), bob, "l acheteur recoit le NFT");
-        assertEq(usdc.balanceOf(FRAIS), 10e6 + 2e6, "10 USDC de mint + 10 % de la vente (20 USDC)");
+        // CHANGED by the economy v2 pack: the mint now pays the fee wallet 10 % of 10 USDC (1 USDC) through the router, not 10 USDC
+        assertEq(usdc.balanceOf(FRAIS), 1e6 + 2e6, "1 USDC de mint (10 %) + 10 % de la vente (20 USDC)");
         assertEq(usdc.balanceOf(agent), gAvant, "l agent ne touche rien");
         assertEq(s.balanceOf(agent), 0, "l agent ne detient jamais le NFT");
     }
@@ -535,7 +731,8 @@ contract BlockSkinsTest is Test {
         vm.warp(block.timestamp + 1 hours);
         s.settle(id);
         assertEq(usdc.balanceOf(address(s)), 0);
-        assertEq(usdc.balanceOf(FRAIS), 10e6 + 0.9e6, "10 USDC de mint + 10 % de l enchere gagnante (9 USDC)");
+        // CHANGED by the economy v2 pack: 1 USDC of the mint reaches the fee wallet (10 % via the router), not 10 USDC
+        assertEq(usdc.balanceOf(FRAIS), 1e6 + 0.9e6, "1 USDC de mint (10 %) + 10 % de l enchere gagnante (9 USDC)");
     }
 
     // ─────────────── tricheries
@@ -556,8 +753,9 @@ contract BlockSkinsTest is Test {
         RefuseEth vendeur = new RefuseEth(s);
         usdc.mint(address(vendeur), 10e6);
         vm.startPrank(address(vendeur));
-        usdc.approve(address(s), 10e6);
-        uint256 id = s.mint(BLOC, recette);
+        usdc.approve(address(routeur), 10e6);
+        routeur.pay(address(s), 10e6, 1, block.timestamp, abi.encode(BLOC, recette));
+        uint256 id = s.totalSupply();
         s.list(id, address(0), 1 ether);
         vm.stopPrank();
         vm.prank(bob);
@@ -571,7 +769,7 @@ contract BlockSkinsTest is Test {
         uint256 id = _mint(alice);
         vm.prank(alice);
         s.startAuction(id, address(0), 0.1 ether, 1 hours);
-        Reentrant r = new Reentrant(s, address(usdc), BLOC, recette);
+        Reentrant r = new Reentrant(s, routeur, address(usdc), BLOC, recette);
         usdc.mint(address(r), 10e6); // de quoi PAYER le mint (10 USDC) qu il va tenter : seul le verrou peut le refuser
         r.encherir{value: 0.1 ether}(id, 0.1 ether);
         vm.prank(bob);

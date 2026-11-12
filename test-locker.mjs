@@ -49,7 +49,7 @@ ok('sans locker deploye, le plan REFUSE au lieu de fabriquer une transaction', (
   assert.equal(LOCKER_ADRESSE, null);
   const r = planBringToLife({ token: TOKEN, quote: ETH, montant: SUPPLY, startTick: 196200 });
   assert.equal(r.etat, 'REFUSE');
-  assert.match(r.pourquoi, /not deployed/);
+  assert.match(r.pourquoi, /coming soon/);
   assert.equal(r.appels, undefined);
 });
 

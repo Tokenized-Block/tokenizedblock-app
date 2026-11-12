@@ -43,7 +43,7 @@ t('lock links pick Holders + Lock before scrolling', APP.includes("function ouvr
 /* the truth of the words */
 const lock = APP.slice(APP.indexOf('async function peindreLock('), APP.indexOf('async function peindreTipApercu('));
 t('lock card: never says the perks count the LOCK', !/count what you LOCK|holder perks read it|perks are back|holder perks stopped/.test(lock) && !/Holder stage/.test(lock));
-t('lock card: says what it earns today and what still reads the wallet', lock.includes('Locking earns community points') && lock.includes('still count your wallet balance (the lock-based contracts are not deployed yet)'));
+t('lock card: says what it earns today and what still reads the wallet', lock.includes('Locking earns community points') && lock.includes('still count your wallet balance; counting your lock there is coming soon.') && !lock.includes('not deployed'));
 t('lock.js: points, not perks', !/perks/.test(LKJ.split('\n').filter((l) => /texte:/.test(l)).join('\n')));
 t('holders.html: no "holder stage = $15 LOCKED" as a live perk', !HOL.includes("'The holder stage: $' + prix.seuil + ' of TBLOCK LOCKED") && !HOL.includes('lock at least $15 of it to reach the holder stage'));
 const intro = APP.slice(APP.indexOf('<p class="titre">Holders vault</p>'), APP.indexOf('<div id="wVaultRows">'));

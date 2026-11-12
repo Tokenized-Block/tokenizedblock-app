@@ -155,6 +155,14 @@ export const HOOK_7030 = DESCRIPTEUR_7030.adresse;
  *   plan, adresse hors liste refusee. `hookCourant` ne le rend que code LU sur la chaine. */
 export const HOOK_7030_ACTIF = true;
 export const HOOK_7030_PPM = Object.freeze({ walletDeFrais: 700, createur: 300 });
+/* game374 (audit of the fees page) — two more immutables of the 7030 hook, READ by eth_call on https://mainnet.base.org at block 56 267 519
+ *   (2026-11-12), with HOOK_FEE() 700 and PART_CREATEUR() 300 read again (= HOOK_7030_PPM) and PART_COLLATERAL() 0:
+ *   MODE_COLLATERAL() = 1 : when the creator gate is closed (no creator, a withdrawal asked, or the deposit under its minimum) the creator part
+ *     is STILL charged and becomes the block's collateral, held by the hook (source TBlockLaunchLockHook.sol _parts, ea9e057; in mode 1 no
+ *     function pays the collateral out: _deployer runs only in mode 2, « no remove path »);
+ *   DELAI_RETRAIT() = 604 800 s : the delay between a creator's withdrawal request and taking the deposit back (caution-createur.js).
+ *   The fees page (frais-risques.js) chooses its sentence from modeCollateral and says the delay from delaiRetraitS. */
+export const HOOK_7030_LU = Object.freeze({ modeCollateral: 1, delaiRetraitS: 604800, bloc: 56267519 });
 /** Ce hook est-il le 7030 ET le drapeau est-il allume ? Drapeau eteint = le 7030 n existe pas pour l app. */
 export function estHook7030(h) {
   return HOOK_7030_ACTIF === true && String(h || '').toLowerCase() === HOOK_7030.toLowerCase();

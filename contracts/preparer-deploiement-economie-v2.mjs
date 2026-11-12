@@ -16,7 +16,11 @@ const LOCK = '0xec46b02bb1f3a58ce37c023f8668f2207bc2b0aa';          /* TBlockLoc
 const CONTEST = '0x001ead57218f3ab79e2dcacb05ddfc4574ef177c';       /* the same as the v1 vault (preparer-deploiement-economie.mjs) */
 const DEV = '0x264496cc303f8dbe49a241ea84cd42be8392bc80';            /* the same two dev wallets as the v1 vault */
 const DEV2 = '0x31e0dbc9038c82184b9fa6a90057a3ed500bde3b';
-const KEEPER = '0x31e0dbc9038c82184b9fa6a90057a3ed500bde3b';         /* Grok's wallet writes the bounded price at first; DEV/DEV2 replace it (2 days) */
+/* review DT-1 (2026-11-11): the keeper was DEV2's address, so a stolen keeper key could veto its own replacement and make a freeze
+ * permanent. BlockLikesV2 now REFUSES keeper == dev or dev2. The keeper is a THIRD key that Phil names: LIKES_KEEPER=<0x...>. */
+const KEEPER = String(process.env.LIKES_KEEPER || '').toLowerCase();
+if (!/^0x[0-9a-f]{40}$/.test(KEEPER)) throw new Error('LIKES_KEEPER is required: a keeper key distinct from DEV and DEV2 (review DT-1)');
+if (KEEPER === DEV || KEEPER === DEV2) throw new Error('LIKES_KEEPER must differ from DEV and DEV2 (review DT-1)');
 const GENESIS = 1794355200;                                           /* 2026-11-11 00:00 UTC, the contest's and v1's week line */
 const START = BigInt(process.env.START_PRICE_E18 || '0');
 if (!(START > 0n)) throw new Error('START_PRICE_E18 is required (the live lower price x 1e18)');

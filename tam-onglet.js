@@ -2549,7 +2549,7 @@ export function monter(racine, ctx = {}) {
   /* ── la galerie : lue sur la chaine, GRATUIT ── */
   async function galerie() {
     const contrat = adresseTam(TAMART_DEPLOIEMENT);
-    if (!contrat) { galEtat.textContent = 'No work is minted yet: the TamArt contract is not deployed.'; gal.replaceChildren(); racine.dataset.galerie = 'pas-deploye'; return; }
+    if (!contrat) { galEtat.textContent = 'No work is minted yet: TAM minting is coming soon.'; gal.replaceChildren(); racine.dataset.galerie = 'pas-deploye'; return; }
     let ids = [];
     try { const j = await fetch('/api/tam/oeuvres', { cache: 'no-store' }).then((r) => r.json()); if (j && Array.isArray(j.oeuvres)) ids = j.oeuvres.map((o) => o.tokenId); } catch (_) { ids = []; }
     if (!ids.length) { try { const n = Number(BigInt(decoderMot(await ctx.rpc('eth_call', [appelLecture(contrat, SIG_TAM.totalSupply), 'latest'])))); ids = Array.from({ length: Math.min(n, 60) }, (_, i) => i + 1); } catch (_) { ids = []; } }

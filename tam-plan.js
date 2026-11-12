@@ -59,7 +59,7 @@ export function calldataMint({ octets, graine, paramsJson }) {
  */
 export function planMintTam({ deploiement, lu, octets, graine, paramsJson } = {}) {
   const contrat = adresseTam(deploiement);
-  if (!contrat) return refuse('PAS_DEPLOYE', 'TamArt is not deployed yet: there is nothing to mint on');
+  if (!contrat) return refuse('PAS_DEPLOYE', 'TAM minting is coming soon: there is nothing to mint on yet');
   if (BigInt(deploiement.prix ?? -1) !== PRIX_TAM) return refuse('PRIX', 'the deployment sheet does not say 5 USDC');
   if (bas(deploiement.constructeur && deploiement.constructeur.beneficiaire) !== FEE) return refuse('BENEFICIAIRE', 'the deployment sheet does not pay the TokenizedBlock fee wallet');
   if (!lu) return refuse('NON_LU', 'the contract was not read: nothing is built on an unread contract');
@@ -68,7 +68,7 @@ export function planMintTam({ deploiement, lu, octets, graine, paramsJson } = {}
   if (bas(lu.beneficiaire) !== FEE) return refuse('BENEFICIAIRE', 'the contract read on chain does not pay the TokenizedBlock fee wallet');
   if (bas(lu.usdc) !== USDC) return refuse('USDC', 'the contract read on chain does not take USDC on Base');
   const o = octetsDe(octets);
-  if (!o || o.length < 7 || o.length > MAX_DONNEES || o[0] !== 0x54 || o[1] !== 0x41 || o[2] !== 0x4d || o[3] !== 1) return refuse('DONNEES', 'the work bytes are not a TAM v1 work');
+  if (!o || o.length < 7 || o.length > MAX_DONNEES || o[0] !== 0x54 || o[1] !== 0x41 || o[2] !== 0x4d || o[3] !== 1) return refuse('DONNEES', 'the work bytes are not a TAM work');
   if (!/^0x[0-9a-fA-F]{64}$/.test(String(graine || ''))) return refuse('GRAINE', 'the seed must be 32 bytes');
   if (typeof paramsJson !== 'string') return refuse('PARAMS', 'the params are missing');
   const nParams = new TextEncoder().encode(paramsJson).length;

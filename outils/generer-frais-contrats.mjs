@@ -11,17 +11,25 @@ import { fileURLToPath } from 'node:url';
 export const SOURCES = Object.freeze([
   Object.freeze({ contrat: 'BlockSkins', fichier: 'contracts/src/BlockSkins.sol', noms: Object.freeze(['MINT_PRICE', 'SALE_FEE_BPS', 'MIN_RAISE_BPS', 'MAX_AUCTION']) }),
   Object.freeze({ contrat: 'BlockMissionsV3', fichier: 'contracts/src/BlockMissionsV3.sol', noms: Object.freeze(['FEE_BPS', 'TB_SHARE_BPS', 'RESERVE_SHARE_BPS']) }),
+  /* game374 (audit of the fees page): the time limits the page used to type ('up to 4 years', '7 days', 'a 2-day window'), read from
+   *   the SAME sources the deployment records hash (test-frais-verite-374 compares each sha256Source with its record) */
+  Object.freeze({ contrat: 'TBlockLock', fichier: 'contracts/src/TBlockLock.sol', noms: Object.freeze(['MIN_LOCK', 'MAX_LOCK', 'WITHDRAW_DELAY']) }),
+  Object.freeze({ contrat: 'TBlockVault', fichier: 'contracts/src/TBlockVault.sol', noms: Object.freeze(['RESCUE_DELAY', 'RESCUE_WINDOW', 'FEED_QUIET']) }),
+  Object.freeze({ contrat: 'TicketPot', fichier: 'contracts/src/TicketPot.sol', noms: Object.freeze(['GRACE', 'FUNDING_DELAY', 'ADMIN_DELAY', 'PROPOSAL_TTL']) }),
+  Object.freeze({ contrat: 'BlockRolls', fichier: 'contracts/src/BlockRolls.sol', noms: Object.freeze(['MIN_SCORE_FLOOR', 'SETTLE_WINDOW']) }),
+  Object.freeze({ contrat: 'BlockSlots', fichier: 'contracts/src/BlockSlots.sol', noms: Object.freeze(['SETTLE_WINDOW']) }),
 ]);
 
 const UNITES = { days: 86400n, hours: 3600n, minutes: 60n, seconds: 1n };
-/** `uint256 public constant NOM = 1_000;` (ou `7 days`) -> { NOM: '1000' } ; leve si un nom manque ou se lit deux fois */
+/** `uint256 public constant NOM = 1_000;` (ou `7 days`, ou `4 * 365 days`) -> { NOM: '1000' } ; leve si un nom manque ou se lit deux fois */
 export function constantes(texte, noms) {
   const out = {};
   for (const nom of noms) {
-    const re = new RegExp('uint\\d*\\s+(?:public\\s+|internal\\s+|private\\s+)?constant\\s+' + nom + '\\s*=\\s*([0-9_]+)\\s*(days|hours|minutes|seconds)?\\s*;', 'g');
+    const re = new RegExp('uint\\d*\\s+(?:public\\s+|internal\\s+|private\\s+)?constant\\s+' + nom + '\\s*=\\s*([0-9_]+)\\s*(?:\\*\\s*([0-9_]+)\\s*)?(days|hours|minutes|seconds)?\\s*;', 'g');
     const m = [...texte.matchAll(re)];
     if (m.length !== 1) throw new Error(nom + ': ' + m.length + ' declaration(s) found, expected exactly 1');
-    out[nom] = (BigInt(m[0][1].replace(/_/g, '')) * (m[0][2] ? UNITES[m[0][2]] : 1n)).toString();
+    const facteur = m[0][2] ? BigInt(m[0][2].replace(/_/g, '')) : 1n;
+    out[nom] = (BigInt(m[0][1].replace(/_/g, '')) * facteur * (m[0][3] ? UNITES[m[0][3]] : 1n)).toString();
   }
   return out;
 }

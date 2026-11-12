@@ -14,7 +14,9 @@
  *      (3) l enregistrement de v2 passe a 10 USDC SANS la chaine : la comparaison on-chain de l app (prixC !== SKIN_MINT_USDC) REFUSE, avec le
  *      MINT_PRICE() reel de v2 (1 000 000, relu en direct si possible, sinon la valeur relue le 2026-10-18 : eth_call 0xc002d23d -> 0xf4240) ;
  *      (4) l enregistrement dit un autre prix que la source : la garde A rougit.
- * NE PROUVE PAS : le rendu (le span rempli au chargement), un vrai wallet, le deploiement de v3 (attend la signature de Phil). */
+ * NE PROUVE PAS : le rendu (le span rempli au chargement), un vrai wallet, le deploiement de v3 (attend la signature de Phil).
+ * 2026-11-12: the standalone v3 is RETIRED (Skins ships as step S of the economy pack). A now pins the record as FROZEN from the pre-pack
+ *   source and checks the forge artefact is the CURRENT (router game) source, whose bytecode the frozen creation does NOT start with. */
 import { strict as assert } from 'node:assert';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -42,11 +44,18 @@ function pushDe(prix) { const h = BigInt(prix).toString(16); const hx = h.padSta
 function enregistrementSuitLaSource(d, sol) { const p = prixDeLaSource(sol); return p !== null && String(d.mintPriceUsdc) === p && d.creation.includes(pushDe(p)); }
 vu(prixDeLaSource(source) === '10000000', 'A la source grave MINT_PRICE = 10 USDC (10 000 000)');
 vu(D.version === 3 && enregistrementSuitLaSource(D, source), 'A v3 : mintPriceUsdc (' + D.mintPriceUsdc + ') = la source, et son PUSH (' + pushDe(D.mintPriceUsdc) + ') est dans la donnee signee');
-vu(D.keccakSource === K.keccak256Hex(Buffer.from(source)) && crypto.createHash('sha256').update(source).digest('hex') === D.sha256Source, 'A l enregistrement a ete genere depuis la source ACTUELLE (keccak LF + sha256)');
+/* 2026-11-12: the standalone v3 deploy path is RETIRED. contracts/src/BlockSkins.sol is now the ROUTER GAME of the economy pack (step S,
+ *   constructor (router, feeWallet, dest, expectedTblock, expectedUsdc, rewards), no direct mint()), prepared by
+ *   preparer-deploiement-pack-economie-v2.mjs. blockskins-deploiement.js is FROZEN as it was generated from the pre-pack source: the app
+ *   reads the deployed v2 in `precedent` until the pack is deployed; preparer-deploiement-blockskins.mjs and the noter CLI refuse to run.
+ *   So the record must carry the PRE-PACK source hashes (pinned here, copied from the record) and the current source must differ. */
+const SHA_PRE_PACK = 'c11d841a8d9d1baba733bc4edc04d2f72606b39b0e7f7a2e54cf23b36c381f52', KECCAK_PRE_PACK = '0x718fc11ec974fd9f80e7f5d59929a7ccaba6c561dcf38e0b6cac32487ae97b67';
+vu(D.keccakSource === KECCAK_PRE_PACK && D.sha256Source === SHA_PRE_PACK && D.keccakSource !== K.keccak256Hex(Buffer.from(source)) && crypto.createHash('sha256').update(source).digest('hex') !== D.sha256Source,
+  'A the record is FROZEN from the pre-pack source (pinned keccak LF + sha256), not regenerated from the current router game source');
 const artefact = path.join(ICI, 'contracts/out/BlockSkins.sol/BlockSkins.json');
 if (fs.existsSync(artefact)) {
   const art = JSON.parse(fs.readFileSync(artefact, 'utf8')), meta = typeof art.metadata === 'string' ? JSON.parse(art.metadata) : art.metadata;
-  vu(String(meta.sources['src/BlockSkins.sol'].keccak256).toLowerCase() === D.keccakSource && D.creation.startsWith(String(art.bytecode.object)), 'A l artefact forge present a ete compile depuis cette source, et la donnee de creation commence par son bytecode');
+  vu(String(meta.sources['src/BlockSkins.sol'].keccak256).toLowerCase() === K.keccak256Hex(Buffer.from(source)) && !D.creation.startsWith(String(art.bytecode.object)), 'A the forge artefact present is compiled from the CURRENT source (router game), and the frozen creation does NOT start with its bytecode (retired, never offered)');
 } else console.log('--  A artefact forge absent (contracts/out) : la garde anti-artefact-perime n est pas rejouee ici (elle l est par le generateur)');
 vu(D.adresse === null && D.precedent.version === 2 && D.precedent.mintPriceUsdc === '1000000' && /^0x[0-9a-f]{40}$/.test(D.precedent.adresse) && D.precedent.precedent.version === 1,
   'A v3 pas deploye (adresse null) ; v2 dans precedent avec son prix relu 1 USDC ; v1 derriere');

@@ -3,7 +3,7 @@
  * ⛔ HARD TO GAME:
  *   - the USD price is read ON CHAIN, never from an aggregator: TBLOCK/wtCOIN from the v4 pool (StateView.getSlot0), wtCOIN/USDC as the
  *     MEDIAN of three independent CL pools (two Aerodrome Slipstream, one Hydrex/Algebra) that must agree within ECART_MAX;
- *   - the price used is the LOWER of the price now and ~10 minutes earlier (RECUL_PRIX_S): a thin pool pushed for one block does not
+ *   - the price used is the LOWER of the price now and ~10 minutes earlier (HOLD_PRICE_LOOKBACK_S, tblock-hold-regle.js): a thin pool pushed for one block does not
  *     make a small balance pass the threshold;
  *   - the balance and the signature are checked at the moment of the request; anything not read means NOT eligible, with the reason.
  * ⛔ WHAT THIS DOES NOT PROVE: that the wallet still holds TBLOCK after joining (no one is removed from the group later), and a
@@ -11,7 +11,9 @@
  * PURE where it can be: reads are injected (rpc(method, params), lire(to, data, block)). */
 import { keccak256Hex, selecteur } from './keccak.js';
 import { mediane, ecartRelatif, ECART_MAX } from './prix-eth.js';
-import { blocAuTemps, prixDuSlot0, RECUL_PRIX_S } from './eligibilite-unit.js';
+import { blocAuTemps, prixDuSlot0 } from './eligibilite-unit.js';
+/* game374: the threshold and the price look-back live in tblock-hold-regle.js (pure) so the public fees page reads the same numbers */
+import { HOLD_THRESHOLD_USD, HOLD_PRICE_LOOKBACK_S } from './tblock-hold-regle.js';
 
 export const TBLOCK = '0xb200000000000000000000ba9bf8330307f8830e';
 export const WTCOIN = '0x5cda0e1ca4ce2af96315f7f8963c85399c172204';
@@ -29,7 +31,7 @@ export const WTCOIN_USDC_POOLS = Object.freeze([
   Object.freeze({ address: '0xab5d32ff95b58bd5e77de08738a391973ee88c81', read: 'globalState()', dex: 'Hydrex (Algebra)' }),
 ]);
 export const WTCOIN_READS_MIN = 2;
-export const HOLD_THRESHOLD_USD = 15;
+export { HOLD_THRESHOLD_USD };
 export const CHALLENGE_TTL_S = 600;
 export const ERC1271_MAGIC = '0x1626ba7e';
 const ERC6492_SUFFIX = '6492649264926492649264926492649264926492649264926492649264926492';
@@ -130,7 +132,7 @@ export async function recentBlockAt({ lireTs, tete, ts, span = 6000, tries = 3, 
 export async function readPrices({ lire, lireTs, tete, hint = null }) {
   const tsHead = await lireTs(tete).catch(() => null);
   if (!Number.isFinite(tsHead)) return { tete, before: null, now: { usd: null, why: 'head block not read' }, prev: { usd: null, why: 'head block not read' } };
-  const before = await recentBlockAt({ lireTs, tete, ts: tsHead - RECUL_PRIX_S, hint, tsHead });
+  const before = await recentBlockAt({ lireTs, tete, ts: tsHead - HOLD_PRICE_LOOKBACK_S, hint, tsHead });
   const now = await tblockUsdAt({ lire, bloc: tete });
   const prev = before === null ? { usd: null, why: 'block 10 minutes ago not read' } : await tblockUsdAt({ lire, bloc: before });
   return { tete, before, now, prev };
@@ -192,7 +194,7 @@ export async function verifyOwnership({ rpc, wallet, message, signature }) {
   const code = await rpc('eth_getCode', [w, 'latest']);
   if (!code || code === '0x') {
     return s.endsWith(ERC6492_SUFFIX)
-      ? { ok: false, why: 'this smart wallet is not deployed on Base yet: make any one transaction with it, then sign again' }
+      ? { ok: false, why: 'this smart wallet is not active on Base yet: make any one transaction with it, then sign again' }
       : { ok: false, why: 'the signature is not from this wallet' };
   }
   let r;

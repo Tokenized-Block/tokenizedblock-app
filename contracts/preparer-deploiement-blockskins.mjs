@@ -19,6 +19,14 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 const ICI = path.dirname(fileURLToPath(import.meta.url));
+/* ⛔ 2026-11-12: RETIRED. contracts/src/BlockSkins.sol is now the ROUTER GAME of the economy pack (step S, constructor
+ *   (router, feeWallet, dest, expectedTblock, expectedUsdc, rewards); no direct mint()). This script appends the OLD two-argument
+ *   constructor (USDC, fee wallet) to whatever bytecode is in out/: run on the current source it would freeze an undeployable creation.
+ *   The Skins deployment is prepared by preparer-deploiement-pack-economie-v2.mjs (economie-v2-pack-deploiement.js). The standalone
+ *   record blockskins-deploiement.js is FROZEN as it is (v3 creation from the pre-pack source, adresse null; v2 deployed in precedent),
+ *   so this script refuses to run and writes nothing. */
+console.error('preparer-deploiement-blockskins.mjs is retired: Skins is deployed as step S of the economy pack (preparer-deploiement-pack-economie-v2.mjs). Nothing written.');
+process.exit(1);
 const SORTIE = path.join(ICI, '../blockskins-deploiement.js');
 const F = await import(pathToFileURL(path.join(ICI, '../frais-creation.js')).href);
 const K = await import(pathToFileURL(path.join(ICI, '../keccak.js')).href);

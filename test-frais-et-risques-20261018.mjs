@@ -39,7 +39,10 @@ const lf = (t) => t.replace(/\r\n/g, '\n');
 eq(lf(GEN.texteModule(sources)), lf(lire('frais-contrats.js')), 'frais-contrats.js = ce que donne le generateur sur les .sol du depot (regenerer : node outils/generer-frais-contrats.mjs)');
 for (const s of GEN.SOURCES) eq(FC.FRAIS_CONTRATS[s.contrat].sha256Source, createHash('sha256').update(lf(sources[s.fichier])).digest('hex'), s.contrat + ' : empreinte de la source (LF)');
 /* l empreinte = celle des fiches de deploiement generees ailleurs : meme source, meme convention */
-eq(FC.FRAIS_CONTRATS.BlockSkins.sha256Source, BLOCKSKINS_DEPLOIEMENT.sha256Source, 'BlockSkins : meme source que blockskins-deploiement.js');
+/* 2026-11-12: blockskins-deploiement.js is the RETIRED standalone record, frozen from the pre-pack BlockSkins.sol (Skins is now the router
+ *   game of the economy pack, step S). Its source hash must therefore DIFFER from the current source that frais-contrats.js reads: the two
+ *   being equal again would mean the frozen v3 creation was regenerated from the router game source with the old constructor. */
+ok(FC.FRAIS_CONTRATS.BlockSkins.sha256Source !== BLOCKSKINS_DEPLOIEMENT.sha256Source && BLOCKSKINS_DEPLOIEMENT.adresse === null, 'BlockSkins : the retired standalone record is frozen from the pre-pack source (not the current one) and never deployed');
 eq(FC.FRAIS_CONTRATS.BlockMissionsV3.sha256Source, MISSIONS_DEPLOIEMENT.sha256Sources['src/BlockMissionsV3.sol'], 'BlockMissionsV3 : meme source que missions-deploiement.js');
 /* temoin : les constantes sont lues dans le texte, pas devinees — une source modifiee change la valeur extraite */
 const muteSkins = sources['contracts/src/BlockSkins.sol'].replace(/SALE_FEE_BPS = 1000;/, 'SALE_FEE_BPS = 900;');
@@ -66,7 +69,8 @@ eq(C.rolls.fenetreBlocs, FENETRE, 'fenetre de reglement = blockrolls-plan FENETR
 const actif = contratActif();
 eq(C.skins.adresse, String(actif.adresse).toLowerCase(), 'skins : contrat ACTIF');
 eq(C.skins.mintUsdc, BigInt(actif.mintPriceUsdc), 'skins : prix de mint du contrat actif');
-eq(C.skins.prochain, BLOCKSKINS_DEPLOIEMENT.adresse ? null : { version: BLOCKSKINS_DEPLOIEMENT.version, mintUsdc: BigInt(BLOCKSKINS_DEPLOIEMENT.mintPriceUsdc) }, 'skins : version preparee non deployee');
+/* 2026-11-12: no `prochain`: the standalone v3 is retired (Skins ships in the economy pack), and the page never announces a contract that is not live */
+ok(!('prochain' in C.skins), 'skins : no next standalone contract is announced (retired, superseded by the pack)');
 eq(C.skins.venteBps, BigInt(FC.FRAIS_CONTRATS.BlockSkins.SALE_FEE_BPS), 'skins : frais de vente = SALE_FEE_BPS de la source');
 eq(C.skins.encherePlusBps, BigInt(FC.FRAIS_CONTRATS.BlockSkins.MIN_RAISE_BPS), 'skins : surenchere = MIN_RAISE_BPS');
 eq(C.skins.enchereMaxS, BigInt(FC.FRAIS_CONTRATS.BlockSkins.MAX_AUCTION), 'skins : enchere max = MAX_AUCTION');
@@ -117,10 +121,12 @@ ok(evMax > evUni, 'le meilleur guess (valeurs biaisees par le modulo) paie un pe
 /* ---- 3. le rendu suit les sources : appele avec des sources FAUSSES, il doit dire les valeurs fausses */
 const vrai = FR.rendre(FR.CHIFFRES, null);
 for (const attendu of ['>0.1%<', '0.07% to TokenizedBlock', '0.03% to the block', '0.001 ETH', '0.0007 ETH when', '0.0003 ETH when', '>0.50 USDC<', '>10 USDC<', '30 rolls',
-  '24 hours', '50% goes to the roll pot', '0.5% on a single Uniswap v4 market', '0.2% below $100', '0.1% from $100', 'Doer 90%', 'earn pool 7%', 'TokenizedBlock 3%',
-  'takes 10% of each sale', '>1 USDC<', 'at 10 USDC is prepared', FR.usdc4(E.uniforme) + ' USDC on average', FR.usdc4(E.meilleur) + ' USDC (', 'Rolls lose on average.',
-  'A pass loses on average too.', 'within 256 blocks', 'taxBps() = 9999', '0.0099%', '15 of 15']) ok(vrai.includes(attendu), 'rendu reel contient « ' + attendu + ' »');
+  '24 hours', '50% goes to the roll pot', '0.5% on a single Uniswap v4 market', /* game374 (audit F-route-6, F-mis-3): the tiers as frais-degressif.js applies them; the 7% goes to a wallet, not a pool */ '0.2% up to $100', '0.1% from $200', 'Doer 90%', 'community reward wallet 7%', 'TokenizedBlock 3%',
+  'takes 10% of each sale', '>1 USDC<', FR.usdc4(E.uniforme) + ' USDC on average', FR.usdc4(E.meilleur) + ' USDC (', 'Rolls lose on average.',
+  'A pass loses on average too.', 'within 256 blocks', 'taxBps() = 9999', 'about 0.01% of the ETH it paid', '129 of 129']) ok(vrai.includes(attendu), 'rendu reel contient « ' + attendu + ' »');
 ok(/\$10(?!\d)/.test(vrai), 'rendu reel : le seuil du ticket $10');
+/* 2026-11-12 (Phil copy rule): no internal status words about the skin contract on the page */
+ok(!/prepared but not signed|new skin contract/i.test(vrai), 'rendu reel : the Skin row announces no contract that is not live (prepared but not signed is gone)');
 /* 2026-10-18 16:50 UTC : TicketPot est LIVE (0xf986…1df1) — il reste Missions et Duels a dire « not deployed » */
 /* 2026-10-18 18:20 UTC : Missions et Duels sont LIVE aussi — « not deployed » n apparait que pour les fiches SANS adresse (lu, jamais suppose) */
 const nonDeployes = ['missions', 'ticketpot', 'duels'].filter((k) => FR.CHIFFRES[k].deploye !== true).length;
@@ -130,12 +136,12 @@ faux.hook.walletPpm = 1100n; faux.hook.createurPpm = 400n;
 faux.naissance.totalWei = 2000000000000000n; faux.naissance.creationWei = 1500000000000000n; faux.naissance.inscriptionWei = 500000000000000n;
 faux.rolls.rollPrice = 700000n; faux.rolls.passPrice = 12000000n; faux.rolls.passRolls = 25; faux.rolls.potShareBps = 6000; faux.rolls.passWindow = 172800;
 faux.rolls.prize2 = 600000n; faux.rolls.fenetreBlocs = 128;
-faux.skins.venteBps = 1200n; faux.skins.mintUsdc = 2000000n; faux.skins.prochain.mintUsdc = 11000000n;
+faux.skins.venteBps = 1200n; faux.skins.mintUsdc = 2000000n;
 faux.missions.faiseurBps = 8800n; faux.missions.reserveBps = 800n; faux.missions.devBps = 400n;
 faux.tirage.seuilUsd = 12; faux.slots.spinPrice = 900000n; faux.tam.prix = 6000000n; /* game360: the new rows read CHIFFRES too */ faux.routeur.marcheBps = 60n; faux.missions.deploye = true;
 const r = FR.rendre(faux, null);
 for (const attendu of ['>0.15%<', '0.11% to TokenizedBlock', '0.04% to the block', '0.002 ETH', '0.0015 ETH when', '0.0005 ETH when', '>0.70 USDC<', '>12 USDC<', '25 rolls',
-  '48 hours', '60% goes to the roll pot', '0.6% on a single Uniswap v4 market', 'Doer 88%', 'earn pool 8%', 'TokenizedBlock 4%', 'takes 12% of each sale', '>2 USDC<', 'at 11 USDC is prepared',
+  '48 hours', '60% goes to the roll pot', '0.6% on a single Uniswap v4 market', 'Doer 88%', 'community reward wallet 8%', 'TokenizedBlock 4%', 'takes 12% of each sale', '>2 USDC<',
   'within 128 blocks', '0.60 USDC', '>0.90 USDC<', '>6 USDC<'])
   ok(r.includes(attendu), 'rendu FAUX contient « ' + attendu + ' » (sinon : chiffre tape a la main)');
 ok(/\$12(?!\d)/.test(r) && !/\$10(?!\d)/.test(r), 'rendu FAUX : seuil $12, plus de $10');
@@ -147,15 +153,17 @@ ok(/not read/i.test(vrai), 'sans /api/tirage : « not read »');
 /* ⛔ 2026-10-18 (Phil : « fini ca, on a tirage weekend et roll ») : la ligne « Daily draw … practice » est retiree ; re-pointe sur le pot de la
  *   SEMAINE lu (ticketpot.semaine), meme intention : une donnee en direct LUE, non lue -> dit, jamais un 0 ecrit */
 const live = FR.rendre(FR.CHIFFRES, { mode: 'SHADOW', rolls: { pot: '250000', potLu: '2026-10-18T15:00:00.000Z' }, ticketpot: { semaine: { jourId: 'J2026-10-25', ferme: false, reste: '1500000', potAtClose: '0' } } });
-ok(live.includes('0.25 USDC') && live.includes('1.50 USDC') && /Today's ticket = 1 entry in this week's reward pot; the pot is shared by entries after the week closes \(UTC\)\./.test(live) && /2026-10-25, the week's last day/.test(live)
+ok(live.includes('0.25 USDC') && live.includes('1.50 USDC') && /Today's ticket = 1 entry in this week's reward pot\. This pot is the TicketPot pot of the week's last day/.test(live) /* game374 (G-week-1/3) */ && /2026-10-25, the week's last day/.test(live)
   && !/Daily draw|no prize yet|tickets are drawn/i.test(live), 'avec /api/tirage : pot des rolls 0.25 USDC, pot de la semaine 1.50 USDC lu et son jour — plus de « Daily draw »');
 const live2 = FR.rendre(FR.CHIFFRES, { mode: 'SHADOW', rolls: { pot: null } });
 ok(/pot[^.]*not read/i.test(live2) && !live2.includes('0.00 USDC') && /The week's pot was not read just now\./.test(live2), 'pot null / pot de la semaine absent -> « not read », jamais un 0 ecrit');
 
-/* la mesure des launchpads n est pas une constante de contrat : elle doit rester celle que porte l app (commentaire du fil Trending) */
-const appTxt = lire('app.html');
-ok(appTxt.includes('taxBps() = ' + FR.MESURE_LAUNCHPAD.taxBps) && appTxt.includes('0,0099 %') && appTxt.includes(FR.MESURE_LAUNCHPAD.poolsVides + '/' + FR.MESURE_LAUNCHPAD.poolsLues),
-  'MESURE_LAUNCHPAD = la mesure notee dans app.html');
+/* la mesure des launchpads n est pas une constante de contrat. game374 (audit R-launch-3/4) : c est la mesure la plus RECENTE, celle que porte
+ *   pool-lanceur-taxe.js (2026-10-26 : 129 / 129, 99 980 006 964 wei rendus) — plus celle du 2026-10-18 notee dans app.html (15/15, 0,0099 %) */
+const plt = lire('pool-lanceur-taxe.js');
+ok(plt.includes('taxBps() (0x3eacd2f8) = ' + FR.MESURE_LAUNCHPAD.taxBps) && plt.includes('99 980 006 964 wei') && plt.includes(FR.MESURE_LAUNCHPAD.poolsVides + ' / ' + FR.MESURE_LAUNCHPAD.poolsLues)
+  && FR.MESURE_LAUNCHPAD.rendusWei === 99980006964n && FR.MESURE_LAUNCHPAD.payeWei === 10n ** 15n,
+  'MESURE_LAUNCHPAD = la mesure notee dans pool-lanceur-taxe.js');
 /* les conclusions « perd en moyenne » sont CALCULEES : avec des gains enormes, la page ne doit plus les dire */
 const genereux = structuredClone(FR.CHIFFRES);
 Object.assign(genereux.rolls, { prize2: 400000000n, prize3: 400000000n, prize4: 400000000n, prize5: 400000000n });

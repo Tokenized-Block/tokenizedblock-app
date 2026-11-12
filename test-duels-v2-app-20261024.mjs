@@ -370,7 +370,7 @@ ok(/Duels: new duels are closed\./.test(r0) && /prepared and not signed on Base 
   'v2 pas signe : la page dit que les nouveaux duels sont fermes, pourquoi (v1), et que v2 attend sa signature');
 ok(v2Signe ? /Duels: settle in time, or the creator wins\./.test(vraiFR) && !/new duels are closed/.test(vraiFR) && vraiFR.includes('https://basescan.org/address/' + DV2.adresse) : /Duels: new duels are closed\./.test(vraiFR),
   'la page servie aujourd hui suit la fiche : ' + (v2Signe ? 'v2 signe -> « settle in time, or the creator wins », lien vers ' + DV2.adresse : 'v2 pas signe -> nouveaux duels fermes'));
-ok(/>Duel<\/th><td class="n">10% of the pot<\/td>/.test(vraiFR) && /90% of the pot to the winner, 7% to the community reward pool and 3% to TokenizedBlock/.test(vraiFR), 'la ligne de frais d un duel : 10 % du pot (90 / 7 / 3), depuis duels-plan.js');
+ok(/>Duel<\/th><td class="n">10% of the pot<\/td>/.test(vraiFR) && /90% of the pot to the winner, 7% to the reward pool wallet \(an ordinary wallet, not a contract[^)]*\) and 3% to TokenizedBlock/.test(vraiFR) /* game374 (audit F-duel-4): REWARD_POOL has no code on chain */, 'la ligne de frais d un duel : 10 % du pot (90 / 7 / 3), depuis duels-plan.js');
 const C2 = structuredClone(FR.CHIFFRES); C2.duels.v2 = { deploye: true, adresse: C };
 const r2 = FR.rendre(C2, { tempsDeBloc: { sParBloc: 2 } }), r3 = FR.rendre(C2, null), r4 = FR.rendre(C2, { tempsDeBloc: { sParBloc: 0.2 } });
 ok(/Duels: settle in time, or the creator wins\./.test(r2) && /in the 256 blocks after its result block \(about 512 s at the measured block time\)/.test(r2) && /That includes a tie not settled in time\./.test(r2) && !/new duels are closed/.test(r2),

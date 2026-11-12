@@ -8,7 +8,9 @@
  * B. la page : n envoie que la donnee figee, sans `to` ni valeur, apres un appui ET si l empreinte recalculee dans le navigateur
  *    est la bonne ; elle relit sur la chaine ce que le contrat dit de lui-meme ; aucune cle, aucun argument saisi.
  * C. le serveur sert la page et la donnee ; l app n y renvoie nulle part.
- * ⛔ BORNE : rien ici ne prouve un deploiement reel ni un vrai wallet. La page n a PAS ete essayee avec un wallet connecte. */
+ * ⛔ BORNE : rien ici ne prouve un deploiement reel ni un vrai wallet. La page n a PAS ete essayee avec un wallet connecte.
+ * 2026-11-12: this standalone path is RETIRED (Skins ships as step S of the economy pack). A and B now pin the FROZEN record and the
+ *   retired page as they are; C asserts that the page is no longer served and that its generator and noter refuse to run. */
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -29,7 +31,16 @@ const fin = D.creation.slice(-128);
 ok('0x' + fin.slice(24, 64) === USDC_BASE.toLowerCase() && '0x' + fin.slice(88, 128) === FEE_WALLET.toLowerCase() && /^0{24}$/.test(fin.slice(0, 24)) && /^0{24}$/.test(fin.slice(64, 88)),
   'A elle finit par les deux arguments du constructeur : le USDC et le wallet des frais DU DEPOT (frais-creation.js)');
 ok(D.constructeur.usdc === USDC_BASE.toLowerCase() && D.constructeur.walletDesFrais === FEE_WALLET.toLowerCase() && D.chaine === 8453, 'A ce qu elle annonce (chaine 8453, USDC, wallet des frais) est ce qu elle encode');
-ok(crypto.createHash('sha256').update(lire('contracts/src/BlockSkins.sol')).digest('hex') === D.sha256Source, 'A elle a ete generee depuis la source ACTUELLE du contrat (source modifiee sans regenerer = rouge)');
+/* 2026-11-12: the standalone v3 deploy path is RETIRED. contracts/src/BlockSkins.sol is now the ROUTER GAME of the economy pack (step S,
+ *   constructor (router, feeWallet, dest, expectedTblock, expectedUsdc, rewards), no direct mint()), prepared by
+ *   preparer-deploiement-pack-economie-v2.mjs. blockskins-deploiement.js is FROZEN as it was generated from the pre-pack source: the app
+ *   reads the deployed v2 in `precedent` until the pack is deployed; preparer-deploiement-blockskins.mjs and the noter CLI refuse to run.
+ *   So the record must carry the PRE-PACK source hashes (pinned here, copied from the record) and the current source must differ. */
+const SHA_PRE_PACK = 'c11d841a8d9d1baba733bc4edc04d2f72606b39b0e7f7a2e54cf23b36c381f52', KECCAK_PRE_PACK = '0x718fc11ec974fd9f80e7f5d59929a7ccaba6c561dcf38e0b6cac32487ae97b67';
+const solActuelle = lire('contracts/src/BlockSkins.sol');
+ok(D.sha256Source === SHA_PRE_PACK && D.keccakSource === KECCAK_PRE_PACK && crypto.createHash('sha256').update(solActuelle).digest('hex') !== D.sha256Source
+  && /address public immutable ROUTER;/.test(solActuelle) && !/function mint\(/.test(solActuelle),
+  'A the record is FROZEN from the pre-pack source (pinned hashes); the current source is the router game (ROUTER, no direct mint), so it differs');
 /* v1 DEPLOYE le 2026-10-04 par le proprietaire ; adresse, tx et owner donnes par SA page et RELUS sur la chaine le meme soir (input de la
  *   tx identique a la donnee figee v1, contrat cree a cette adresse, USDC()/FEE_WALLET()/owner() conformes). v2 DEPLOYE le 2026-10-11
  *   (verif-blockskins-deploye.mjs 8/8, MINT_PRICE() = 1 USDC relu). Le test epingle ce qui a ete relu, pour les DEUX.
@@ -86,7 +97,18 @@ ok(/MINT_PRICE = 10_000_000;/.test(sol) && /SALE_FEE_BPS = 1000;/.test(sol) && /
 
 console.log('— C. le serveur et l app');
 const srv = lire('serveur-web.js'), app = lire('app.html');
-ok(/'deployer-blockskins\.html',\s+'blockskins-deploiement\.js',/.test(srv) && /'keccak\.js'/.test(srv), 'C le serveur sert la page, la donnee, et keccak.js qu elle importe');
+/* 2026-11-12: retired like economie-v2-deploiement.js: the page is no longer served (no page offers the standalone deploy); the record
+ *   stays served because the app imports it (blockskins-actif.js reads the deployed v2 in `precedent`) */
+const servis = srv.replace(/\/\*[\s\S]*?\*\//g, '');
+ok(!/'deployer-blockskins\.html'/.test(servis) && /^  'blockskins\.js', 'blockskins-actif\.js', 'blockskins-deploiement\.js',$/m.test(srv) && (servis.match(/'blockskins-deploiement\.js'/g) || []).length === 1,
+  'C the retired page is NOT served any more; the record is still served once (the app reads the deployed v2 from it)');
+{
+  const { spawnSync } = await import('node:child_process');
+  const prep = spawnSync(process.execPath, [path.join(ICI, 'contracts/preparer-deploiement-blockskins.mjs')], { encoding: 'utf8' });
+  const note = spawnSync(process.execPath, [path.join(ICI, 'contracts/noter-deploiement-blockskins.mjs'), '0x' + 'ab'.repeat(32)], { encoding: 'utf8' });
+  ok(prep.status === 1 && /retired/.test(prep.stderr) && note.status === 1 && /retired/.test(note.stderr) && lire('blockskins-deploiement.js').includes('  adresse: null,'),
+    'C the standalone generator and the noter CLI refuse to run (exit 1, retired) and the record stays unchanged (adresse null)');
+}
 ok(!/deployer-blockskins|blockskins-deploiement/.test(app), 'C l app ne renvoie nulle part vers cette page et ne lit pas ce contrat (il n est pas deploye)');
 console.log('\n' + (n - ko) + ' ok / ' + ko + ' KO (' + n + ' assertions)');
 process.exit(ko ? 1 : 0);

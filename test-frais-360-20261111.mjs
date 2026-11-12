@@ -16,7 +16,8 @@ t('the page passes the week pot', HTML.includes('ticketpot: d.ticketpot || null'
 const r = FR.rendre(FR.CHIFFRES, null), txt = r.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
 t('no "the app holds no key" claim', !/the app holds no key/i.test(txt));
 t('the fly key is said', txt.includes('The fly trader signs on its own') && txt.includes('kept unencrypted in this browser only'));
-for (const k of ['TBLOCK holders 0% app fee', 'Buy or sell TBLOCK 0.1% app fee', 'Optional TBLOCK buy after a USDC payment 10% of the price', 'Slots spin 0.50 USDC', 'TAM art mint 5 USDC',
+/* game374 (audit F-holder-1): the holder row now names its two routes in its label */
+for (const k of ['TBLOCK holders: TBLOCK and USDC ↔ stock trades 0% app fee', 'Buy or sell TBLOCK 0.1% app fee', 'Optional TBLOCK buy after a USDC payment 10% of the price', 'Slots spin 0.50 USDC', 'TAM art mint 5 USDC',
   'Message to a block 0.10 USDC or 1,000 TBLOCK', 'Heart (+1) 86,000 TBLOCK', 'Block contest entry 17,241 TBLOCK · vote 8,621 TBLOCK', 'TBLOCK lock no fee'])
   t('row: ' + k, txt.includes(k));
 t('0.5% said as the v4 single-market fee, 0.1% as Aerodrome/v3', txt.includes('0.5% on a single Uniswap v4 market; 0.1% on an Aerodrome or Uniswap v3 pool'));
