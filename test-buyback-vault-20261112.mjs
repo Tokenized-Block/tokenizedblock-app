@@ -1,6 +1,10 @@
 /* test-buyback-vault-20261112.mjs -- the TBLOCK buyback that pays the holders vault: its record, the page module (buyback-vault.js),
  *   the deploy page, the verifier, the noter, the server keeper (buyback-keeper.js), the server wiring and the fees page bullet.
- *   No network: every chain read is a stub. The fork runs are banc-buyback-vault-deploy-page-fork-20261112.mjs and
+ *   2026-11-12: the buyback is DEPLOYED and the noter wrote adresse / bloc / tx. Sections 1-11 check the record as the preparer writes it,
+ *   on an in-memory copy with those three lines set back to null (the preparer output must be the record minus those three lines, byte
+ *   for byte); section 12 checks the deployed record: against the chain, the page plan, the noter, the keeper and the fees page.
+ *   Sections 1-11: no network, every chain read is a stub. Section 12 reads the deploy tx, its receipt and the code at the address on the
+ *   two Base nodes (eth_getTransactionByHash / eth_getTransactionReceipt / eth_getCode only; a node not read is a KO). The fork runs are banc-buyback-vault-deploy-page-fork-20261112.mjs and
  *   banc-buyback-keeper-fork-20261112.mjs. Prints "KO <check>" for every failed check; exit 1 if any. */
 import fs from 'node:fs';
 import os from 'node:os';
@@ -10,14 +14,14 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import * as B from './buyback-vault.js';
 import * as K from './buyback-keeper.js';
-import { BUYBACK_VAULT_DEPLOIEMENT as D } from './tblock-buyback-vault-deploiement.js';
+import { BUYBACK_VAULT_DEPLOIEMENT as REC } from './tblock-buyback-vault-deploiement.js';
 import { PACK_ECONOMIE_V2 as PACK } from './economie-v2-pack-deploiement.js';
 import { ADRESSES_PACK_ECONOMIE_V2 as ADR } from './economie-v2-pack-deploye.js';
 import { BUYBACK_DEPLOIEMENT as OLD } from './tblock-buyback-deploiement.js';
 import { adresseCreate, codeMasque } from './pack-economie-v2.js';
 import { selecteur, keccak256 } from './keccak.js';
 import { adresseDe } from './signeur-secp256k1.js';
-import { noterBuybackVault, decision, BLOC_VIDE } from './contracts/noter-deploiement-buyback-vault.mjs';
+import { noterBuybackVault, decision, BLOC_VIDE, NOEUDS, empreinte } from './contracts/noter-deploiement-buyback-vault.mjs';
 import * as FR from './frais-risques.js';
 
 const ICI = path.dirname(fileURLToPath(import.meta.url));
@@ -31,7 +35,17 @@ const propre = (s) => INTERDITS.every((re) => !re.test(s));
 /* ---------------- 1. the record = what the preparer writes, copied from the pack records */
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'bbv-'));
 execFileSync('node', [path.join(ICI, 'contracts', 'preparer-deploiement-buyback-vault.mjs')], { env: { ...process.env, SORTIE: path.join(tmp, 'r.js'), KEEPER: '' }, cwd: path.join(ICI, 'contracts') });
-t('record on disk = the preparer output, byte for byte (never hand-edited)', fs.readFileSync(path.join(tmp, 'r.js'), 'utf8') === lire('tblock-buyback-vault-deploiement.js'));
+const PREP = fs.readFileSync(path.join(tmp, 'r.js'), 'utf8');
+const DISQUE = lire('tblock-buyback-vault-deploiement.js');
+/* the three lines the noter writes (noterBuybackVault: the same text), from the record itself */
+const NOTE = "  adresse: '" + REC.adresse + "',\n  bloc: " + REC.bloc + ",\n  tx: '" + REC.tx + "',\n";
+t('record on disk = the preparer output plus ONLY the three lines the noter writes, byte for byte (never hand-edited)',
+  PREP.split(BLOC_VIDE).length === 2 && DISQUE.split(NOTE).length === 2 && DISQUE.replace(NOTE, () => BLOC_VIDE) === PREP);
+/* every clause up to section 12 runs on the record BEFORE the deploy: in memory, adresse / bloc / tx back to null */
+const D = Object.freeze({ ...REC, adresse: null, bloc: null, tx: null });
+fs.writeFileSync(path.join(tmp, 'r.mjs'), PREP);
+const PREPM = (await import(pathToFileURL(path.join(tmp, 'r.mjs')).href)).BUYBACK_VAULT_DEPLOIEMENT;
+t('record before the deploy (in memory) = the record the preparer writes, field for field', JSON.stringify(D) === JSON.stringify(PREPM));
 const CR = B.resoudre(D).creation;
 t('record: sha256 of the creation (V put back from the pack record)', crypto.createHash('sha256').update(CR).digest('hex') === D.sha256Creation);
 const TXT = lire('tblock-buyback-vault-deploiement.js').toLowerCase();
@@ -43,7 +57,7 @@ t('record: guardian = the pack DEV wallet', low(D.parametres.guardian) === low(P
 t('record: keeper = the pack keeper', low(D.parametres.keeper) === low(PACK.parametres.keeper));
 t('record: pools, tokens and numbers = the live buyback config', ['poolManager', 'v3Pool', 'weth', 'wtcoin', 'tblock', 'publicDelay', 'maxPerCall', 'minSpend', 'cooldown', 'twapWindow',
   'maxV3DevTicks', 'maxV4ImpactTicks', 'maxHookPpm', 'tipBps', 'maxTip'].every((k) => String(D.parametres[k]) === String(OLD.parametres[k])) && D.parametres.v4Key.join() === OLD.parametres.v4Key.join());
-t('record: pret true, adresse / bloc / tx null', D.pret === true && D.adresse === null && D.bloc === null && D.tx === null);
+t('record as the preparer writes it: pret true, adresse / bloc / tx null', PREPM.pret === true && PREPM.adresse === null && PREPM.bloc === null && PREPM.tx === null);
 t('record: integrity holds', (await B.integrite(D)).length === 0, (await B.integrite(D)).join());
 t('record: the creation ends with the 24 constructor words of the parameters', CR.endsWith(B.argsAttendus(B.resoudre(D).parametres)) && B.argsAttendus(B.resoudre(D).parametres).length === 64 * B.MOTS_CONSTRUCTEUR);
 const art = JSON.parse(lire('contracts/out/TBlockBuybackVault.sol/TBlockBuybackVault.json'));
@@ -165,7 +179,7 @@ for (const [quoi, o] of [['DEST is not V', { vals: { 'DEST()': wa(autre) } }], [
 t('verifier red when the caller expects another keeper', !(await B.verifierBuybackVault(D, txOk.hash, chaineV(), { keeper: autre })).ok);
 
 /* ---------------- 7. the noter (pure) */
-const texte = lire('tblock-buyback-vault-deploiement.js');
+const texte = PREP; /* the record text before the deploy (the preparer output) */
 const verdicts = [{ ok: true, adresse: low(A) }, { ok: true, adresse: low(A) }];
 let n = await noterBuybackVault({ rec: D, texte, hash: txOk.hash, tx: txOk, recu: recuOk, verdicts });
 t('noter: writes the three lines from the receipt', n.ok && n.texte === texte.replace(BLOC_VIDE, "  adresse: '" + low(A) + "',\n  bloc: 16,\n  tx: '" + txOk.hash + "',\n"), n.pourquoi);
@@ -268,8 +282,16 @@ t('robots: the deploy page is not indexed', /'Disallow: \/deployer-tblock-buybac
 
 /* ---------------- 11. the fees page bullet */
 const texteDe = (html) => String(html).replace(/<[^>]+>/g, ' ').replace(/&#39;/g, '\'').replace(/&amp;/g, '&').replace(/\s+/g, ' ');
-const sans = texteDe(FR.rendre(FR.CHIFFRES, null));
-t('fees page with the record address null: the earlier bullet, unchanged', FR.CHIFFRES.buybackVault === null && sans.includes('Buybacks are not running.') && !sans.includes('pays the holders vault'));
+/* the fees module as it is on disk, loaded from tmp with ONLY its record import pointed at the preparer output (address null) */
+const SRC_FR = lire('frais-risques.js'), IMP_REC = "from './tblock-buyback-vault-deploiement.js'";
+let FR0 = null;
+if (SRC_FR.split(IMP_REC).length === 2) {
+  fs.writeFileSync(path.join(tmp, 'fr0.mjs'), SRC_FR.replace(IMP_REC, () => "from '" + pathToFileURL(path.join(tmp, 'r.mjs')).href + "'")
+    .replace(/from '\.\/([^']+)'/g, (_, f) => "from '" + pathToFileURL(path.join(ICI, f)).href + "'"));
+  FR0 = await import(pathToFileURL(path.join(tmp, 'fr0.mjs')).href);
+}
+const sans = FR0 ? texteDe(FR0.rendre(FR0.CHIFFRES, null)) : '';
+t('fees page with the record address null: the earlier bullet, unchanged', FR0 !== null && FR0.CHIFFRES.buybackVault === null && sans.includes('Buybacks are not running.') && !sans.includes('pays the holders vault'));
 const Cav = { ...FR.CHIFFRES, buybackVault: { adresse: low(A), vault: low(ADR.V), maxParAppel: BigInt(P.maxPerCall), pauseS: Number(P.cooldown), porte: B.regleDePorte() } };
 const avecTxt = texteDe(FR.rendre(Cav, null));
 t('fees page once recorded: the buyback pays the holders vault, per call and once an hour', avecTxt.includes('The TBLOCK buyback pays the holders vault.') && avecTxt.includes('at most 0.002 ETH per call and once an hour'));
@@ -277,6 +299,60 @@ t('fees page once recorded: the door sentence, word for word', avecTxt.includes(
 t('fees page once recorded: the earlier contracts keep their dated read, and their TBLOCK is not said to reach the holders vault',
   avecTxt.includes('Read on chain on ' + FR.MESURE_BUYBACK.date + ': neither had received ETH or made a buy') && avecTxt.includes('its own earlier vault with sweepToDest(), not to the holders vault') && !avecTxt.includes('Buybacks are not running.'));
 t('fees page once recorded: no status words, no version names', propre(FR.buybackVaultLi(Cav.buybackVault, FR.MESURE_BUYBACK, 2).replace(/<[^>]+>/g, ' ')));
+
+/* ---------------- 12. the DEPLOYED record (2026-11-12): what the noter wrote, against the chain, and what each part does with it now */
+const ADRESSE_DEPLOYEE = '0x93ccbc8697c115f5171d089432ce4b817d6dbb7b', TX_DEPLOI = '0xc5e2bb94e81315fe444ff5a8af304e72c1bf55fdd61eedc01da6b70c30999b24', BLOC_DEPLOI = 56544683;
+const DEPLOYEUR = '0x31e0dbc9038c82184b9fa6a90057a3ed500bde3b';
+t('deployed record: names the deployed address, block and tx, by the deployer', REC.adresse === ADRESSE_DEPLOYEE && REC.bloc === BLOC_DEPLOI && REC.tx === TX_DEPLOI && REC.deployeur === DEPLOYEUR && REC.pret === true);
+t('deployed record: integrity holds', (await B.integrite(REC)).length === 0, (await B.integrite(REC)).join());
+const LECTURES = new Set(['eth_getTransactionByHash', 'eth_getTransactionReceipt', 'eth_getCode']);
+const lireNoeud = (url) => async (method, params) => {
+  if (!LECTURES.has(method)) throw new Error('read-only: ' + method);
+  for (let k = 0; ; k++) {
+    try {
+      const j = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }), signal: AbortSignal.timeout(20000) }).then((x) => x.json());
+      if (j.error) throw new Error(method + ': ' + JSON.stringify(j.error));
+      if (j.result === null || j.result === undefined) throw new Error(method + ': null');
+      return j.result;
+    } catch (e) { if (k >= 3) throw e; await new Promise((ok2) => setTimeout(ok2, 1500 * (k + 1))); }
+  }
+};
+const lus = [];
+for (const url of NOEUDS) {
+  const nom = new URL(url).host;
+  let tx = null, recu = null, code = null, err = '';
+  try { const rpc = lireNoeud(url); tx = await rpc('eth_getTransactionByHash', [REC.tx]); recu = await rpc('eth_getTransactionReceipt', [REC.tx]); code = await rpc('eth_getCode', [REC.adresse, 'latest']); }
+  catch (e) { err = String((e && e.message) || e).slice(0, 200); }
+  t('deployed, read on ' + nom + ': the tx, its receipt and the code at the address', Boolean(tx && recu && code), err);
+  if (!(tx && recu && code)) continue;
+  lus.push({ tx, recu });
+  t('deployed, ' + nom + ': receipt status 1, in the record block', recu.status === '0x1' && low(recu.transactionHash) === REC.tx && Number.parseInt(recu.blockNumber, 16) === REC.bloc && tx.blockNumber === recu.blockNumber, recu.status + ' ' + recu.blockNumber);
+  t('deployed, ' + nom + ': tx.from = the deployer, a contract creation', low(tx.from) === DEPLOYEUR && !tx.to && low(tx.hash) === REC.tx, tx.from);
+  t('deployed, ' + nom + ': contractAddress = the record address = the CREATE address of the deployer at the tx nonce', low(recu.contractAddress) === REC.adresse && low(adresseCreate(DEPLOYEUR, BigInt(tx.nonce))) === REC.adresse, recu.contractAddress);
+  t('deployed, ' + nom + ': the signed data is the record creation (controleEnvoi holds)', B.controleEnvoi(REC, REC.deployeur, tx, recu).length === 0, B.controleEnvoi(REC, REC.deployeur, tx, recu).join(' | '));
+  t('deployed, ' + nom + ': the code at the address is the frozen build', (await B.controleRuntime(REC, code)).length === 0);
+}
+t('deployed: both nodes agree on the tx and its receipt', lus.length === 2 && empreinte(lus[0].tx, lus[0].recu) === empreinte(lus[1].tx, lus[1].recu));
+if (lus.length) {
+  const q = await noterBuybackVault({ rec: REC, texte: DISQUE, hash: REC.tx, tx: lus[0].tx, recu: lus[0].recu, verdicts: [{ ok: true, adresse: REC.adresse }, { ok: true, adresse: REC.adresse }] });
+  t('noter on the real receipt: the same deploy noted again leaves the record unchanged', q.ok && q.texte === DISQUE, q.pourquoi);
+}
+{ const q = await noterBuybackVault({ rec: REC, texte: DISQUE, hash: txOk.hash, tx: txOk, recu: recuOk, verdicts });
+  t('noter on the deployed record: another deploy is refused, nothing overwritten', !q.ok && q.texte === undefined && q.pourquoi === 'the record already names ' + REC.adresse + ' (tx ' + REC.tx + '): nothing overwritten', q.pourquoi);
+  t('noter CLI on the deployed record: another text never replaces the record on disk', !['ecrire', 'inchange'].includes(decision(DISQUE, n.texte, PREP))); }
+{ const c2 = chaine();
+  const q = await B.planDeploiement(REC, c2.rpc, REC.deployeur);
+  t('page plan on the deployed record: already deployed, nothing offered to sign, no chain read', q.pret === false && q.fait === true && q.raison === 'already deployed at ' + REC.adresse + ': nothing more to sign'
+    && q.data === undefined && q.gas === undefined && q.adressePrevue === undefined && c2.vus.length === 0, q.raison); }
+{ const k0 = K.creerKeeperBuyback({ cle: null, rec: REC, ancien: OLD.adresse, rpc: async () => null });
+  t('keeper on the deployed record, as the server wires it without BUYBACK_KEEPER_KEY: OFF, never started', k0.etat().etat === 'OFF' && /BUYBACK_KEEPER_KEY is not set/.test(k0.etat().pourquoi) && k0.demarrer() === false, k0.etat().pourquoi);
+  const k1 = K.creerKeeperBuyback({ cle, rec: REC, ancien: OLD.adresse, rpc: async () => null });
+  t('keeper on the deployed record, a key that is not its keeper: OFF, never started', k1.etat().etat === 'OFF' && /not the buyback keeper named in its record/.test(k1.etat().pourquoi) && k1.demarrer() === false && !JSON.stringify(k1.etat()).includes(cle.slice(2)), k1.etat().pourquoi); }
+{ const html = FR.rendre(FR.CHIFFRES, null), reel = texteDe(html), bv = FR.CHIFFRES.buybackVault;
+  t('fees page now (the deployed record): the buyback named from the record, paying the holders vault', bv !== null && bv.adresse === REC.adresse && low(bv.vault) === low(ADR.V) && bv.maxParAppel === BigInt(REC.parametres.maxPerCall));
+  t('fees page now: the new bullet (pays the holders vault, per call and once an hour, the door), not the earlier one', reel.includes('The TBLOCK buyback pays the holders vault.') && reel.includes('at most 0.002 ETH per call and once an hour')
+    && reel.includes('Exit door: ' + B.regleDePorte()) && !reel.includes('Buybacks are not running.'));
+  t('fees page now: the buyback and the holders vault link to their addresses', html.includes('https://basescan.org/address/' + REC.adresse + '"') && html.toLowerCase().includes('https://basescan.org/address/' + low(ADR.V) + '"')); }
 
 fs.rmSync(tmp, { recursive: true, force: true });
 console.log(ok + '/' + (ok + ko) + (ko ? ' -- RED' : ' -- green'));
