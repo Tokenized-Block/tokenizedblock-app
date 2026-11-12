@@ -5,7 +5,8 @@
 // Does NOT prove: a wallet signing it, nor the price served at that moment.
 import { readFileSync } from 'node:fs';
 import * as T from './create-vault-tip.js';
-import { TBLOCK, VAULT } from './economie.js';
+import { TBLOCK } from './economie.js';
+import { VAULT } from './economie-pack.js'; /* task 377: the tip pays the LIVE holders vault */
 let ok = 0, ko = 0;
 const t = (n, c, x = '') => { if (c) ok++; else { ko++; console.log('RED', n, x); } };
 const E18 = 10n ** 18n;
@@ -110,7 +111,7 @@ const ac = app.slice(app.indexOf('async function proposerAchatCoffre('), app.ind
 t('a short TBLOCK balance switches to the ETH buy (not a dead end)', /if \(!q\.ok && \/\^This needs\/\.test\(String\(q\.why \|\| ''\)\)\) \{ proposerAchatCoffre\(p, btn\); return; \}/.test(app));
 t('the ETH buy asks the server plan with the computed wei and rebuilds it at the click', (ac.match(/planAchatCoffre\(wei\)/g) || []).length === 2);
 t('it sends exactly the served calls, in order', /envoyerAppels\(fresh\.appels\.map\(\(c\) => \(\{ to: c\.to, data: c\.data, value: c\.value \}\)\), compte\)/.test(ac));
-t('the server route exists, takes the vault from the deployment file, never from the request', /chemin === '\/api\/tblock\/vault-buy'/.test(srv) && /const coffreV = ECONOMIE_DEPLOIEMENT\.adresseVault;/.test(srv) && !/q\.get\('coffre'\)|q\.get\('vault'\)/.test(srv));
+t('the server route exists, takes the vault from the deployment file, never from the request', /chemin === '\/api\/tblock\/vault-buy'/.test(srv) && /const coffreV = EP_PACK\.VAULT;/.test(srv) && !/q\.get\('coffre'\)|q\.get\('vault'\)/.test(srv));
 t('it says the deposit is not a fee', /is not a fee: it stays yours/.test(ap));
 t('it builds no call and sends nothing', !/envoyerAppels|eth_sendTransaction|wallet_sendCalls/.test(ap));
 console.log(ko === 0 ? 'GREEN' : 'RED', ok + '/' + (ok + ko));

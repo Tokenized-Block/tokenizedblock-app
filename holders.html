@@ -39,7 +39,7 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .perk{display:grid;grid-template-columns:28px 1fr auto;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
 .perk:last-child{border-bottom:0}.perk .ic{font-size:18px;text-align:center}
 .perk .t b{display:block}.perk .t small{color:var(--dim)}
-.perk .need{text-align:right;font-size:12.5px;font-variant-numeric:tabular-nums}.perk .need small{display:block;color:var(--dim)}
+.perk .need{text-align:right;font-size:12.5px;font-variant-numeric:tabular-nums;max-width:min(240px,42vw)}.perk .need small{display:block;color:var(--dim)}
 .st{display:inline-block;margin-top:3px;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:800;letter-spacing:.04em}
 .st.ok{background:rgb(47 224 200 / .15);color:var(--ok)}.st.no{background:rgb(255 107 138 / .15);color:var(--bad)}.st.na{background:var(--bg2);color:var(--dim)}
 .row{display:flex;gap:10px;padding:6px 0;border-bottom:1px solid var(--line);align-items:baseline}.row:last-child{border-bottom:0}
@@ -138,7 +138,7 @@ import * as EP from './economie-pack.js';
 import { displayShort } from './frais-creation.js'; /* the one shortener: a fee wallet address is never displayed */
 import { lignesBoard, lignesCompte } from './coeurs-vue.js'; /* game346: the hearts board and this wallet's hearts */
 import * as LK from './lock.js';
-import { lignesMesPoints, lignesBoardPoints, REGLE_COURTE } from './points-vue.js'; /* game353 */ /* game350: the holder stage = TBLOCK locked (TBlockLock); null until deployed */
+import { lignesMesPoints, lignesBoardPoints, regleCourte } from './points-vue.js'; /* game353 */ /* game350: the holder stage = TBLOCK locked (TBlockLock); null until deployed */
 const $ = (s) => document.querySelector(s);
 const esc = (x) => String(x ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const row = (k, v) => '<div class="row"><span class="k">' + esc(k) + '</span><span class="v">' + v + '</span></div>';
@@ -198,8 +198,14 @@ async function lireRegles() {
 async function lireLock(w) { try { const [l, u] = await Promise.all([lit(LK.VIEW.activeLockedOf(w)), lit(LK.VIEW.unlockAtOf(w))]); etat.locked = l; etat.unlockAt = u; } catch (_) { etat.locked = null; } }
 
 /* the perks, from the live contracts' own rules; "you" is filled once a wallet is read */
+/* game377: what the hearts and the vault need, said plainly — the NEED is dollars at the CONTRACT price (HOLD_USD_E18, the price Hearts keeps
+ *   within its bounds), which IS the TBLOCK amount minHold; the ≈ beside it is that amount at the POOL price now. Both read live; unread = left out. */
+function besoinVerrou(holdUsdTexte, minHoldTexte, poolUsdTexte) {
+  return (holdUsdTexte ? holdUsdTexte + ' at the contract price = ' : '') + minHoldTexte + ' TBLOCK locked' + (poolUsdTexte ? ' (≈\u00a0' + poolUsdTexte + ' at the pool price now)' : '');
+}
 function peindrePerks() {
-  const u = prix.usd, val = (raw) => (u ? ' ≈ ' + fmtUsd(Number(BigInt(raw) / 10n ** 18n) * u) : '');
+  const u = prix.usd;
+  const besoin = (R) => besoinVerrou(R.holdUsd != null ? EP.usd(R.holdUsd) : '', tok(R.minHold), u ? fmtUsd(Number(BigInt(R.minHold) / 10n ** 18n) * u) : '');
   const b = etat.balance != null ? BigInt(etat.balance) : null, l = etat.locked != null ? BigInt(etat.locked) : null;
   const st = (ok) => (b == null && etat.holder == null ? '<span class="st na">connect to check</span>' : ok ? '<span class="st ok">✓ YOU CAN</span>' : '<span class="st no">✗ NOT YET</span>');
   /* UI copy rule (Phil 2026-11-12): what is not live yet says "coming soon" and what it does, never its internal state or a version */
@@ -212,12 +218,12 @@ function peindrePerks() {
     ['🔒', 'Lock TBLOCK', 'locked in a contract with no owner, for 7 days or more; to leave, there is a 7-day withdrawal period. It earns community points and monthly lock rewards, and it is what hearts and holders vault claims count', 'any amount', null, false, lockPret ? '<a class="st ok" href="/#wallet">LOCK IN THE APP →</a>' : VENIR()],
     ['💬', 'Holders\' channel on Telegram', 'checked by our server before the invite: $' + prix.seuil + ' of TBLOCK held in your wallet (a lock does not count for it)', '$' + prix.seuil + ' of TBLOCK', etat.holder === true, etat.holder != null, TGP.pret ? null : VENIR()],
     R ? ['♥', 'Heart a block', 'burns ' + EP.usd(R.likeUsd) + ' of TBLOCK from your wallet (' + tok(R.likePrice) + ' TBLOCK at the contract price) and needs ' + EP.usd(R.holdUsd) + ' of TBLOCK locked; counts as play for the holders vault and the lock rewards',
-      tok(R.minHold) + ' TBLOCK locked' + val(R.minHold), l != null && b != null && l >= R.minHold && b >= R.likePrice, l != null && b != null, null]
+      besoin(R), l != null && b != null && l >= R.minHold && b >= R.likePrice, l != null && b != null, null]
       : ['♥', 'Heart a block', 'its price and its minimum are read from the hearts contract', '—', null, false, NONLU],
     R ? ['🎨', 'TAM art and skins', 'a TAM art mint is ' + usdc(R.prixTam) + ', a skin ' + usdc(R.prixSkin) + ', paid through the TBLOCK payment router: ' + (R.devTam === R.devSkin ? pc(R.devTam) : pc(R.devTam) + ' (TAM art) or ' + pc(R.devSkin) + ' (skins)') + ' stays USDC for the dev wallet, the rest buys TBLOCK for the holders vault; each mint counts as play', 'open to all', null, false, '<span class="st ok">OPEN</span>']
       : ['🎨', 'TAM art and skins', 'paid through the TBLOCK payment router; prices read from their contracts', 'open to all', null, false, NONLU],
     ['🎰', 'Games (Spin, Roll, Duels)', 'open to everyone; they do not count as play for the holders vault or the lock rewards (hearts, TAM art and skins do)', 'open to all', null, false, '<span class="st ok">OPEN</span>'],
-    R ? ['🏦', 'Holders vault, every week', R.vault || 'its rules are read from the vault contract', tok(R.minHold) + ' TBLOCK locked' + val(R.minHold), l != null && l >= R.minHold && etat.unlockAt != null && Number(etat.unlockAt) >= Date.now() / 1000 + 7 * 86400, l != null, null]
+    R ? ['🏦', 'Holders vault, every week', R.vault || 'its rules are read from the vault contract', besoin(R), l != null && l >= R.minHold && etat.unlockAt != null && Number(etat.unlockAt) >= Date.now() / 1000 + 7 * 86400, l != null, null]
       : ['🏦', 'Holders vault, every week', 'its rules are read from the vault contract', '—', null, false, NONLU],
     R ? ['📅', 'Monthly lock rewards', 'each 30-day month pays the holders whose lock covers the whole month and who played in it (a heart, a TAM art mint or a skin mint): ' + EP.MOIS_MIN_JOURS + ' days minimum to be sure of one. Month ' + R.mois + ' ends ' + jour(R.finMois)
       + (R.closMois > 0n ? '' : '; no month has closed yet') + '. The rewards are what is deposited in the rewards contract; no amount is promised', 'a lock + play', null, false, lockPret ? '<a class="st ok" href="/#wallet">IN THE APP →</a>' : VENIR()]
@@ -246,6 +252,7 @@ async function lirePrix() {
   } else { $('#px').textContent = 'not read yet'; $('#pxAge').textContent = 'retrying…'; }
   await lireRegles();
   peindrePerks();
+  peindreReglePoints();
 }
 
 $('#connecter').onclick = async () => {
@@ -328,8 +335,10 @@ async function lirePoints() {
   const nom = (x) => displayShort(x);
   $('#vuePointsMoi').innerHTML = etat.wallet ? lignesMesPoints(r, nom).map((l) => row(l.k, esc(l.v))).join('') : '';
   $('#vuePointsBoard').innerHTML = lignesBoardPoints(r, nom, etat.wallet).map((l) => (l.moi ? '<b>' : '') + row(l.k, esc(l.v)) + (l.moi ? '</b>' : '')).join('');
-  $('#vuePointsRegle').textContent = REGLE_COURTE;
+  peindreReglePoints();
 }
+/* game377: the points rule, with what one heart earns at the hearts contract's price when it was read (lireRegles), never typed */
+function peindreReglePoints() { $('#vuePointsRegle').textContent = regleCourte(regles ? regles.likePrice : null); }
 void lirePoints();
 setInterval(() => { if (!document.hidden) void lirePoints(); }, 60000);
 

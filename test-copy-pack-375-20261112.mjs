@@ -5,7 +5,10 @@
  *   - holders.html and deployer-economie-v2.html: the static text nodes (comments, <script>, <style> removed) PLUS what their own module
  *     script writes into the page, run here against a stub DOM (innerHTML / textContent captured, tags stripped). Holders is rendered
  *     twice: before a wallet is read, and after Connect (balance read, channel open). The deploy page is rendered before Connect and after
- *     Connect with the record's deployer (the step-1 offer), and every line its after-step-6 check list can show (verifierPack quoi);
+ *     Connect with the record's deployer, and every line its after-step-6 check list can show (verifierPack quoi). Since task 377 the page
+ *     reads the deployment record (economie-v2-pack-deploye.js): after Connect it must show the six steps "Deployed" and offer nothing.
+ *     The six-step offer is still the page's fallback when that record cannot load, so it is rendered too, with the record's import
+ *     pointed at a missing file (witness: the step-1 offer is drawn);
  *   - app.html: the strings the app writes into the lock card, the vault explainer and the lock points note (comments removed);
  *   - the view modules those pages print: points-vue.js (REGLE_COURTE and its lines) and coeurs-vue.js (board and account lines).
  * Witnesses: each render must hold the text it is supposed to hold, or the scan of an empty page would pass.
@@ -114,8 +117,21 @@ const { verifierPack, LETTRES } = await import('./pack-economie-v2.js');
   await r.el('#connect').onclick();
   for (let i = 0; i < 20; i++) await new Promise((o) => setTimeout(o, 5));
   const apres = r.textes();
-  t('deploy page render after Connect: step 1 offered (witness)', apres.some((s) => s.startsWith('1. Deploy Hearts')), r.el('#state').innerHTML.slice(0, 160));
+  /* task 377: the record is on Base, so after Connect the six steps read "Deployed" and nothing is offered (Phil saw "not signed") */
+  const nDeployed = apres.filter((s) => s === 'Deployed').length;
+  t('deploy page render after Connect: six steps "Deployed", nothing offered (witness)', nDeployed === 6 && !apres.some((s) => s.startsWith('1. Deploy Hearts')) && !apres.includes('not signed')
+    && r.el('#connect').hidden === true && r.el('#go').hidden === true, [nDeployed, r.el('#connect').hidden, r.el('#go').hidden, r.el('#state').innerHTML.slice(0, 120)].join(' | '));
   t('deploy page render after Connect: no status or version word', fautes(apres).length === 0, fautes(apres).join(' '));
+
+  /* the fallback: the deployment record cannot load -> the six-step offer, whose copy must stay clean too */
+  const IMP = "import('./economie-v2-pack-deploye.js')";
+  t('fallback render: the record import was found once (witness)', P.split(IMP).length - 1 === 1, P.split(IMP).length - 1);
+  const rf = await rendre(P.replace(IMP, () => "import('./economie-v2-pack-deploye.absent-377.js')"), { ethereum: eth });
+  await rf.el('#connect').onclick();
+  for (let i = 0; i < 20; i++) await new Promise((o) => setTimeout(o, 5));
+  const repli = rf.textes();
+  t('fallback render after Connect: step 1 offered (witness)', repli.some((s) => s.startsWith('1. Deploy Hearts')), rf.el('#state').innerHTML.slice(0, 160));
+  t('fallback render after Connect: no status or version word', fautes(repli).length === 0, fautes(repli).join(' '));
 
   /* every line the after-step-6 check list can print: run the checks on a chain that answers nothing useful (all lines are produced) */
   const rpc = async (method, params) => {

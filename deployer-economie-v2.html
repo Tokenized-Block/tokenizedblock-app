@@ -72,6 +72,11 @@ const lib = (k) => LIBELLE[k] || k;
 const QUI = { L: 'L (receipt of step 1)', P: 'P (receipt of step 2)', T: 'T (receipt of step 3)', S: 'S (receipt of step 4)', V: 'V (predicted: nonce N+4)', R: 'R (predicted: nonce N+5)' };
 let D = null;
 try { ({ PACK_ECONOMIE_V2: D } = await import('./economie-v2-pack-deploiement.js')); } catch (_) { D = null; }
+/* 2026-11-12: the six steps are on Base. The deployment record (economie-v2-pack-deploye.js, from the six receipts), judged by
+ * pack-deployed-view.js against this pack, says so without any wallet; the code at each address is read on the public Base nodes.
+ * With a valid record the six-step flow is never offered again. */
+let V = null, DEP = null, codes = [];
+try { V = await import('./pack-deployed-view.js'); } catch (_) { V = null; }
 let acct = null, pred = null, etat = { N: null, hashes: [] };
 const rpc = (method, params) => window.ethereum.request({ method, params });
 const cle = () => 'pack-economie-v2:' + (D && D.sha256Pack) + ':' + acct;
@@ -80,9 +85,10 @@ function garder() { try { localStorage.setItem(cle(), JSON.stringify(etat)); } c
 const val = (v) => (typeof v === 'string' && v[0] === '@') ? (pred ? pred[v[1]] + ' = ' : '') + QUI[v[1]] : (Array.isArray(v) ? v.map(val).join(' , ') : (v && typeof v === 'object') ? JSON.stringify(v) : v);
 
 function dessinerEtapes() {
-  $('#steps').innerHTML = '<h2>What each signature deploys</h2>' + D.etapes.map((e, k) => {
+  const dep = DEP && DEP.ok ? DEP.steps : null;
+  $('#steps').innerHTML = (dep ? '<h2>The six contracts on Base</h2>' : '<h2>What each signature deploys</h2>') + D.etapes.map((e, k) => {
     const h = etat.hashes[k];
-    const st = h ? '<span class="st ok">sent · ' + lien(h) + '</span>' : '<span class="st">not signed</span>';
+    const st = dep ? V.stepHtml(dep[k], codes[k] || null) : h ? '<span class="st ok">sent · ' + lien(h) + '</span>' : '<span class="st">not signed</span>';
     return '<div class="etape"><b>' + (k + 1) + '. ' + esc(NOM[e.lettre]) + '</b> · nonce ' + esc(e.nonce) + (pred ? ' · at ' + esc(pred[e.lettre]) : '') + '<br>' + st
       + Object.entries(e.config).map(([c, v]) => row(lib(c), val(v))).join('')
       + row('source sha256', e.sha256Source) + row('creation', e.octetsCreation + ' bytes · template sha256 ' + e.sha256Modele) + '</div>';
@@ -99,8 +105,31 @@ if (!D) {
     + row('step 1 names R', 'Hearts is built with rewards = R, the lock rewards address PREDICTED from the wallet and nonce N+5 (shown once the wallet is connected). R lists [L, T, S]; V lists [T, S].')
     + row('TBLOCK start price', D.prix.startPriceE18 + ' (USD x 1e18 per TBLOCK) · ' + D.prix.source + (D.prix.bloc ? ' · block ' + D.prix.bloc : ''))
     + row('existing contracts (read only)', Object.entries(D.existants).map(([k, v]) => lib(k) + ' ' + v).join(' · '));
+  if (V && !faux.length && !D.fixtureDeTest) {
+    let dr = null;
+    try { ({ PACK_ECONOMIE_V2_DEPLOYE: dr } = await import('./economie-v2-pack-deploye.js')); } catch (_) { dr = null; }
+    if (dr) DEP = V.deployedSteps(D, dr);
+  }
   dessinerEtapes();
   $('#connect').disabled = !!(faux.length || D.fixtureDeTest);
+  if (DEP && !DEP.ok) { $('#connect').disabled = true; $('#state').innerHTML = '<span class="warn">STOP: ' + esc(DEP.why) + '. Nothing is offered.</span>'; }
+  else if (DEP) { $('#connect').disabled = true; $('#connect').hidden = true; $('#go').disabled = true; $('#go').hidden = true; lireCodes(); }
+}
+
+function resume() {
+  const s = V.summary(codes, DEP.steps.map((x) => NOM[x.letter]));
+  $('#state').innerHTML = '<span class="st ' + s.tone + '">' + esc(s.text) + '</span>';
+  return s;
+}
+async function lireCodes() {
+  const readers = V.PUBLIC_NODES.map((u) => V.nodeReader(u));
+  codes = DEP.steps.map(() => null);
+  resume();
+  await Promise.all(DEP.steps.map(async (s, k) => {
+    try { codes[k] = await V.readStepCode(D, s, readers); } catch (e) { codes[k] = { state: 'not read', why: String((e && e.message) || e) }; }
+    dessinerEtapes();
+    resume();
+  }));
 }
 
 async function rafraichir() {
@@ -122,6 +151,7 @@ async function rafraichir() {
 }
 
 $('#connect').onclick = async () => {
+  if (DEP) return; /* deployed (or a record that does not match): the six-step flow is not offered */
   if (!window.ethereum) { $('#state').textContent = 'No wallet in this browser.'; return; }
   try { [acct] = await rpc('eth_requestAccounts', []); acct = String(acct).toLowerCase(); } catch (e) { $('#state').textContent = 'Wallet refused: ' + (e.message || e); return; }
   const code = await rpc('eth_getCode', [acct, 'latest']).catch(() => null);

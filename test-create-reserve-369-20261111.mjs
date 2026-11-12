@@ -121,7 +121,8 @@ let vivant = false, tue = false;
 if (SRC.includes(ancre)) {
   const dir = mkdtempSync(join(tmpdir(), 'cr369-'));
   const p = join(dir, 'create-vault-tip-mutant.mjs');
-  writeFileSync(p, SRC.replace(ancre, "if (ethBal >= 2300000000000000n) return 'SKIP';").replace("from './economie.js'", "from '" + pathToFileURL(join(ICI, 'economie.js')).href + "'"));
+  writeFileSync(p, SRC.replace(ancre, "if (ethBal >= 2300000000000000n) return 'SKIP';").replace("from './economie.js'", "from '" + pathToFileURL(join(ICI, 'economie.js')).href + "'")
+    .replace("from './economie-pack.js'", "from '" + pathToFileURL(join(ICI, 'economie-pack.js')).href + "'")); /* task 377: second import */
   try {
     const M = await import(pathToFileURL(p).href);
     vivant = typeof M.stepOneFits === 'function' && M.stepOneFits({ ethBal: 10n ** 18n, buyWei: 1n, birthNeedWei: 1n }) === 'BUY';

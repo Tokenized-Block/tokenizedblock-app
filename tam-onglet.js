@@ -688,7 +688,7 @@ export function monter(racine, ctx = {}) {
   /* 2026-11-01 (test-ids-fantomes) : le style est pose UNE fois par chargement du module — un drapeau du module, pas un id relu dans le DOM */
   if (!cssPose) { document.head.append(el('style', { text: CSS })); cssPose = true; }
   const S = { P: null, o: null, c: null, choix: null, z: null, n: 0, D: 0, couches: null, t: 0, rotation: !reduit(), dessines: 0, cam: null, survol: null,
-    sale: true, son: null, dom: null, ser: null, nMintees: 0 };
+    sale: true, son: null, dom: null, ser: null, nMintees: 0, minteesLues: null };
 
   /* ── l explorateur ── */
   const selGroupe = el('select', { 'aria-label': 'Kind of graph', id: 'tamGroupe' }, ...GROUPES.map(([v, t]) => el('option', { value: v, text: t })));
@@ -2386,7 +2386,7 @@ export function monter(racine, ctx = {}) {
       return;
     }
     const c = S.choix && S.choix.certificats ? { ...S.c, ...S.choix.certificats } : S.c;
-    const lignes = V.carte({ P: S.P, c, choix: S.choix, nMintees: S.choix ? S.nMintees : 0 });
+    const lignes = V.carte({ P: S.P, c, choix: S.choix, nMintees: S.choix ? S.nMintees : 0, minteesLues: S.minteesLues });
     dl.replaceChildren(...lignesRejeu(lignes).flatMap((l) => [el('dt', { text: l.k }), el('dd', { text: l.v })]));
   }
   /* game374 : on a replay the work IS minted — "Distinct from the minted works: yes (no minted work to compare with yet)" and the price
@@ -2585,16 +2585,20 @@ export function monter(racine, ctx = {}) {
     let j = null;
     try { j = await fetch('/api/tam/oeuvres', { cache: 'no-store' }).then((r) => r.json()); } catch (_) { j = null; }
     const cartes = [];
+    let toutLu = true, total = 0; /* game377: the count is known only when every collection was read (server list or totalSupply, uncapped) */
     for (const s of sources) {
       const lu = j && Array.isArray(j.parContrat) ? j.parContrat.find((x) => String(x.contrat || '').toLowerCase() === s.contrat) : (j && String(j.contrat || '').toLowerCase() === s.contrat ? j : null);
       let ids = lu && Array.isArray(lu.oeuvres) ? lu.oeuvres.map((o) => o.tokenId) : [];
-      if (!ids.length) { try { const n = Number(BigInt(decoderMot(await ctx.rpc('eth_call', [appelLecture(s.contrat, SIG_TAM.totalSupply), 'latest'])))); ids = Array.from({ length: Math.min(n, 60) }, (_, i) => i + 1); } catch (_) { ids = []; } }
+      if (!ids.length) { try { const n = Number(BigInt(decoderMot(await ctx.rpc('eth_call', [appelLecture(s.contrat, SIG_TAM.totalSupply), 'latest'])))); ids = Array.from({ length: Math.min(n, 60) }, (_, i) => i + 1); total += n; } catch (_) { ids = []; toutLu = false; } } else total += ids.length;
       for (const id of ids) cartes.push(carteOeuvre(s.contrat, id, s.premiere));
     }
     galEtat.textContent = cartes.length ? cartes.length + ' work' + (cartes.length === 1 ? '' : 's') + ', read from Base.' : 'No work minted yet.';
     carteGal.hidden = cartes.length === 0;
-    S.nMintees = cartes.length;
+    /* game377: the explorer card says how many minted works the server will compare a work with — the count read here, never "none"
+     *   while some exist; S.nMintees stays what the server compared a brain choice with (j.comparees) */
+    S.minteesLues = toutLu ? total : null;
     gal.replaceChildren(...cartes);
+    if (S.P && !S.science) { try { peindreCarte(); } catch (_) { /* the card repaints on the next change */ } }
   }
   function carteOeuvre(contrat, id, premiere = false) {
     const c = el('canvas'), badge = el('span', { class: 'tamBadge' }), txt = el('p', { class: 'tamDoux' });

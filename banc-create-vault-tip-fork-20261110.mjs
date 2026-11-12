@@ -3,7 +3,8 @@
 // mainnet onto the fork (it was deployed after the fork block). Exits 2 without a fork: that is NOT a pass.
 // Does NOT prove: a wallet UI signing it, nor the price served at that moment.
 import * as T from './create-vault-tip.js';
-import { TBLOCK, VAULT, word } from './economie.js';
+import { TBLOCK, word } from './economie.js';
+import { VAULT } from './economie-pack.js'; /* task 377: the live holders vault, the one create-vault-tip.js pays */
 const F = process.env.FORK_RPC || 'http://127.0.0.1:8659', M = 'https://base-rpc.publicnode.com';
 let id = 0, ok = 0, ko = 0;
 const t = (n, c, x = '') => { if (c) ok++; else { ko++; console.log('RED', n, x); } };

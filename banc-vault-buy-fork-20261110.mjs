@@ -2,7 +2,7 @@
  * own server (GET /api/tblock/vault-buy), on a LOCAL FORK only.
  * Steps: refuse unless the node is anvil on chain 8453 -> evm_snapshot -> start THIS repo's server in test mode on the fork -> a fresh
  *   account that holds ONLY ETH -> ask the plan for the ETH worth the $5 top-up -> send its calls IN ORDER from that account.
- * ASSERTS: plan PRET + atomic; the LAST call is TBLOCK.transfer(the vault of economie-deploiement.js, resume.versCoffre); every call
+ * ASSERTS: plan PRET + atomic; the LAST call is TBLOCK.transfer(the live holders vault, economie-pack.js VAULT, resume.versCoffre); every call
  *   status 0x1; the vault receives EXACTLY versCoffre; the account ends with >= 0 TBLOCK (any extra above the minimum stays with it);
  *   NO app fee reaches the fee wallet; nothing left in the routers; 0x…dEaD receives the TBLOCK hook's cut (the buy is a real buy).
  *   NEGATIVE WITNESS: the same plan for an account with no ETH is REFUSED with a sentence, never PRET.
@@ -12,10 +12,10 @@ import { lecteurFork, ouvrirFork, demarrerServeur, financer, compteNeuf, solde, 
 import { TBLOCK, WTCOIN } from './tblock-hold.js';
 import { DEAD, UNIVERSAL_ROUTER } from './tblock-route.js';
 import { ROUTEUR_AERO_NOUVEAU } from './liquidite-actions.js';
-import { ECONOMIE_DEPLOIEMENT as D } from './economie-deploiement.js';
+import { VAULT as VAULT_VIVANT } from './economie-pack.js'; /* task 377: the server's vault-buy pays the live holders vault */
 
 const URL_FORK = /^https?:/.test(process.argv[2] || '') ? process.argv[2] : 'http://127.0.0.1:8659';
-const T = TBLOCK.toLowerCase(), W = WTCOIN.toLowerCase(), V = D.adresseVault;
+const T = TBLOCK.toLowerCase(), W = WTCOIN.toLowerCase(), V = VAULT_VIVANT;
 let n = 0, ko = 0;
 const ok = (c, m) => { n += 1; if (!c) ko += 1; console.log((c ? 'ok  ' : 'KO  ') + m); return c; };
 const rpc = lecteurFork(URL_FORK);

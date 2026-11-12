@@ -3,7 +3,14 @@
 // The birth itself never changes: 0.001 ETH is fixed in the deployed router and hook. This is a SEPARATE signature, offered
 // only after the block is alive, so a missing TBLOCK balance can never stop a birth.
 // One call: TBLOCK.transfer(VAULT, amount) from the creator's own wallet. Nothing else, no approval, no contract of ours in between.
-import { TBLOCK, VAULT, wAddr, wUint, fmt } from './economie.js';
+// 2026-11-12 (task 377, Phil "fix les petits restes"): VAULT is the LIVE holders vault (economie-pack.js VAULT = step V of
+//   economie-v2-pack-deploye.js, written from the receipts), no longer the first one (economie.js VAULT). TBlockVaultV2 counts a plain
+//   TBLOCK transfer as free TBLOCK: free() = TBLOCK.balanceOf(vault) - reserved, and closeEpoch budgets a share of free(). Never typed here.
+import { TBLOCK, wAddr, wUint, fmt } from './economie.js';
+import { VAULT } from './economie-pack.js';
+
+/** where the TBLOCK part goes: the live holders vault (null when this network has none) */
+export { VAULT };
 
 export const TARGET_USD = 5;
 /* game339: the price pivot of the TBLOCK buy; leftover wtCOIN in a wallet = a step 1 that stopped between its two legs (resumed, not re-bought) */

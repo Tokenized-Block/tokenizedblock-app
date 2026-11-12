@@ -3687,7 +3687,7 @@ details[open] > summary::before{transform:rotate(90deg)}
       <!-- ⛔ L EMPREINTE EST AFFICHEE, DONC ELLE EST DE L ANGLAIS. `20261001-pont-dans-lui` a fait
            rougir `test-texte-a-l-ecran.mjs` : le mot « dans » est de la prose francaise partie a
            l ecran anglais. La garde a fait son travail du premier coup. -->
-      <p class="note" data-build="20261109-game376" hidden>Build <code>20261109-game376</code> ·Contract labels say what they do, not our internal names.</p>
+      <p class="note" data-build="20261109-game377" hidden>Build <code>20261109-game377</code> ·Contract labels say what they do, not our internal names.</p>
       <p class="sous">Everything happening to blocks on Base, live.</p>
       <!-- tip 0013: sticky — Hooked chip = Dex fees; unhooked → Launch beside. No fee addr. -->
       <p class="note" id="sfHookedSticky" hidden>Blocks alive on TokenizedBlock pay their creator on every trade. Example:<button type="button" class="puce" id="sfStickyTbgas">Open TBGAS</button>.</p>
@@ -12610,6 +12610,7 @@ async function connecter() {
 
   void listerMesBlocks();
   void majWallet();
+  try { wLockSuitCompte(); } catch (_) { /* game377: the 5 s tick repaints the lock card */ }
   /* tip 20260923-wallet-intent-market: resume IB/Buy intent once after connect */
   try { void reprendreIntentApresConnect(); } catch (_) {}
   void tbBanquePeindre();
@@ -13520,6 +13521,7 @@ if (window.ethereum && typeof window.ethereum.on === 'function') {
     if (compte) { try { noterWalletUtilise(compte); } catch (_) {} void listerMesBlocks(); }
     void majReprendreVie(); /* game342 */
     void majWallet();
+    try { wLockSuitCompte(); } catch (_) { /* game377: the 5 s tick repaints the lock card */ }
     void tbBanquePeindre();
     if (bcBanque.marches) void bcBanqueCharger(); else { void bcBanquePourToi(); void bcBanquePositions(); }
   });
@@ -32628,7 +32630,7 @@ const lockEtat = { enVol: false };
 async function peindreLock(hote, { offre = false } = {}) {
   if (!hote || !LK.LOCK) { if (hote) hote.hidden = true; return; }
   hote.hidden = false;
-  if (!compte) { hote.textContent = ''; const p = document.createElement('p'); p.className = 'note'; p.textContent = 'Connect your wallet to see your TBLOCK lock.'; hote.append(p); return; }
+  if (!compte) { hote.textContent = ''; hote.dataset.compte = ''; const p = document.createElement('p'); p.className = 'note'; p.textContent = 'Connect your wallet to see your TBLOCK lock.'; hote.append(p); return; }
   if (lockEtat.enVol || (hote.dataset.lu && Date.now() - Number(hote.dataset.lu) < 30000)) return;
   lockEtat.enVol = true;
   try {
@@ -32637,7 +32639,7 @@ async function peindreLock(hote, { offre = false } = {}) {
     const [locked, active, unlockAt, requestedAt, withdrawableAt, bal] = await Promise.all([lit(LK.VIEW.lockedOf(moi)), lit(LK.VIEW.activeLockedOf(moi)),
       lit(LK.VIEW.unlockAtOf(moi)), lit(LK.VIEW.requestedAtOf(moi)), lit(LK.VIEW.withdrawableAtOf(moi)), lit(ECO.VIEW.balanceOf(moi))]);
     const e = LK.etatLock({ locked, active, unlockAt, requestedAt, withdrawableAt, maintenantSec: Math.floor(Date.now() / 1000) });
-    hote.dataset.lu = String(Date.now());
+    hote.dataset.lu = String(Date.now()); hote.dataset.compte = moi; /* game377: the account this card shows (wLockSuitCompte) */
     hote.textContent = '';
     const el = (tag, cls, txt) => { const x = document.createElement(tag); if (cls) x.className = cls; if (txt != null) x.textContent = txt; return x; };
     hote.append(el('p', 'titre', offre ? 'Lock your TBLOCK — earn points and monthly rewards' : 'Your TBLOCK lock'));
@@ -33027,7 +33029,20 @@ async function proposerTipCoffre(hote) {
 
 /* ── Holders vault card of the Wallet tab: every 60 s while the tab is visible. 2026-11-12: the vault is the live one (EP.VAULT, lock factor
  *   tiers, claim needs the hearts' minimum LOCKED); a week of the FIRST vault this wallet is still owed stays claimable here, never lost. */
-let wVaultLu = 0, wVaultRegle = null;
+let wVaultLu = 0, wVaultRegle = null, wLikePrix = null; /* game377: the hearts contract's likePrice, read with the vault (points rule) */
+/* game377: a wallet connect or an account change repaints the lock card (and the points) AT ONCE while the Wallet tab is open. They were
+ *   painted only by peindreVaultWallet, behind its 60 s pace: "Connect your wallet to see your TBLOCK lock." stayed after connecting until
+ *   the tab was reopened. The vault's own network reads keep their pace; only the lock card is read again, once per account (peindreLock
+ *   keeps its own throttle when that read fails). Tab closed or card not shown yet: nothing read, the next 5 s tick checks again. */
+function wLockSuitCompte() {
+  const h = $('#wLock'), carte = $('#wVault'), vol = $('#v-wallet');
+  if (!h || !LK.LOCK || !carte || carte.hidden || h.hidden || lockEtat.enVol) return;
+  if (document.hidden || (vol && vol.offsetParent === null)) return;
+  const c = compte ? String(compte).toLowerCase() : '';
+  if ((h.dataset.compte || '') === c) return;
+  if (h.dataset.demande !== c) { h.dataset.demande = c; h.dataset.lu = '0'; void peindrePointsWallet(); }
+  void peindreLock(h);
+}
 async function peindreVaultWallet() {
   const carte = $('#wVault');
   if (!carte) return;
@@ -33043,8 +33058,10 @@ async function peindreVaultWallet() {
     const [bal, res, ep] = await Promise.all([lit(EP.VIEW.vaultBalance()), lit(EP.VIEW.reserved()), lit(EP.VIEW.currentEpoch())]);
     /* game359 (Phil: "valeur en $, date de fin de semaine, montant réservé attendu, combien de joueurs") — on the live vault: the play of
      *   the week = hearts burned + TBLOCK bought by TAM art and skins (TBlockVaultV2.totalPlayIn) */
+    const lirePrixCoeur = lit(EP.VIEW.likePrice()).then((p) => { wLikePrix = p; }, () => { /* not read: the rule says the burn rule alone */ });
     const [fin, jeu, libre, rBps, rbBps, maxB, need] = await Promise.all([lit(EP.VIEW.epochEnd(ep)), lit(EP.VIEW.totalPlayIn(ep)), lit(EP.VIEW.free()),
       lit(EP.VIEW.rewardBps()), lit(EP.VIEW.rebateBps()), lit(EP.VIEW.maxEpochBudget()), lit(EP.VIEW.minHold())]);
+    await lirePrixCoeur;
     let px = null; try { const h = await fetch('/api/tblock/hold', { cache: 'no-store', signal: AbortSignal.timeout(15000) }).then((x) => x.json()); px = h && h.ok && Number(h.priceNow) > 0 ? Number(h.priceNow) : null; } catch (_) { px = null; }
     const usd = (raw) => (px === null ? '' : ' ≈ $' + (Number(raw) / 1e18 * px).toLocaleString('en-US', { maximumFractionDigits: 2, minimumFractionDigits: 2 }));
     let joueurs = null; try { const c = await fetch('/api/coeurs', { cache: 'no-store', signal: AbortSignal.timeout(15000) }).then((x) => x.json()); if (c && c.ok && c.complet && c.semainesParContrat) joueurs = Number((((c.semainesParContrat[EP.HEARTS] || {})[String(ep)]) || {}).joueurs || 0); } catch (_) { joueurs = null; }
@@ -33128,7 +33145,7 @@ async function peindrePointsWallet() {
   const gros = $('#wPointsGros');
   if (gros) { const tot = r && r.ok && r.compte ? Number(r.compte.total) : NaN; gros.hidden = !(tot > 0); if (tot > 0) gros.textContent = PV.fmtPts(tot) + ' pts'; } /* game359: never "0" for a positive balance */
   peindre($('#wPointsBoard'), PV.lignesBoardPoints(r, nom, compte));
-  $('#wPointsRegle').textContent = PV.REGLE_COURTE;
+  $('#wPointsRegle').textContent = PV.regleCourte(wLikePrix); /* game377: 1 point per 8,600 TBLOCK burned, + what a heart earns at the read price */
   box.hidden = false;
 }
 /* game346 (Phil 2026-11-10: "the hearts given must show in the user's wallet: who gave them hearts and how many the holder gave back; a
@@ -33167,7 +33184,7 @@ async function peindreCoeursWallet() {
   peindre($('#wCoeursBoard'), CV.lignesBoard(r, nom, compte));
   box.hidden = false;
 }
-setInterval(() => { void peindreVaultWallet().catch(() => {}); }, 5000);
+setInterval(() => { try { wLockSuitCompte(); } catch (_) { /* next tick */ } void peindreVaultWallet().catch(() => {}); }, 5000);
 
 function bcPeindre(snap) {
   if (!snap || !snap.address) return;

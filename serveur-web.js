@@ -6315,6 +6315,8 @@ const SERVIS = [
   'economie-v2-pack-deploye.js', 'economie-pack.js',
   /* 2026-11-12: the last step of the pack page, the hook payee moves its creator fee slot to the lock rewards (payee-slot.js) */
   'payee-slot.js',
+  /* 2026-11-12: the pack page shows the six deployed steps without a wallet (record judged, code read on Base) */
+  'pack-deployed-view.js',
   /* game120 : ondes, lumiere et son */
   'tam-ondes.js',
   /* game122 : electricite */
@@ -7968,8 +7970,11 @@ function traiterRequete(req, res) {
       throw new Error(derniere);
     };
     (async () => {
-      const coffre = ECONOMIE_DEPLOIEMENT.adresseVault;
-      const cp = coffre ? await lireCoffrePaye({ rpc: rpcE, compte: compteE, bloc: blocE, coffre, tblock: TBLOCK_ADR }) : { etat: 'NON_MESURE', pourquoi: 'no vault' };
+      /* task 377 (2026-11-12): the TBLOCK part now goes to the LIVE holders vault (create-vault-tip.js VAULT = EP_PACK.VAULT). Read it first;
+       * only a whole "not paid" there reads the first vault too (a birth paid before the switch). An unread answer stops the loop: never "unpaid". */
+      const coffres = [EP_PACK.VAULT, ECONOMIE_DEPLOIEMENT.adresseVault].filter(Boolean).map((a) => String(a).toLowerCase());
+      let cp = { etat: 'NON_MESURE', pourquoi: 'no vault' };
+      for (const coffre of coffres) { cp = await lireCoffrePaye({ rpc: rpcE, compte: compteE, bloc: blocE, coffre, tblock: TBLOCK_ADR }); if (cp.etat !== 'LU' || cp.paye === true) break; }
       const coffrePaye = cp.etat === 'LU' ? cp.paye === true : null;
       const r = await lireEtatNaissance({ rpc: rpcE, compte: compteE, bloc: blocE, partTblock: partE ? BigInt(partE) : null, coffrePaye });
       const corps = { ...r, coffre: cp };
@@ -8103,7 +8108,7 @@ function traiterRequete(req, res) {
     const compteV = String(q.get('compte') || '').toLowerCase(), ethV = String(q.get('eth') || '');
     /* game339: reprise=1&wt=<raw wtCOIN> resumes an interrupted step 1 from the wtCOIN already in the wallet (leg 2 only) */
     const repriseV = q.get('reprise') === '1', wtV = String(q.get('wt') || '');
-    const coffreV = ECONOMIE_DEPLOIEMENT.adresseVault;
+    const coffreV = EP_PACK.VAULT; /* task 377: the live holders vault, the same one create-vault-tip.js pays (never from the request) */
     if (!coffreV) { rendreV(200, { ok: false, etat: 'REFUSE', pourquoi: 'the holders vault is coming soon' }); return; }
     if (repriseV && (!/^0x[0-9a-f]{40}$/.test(compteV) || !/^[1-9][0-9]{0,30}$/.test(wtV))) {
       rendreV(400, { ok: false, etat: 'REFUSE', pourquoi: 'usage: /api/tblock/vault-buy?reprise=1&compte=<the wallet that will sign>&wt=<raw wtCOIN to resume from>' }); return;

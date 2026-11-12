@@ -6,13 +6,13 @@ const nom = (a) => a.slice(0, 6) + '…';
 t('the rule says no rate is promised', /no rate is promised/.test(REGLE_COURTE) && !/APY|APR|yield|%\/(year|day)/i.test(REGLE_COURTE));
 t('unread: said', lignesMesPoints(null, nom)[0].v === 'not read just now' && lignesBoardPoints({ ok: false }, nom)[0].v === 'not read just now');
 t('no wallet: asks to connect', /connect your wallet/.test(lignesMesPoints({ ok: true }, nom)[0].v));
-t('zero points: says how to start, with the v2 numbers', /lock 100,000 TBLOCK for 1 point a day, or send a heart for 10/.test(lignesMesPoints({ ok: true, compte: { total: 0 } }, nom)[0].v));
+t('zero points: says how to start, with the v2 numbers', /lock 100,000 TBLOCK for 1 point a day, or send a heart: 1 point per 8,600 TBLOCK it burns/.test(lignesMesPoints({ ok: true, compte: { total: 0 } }, nom)[0].v));
 const r = { ok: true, complet: false, compte: { total: 12.345, lock: 10, jeu: 2.345, rang: 3, part: 0.1234, parJour: 35, mult: 1.25 }, board: [{ rang: 1, holder: '0xaaaaaaaa', total: 50, part: 0.5, sesBlocks: ['0xb1b1b1'] }, { rang: 2, holder: '0xbbbbbbbb', total: 1, part: 0.00001, sesBlocks: [] }] };
 const m = lignesMesPoints(r, nom);
 t('my points: total, lock, hearts (v2 format)', m[0].v === '12 (lock 10 · hearts 2.3)', m[0].v);
 t('game359: what the lock earns now, with its multiplier', m[2] && m[2].v === '+35 a day (×1.25 commitment)', m[2] && m[2].v);
 t('game359: a positive balance is never "0"', fmtPts(0.0004) === '<0.01' && fmtPts(0.01) === '0.01' && fmtPts(0.456) === '0.45' && fmtPts(3.27) === '3.2' && fmtPts(1234.9) === '1,234' && fmtPts(0) === '0');
-t('game359: the rule says the v2 numbers', REGLE_COURTE.includes('1 point a day per 100,000 TBLOCK locked') && REGLE_COURTE.includes('Hearts: 10 points each'));
+t('game359: the rule says the v2 numbers', REGLE_COURTE.includes('1 point a day per 100,000 TBLOCK locked') && REGLE_COURTE.includes('Hearts: 1 point per 8,600 TBLOCK burned') && !/10 points each/.test(REGLE_COURTE)); /* game377: a heart's points follow its burn */
 t('my share + rank, and "still reading" while incomplete', m[1].v === '12.34% · rank #3 · still reading the chain', m[1].v);
 const b = lignesBoardPoints(r, nom, '0xBBBBBBBB');
 t('board: named by the block when there is one', b[0].k === '#1 0xb1b1…’s creator' && b[0].v === '50 pts · 50.00%', b[0].v);

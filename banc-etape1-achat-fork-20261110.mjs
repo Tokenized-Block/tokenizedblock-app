@@ -8,11 +8,10 @@
  * Usage: node banc-etape1-achat-fork-20261110.mjs [http://127.0.0.1:8659]. Everything is undone by evm_revert at the end. */
 import { lecteurFork, ouvrirFork, demarrerServeur, financer, compteNeuf, solde, ETH, USDC, FRAIS, pause } from './outils-essai-fork.mjs';
 import { TBLOCK } from './tblock-hold.js';
-import { ECONOMIE_DEPLOIEMENT as D } from './economie-deploiement.js';
 import * as TIP from './create-vault-tip.js';
 
 const URL_FORK = /^https?:/.test(process.argv[2] || '') ? process.argv[2] : 'http://127.0.0.1:8659';
-const T = TBLOCK.toLowerCase(), V = D.adresseVault;
+const T = TBLOCK.toLowerCase(), V = TIP.VAULT; /* task 377: the live holders vault step 3 pays */
 let n = 0, ko = 0;
 const ok = (c, m) => { n += 1; if (!c) ko += 1; console.log((c ? 'ok  ' : 'KO  ') + m); return c; };
 const rpc = lecteurFork(URL_FORK);

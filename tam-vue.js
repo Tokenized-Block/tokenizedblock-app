@@ -243,8 +243,17 @@ export function combinaison(P) {
 /**
  * La carte d une oeuvre : des lignes { k, v } en anglais. `c` = certificats (certifier), `choix` = { graine, bloc, empreinteEtat, essai, rejets,
  * source } quand le cerveau a choisi, `nMintees` = les oeuvres comparees pour la distance.
+ * game377 : `minteesLues` = les oeuvres mintees que l onglet a LUES (sa galerie), null tant qu il ne les a pas lues. Une oeuvre de
+ *   l explorateur (sans choix du cerveau) n est comparee a AUCUNE oeuvre dans la page (certifier(o, [])) : c est le serveur qui mesure la
+ *   distance au clic sur Mint. Avant : « yes (no minted work to compare with yet) » alors que 3 oeuvres etaient mintees.
  */
-export function carte({ P, c, choix = null, nMintees = 0 }) {
+export function distinctExplorateur(minteesLues) {
+  const n = Number.isInteger(minteesLues) && minteesLues >= 0 ? minteesLues : null;
+  if (n === 0) return 'yes (no minted work to compare with yet)';
+  return 'checked when you press Mint: the server compares it with ' + (n === null ? 'every minted work' : 'the ' + n + ' minted work' + (n === 1 ? '' : 's'))
+    + ' (threshold 0.20)';
+}
+export function carte({ P, c, choix = null, nMintees = 0, minteesLues = null }) {
   const L = [];
   L.push({ k: 'Families', v: [nomFamille(P.famille), P.motif ? MOTIFS_EN[P.motif.famille] : null].filter(Boolean).join(' + ') });
   L.push({ k: 'Combination', v: combinaison(P) });
@@ -267,7 +276,7 @@ export function carte({ P, c, choix = null, nMintees = 0 }) {
     if (Number.isFinite(c.plat)) L.push({ k: 'Not flat', v: (c.plat >= 0.03 ? 'yes' : 'no') + ' (thinnest axis ' + nb(c.plat, 2) + ' of the widest, minimum 0.03)' });
     L.push({ k: 'Bounded', v: c.bornee ? 'yes, for all ' + (c.etapes || P.n || 1500) + ' recorded steps' : 'no, it escaped' });
     L.push({ k: 'Box dimension', v: '≈ ' + nb(c.dimension, 2) + ' (rough estimate, 4 box sizes)' });
-    L.push({ k: 'Distinct from the minted works', v: nMintees > 0 ? (c.distanceMin >= 0.2 ? 'yes' : 'no') + ' (closest distance ' + nb(c.distanceMin, 2) + ' over ' + nMintees + ' works, threshold 0.20)' : 'yes (no minted work to compare with yet)' });
+    L.push({ k: 'Distinct from the minted works', v: nMintees > 0 ? (c.distanceMin >= 0.2 ? 'yes' : 'no') + ' (closest distance ' + nb(c.distanceMin, 2) + ' over ' + nMintees + ' works, threshold 0.20)' : choix ? 'yes (no minted work to compare with yet)' : distinctExplorateur(minteesLues) });
   }
   return L;
 }
