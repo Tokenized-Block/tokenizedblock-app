@@ -23,14 +23,17 @@ const t = (m, c, x = '') => { if (c) ok++; else { ko++; console.log('KO', m, x);
 const RULE = '$15 locked to claim; more from $100 locked (+15% at $100, +30% at $500, +50% at $1,000); up to +25% more for 90 days locked; you must play that week (a heart, a TAM mint or a skin)';
 
 /* holders.html: today's vault card, and the coming vault row */
-t('holders: the vault card says today\'s rule (record), and only that', H.includes("'today, the week\\'s players claim with ' + tok(CLAIM_MIN_HOLD) + ' TBLOCK held' + val(CLAIM_MIN_HOLD), tok(CLAIM_MIN_HOLD)"));
+const wc = APP.slice(APP.indexOf("const wc = $('#wVaultComment');"), APP.indexOf('void peindreCoeursWallet();', APP.indexOf("const wc = $('#wVaultComment');")));
+/* 2026-11-12 (the economy pack is live): the holders vault and the lock rewards are LIVE; their rules are READ on chain (economie-pack.js
+ *   texteRegleVault, REGLES_VAULT) and said by what they do — the "coming soon" vault row and the first vault's fixed holds are gone */
+t('holders: the vault rule is the live vault\'s, read on chain; no coming-soon row; no version or status word', H.includes('r.vault = EP.texteRegleVault(v);') && !H.includes('Coming soon — the holders vault') && !/written, under review|fork test|not deployed|Vault v2|in review/.test(H.replace(/<!--[\s\S]*?-->/g, '').replace(/\/\*[\s\S]*?\*\//g, '')));
+t('app: the vault explainer says the same live rule (texteRegleVault) and that you must play that week', wc.includes('(wVaultRegle || ') && wc.includes('You must play that week: a heart, a TAM art mint or a skin mint.') && APP.includes('wVaultRegle = EP.texteRegleVault(r);'));
+t('app: the explainer has no version or status word', !/not deployed|fork-tested|reviewed|\(v1\)|\bv2\b|Coming soon, the holders vault/.test(wc));
+const TXT = (await import('./economie-pack.js')).texteRegleVault({ ACCESS_USD: 15n, TIER1_USD: 100n, TIER2_USD: 500n, TIER3_USD: 1000n, TIER1_BONUS: 1500n, TIER2_BONUS: 3000n, TIER3_BONUS: 5000n, TIME_BONUS: 2500n, TIME_FULL: 7776000n, MIN_COMMIT: 604800n, MAX_FACTOR: 17500n, CLAIM_WINDOW: 1209600n, REWARD_BPS: 5000n, REBATE_BPS: 5000n, TOP_BPS: 2000n });
+t('the live rule in words, from the vault\'s own constants: $15 to claim, +15% from $100, +30% from $500, +50% from $1,000, up to +25% for 90 days', TXT.includes('$15 of TBLOCK locked') && TXT.includes('+15% from $100 locked, +30% from $500, +50% from $1,000, and up to +25% more for 90 days left on the lock'));
 t('holders: the old "grows with how much and how long" line is gone', !H.includes('the reward grows with how much and how long you lock'));
-t('holders: the coming vault row says the rule and "coming soon", never live', H.includes("'Coming soon — the holders vault', '" + RULE + "', '$15 locked', null, false, VENIR()]") && !/written, under review|fork test|not deployed|Vault v2|in review/.test(H.replace(/<!--[\s\S]*?-->/g, '').replace(/\/\*[\s\S]*?\*\//g, '')));
 t('holders: no "weighted by amount × time" left', !H.includes('weighted by amount × time locked'));
 /* app.html: the folded "How the holders vault works" */
-const wc = APP.slice(APP.indexOf("const wc = $('#wVaultComment');"), APP.indexOf('void peindreCoeursWallet();', APP.indexOf("const wc = $('#wVaultComment');")));
-t('app: the vault explainer says the same rule', wc.includes('of TBLOCK LOCKED instead, at a price kept up to date within fixed bounds: ' + RULE + '. '));
-t('app: the explainer says it is coming soon, never live, with no version word', wc.includes('Coming soon, the holders vault asks for $') && !/not deployed|fork-tested|reviewed|\(v1\)|\bv2\b/.test(wc));
 /* deployer-economie-v2.html: now the six-step pack page; it states no claim rule of its own, and never the old one */
 t('deploy page: it is the pack page (witness)', DEP.includes("await import('./economie-v2-pack-deploiement.js')"));
 t('deploy page: no "1.5x" / "4x the minimum" / "closer to the full play share" left', !/1\.0x \.\. 1\.5x|4x the minimum|closer to the full play share/.test(DEP));

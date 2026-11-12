@@ -9,4 +9,8 @@ export const FRAIS_CONTRATS = Object.freeze({
   TicketPot: Object.freeze({ source: 'contracts/src/TicketPot.sol', sha256Source: 'a9d4b1fae7531070de948d60120afb6cefae5111e3d07fc19c52717de7eeadf7', GRACE: '604800', FUNDING_DELAY: '43200', ADMIN_DELAY: '172800', PROPOSAL_TTL: '259200' }),
   BlockRolls: Object.freeze({ source: 'contracts/src/BlockRolls.sol', sha256Source: 'a108e013bcafeed461ccec86f9f7d4adf88e1c1e9c8ed46ec3dd4dcab870030e', MIN_SCORE_FLOOR: '2', SETTLE_WINDOW: '256' }),
   BlockSlots: Object.freeze({ source: 'contracts/src/BlockSlots.sol', sha256Source: 'bb5d88deef5516dae428de3977cd5fab8fe877c36224ae8a38014131ac2c1b70', SETTLE_WINDOW: '256' }),
+  BlockSkinsPack: Object.freeze({ source: 'contracts/src/BlockSkins.sol', sha256Source: '8fe2bc040f2a1bdd6c986fc0afe071c8a4e7c8d0bcf48676983553ab34e7201b', DEV_BPS: '1000' }),
+  TamArtV2: Object.freeze({ source: 'contracts/src/TamArtV2.sol', sha256Source: '3556e4c6bb4475eb3d5c9e73b7aa93d794297f0708fd73f09d78599b31e29d35', PRICE_USDC: '5000000', DEV_BPS: '1000' }),
+  TBlockVaultV2: Object.freeze({ source: 'contracts/src/TBlockVaultV2.sol', sha256Source: 'bb96c0fe38b744e5d121ba42a8134a53ef9d6d7027c5c2245aef4fc14c0e2aeb', MIN_COMMIT: '604800', MAX_FACTOR: '17500', ACCESS_USD: '15', TIER1_USD: '100', TIER2_USD: '500', TIER3_USD: '1000', TIER1_BONUS: '1500', TIER2_BONUS: '3000', TIER3_BONUS: '5000', TIME_BONUS: '2500', TIME_FULL: '7776000', RESCUE_DELAY: '604800', RESCUE_WINDOW: '172800', FEED_QUIET: '86400' }),
+  TBlockLockRewards: Object.freeze({ source: 'contracts/src/TBlockLockRewards.sol', sha256Source: '98e20d7eea25097dcf3eb7c73b1f956534fb36bca0a0ee6724db8ffefb920b9a', EPOCH: '2592000', REWARD_BPS: '2500', CLAIM_WINDOW: '3', MAX_CLAIM_EPOCHS: '24', RESCUE_DELAY: '259200' }),
 });

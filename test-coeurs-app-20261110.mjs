@@ -14,14 +14,15 @@ t('server SERVES coeurs-vue.js', /const SERVIS = \[[\s\S]*?'coeurs-vue\.js'[\s\S
 t('coeurs-vue.js imports nothing the server does not serve', !/^import /m.test(lire('coeurs-vue.js')));
 
 /* server: index from the deploy block, route, creators from the trending index */
-t('server builds the hearts index on BlockLikes', /creerIndexCoeurs\(\{ rpc: rpcCoeurs, likes: String\(ECONOMIE_DEPLOIEMENT\.adresseLikes\)\.toLowerCase\(\) \}\)/.test(SRV));
+/* 2026-11-12: one index over the first hearts contract and Hearts of the pack (coeurs-index.js creerIndexCoeursSuite) */
+t('server builds the hearts index on both hearts contracts', /creerIndexCoeursSuite\(\{ rpc: rpcCoeurs, sources: \[/.test(SRV) && /likes: String\(ECONOMIE_DEPLOIEMENT\.adresseLikes\)\.toLowerCase\(\), depuis: LIKES_DEPLOY_BLOC/.test(SRV) && /likes: EP_PACK\.HEARTS, depuis: EP_PACK\.BLOC_DEPLOIEMENT\.L/.test(SRV));
 t('server advances the index every 60 s', /setInterval\(\(\) => \{ void COEURS\.index\.avancer\(\); \}, 60000\)/.test(SRV));
 t('route /api/coeurs answers board + compte + bloc + symboles', /chemin === '\/api\/coeurs'[\s\S]{0,4000}board: classement\(tous, 10\)[\s\S]{0,2000}vueCompte\(tous, compteC, crDe\)[\s\S]{0,1500}corps\.bloc = [\s\S]{0,1500}corps\.symboles = \{\}/.test(SRV));
 t('route validates both addresses', /\(compteC && !\/\^0x\[0-9a-f\]\{40\}\$\/\.test\(compteC\)\) \|\| \(blocC && !\/\^0x\[0-9a-f\]\{40\}\$\/\.test\(blocC\)\)/.test(SRV));
 t('route is rate limited per IP', /if \(nC > 60\) \{ rendreC\(429/.test(SRV));
 
 /* Holders vault */
-t('Wallet card titled Holders vault (game357: short true intro, Lock panel first)', /<div class="carte" id="wVault" hidden data-v="lock">\s*<p class="titre">Holders vault<\/p>/.test(APP) && APP.includes('TBLOCK set aside for the players.') && APP.includes('Deposits so far came from the team; buybacks and creators’ birth payments can add to it.'));
+t('Wallet card titled Holders vault (game357: short true intro, Lock panel first)', /<div class="carte" id="wVault" hidden data-v="lock">\s*<p class="titre">Holders vault<\/p>/.test(APP) && APP.includes('TBLOCK set aside for the players.') && APP.includes('Every TAM art and skin mint sends the TBLOCK it buys here.')); /* 2026-11-12: what really fills the live vault */
 t('no visible "community vault" left in app strings', !/['"][^'"\n]*[Cc]ommunity vault[^'"\n]*['"]/.test(APP.replace(/<!--[\s\S]*?-->/g, '').replace(/\/\*[\s\S]*?\*\//g, '')));
 t('hearts + board inside the vault card', /id="wVault"[\s\S]{0,3000}id="wCoeursMoi"[\s\S]{0,300}id="wCoeursBoard"/.test(APP));
 /* game356: the vault explainer is painted between the two lines; still inside peindreVaultWallet, right after the card is shown */
@@ -39,8 +40,10 @@ t('chip ♥ Heart this block, direct', /\{ cle: 'heart', libelle: '♥ Heart thi
 t('heart is in Play, right after Spin, and signs', /cmds: Object\.freeze\(\['spin', 'heart',/.test(PC) && /heart: 'signe'/.test(PC));
 t('dispatcher: heart -> bcCommandeCoeur', /if \(c\.type === 'heart'\) \{ void bcCommandeCoeur\(c\.jeton\); return true; \}/.test(APP));
 t('the ♥ button and the command share bcCoeur', /\$\('#bcLikeBtn'\)\.addEventListener\('click', \(\) => \{ void bcCoeur\(\$\('#bcLike'\)\.dataset\.adr\); \}\);/.test(APP) && /await bcCoeur\(j\.adr, /.test(APP));
-t('bcCoeur keeps the live $15 check before the wallet', /async function bcCoeur\(a, dire = null\) \{[\s\S]{0,2500}ECO\.likeCheckUsd\(\{ balance: bal, n: 1, prixUsd \}\)[\s\S]{0,400}ECO\.likeBatch\(\{ block: a, n: 1 \}\)/.test(APP));
-t('only one likeBatch call site', (APP.match(/ECO\.likeBatch\(/g) || []).length === 1);
+/* 2026-11-12 (the economy pack is live): hearts are given on Hearts (BlockLikesV2): its OWN rule, read on chain before the wallet opens —
+ *   likePrice() from the wallet, minHold() LOCKED — replaces the app-side $15 check of the first contract */
+t('bcCoeur checks the contract rule (price, minimum LOCKED) before the wallet, then sends at the price read', /async function bcCoeur\(a, dire = null\) \{[\s\S]{0,2500}EP\.likeCheck\(\{ balance: bal, locked, likePrice: prix, minHold: need[\s\S]{0,400}EP\.likeBatch\(\{ block: a, n: 1, likePrice: prix \}\)/.test(APP));
+t('only one likeBatch call site', (APP.match(/(ECO|EP)\.likeBatch\(/g) || []).length === 1);
 
 /* Create: brain always on, old list gone */
 t('brain always on: checked, disabled, hidden', /<input type="checkbox" id="cCerveau" checked disabled hidden>/.test(APP));

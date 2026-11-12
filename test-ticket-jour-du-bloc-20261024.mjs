@@ -41,7 +41,7 @@ function monter(src, etat, horloge, chaine) {
     verifierFrais: () => ({ ok: false, etat: 'PAS_DE_FRAIS', pourquoi: 'no fee of ours in this transaction' }), devisesComptees: () => [], POOLS_ACTIONS_AERODROME: new Map(),
     volumeVerifie: () => ({ ok: true, payeur: PAYEUR, unitWei: (10n ** 18n).toString(), actions: [] }), V4_ADRESSES: { 8453: { poolm: '0x' + '0'.repeat(40) } }, POOLS_UNIT_TB: new Set(), JETONS_ACTIONS: new Set(),
     prixUsdPourPlan: async () => 20, valeurFraisUsd: async () => 0, crediter, jourDe, joursPass, saisonDe,
-    passSkinVerifie: () => ({ ok: true, payeur: PAYEUR }), BLOCKSKINS_SRV: '0x' + 'c0'.repeat(20), USDC_BASE: '0x' + 'aa'.repeat(20), FEE_WALLET: '0x' + 'fe'.repeat(20), SKIN_MINT_USDC_SRV: 1000000n,
+    passSkinVerifie: () => ({ ok: true, payeur: PAYEUR }), BLOCKSKINS_SRV: '0x' + 'c0'.repeat(20), BLOCKSKINS_ACTIF_SRV: { routeur: null } /* 2026-11-12: crediterPassSkin reads the active contract's router (none here) */, USDC_BASE: '0x' + 'aa'.repeat(20), FEE_WALLET: '0x' + 'fe'.repeat(20), SKIN_MINT_USDC_SRV: 1000000n,
     compterRevenu: (x) => x, createurDuBlock: async () => null, ligneRegistre: () => ({}), horodatagesBlocsRolls: new Map(), console: { log() {} },
   };
   const noms = Object.keys(deps);

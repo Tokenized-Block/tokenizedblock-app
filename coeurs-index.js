@@ -43,3 +43,23 @@ export function creerIndexCoeurs({ rpc, likes, depuis = LIKES_DEPLOY_BLOC, fenet
   const complet = () => etat.tete !== null && etat.prochain > etat.tete && etat.trou === null;
   return { avancer, etat, complet, coeurs: () => etat.coeurs };
 }
+
+/** 2026-11-12 (the economy pack is live): hearts now go to Hearts (BlockLikesV2, the same `Liked` event); the first contract's hearts stay
+ *  history. ONE index over several contracts, each read from its own deploy block with the same never-skip rule; `coeurs` is every heart of
+ *  every contract, `complet` only when each one is complete. sources = [{ likes, depuis }] (addresses from the deployment records). */
+export function creerIndexCoeursSuite({ rpc, sources, fenetre = FENETRE, parPasse = FENETRES_PAR_PASSE }) {
+  const ix = (sources || []).filter((s) => s && /^0x[0-9a-f]{40}$/.test(String(s.likes || '').toLowerCase()))
+    .map((s) => ({ likes: String(s.likes).toLowerCase(), depuis: s.depuis, i: creerIndexCoeurs({ rpc, likes: String(s.likes).toLowerCase(), depuis: s.depuis, fenetre, parPasse }) }));
+  if (!ix.length) throw new Error('no hearts contract');
+  const etat = {
+    get prochain() { return Math.min(...ix.map((x) => x.i.etat.prochain)); },
+    get tete() { const t = ix.map((x) => x.i.etat.tete); return t.some((v) => v === null) ? null : Math.min(...t); },
+    get trou() { const t = ix.find((x) => x.i.etat.trou); return t ? { ...t.i.etat.trou, contrat: t.likes } : null; },
+    get passes() { return Math.min(...ix.map((x) => x.i.etat.passes)); },
+  };
+  async function avancer() { for (const x of ix) await x.i.avancer(); return etat; }
+  const complet = () => ix.every((x) => x.i.complet());
+  const coeurs = () => ix.flatMap((x) => x.i.coeurs().map((c) => (c.contrat ? c : Object.assign(c, { contrat: x.likes }))));
+  const contrats = () => ix.map((x) => ({ adresse: x.likes, depuis: x.depuis, complet: x.i.complet(), lusJusqua: x.i.etat.prochain - 1, coeurs: x.i.coeurs().length }));
+  return { avancer, etat, complet, coeurs, contrats };
+}

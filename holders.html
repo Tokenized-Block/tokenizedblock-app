@@ -9,7 +9,7 @@
   the vault claim, server-checked for the holders' channel), and a per-wallet yes/no. Same two flows as before, unchanged: buy in one batch,
   prove the hold by a message signature.
   ⛔ This page SIGNS A MESSAGE or sends the batch the server planned; nothing else. Only perks that work today are listed.
-  ⛔ Thresholds are read from economie.js (the deployed contracts' own constants), never typed here; their dollar value moves with the price.
+  ⛔ Thresholds are read on Base from the live contracts (economie-pack.js: Hearts, the vault, the lock rewards, TAM art, Skins), never typed here.
 -->
 <style>
 /* game350 (Phil 2026-11-10: "adapt the colour to the one the user chose, keep the theme"): the SAME four palettes as the app (app.html
@@ -64,9 +64,9 @@ input{width:100%;background:var(--bg2);color:var(--fg);border:1px solid var(--li
 <div class="card">
   <h2>What your TBLOCK unlocks</h2>
   <div id="perks"><span class="note">reading the thresholds…</span></div>
-  <p class="note">The heart and the vault claim are enforced by their contracts: nobody can pass them, from this app or any other.
-  The holders' channel is checked by our server before the invite. Contract thresholds are counted in TBLOCK, so their dollar value moves with the price;
-  the $15 rules are computed at the price read now.</p>
+  <p class="note">Hearts, the holders vault and the monthly lock rewards are enforced by their contracts: nobody can pass them, from this app or any other.
+  Their dollar rules use a TBLOCK price the hearts contract keeps within fixed bounds. The holders' channel is checked by our server before the invite,
+  at the pool price read now. Every number on this card is read from Base or from our server just now.</p>
 </div>
 
 <div class="card">
@@ -111,7 +111,7 @@ input{width:100%;background:var(--bg2);color:var(--fg);border:1px solid var(--li
   <p class="note" style="margin-top:0">TBLOCK trades on BaseStonk, where it was launched. The link opens <b>our</b> token by its address
   (0xb200…830e) — another token uses the same name; check the address before you buy.</p>
   <a class="btn" id="achatBaseStonk" href="https://basestonk.io/tokens/0xb200000000000000000000ba9bf8330307f8830e" target="_blank" rel="noopener">Buy TBLOCK on BaseStonk ↗</a>
-  <p class="note">Then come back here: keep $15 of it in your wallet for hearts and the channel; lock what you keep for community points.</p>
+  <p class="note">Then come back here: lock $15 of it for hearts and the holders vault (Wallet → Holders → Lock in the app), and keep $15 in your wallet for the channel.</p>
 </div>
 
 <div class="card">
@@ -132,7 +132,9 @@ input{width:100%;background:var(--bg2);color:var(--fg);border:1px solid var(--li
 </main>
 
 <script type="module">
-import { LIKE_PRICE, LIKE_MIN_HOLD, CLAIM_MIN_HOLD, tblockPourUsd } from './economie.js';
+/* 2026-11-12 (the economy pack is live): the perks read the live contracts (economie-pack.js: Hearts, the router's games, the vault, the
+ *   lock rewards) on Base, straight from this page; nothing here is typed */
+import * as EP from './economie-pack.js';
 import { displayShort } from './frais-creation.js'; /* the one shortener: a fee wallet address is never displayed */
 import { lignesBoard, lignesCompte } from './coeurs-vue.js'; /* game346: the hearts board and this wallet's hearts */
 import * as LK from './lock.js';
@@ -158,28 +160,68 @@ function peindreTg(pret) {
   if (!TGP.pret) $('#signer').disabled = true;
 }
 
-/* the perks, from the contracts' own constants; "you" is filled once a wallet is read */
+/* ── 2026-11-12: Base read straight from this page (two public nodes), for the live contracts' own rules ── */
+const NODES = ['https://base-rpc.publicnode.com', 'https://mainnet.base.org'];
+let nodeAt = 0;
+async function noeud(method, params) {
+  let last = new Error('no node answered');
+  for (let k = 0; k < NODES.length; k++) {
+    const at = (nodeAt + k) % NODES.length;
+    try {
+      const r = await fetch(NODES[at], { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }), signal: AbortSignal.timeout(12000) });
+      const j = await r.json();
+      if (j && j.result !== undefined && j.result !== null) { nodeAt = at; return j.result; }
+      last = new Error((j && j.error && j.error.message) || 'empty answer');
+    } catch (e) { last = e; }
+  }
+  throw last;
+}
+const lit = async (v) => EP.word(await noeud('eth_call', [{ to: v.to, data: v.data }, 'latest']));
+/** the live rules, read once a minute: hearts (price and minimum), the router's games (price and dev part), the vault's rules, the month */
+let regles = null, reglesA = 0;
+async function lireRegles() {
+  if (regles && Date.now() - reglesA < 60000) return regles;
+  const r = {};
+  try {
+    [r.likePrice, r.minHold, r.likeUsd, r.holdUsd] = await Promise.all([lit(EP.VIEW.likePrice()), lit(EP.VIEW.minHold()), lit(EP.VIEW.likeUsd()), lit(EP.VIEW.holdUsd())]);
+    [r.prixTam, r.prixSkin] = await Promise.all([lit(EP.VIEW.prixJeu(EP.TAM)), lit(EP.VIEW.mintPriceSkin())]);
+    const [st, ss] = await Promise.all([noeud('eth_call', [EP.VIEW.partJeu(EP.TAM), 'latest']), noeud('eth_call', [EP.VIEW.partJeu(EP.SKINS), 'latest'])]);
+    r.devTam = EP.word(st, 1); r.devSkin = EP.word(ss, 1);
+    const v = {}; for (const k of EP.REGLES_VAULT) v[k] = await lit(EP.VIEW.regleVault(k));
+    r.vault = EP.texteRegleVault(v);
+    r.mois = await lit(EP.VIEW.rCurrentEpoch()); r.finMois = await lit(EP.VIEW.rEpochEnd(r.mois)); r.closMois = await lit(EP.VIEW.nextEpochToClose());
+    regles = r; reglesA = Date.now();
+  } catch (_) { /* not read: the perks say so, never a typed number */ }
+  return regles;
+}
+/** this wallet's lock, read on Base once connected (activeLockedOf: 0 once its date passed or an exit was asked) */
+async function lireLock(w) { try { const [l, u] = await Promise.all([lit(LK.VIEW.activeLockedOf(w)), lit(LK.VIEW.unlockAtOf(w))]); etat.locked = l; etat.unlockAt = u; } catch (_) { etat.locked = null; } }
+
+/* the perks, from the live contracts' own rules; "you" is filled once a wallet is read */
 function peindrePerks() {
   const u = prix.usd, val = (raw) => (u ? ' ≈ ' + fmtUsd(Number(BigInt(raw) / 10n ** 18n) * u) : '');
-  const b = etat.balance != null ? BigInt(etat.balance) : null;
+  const b = etat.balance != null ? BigInt(etat.balance) : null, l = etat.locked != null ? BigInt(etat.locked) : null;
   const st = (ok) => (b == null && etat.holder == null ? '<span class="st na">connect to check</span>' : ok ? '<span class="st ok">✓ YOU CAN</span>' : '<span class="st no">✗ NOT YET</span>');
-  /* game345 (Phil: "$15 at the current price, computed"): the heart's hold = the LARGER of the contract's fixed amount and $15 now */
-  const usd15 = tblockPourUsd(prix.seuil, prix.bas || u);
-  const garde = usd15 !== null && usd15 > LIKE_MIN_HOLD ? usd15 : LIKE_MIN_HOLD;
-  /* game350 (Phil 2026-11-10: "vault access from $15, the more you lock the bigger the reward; add the other holder accesses: the games, the
-   *   TAM mint, the vault reward"). Each line says WHO checks it today: the contract, our server, or the app. What is not deployed yet says
-   *   "coming" with its state — never shown as if it already held (a perk waiting for a contract is a draft, not a feature). */
-  const lockPret = LK.LOCK !== null;
   /* UI copy rule (Phil 2026-11-12): what is not live yet says "coming soon" and what it does, never its internal state or a version */
   const VENIR = () => '<span class="st na">coming soon</span>';
+  const NONLU = '<span class="st na">not read</span>';
+  const lockPret = LK.LOCK !== null, R = regles;
+  const usdc = (x) => EP.usdcTexte(x) + ' USDC', pc = (bps) => (Number(bps) / 100) + '%';
+  const jour = (s) => new Date(Number(s) * 1000).toISOString().slice(0, 10);
   const p = [
-    /* game357: today's hearts, channel and claim read the WALLET balance; locking moves TBLOCK out of it. Today the lock earns points only. */
-    ['🔒', 'Lock TBLOCK: community points now, bigger vault rewards soon', 'locked in a contract with no owner, for 7 days or more; to leave, there is a 7-day withdrawal period. Today it earns points only: hearts, the channel and vault claims still count your wallet balance', 'any amount', null, false, lockPret ? '<a class="st ok" href="/#wallet">LOCK IN THE APP →</a>' : VENIR()],
-    ['💬', 'Holders\' channel on Telegram', 'checked by our server before the invite: $' + prix.seuil + ' of TBLOCK held in your wallet (a lock does not count for it today)', '$' + prix.seuil + ' of TBLOCK', etat.holder === true, etat.holder != null, TGP.pret ? null : VENIR()],
-    ['♥', 'Heart a block', 'burns ' + tok(LIKE_PRICE) + ' TBLOCK, and you keep $' + prix.seuil + ' of TBLOCK at the price read now; counts as play for the weekly rewards', tok(LIKE_PRICE + garde) + ' TBLOCK' + val(LIKE_PRICE + garde), b != null && b >= LIKE_PRICE + garde, b != null, null],
-    ['🎰', 'Games (Spin, Roll, Duels) and the TAM mint', 'open to everyone; today only hearts count as play for the holders vault rewards', 'open to all', null, false, '<span class="st ok">OPEN</span>'],
-    ['🏦', 'Holders vault rewards', 'today, the week\'s players claim with ' + tok(CLAIM_MIN_HOLD) + ' TBLOCK held' + val(CLAIM_MIN_HOLD), tok(CLAIM_MIN_HOLD) + ' TBLOCK' + val(CLAIM_MIN_HOLD), b != null && b >= CLAIM_MIN_HOLD, b != null, null],
-    ['🏦', 'Coming soon — the holders vault', '$15 locked to claim; more from $100 locked (+15% at $100, +30% at $500, +50% at $1,000); up to +25% more for 90 days locked; you must play that week (a heart, a TAM mint or a skin)', '$15 locked', null, false, VENIR()],
+    ['🔒', 'Lock TBLOCK', 'locked in a contract with no owner, for 7 days or more; to leave, there is a 7-day withdrawal period. It earns community points and monthly lock rewards, and it is what hearts and holders vault claims count', 'any amount', null, false, lockPret ? '<a class="st ok" href="/#wallet">LOCK IN THE APP →</a>' : VENIR()],
+    ['💬', 'Holders\' channel on Telegram', 'checked by our server before the invite: $' + prix.seuil + ' of TBLOCK held in your wallet (a lock does not count for it)', '$' + prix.seuil + ' of TBLOCK', etat.holder === true, etat.holder != null, TGP.pret ? null : VENIR()],
+    R ? ['♥', 'Heart a block', 'burns ' + EP.usd(R.likeUsd) + ' of TBLOCK from your wallet (' + tok(R.likePrice) + ' TBLOCK at the contract price) and needs ' + EP.usd(R.holdUsd) + ' of TBLOCK locked; counts as play for the holders vault and the lock rewards',
+      tok(R.minHold) + ' TBLOCK locked' + val(R.minHold), l != null && b != null && l >= R.minHold && b >= R.likePrice, l != null && b != null, null]
+      : ['♥', 'Heart a block', 'its price and its minimum are read from the hearts contract', '—', null, false, NONLU],
+    R ? ['🎨', 'TAM art and skins', 'a TAM art mint is ' + usdc(R.prixTam) + ', a skin ' + usdc(R.prixSkin) + ', paid through the TBLOCK payment router: ' + (R.devTam === R.devSkin ? pc(R.devTam) : pc(R.devTam) + ' (TAM art) or ' + pc(R.devSkin) + ' (skins)') + ' stays USDC for the dev wallet, the rest buys TBLOCK for the holders vault; each mint counts as play', 'open to all', null, false, '<span class="st ok">OPEN</span>']
+      : ['🎨', 'TAM art and skins', 'paid through the TBLOCK payment router; prices read from their contracts', 'open to all', null, false, NONLU],
+    ['🎰', 'Games (Spin, Roll, Duels)', 'open to everyone; they do not count as play for the holders vault or the lock rewards (hearts, TAM art and skins do)', 'open to all', null, false, '<span class="st ok">OPEN</span>'],
+    R ? ['🏦', 'Holders vault, every week', R.vault || 'its rules are read from the vault contract', tok(R.minHold) + ' TBLOCK locked' + val(R.minHold), l != null && l >= R.minHold && etat.unlockAt != null && Number(etat.unlockAt) >= Date.now() / 1000 + 7 * 86400, l != null, null]
+      : ['🏦', 'Holders vault, every week', 'its rules are read from the vault contract', '—', null, false, NONLU],
+    R ? ['📅', 'Monthly lock rewards', 'each 30-day month pays the holders whose lock covers the whole month and who played in it (a heart, a TAM art mint or a skin mint): ' + EP.MOIS_MIN_JOURS + ' days minimum to be sure of one. Month ' + R.mois + ' ends ' + jour(R.finMois)
+      + (R.closMois > 0n ? '' : '; no month has closed yet') + '. The rewards are what is deposited in the rewards contract; no amount is promised', 'a lock + play', null, false, lockPret ? '<a class="st ok" href="/#wallet">IN THE APP →</a>' : VENIR()]
+      : ['📅', 'Monthly lock rewards', 'read from the lock rewards contract', '—', null, false, NONLU],
   ];
   $('#perks').innerHTML = p.map(([ic, t, d, need, ok, lu, force]) => '<div class="perk"><span class="ic">' + ic + '</span><span class="t"><b>' + esc(t) + '</b><small>' + esc(d) + '</small></span>'
     + '<span class="need">' + esc(need) + '<small>' + (force || (lu ? st(ok) : (b == null && etat.holder == null ? st(false) : '<span class="st na">not read</span>'))) + '</small></span></div>').join('');
@@ -202,6 +244,7 @@ async function lirePrix() {
     const age = Math.round((Date.now() - prix.t) / 1000);
     $('#pxAge').textContent = age > 90 ? 'last read ' + Math.round(age / 60) + ' min ago (the pool did not answer since)' : 'read from its pool just now · refreshes every 30 s';
   } else { $('#px').textContent = 'not read yet'; $('#pxAge').textContent = 'retrying…'; }
+  await lireRegles();
   peindrePerks();
 }
 
@@ -218,7 +261,8 @@ $('#connecter').onclick = async () => {
   try { h = await api('/api/tblock/hold?wallet=' + w); }
   catch (e) { box.innerHTML = row('state', pill('SERVER NOT REACHED', 'warn')); return; }
   peindreTg(h.telegramReady);
-  etat = { wallet: w, challenge: h.ok ? h.challenge : null, balance: h.balance ?? null, holder: h.usd == null ? null : !!h.ok };
+  etat = { wallet: w, challenge: h.ok ? h.challenge : null, balance: h.balance ?? null, holder: h.usd == null ? null : !!h.ok, locked: null, unlockAt: null };
+  await lireLock(w);
   void lireCoeurs();
   void lirePoints();
   box.innerHTML = row('wallet', esc(displayShort(w))) + row('holds', h.balance == null ? 'not read' : tok(h.balance) + ' TBLOCK')

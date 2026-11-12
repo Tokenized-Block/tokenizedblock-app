@@ -27,10 +27,12 @@ const j = joueursParSemaine([{ epoch: 0, liker: 'a', burned: 5n }, { epoch: 0, l
 t('players per week: distinct givers and burned', j[0].joueurs === 2 && j[0].burned === 11n && j[1].joueurs === 1 && j[1].burned === 2n);
 t('server serves the weeks', SRV.includes('semaines: joueursParSemaine(tous),'));
 const f = APP.slice(APP.indexOf('async function peindreVaultWallet('), APP.indexOf('async function peindreVaultWallet(') + 6000);
-t('card: one merged vault line, with $ and the reserved part inside', f.includes("ligne('In the vault', ECO.fmt(bal) + ' TBLOCK' + usd(bal) + (res > 0n ?") && !f.includes("ligne('Reserved for players'"));
-t('card: the week end READ from BlockLikes.epochEnd, never typed', f.includes('lit(ECO.VIEW.epochEnd(ep))') && f.includes("ligne('Week ' + ep + ' ends', new Date(Number(fin) * 1000)"));
-t('card: players from /api/coeurs semaines, "not read" when unread', f.includes("((c.semaines || {})[String(ep)] || {}).joueurs") && f.includes("joueurs === null ? 'not read just now'"));
-t('card: what the close would reserve, from budgetAttendu, said as "if the week closed now"', f.includes('ECO.budgetAttendu({ free: libre, totalSpent: depense,') && f.includes("' if the week closed now'"));
+/* 2026-11-12 (the economy pack is live): the same card on the live vault (EP): the week's play = hearts + TAM art + skins (totalPlayIn), the
+ *   heart givers of Hearts only (/api/coeurs semainesParContrat), the close budget from the live vault's caps */
+t('card: one merged vault line, with $ and the reserved part inside', f.includes("ligne('In the vault', EP.fmt(bal) + ' TBLOCK' + usd(bal) + (res > 0n ?") && !f.includes("ligne('Reserved for players'"));
+t('card: the week end READ from Hearts epochEnd, never typed', f.includes('lit(EP.VIEW.epochEnd(ep))') && f.includes("ligne('Week ' + ep + ' ends', new Date(Number(fin) * 1000)"));
+t('card: heart givers from /api/coeurs (Hearts only); left out when unread', f.includes('c.semainesParContrat[EP.HEARTS]') && f.includes("(joueurs === null ? '' : ' · ' + joueurs"));
+t('card: what the close would reserve, from budgetAttendu, said as "if the week closed now"', f.includes('EP.budgetAttendu({ free: libre, totalPlay: jeu,') && f.includes("' if the week closed now'"));
 t('card: $ only from the price read (no price -> no $)', f.includes("const usd = (raw) => (px === null ? '' :"));
 console.log(ok + '/' + (ok + ko) + (ko ? ' — RED' : ' — green'));
 process.exit(ko ? 1 : 0);

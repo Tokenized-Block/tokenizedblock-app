@@ -57,10 +57,12 @@ const corpsDe = (i) => { if (i < 0) return ''; const k = APP.slice(i).search(/\r
 const corpsP = corpsDe(iP);
 /* review 2026-11-11: computing the line is not painting it — the line must be the FIRST row given to #wCoeursMoi, for a visitor too;
  *   and its "now" price is priceNow alone (not the lower of now and ~10 min ago) */
-const clauseC = (c) => /const ligneClaim = CV\.ligneSeuilClaim\(\{ claimMinHold: ECO\.CLAIM_MIN_HOLD,/.test(c)
-  && /peindre\(\$\('#wCoeursMoi'\), \[ligneClaim\]\.concat\(/.test(c)
-  && /prixClaim = h && h\.ok && Number\(h\.priceNow\) > 0 \? Number\(h\.priceNow\) : null;/.test(c) && !/prixClaim = [^;]*priceBefore/.test(c);
-vu(clauseC(corpsP), 'C peindreCoeursWallet paints CV.ligneSeuilClaim (ECO.CLAIM_MIN_HOLD) as the first row of #wCoeursMoi, priced with priceNow');
+/* 2026-11-12 (the economy pack is live): a heart and a vault claim need the hearts' minimum LOCKED, read from the contract (minHold()),
+ *   with this wallet's lock (activeLockedOf); the line is still the FIRST row of #wCoeursMoi. ligneSeuilClaim (A, B) stays for the first vault. */
+const clauseC = (c) => /const need = EP\.word\(await rpc\('eth_call', \[EP\.VIEW\.minHold\(\), 'latest'\]\)\);/.test(c)
+  && /LK\.VIEW\.activeLockedOf\(String\(compte\)\.toLowerCase\(\)\)/.test(c)
+  && /peindre\(\$\('#wCoeursMoi'\), \[ligneClaim\]\.concat\(/.test(c);
+vu(clauseC(corpsP), 'C peindreCoeursWallet paints the live claim rule (minHold read on chain, the wallet\'s lock) as the first row of #wCoeursMoi');
 const mC = corpsP.replace("peindre($('#wCoeursMoi'), [ligneClaim].concat(", "peindre($('#wCoeursMoi'), [].concat(");
 vu(mC !== corpsP && clauseC(mC) === false, 'M mutant: the claim line computed but not painted -> C red');
 
@@ -68,15 +70,15 @@ const clauseD = (app) => {
   const m = app.match(/<button type="button" id="bcLikeBtn"[^>]*>/);
   const tag = m ? m[0] : '';
   return !!tag && !tag.includes('86,000') && !tag.includes('2,580,000')
-    && /\$\('#bcLikeBtn'\)\.title = [^\n]*ECO\.fmt\(ECO\.LIKE_PRICE\)[^\n]*ECO\.fmt\(ECO\.LIKE_MIN_HOLD\)[^\n]*ECO\.SEUIL_USD[^\n]*ECO\.fmt\(ECO\.CLAIM_MIN_HOLD\)/.test(app);
+    && /\$\('#bcLikeBtn'\)\.title = [^\n]*EP\.usd\(u\)[^\n]*EP\.usd\(h\)/.test(app); /* 2026-11-12: the contract's own dollar rules, read on chain */
 };
-vu(clauseD(APP), 'D the ♥ title types no amount in the HTML; code sets it from ECO (price, hold, $, claim threshold)');
-const nClaim = (APP.match(/CLAIM_MIN_HOLD/g) || []).length;
-vu(nClaim > 1, 'E CLAIM_MIN_HOLD appears ' + nClaim + ' times in app.html (was 1)');
+vu(clauseD(APP), 'D the ♥ title types no amount in the HTML; code sets it from the hearts contract (LIKE_USD_E18, HOLD_USD_E18 read on chain)');
+const nClaim = (APP.match(/ECO\.fmt\(ECO\.CLAIM_MIN_HOLD\)/g) || []).length;
+vu(nClaim >= 1, 'E the first vault\'s own threshold (ECO.CLAIM_MIN_HOLD) is still named where its owed weeks are claimed (' + nClaim + ')');
 const iC = APP.indexOf('async function bcCoeur(a, dire = null) {');
 const corpsC = corpsDe(iC);
-vu(/Connect your wallet first\.[^\n]*ECO\.fmt\(ECO\.CLAIM_MIN_HOLD\)/.test(corpsC) && /♥ confirmed\.[^\n]*ECO\.fmt\(ECO\.CLAIM_MIN_HOLD\)/.test(corpsC),
-  'E the note before connecting and the confirmation both name the claim threshold from ECO');
+vu(/Connect your wallet first\. A heart costs ' \+ regle/.test(corpsC) && /const regle = bcLikeUsd \? EP\.usd\(bcLikeUsd\.like\)[^\n]*EP\.usd\(bcLikeUsd\.hold\)/.test(corpsC) && /♥ confirmed\./.test(corpsC),
+  'E the note before connecting names the contract\'s price and its locked minimum (read, never typed); the confirmation is said');
 vu(!/^import /m.test(lire('coeurs-vue.js')), 'F coeurs-vue.js imports nothing');
 
 /* mutants */

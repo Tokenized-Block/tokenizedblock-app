@@ -3375,12 +3375,12 @@ details[open] > summary::before{transform:rotate(90deg)}
       <button type="button" class="lkPuce" data-w="bank" aria-pressed="false">Bank</button>
     </div>
 
-    <!-- COMMUNITY VAULT (Phil 2026-11-10): what the holders economy holds and what this wallet can claim. Hidden until TBlockVault is
-         deployed (economie.js VAULT); the full card with Claim buttons lives on contest.html, this one reads and links there. -->
+    <!-- COMMUNITY VAULT (Phil 2026-11-10): what the holders economy holds and what this wallet can claim. 2026-11-12: the live vault
+         (economie-pack.js VAULT), with its Claim button; contest.html has the same card for every week. -->
     <div class="carte" id="wVault" hidden data-v="lock">
       <p class="titre">Holders vault</p>
       <!-- game357: the threshold is no longer typed here (it is READ in "How it works"); "fees" said who: creators' TBLOCK at birth -->
-      <p class="sous">TBLOCK set aside for the players. Each week it pays them back part of the TBLOCK they burned with hearts ♥ — never more than they burned. Deposits so far came from the team; buybacks and creators’ birth payments can add to it.</p>
+      <p class="sous">TBLOCK set aside for the players. Each week it pays them back part of what they put in — hearts ♥, TAM art and skins — never more than they put in. Every TAM art and skin mint sends the TBLOCK it buys here.</p>
       <div id="wVaultRows"></div>
       <div class="lkPuces wSeg" id="wVaultSeg" role="group" aria-label="Holders sections">
         <button type="button" class="lkPuce on" data-v="lock" aria-pressed="true">Lock</button>
@@ -3687,7 +3687,7 @@ details[open] > summary::before{transform:rotate(90deg)}
       <!-- ⛔ L EMPREINTE EST AFFICHEE, DONC ELLE EST DE L ANGLAIS. `20261001-pont-dans-lui` a fait
            rougir `test-texte-a-l-ecran.mjs` : le mot « dans » est de la prose francaise partie a
            l ecran anglais. La garde a fait son travail du premier coup. -->
-      <p class="note" data-build="20261109-game375" hidden>Build <code>20261109-game375</code> ·Contract labels say what they do, not our internal names.</p>
+      <p class="note" data-build="20261109-game376" hidden>Build <code>20261109-game376</code> ·Contract labels say what they do, not our internal names.</p>
       <p class="sous">Everything happening to blocks on Base, live.</p>
       <!-- tip 0013: sticky — Hooked chip = Dex fees; unhooked → Launch beside. No fee addr. -->
       <p class="note" id="sfHookedSticky" hidden>Blocks alive on TokenizedBlock pay their creator on every trade. Example:<button type="button" class="puce" id="sfStickyTbgas">Open TBGAS</button>.</p>
@@ -4325,6 +4325,10 @@ details[open] > summary::before{transform:rotate(90deg)}
                 <summary id="payerTousTitre"></summary>
                 <p class="note" id="payerTousNote" hidden></p>
                 <ul class="payerListe" id="payerListe"></ul>
+                <!-- game374 (Phil 2026-11-12): TBLOCK in place of UNIT. Its pool price for the size shown (texteTblockPayer) and its BaseStonk
+                     page, by ADDRESS (fetched 2026-11-12: basestonk.io/tokens/<real TBLOCK> answers "TokenizedBlock ($TBLOCK) ... | BaseStonk";
+                     a made-up address answers the generic home title). Not a way to pay. -->
+                <p class="note payerTblock" id="payerTblock"><b>TBLOCK</b> <span id="payerTblockCout">price not read yet · not a way to pay here</span> <a class="lienLearn" id="payerTblockAchat" href="https://basestonk.io/tokens/0xb200000000000000000000ba9bf8330307f8830e" target="_blank" rel="noopener">Buy on BaseStonk →</a></p>
               </details>
             </div>
           </div>
@@ -5289,7 +5293,7 @@ import { analyserCommande, enUnitesBrutes, PRECOMMANDES, AIDE_COMMANDES, COMMAND
 import * as PanneauCmd from './panneau-commandes.js';
 /* 2026-10-18 : la palette Ctrl+K du panneau (filtre et classement purs ; la liste vient de COMMANDES, de la barre d onglets et des tuiles du Game) */
 import { entreesCommandes, entreesOnglets, entreesJeu, filtrerPalette, noterUsage, lireUsages, ecrireUsages, deplacer } from './palette.js';
-import { BLOCKSKINS, SKIN_MINT_USDC, SKIN_MINT_TEXTE, SKIN_MINT_OUVERT, appelMint, appelApprouver, lireSkins, skinsDe, skinPortee, DEVISES_SKIN, montantVersBrut, actionsSkin, appelCredit,
+import { BLOCKSKINS, SKIN_MINT_USDC, SKIN_MINT_TEXTE, SKIN_MINT_OUVERT, appelMint, packRecette, appelApprouver, lireSkins, skinsDe, skinPortee, DEVISES_SKIN, montantVersBrut, actionsSkin, appelCredit,
   offreMinimale, partage, appelAcheter, appelEncherir, appelRegler, appelRetirer, appelMettreEnVente, appelOuvrirEnchere, appelRetirerCredit, ETH as ETH_SKIN, propositionSkin, lireDevisesSkin, deviseAdmise, decoderPage, appelPage } from './blockskins.js';
 import { SKM_RAFRAICHIR_MS, SKM_POULS_MS, SKM_FILTRES, SKM_STATUTS, filtrerSkins, ordonnerSkins, compterSkins, gestesSkin, montantOffre, relectureAvantSigner, cleLigneSkin, offresChangees, tempsRestant, apercuSkinFormes, detenteurCourt, statutSkin, brutVersTexte as brutVersTexteSkin, texteMarcheSkins } from './skins-marche.js';
 import { annonce as annonceSalle } from './salle-encheres.js';
@@ -5330,7 +5334,8 @@ import { frappesVers, fusionnerCache } from './mes-blocks.js';
 import { confirmerBridgeStub, planBridgeFeeSkim, buildBridgeFeeCall, lireBridgeBlock, ecrireBridgeBlock, BRIDGE_FEE_LABEL, phraseBridgeLegs, HUB_SWAP_LIVE, unitsFromHuman } from './bridge.js';
 import { recordPropose, recordPay, recordJournalHook, feeAlreadyRecognized, phraseOptionA, mayUseX402, assertNoDoubleChargeWithBridge, listX402Events } from './x402-pay.js';
 import { repartitionFrappe, TBLOCK_TEST_ANCIEN as TBLOCK, TBLOCK as TBLOCK_REEL, estJetonMasque, TBGAS, SUPPLY_FIXE, DECIMALES_FIXES, HOOK_PREVU, HOOK_V2, HOOK_V3, HOOK_V4, HOOK_V5, HOOK_V6, HOOK_V7, HOOK_V8, HOOK_V9, HOOK_7030_ACTIF, estHook7030, fraisHookBps, OPTIONS_LANCEMENT, estHookDeNaissance, estNotreHook, hookCourant, hookDeploye, hookV3Deploye, hookV8Deploye, blockPorteLeLabel, HOOKS_PAIENT_DEJA_A6CF } from './tokenomics.js'; /* game354: in this file TBLOCK = the OLD test token, only to read its LEGACY pools (never shown as "TBLOCK"); the real TBLOCK is tokenomics.TBLOCK */
-import * as ECO from './economie.js'; /* holders economy: the heart burn and the holders vault (unsigned calls only) */
+import * as ECO from './economie.js'; /* holders economy, FIRST contracts: their hearts stay counted, their past vault weeks stay claimable */
+import * as EP from './economie-pack.js'; /* 2026-11-12: the live economy pack — Hearts, the payment router, TAM art, Skins, the vault, the lock rewards */
 import * as CV from './coeurs-vue.js'; /* game346: hearts given / received, the board, the signals between blocks (text only) */
 import * as PTS from './points.js'; /* game356: the server's own points function, for the lock pills */
 import * as PV from './points-vue.js'; /* game353: the community points (text only) */
@@ -5788,6 +5793,12 @@ async function recusLogs(r) {
  *   ⛔ RPC : /api/misables au plus UNE fois par minute par page (succes ou echec) ; balanceOf SEULEMENT pour les jetons listes (misables a
  *   au moins une taille), relus avec la liste ; decimals() une fois par jeton tenu ; les devis SEULEMENT au clic, jamais au repeint. */
 const PAYER_TTL_MS = 60000;
+/* game374 (Phil 2026-11-12: "retire le UNIT pour du TBLOCK avec le buy qui mene au site basestonk"): UNIT is no longer offered in Pay
+ *   with — not in the menu, not in the greyed list, not in the "not deep enough" count. The server still serves its line and
+ *   payer-unit.js stays (test-payer-unit runs the path with this flag on). TBLOCK is shown under the list (#payerTblock): its pool price
+ *   for the size shown and its BaseStonk page — it is NOT a way to pay (no TBLOCK -> USDC route is built). */
+const PAYER_UNIT_OFFERT = false;
+const payerServies = () => (payer.lignes || []).filter((l) => l && (PAYER_UNIT_OFFERT || l.route !== ROUTE_UNIT));
 const payer = { lignes: null, essai: 0, enVol: null, compte: null, soldes: new Map(), dec: new Map(), soldesA: 0, choix: 'usdc', sig: '',
   /* 2026-10-25 : les jetons des options OUVERTES du dernier rendu (seuls choisissables), la liste #payerTous, les decimals ratees (pas relues) */
   ouvertes: new Set(), sigTous: '', decRatees: new Set(), decEnVol: null };
@@ -5818,7 +5829,7 @@ function payerTaille(l, usdc) {
   let est = null; try { est = (BigInt(t.montantIn) * BigInt(usdc) + taille - 1n) / taille; } catch (_) { est = null; }
   return est !== null && est > 0n ? { ok: true, est, ecartBps: Number(t.ecartBps) } : { ok: false, raison: RAISONS_PAYER.SANS_DEVIS };
 }
-const payerListees = () => (payer.lignes || []).filter((l) => l && /^0x[0-9a-f]{40}$/.test(String(l.jeton)) && (l.tailles || []).some((t) => t.misable === true));
+const payerListees = () => payerServies().filter((l) => l && /^0x[0-9a-f]{40}$/.test(String(l.jeton)) && (l.tailles || []).some((t) => t.misable === true));
 async function lireMisablesPage() {
   if (payer.enVol) return payer.enVol;
   if (Date.now() - payer.essai < PAYER_TTL_MS) return payer.lignes;
@@ -5892,7 +5903,7 @@ function rendrePayerAvec(moi, actions) {
   /* la ligne muette : les autres totaux du jeton choisi, puis le COMPTE des jetons qui ne paient rien (jamais leur liste) */
   const jt = jetonChoisi(), parts = [];
   if (jt) for (const a of actions) if (a.usdc !== taille) { const e = payerTaille(jt, a.usdc); parts.push(a.nom + ' (' + usdcTexte(a.usdc) + ' USDC) ' + (e.ok ? 'about ' + qteJeton(e.est, payer.dec.get(jt.jeton)) : 'USDC only: ' + e.raison)); }
-  const n = payer.lignes ? payer.lignes.length - payerListees().length : 0;
+  const n = payer.lignes ? payerServies().length - payerListees().length : 0;
   note.textContent = [parts.length ? 'With ' + symbolePayer(jt) + ': ' + parts.join(' · ') + '.' : '', n > 0 ? n + ' other token' + (n === 1 ? ' is' : 's are') + ' not deep enough to bet.' : ''].filter(Boolean).join(' ');
   note.hidden = !note.textContent;
   rendrePayerTous(moi, taille);
@@ -5926,6 +5937,15 @@ function ligneMarchePour(jeton) {
   const ls = d && Array.isArray(d.lignes) ? d.lignes : [];
   return ls.find((x) => String((x && x.adr) || '').toLowerCase() === jeton) || null;
 }
+/* game374: the TBLOCK line under the list — N TBLOCK for the size shown, at the pool price the page ALREADY reads for the top-bar pill
+ *   (tbPilule, /api/tblock/hold every 30 s: no extra call). Not read (or read before the pill exists): "price not read yet", never a
+ *   made-up number. Never a way to pay. */
+function texteTblockPayer(taille) {
+  let u = null; try { u = tbPilule && Number.isFinite(tbPilule.usd) && tbPilule.usd > 0 ? tbPilule.usd : null; } catch (_) { u = null; }
+  let usdc = null; try { usdc = taille ? Number(BigInt(taille)) / 1e6 : null; } catch (_) { usdc = null; }
+  return (u && usdc ? 'about ' + Number((usdc / u).toPrecision(3)).toLocaleString('en-US') + ' TBLOCK for ' + usdcTexte(taille) + ' USDC at its pool price'
+    : 'price not read yet') + ' · not a way to pay here';
+}
 function rendrePayerTous(moi, taille) {
   const z = $('#payerTous'), titre = $('#payerTousTitre'), ul = $('#payerListe'), tn = $('#payerTousNote');
   if (!z || !titre || !ul || !tn) return;
@@ -5954,9 +5974,11 @@ function rendrePayerTous(moi, taille) {
   const titreTxt = 'All ' + toutes.length + ' bettable tokens' + (moi ? (k ? ' · ' + k + ' in the menu, ' + autres.length + ' not payable yet' : ' · you hold none of them') : '');
   const noteTxt = moi ? 'Greyed tokens cannot be picked until your wallet holds enough.' + (lignes.some((x) => x.buy || x.fiche) ? ' Buy opens the stock in the Market, or its page in Blocks.' : '')
     : 'Connect a wallet to pay with a token.';
-  const sig = JSON.stringify([titreTxt, noteTxt, lignes]);
+  const tbTxt = texteTblockPayer(taille), tbC = $('#payerTblockCout');
+  const sig = JSON.stringify([titreTxt, noteTxt, lignes, tbTxt]);
   if (sig === payer.sigTous) return;
   payer.sigTous = sig;
+  if (tbC) tbC.textContent = tbTxt;
   titre.textContent = titreTxt;
   tn.textContent = noteTxt; tn.hidden = false;
   /* le symbole est filtre (symbolePayer : [A-Za-z0-9.$-]), l adresse validee (payerListees : 0x + 40 hex), le reste vient de nos nombres */
@@ -32126,9 +32148,11 @@ async function bcActionMarche(genre, s, x = {}, qui = 'Skins') {
      *   minimum — au-dessus de « Max skin bid » pour le brain, et sans le redemander a la personne. `s` reste la skin MONTREE ; `v` est
      *   la skin relue ; le montant est celui de relectureAvantSigner. */
     let v = s, montant = 0n;
+    /* 2026-11-12: a skin is read, approved and acted on in ITS OWN contract (the pack's Skins, or an earlier one), never another */
+    const K = String((s && s.contrat) || BLOCKSKINS).toLowerCase();
     if (s && genre !== 'CREDIT') {
       let frais = null;
-      try { frais = decoderPage(await rpc('eth_call', [{ to: BLOCKSKINS, data: appelPage(s.tokenId, 1) }, 'latest']))[0] || null; } catch (_) { frais = null; }
+      try { frais = decoderPage(await rpc('eth_call', [{ to: K, data: appelPage(s.tokenId, 1) }, 'latest']))[0] || null; if (frais) frais.contrat = K; } catch (_) { frais = null; }
       const rl = relectureAvantSigner({ genre, montre: s, frais, moi: compte, t: Math.floor(Date.now() / 1000),
         saisi: x && x.montant != null ? x.montant : null, plafond: x && x.plafond != null ? x.plafond : null, devise: x && x.bornerDevise ? x.bornerDevise : null });
       if (!rl.ok) {
@@ -32143,7 +32167,7 @@ async function bcActionMarche(genre, s, x = {}, qui = 'Skins') {
       v = frais; montant = rl.montant;
     }
     /* une NOUVELLE annonce : la devise est relue admise (currencyAllowed) a l instant — la liste du formulaire peut dater de 10 min */
-    if ((genre === 'VENDRE' || genre === 'ENCHERE') && (await deviseAdmise({ rpc, devise: x.devise })) !== true) {
+    if ((genre === 'VENDRE' || genre === 'ENCHERE') && (await deviseAdmise({ rpc, devise: x.devise, contrat: K })) !== true) {
       const dsym = (bcDevisesSkin()[String(x.devise).toLowerCase()] || {}).sym || court(x.devise);
       bcEtape(m, 'This market does not accept ' + dsym + ' for a new listing right now, or it could not be read on chain. Nothing was asked.', 'non');
       bc.devisesSkinLu = 0; void bcLireDevisesSkin().then(() => void peindreSkinsMarche(true));
@@ -32156,27 +32180,27 @@ async function bcActionMarche(genre, s, x = {}, qui = 'Skins') {
           /* en jeton : solde ET autorisation relus avant de signer ; approbation EXACTE du montant, seulement si besoin */
           let solde = null, autorise = null;
           try { solde = await bcSolde(s.devise, compte); } catch (_) { solde = null; }
-          try { autorise = BigInt(await rpc('eth_call', [{ to: s.devise, data: '0xdd62ed3e' + String(compte).slice(2).toLowerCase().padStart(64, '0') + BLOCKSKINS.slice(2).padStart(64, '0') }, 'latest'])); } catch (_) { autorise = null; }
+          try { autorise = BigInt(await rpc('eth_call', [{ to: s.devise, data: '0xdd62ed3e' + String(compte).slice(2).toLowerCase().padStart(64, '0') + K.slice(2).padStart(64, '0') }, 'latest'])); } catch (_) { autorise = null; }
           if (solde === null || autorise === null) { bcEtape(m, 'Your balance or approval could not be read — nothing was asked.', 'non'); bcBoutons(m, [['Try again', go, true], ['Dismiss', refuser, true]]); return; }
           if (solde < montant) { bcEtape(m, 'This wallet holds ' + bcMontantSkin(solde, s.devise) + ' — this needs ' + bcMontantSkin(montant, s.devise) + '. Nothing was asked.', 'non'); return; }
-          if (autorise < montant) appels.push(appelApprouver(s.devise, montant, 'Allow the skins market to take exactly ' + bcMontantSkin(montant, s.devise)));
+          if (autorise < montant) appels.push(appelApprouver(s.devise, montant, 'Allow the skins market to take exactly ' + bcMontantSkin(montant, s.devise), K));
         }
-        appels.push(genre === 'ACHETER' ? appelAcheter(s.tokenId, s.devise, montant) : appelEncherir(s.tokenId, s.devise, montant));
+        appels.push(genre === 'ACHETER' ? appelAcheter(s.tokenId, s.devise, montant, K) : appelEncherir(s.tokenId, s.devise, montant, K));
         const p = partage(montant);
         bcEtape(m, genre === 'ACHETER'
           ? 'You pay ' + bcMontantSkin(montant, s.devise) + ': the seller receives ' + bcMontantSkin(p.vendeur, s.devise) + ', TokenizedBlock ' + bcMontantSkin(p.frais, s.devise) + ' (10 %). The skin comes to your wallet and dresses its block for you.'
           : 'Your bid: ' + bcMontantSkin(montant, s.devise) + ', held by the contract until the end. If someone outbids you, it is credited back to you to withdraw. 10 % of the winning bid goes to TokenizedBlock.');
       } else if (genre === 'REGLER') {
-        appels = [appelRegler(s.tokenId)];
+        appels = [appelRegler(s.tokenId, K)];
         bcEtape(m, BigInt(v.offre || 0) > 0n ? 'The winner receives the skin, the seller 90 %, TokenizedBlock 10 %. Anyone can settle an ended auction.' : 'No bid: the skin goes back to its seller.');
       } else if (genre === 'RETIRER') {
-        appels = [appelRetirer(s.tokenId)];
+        appels = [appelRetirer(s.tokenId, K)];
         bcEtape(m, 'The skin leaves the market and comes back to your wallet.');
       } else if (genre === 'VENDRE') {
-        appels = [appelMettreEnVente(s.tokenId, x.devise, x.brut)];
+        appels = [appelMettreEnVente(s.tokenId, x.devise, x.brut, K)];
         bcEtape(m, 'For sale at ' + bcMontantSkin(x.brut, x.devise) + '. While it is for sale the market contract holds it; when it sells you receive ' + bcMontantSkin(partage(x.brut).vendeur, x.devise) + ' (90 %).');
       } else if (genre === 'ENCHERE') {
-        appels = [appelOuvrirEnchere(s.tokenId, x.devise, x.brut, x.duree)];
+        appels = [appelOuvrirEnchere(s.tokenId, x.devise, x.brut, x.duree, K)];
         bcEtape(m, 'Auction from ' + bcMontantSkin(x.brut, x.devise) + ' for ' + bcDureeSkin(Number(x.duree)) + '. Each bid must raise the highest by 5 %; a bid in the last 5 minutes adds 5 minutes (never past 7 days). You receive 90 % of the winning bid.');
       } else if (genre === 'CREDIT') {
         appels = [appelRetirerCredit(x.devise)];
@@ -32408,15 +32432,19 @@ const bcLikeEtat = { de: null, n: null, lu: 0, enVol: false };
 function bcPeindreLike(a) {
   const box = $('#bcLike'), note = $('#bcLikeNote');
   if (!box) return;
-  if (!ECO.LIKES || !ECO.isB20(a)) { box.hidden = true; if (note) note.hidden = true; return; }
+  if (!EP.HEARTS || !EP.isB20(a)) { box.hidden = true; if (note) note.hidden = true; return; }
   box.hidden = false; box.dataset.adr = a;
   if (bcLikeEtat.de !== a) { bcLikeEtat.de = a; bcLikeEtat.n = null; $('#bcLikeN').textContent = '…'; if (note) note.hidden = true; }
   if (bcLikeEtat.enVol || (bcLikeEtat.n !== null && Date.now() - bcLikeEtat.lu < 30000)) return;
   bcLikeEtat.enVol = true;
   void (async () => {
     try {
-      const v = ECO.VIEW.likesOf(a);
-      const n = ECO.word(await rpc('eth_call', [{ to: v.to, data: v.data }, 'latest']));
+      /* 2026-11-12: hearts received = those on Hearts + those given on the first contract (history, never lost) */
+      const v = EP.VIEW.likesOf(a);
+      const n2 = EP.word(await rpc('eth_call', [{ to: v.to, data: v.data }, 'latest']));
+      let n1 = 0n;
+      if (ECO.LIKES) { const v1 = ECO.VIEW.likesOf(a); n1 = ECO.word(await rpc('eth_call', [{ to: v1.to, data: v1.data }, 'latest'])); }
+      const n = n1 + n2;
       if (bcLikeEtat.de === a) { bcLikeEtat.n = n; bcLikeEtat.lu = Date.now(); $('#bcLikeN').textContent = n.toString(); }
     } catch (_) { if (bcLikeEtat.de === a) $('#bcLikeN').textContent = 'not read'; }
     bcLikeEtat.enVol = false;
@@ -32452,28 +32480,36 @@ async function bcPeindreSignaux(a) {
   } catch (_) { if (bcSignauxEtat.de === a) p.hidden = true; } finally { bcSignauxEtat.enVol = false; }
 }
 $('#bcLikeBtn').addEventListener('click', () => { void bcCoeur($('#bcLike').dataset.adr); });
-/* 2026-11-11: the ♥ title is written from the deployment record (never typed), and says what CLAIMING the vault needs too */
-$('#bcLikeBtn').title = 'Heart this block: burns ' + ECO.fmt(ECO.LIKE_PRICE) + ' TBLOCK, counts as play for the holders vault (you keep at least ' + ECO.fmt(ECO.LIKE_MIN_HOLD) + ' TBLOCK, and $' + ECO.SEUIL_USD + ' of TBLOCK at the live price). Claiming the week’s reward needs ' + ECO.fmt(ECO.CLAIM_MIN_HOLD) + ' TBLOCK held.';
+/* 2026-11-12: the ♥ title carries the contract's own dollar rules, read on chain once (LIKE_USD_E18, HOLD_USD_E18); unread = no number */
+let bcLikeUsd = null; /* { like, hold }: the contract's dollar rules (USD × 1e18), read once */
+$('#bcLikeBtn').title = 'Heart this block: TBLOCK burned from your wallet, counted as play for the holders vault and the lock rewards. It needs TBLOCK locked.';
+void (async () => {
+  try {
+    const [u, h] = await Promise.all([EP.VIEW.likeUsd(), EP.VIEW.holdUsd()].map(async (v) => EP.word(await rpc('eth_call', [{ to: v.to, data: v.data }, 'latest']))));
+    bcLikeUsd = { like: u, hold: h };
+    $('#bcLikeBtn').title = 'Heart this block: ' + EP.usd(u) + ' of TBLOCK at the contract price, burned from your wallet. It counts as play for the holders vault and the lock rewards, and needs ' + EP.usd(h) + ' of TBLOCK locked.';
+  } catch (_) { /* the plain title stays */ }
+})();
 /** ONE heart for block `a`, from the ♥ next to the name or from the panel command « heart <block> ». Checked before the wallet opens
  *  (pay + keep the larger of the contract's hold and $15 at the live price); `dire` writes where the person looks (the note, or the thread). */
 async function bcCoeur(a, dire = null) {
   const note = $('#bcLikeNote'), btn = $('#bcLikeBtn');
   dire = dire || ((t) => { note.hidden = false; note.textContent = t; });
-  if (!a || !ECO.LIKES) return { ok: false };
-  if (!ECO.isB20(a)) { dire('Only a block can get a heart (a B20 address).'); return { ok: false }; }
-  if (!compte) { dire('Connect your wallet first. A heart costs ' + ECO.fmt(ECO.LIKE_PRICE) + ' TBLOCK (burned) and needs ' + ECO.fmt(ECO.LIKE_MIN_HOLD) + ' TBLOCK left after paying. Claiming the week’s vault reward needs ' + ECO.fmt(ECO.CLAIM_MIN_HOLD) + ' TBLOCK held.'); return { ok: false }; }
+  if (!a || !EP.HEARTS) return { ok: false };
+  if (!EP.isB20(a)) { dire('Only a block can get a heart (a B20 address).'); return { ok: false }; }
+  const regle = bcLikeUsd ? EP.usd(bcLikeUsd.like) + ' of TBLOCK, burned from your wallet, and it needs ' + EP.usd(bcLikeUsd.hold) + ' of TBLOCK locked' : 'TBLOCK burned from your wallet, and it needs TBLOCK locked';
+  if (!compte) { dire('Connect your wallet first. A heart costs ' + regle + ' (Wallet → Holders → Lock).'); return { ok: false }; }
   btn.disabled = true;
   try {
-    const v = ECO.VIEW.balanceOf(String(compte).toLowerCase());
-    const bal = ECO.word(await rpc('eth_call', [{ to: v.to, data: v.data }, 'latest']));
-    /* game345: the contract's fixed hold AND $15 at the price read now (lower of now and ~10 min ago), the larger of the two */
-    let prixUsd = null;
-    try { const h = await fetch('/api/tblock/hold', { cache: 'no-store', signal: AbortSignal.timeout(20000) }).then((x) => x.json()); prixUsd = h && h.ok ? Math.min(Number(h.priceNow), Number(h.priceBefore || h.priceNow)) : null; } catch (_) { prixUsd = null; }
-    const chk = ECO.likeCheckUsd({ balance: bal, n: 1, prixUsd });
+    /* 2026-11-12: the rule is the contract's own (BlockLikesV2.like): price and minimum read from Hearts now, the lock read from TBlockLock */
+    const moi = String(compte).toLowerCase();
+    const lit = async (v) => EP.word(await rpc('eth_call', [{ to: v.to, data: v.data }, 'latest']));
+    const [bal, locked, prix, need] = await Promise.all([lit(EP.VIEW.balanceOf(EP.TBLOCK, moi)), lit(LK.VIEW.activeLockedOf(moi)), lit(EP.VIEW.likePrice()), lit(EP.VIEW.minHold())]);
+    const chk = EP.likeCheck({ balance: bal, locked, likePrice: prix, minHold: need, n: 1, usdLike: bcLikeUsd && bcLikeUsd.like, usdHold: bcLikeUsd && bcLikeUsd.hold });
     if (!chk.ok) { dire('Not sent: ' + chk.why + '.'); return { ok: false }; }
-    dire('Waiting for your wallet: a heart for ' + ECO.fmt(chk.cost) + ' TBLOCK, burned, not refundable…');
-    const r = await envoyerAppels(ECO.likeBatch({ block: a, n: 1 }).map((c) => ({ to: c.to, data: c.data, value: c.value })), compte);
-    if (r && r.etat === 'CONFIRME') { dire('♥ confirmed. It counts as play for this week’s holders vault; claiming needs ' + ECO.fmt(ECO.CLAIM_MIN_HOLD) + ' TBLOCK held.'); bcLikeEtat.lu = 0; bcSignauxEtat.lu = 0; wVaultLu = 0; bcPeindreLike(a); return { ok: true }; }
+    dire('Waiting for your wallet: a heart for ' + EP.fmt(chk.cost) + ' TBLOCK, burned, not refundable…');
+    const r = await envoyerAppels(EP.likeBatch({ block: a, n: 1, likePrice: prix }).map((c) => ({ to: c.to, data: c.data, value: c.value })), compte);
+    if (r && r.etat === 'CONFIRME') { dire('♥ confirmed. It counts as play this week for the holders vault, and this month for the lock rewards.'); bcLikeEtat.lu = 0; bcSignauxEtat.lu = 0; wVaultLu = 0; bcPeindreLike(a); return { ok: true }; }
     dire('Not done: ' + String((r && (r.pourquoi || r.etat)) || 'no answer').slice(0, 160));
     return { ok: false };
   } catch (e) { dire('Not sent: ' + String((e && e.message) || e).slice(0, 160)); return { ok: false }; }
@@ -32482,10 +32518,10 @@ async function bcCoeur(a, dire = null) {
 /** the panel command « heart <block> » (and the ♥ chip, « heart this »): the answer is written in the thread, the same bcCoeur signs */
 async function bcCommandeCoeur(jeton) {
   const j = bcResoudre(jeton);
-  const m = bcMessage('♥ Heart', '', j.ok ? 'A heart for ' + j.sym + ': ' + ECO.fmt(ECO.LIKE_PRICE) + ' TBLOCK burned, checked before your wallet opens.' : j.pourquoi);
+  const m = bcMessage('♥ Heart', '', j.ok ? 'A heart for ' + j.sym + (bcLikeUsd ? ': ' + EP.usd(bcLikeUsd.like) + ' of TBLOCK burned' : '') + ', checked before your wallet opens.' : j.pourquoi);
   bcVue('chat');
   if (!j.ok) return;
-  if (!ECO.LIKES) { bcEtape(m, 'Hearts open with their contract.', 'non'); return; }
+  if (!EP.HEARTS) { bcEtape(m, 'Hearts are not on this network.', 'non'); return; }
   await bcCoeur(j.adr, (t) => bcEtape(m, t, /^(Not|Only|Connect)/.test(t) ? 'non' : 'oui'));
 }
 
@@ -32604,10 +32640,10 @@ async function peindreLock(hote, { offre = false } = {}) {
     hote.dataset.lu = String(Date.now());
     hote.textContent = '';
     const el = (tag, cls, txt) => { const x = document.createElement(tag); if (cls) x.className = cls; if (txt != null) x.textContent = txt; return x; };
-    hote.append(el('p', 'titre', offre ? 'Lock your TBLOCK — earn community points' : 'Your TBLOCK lock'));
-    /* game357: the v1 hearts, channel and vault claim read the WALLET BALANCE (economie.js MIN_HOLD, TBlockVault.sol _bal); only the undeployed v2
-     *   reads the lock. Locking moves TBLOCK out of the wallet, so the card must never say those perks count the lock. */
-    hote.append(el('p', 'sous', 'Locking earns community points: more TBLOCK and more days earn more. Locked TBLOCK leaves your wallet, and today hearts ♥, the holders’ channel and vault claims still count your wallet balance; counting your lock there is coming soon. To leave: request the withdrawal (points stop at once); you take it all back ' + LK.RETRAIT_JOURS + ' days after the request, or at the lock date if that is later.'));
+    hote.append(el('p', 'titre', offre ? 'Lock your TBLOCK — earn points and monthly rewards' : 'Your TBLOCK lock'));
+    /* 2026-11-12: the live Hearts and holders vault read the LOCK (activeLockedOf); the holders' channel still reads the wallet balance
+     *   (/api/tblock/hold). The monthly lock rewards (EP.REWARDS) pay the whole months a lock covers, for the months its holder played. */
+    hote.append(el('p', 'sous', 'Locking earns community points, and monthly lock rewards for each whole month your lock covers and you play in. Hearts ♥ and holders vault claims count your lock; the holders’ channel counts your wallet balance. To leave: request the withdrawal (points and rewards stop at once); you take it all back ' + LK.RETRAIT_JOURS + ' days after the request, or at the lock date if that is later.'));
     const etat = el('p', 'note' + (e.cle === 'actif' ? ' wOk' : ''), e.texte); hote.append(etat);
     const dire = (t, k = '') => { etat.className = 'note' + (k ? ' ' + k : ''); etat.textContent = t; };
     /* the ONE exit action etatLock chooses: request (perks stop, 7-day period starts), cancel (perks back), or take back (period over) */
@@ -32631,6 +32667,7 @@ async function peindreLock(hote, { offre = false } = {}) {
       });
       hote.append(w);
     }
+    if (EP.REWARDS) await peindreRecompensesLock(hote, { moi, locked, active, unlockAt, requestedAt, el, dire });
     if (bal > 0n) {
       /* game357: no 'holder stage' amount while the v1 contracts read the wallet balance — the offer is 1,000 TBLOCK, or all you hold if less */
       const MILLE = 1000n * 10n ** 18n;
@@ -32646,10 +32683,19 @@ async function peindreLock(hote, { offre = false } = {}) {
       if (bal >= 1000n * 10n ** 18n) puce('1,000', 1000n * 10n ** 18n);
       puce('Max', bal);
       hote.append(puces);
-      let jours = LK.DUREES_JOURS[0];
+      /* 2026-11-12: with the monthly lock rewards live, 60 days (the shortest lock that always covers one whole month) is offered too */
+      const durees = EP.REWARDS ? [...new Set([...LK.DUREES_JOURS, EP.MOIS_MIN_JOURS])].sort((x, y) => x - y) : LK.DUREES_JOURS;
+      let jours = durees[0];
       const pills = el('div', 'lkPuces');
       const pillsB = [];
-      for (const j of LK.DUREES_JOURS) {
+      /* the whole months each duration earns, READ from the rewards contract (rewardEpochsFor) for the date the lock would have */
+      const moisPour = new Map();
+      const finPour = (j, t0) => Math.max(t0 + j * 86400 + LK.MARGE_SECONDES, Number(unlockAt) > t0 && locked > 0n && requestedAt === 0n ? Number(unlockAt) : 0);
+      if (EP.REWARDS) {
+        const t0m = Math.floor(Date.now() / 1000);
+        await Promise.all(durees.map(async (j) => { try { moisPour.set(j, EP.decoderMois(await rpc('eth_call', [EP.VIEW.rewardEpochsFor(finPour(j, t0m)), 'latest'])).n); } catch (_) { /* not read: no month count */ } }));
+      }
+      for (const j of durees) {
         const b = el('button', 'lkPuce', ''); b.type = 'button'; b.dataset.jours = String(j);
         b.addEventListener('click', () => { jours = j; majLock(); }); pills.append(b); pillsB.push(b);
       }
@@ -32659,7 +32705,7 @@ async function peindreLock(hote, { offre = false } = {}) {
       hote.append(el('p', 'note', 'You hold ' + LK.fmt(bal) + ' TBLOCK. Adding to a lock keeps its later date. Never send TBLOCK to the lock address yourself: only this button locks, a plain transfer is lost.'));
       /* game354 (Grok live test): a wallet without batched calls (Rabby) asks twice — the label says so, never "one batch" */
       const go = el('button', 'bouton', ''); go.type = 'button';
-      hote.append(el('p', 'note', 'Approve, then lock: your wallet may ask twice. Locked TBLOCK cannot be sold until the date, then the ' + LK.RETRAIT_JOURS + '-day withdrawal period.'));
+      hote.append(el('p', 'note', (EP.REWARDS ? 'Approve, lock, then join the monthly lock rewards: your wallet may ask up to three times.' : 'Approve, then lock: your wallet may ask twice.') + ' Locked TBLOCK cannot be sold until the date, then the ' + LK.RETRAIT_JOURS + '-day withdrawal period.'));
       /* the live words: the button names the amount and the days; each pill the points THAT amount earns over THAT lock (points.js) */
       function majLock() {
         const m = brut(inp.value);
@@ -32668,13 +32714,15 @@ async function peindreLock(hote, { offre = false } = {}) {
           const j = Number(b.dataset.jours);
           b.classList.toggle('on', j === jours);
           b.setAttribute('aria-pressed', j === jours ? 'true' : 'false');
-          b.textContent = j + ' days';
+          b.textContent = j + ' days' + (moisPour.has(j) ? ' · ' + (moisPour.get(j) > 0 ? moisPour.get(j) + (moisPour.get(j) === 1 ? ' month' : ' months') : 'no month') : '');
         }
         /* review 356: TBlockLock keeps the LATER of the stored date and the asked one — a top-up onto a longer lock stays until that date */
         const fin = Math.max(t0 + jours * 86400, Number(unlockAt) > t0 && locked > 0n && requestedAt === 0n ? Number(unlockAt) : 0);
         const garde = fin > t0 + jours * 86400;
         const pts = m > 0n ? PTS.pointsLockIntervalle(m, fin, t0, fin) : 0;
-        ptsNote.textContent = m > 0n ? (garde ? 'Your lock already runs until ' + new Date(fin * 1000).toISOString().slice(0, 10) + ': added TBLOCK stays locked until then too. ' : '') + 'Until that date these TBLOCK earn about ' + PV.fmtPts(pts) + ' community points: 1 a day per 100,000 TBLOCK, ×1.25 from 30 days, ×1.5 from 90, ×2 from 1 year. Points decide your share of the community drop, a separate distribution coming soon; the weekly player budget follows what you burned. No rate is promised.' : '';
+        const nm = moisPour.get(jours);
+        ptsNote.textContent = m > 0n ? (garde ? 'Your lock already runs until ' + new Date(fin * 1000).toISOString().slice(0, 10) + ': added TBLOCK stays locked until then too. ' : '') + 'Until that date these TBLOCK earn about ' + PV.fmtPts(pts) + ' community points: 1 a day per 100,000 TBLOCK, ×1.25 from 30 days, ×1.5 from 90, ×2 from 1 year. Points decide your share of the community drop, a separate distribution coming soon; the weekly player budget follows what you put in.'
+          + (EP.REWARDS && nm !== undefined ? ' Monthly lock rewards: this lock ' + EP.texteMois(nm) + ', paid for the months you play in (a heart, a TAM art mint or a skin mint).' : '') + ' No rate is promised.' : '';
         go.textContent = m > 0n ? (garde ? 'Add ' + LK.fmt(m) + ' TBLOCK to your lock (until ' + new Date(fin * 1000).toISOString().slice(0, 10) + ')' : 'Lock ' + LK.fmt(m) + ' TBLOCK for ' + jours + ' days') : 'Lock — enter a whole number of TBLOCK';
       }
       inp.addEventListener('input', majLock);
@@ -32685,9 +32733,11 @@ async function peindreLock(hote, { offre = false } = {}) {
         if (!chk.ok) { dire('Not sent: ' + chk.why + '.', 'wKo'); return; }
         go.disabled = true; dire('Waiting for your wallet: lock ' + LK.fmt(montant) + ' TBLOCK for ' + jours + ' days…');
         try {
-          const appels = LK.lockBatch({ amount: montant, jours, maintenantSec: Math.floor(Date.now() / 1000) });
+          /* 2026-11-12: the lock and its enrollment in the monthly lock rewards, in ONE batch (enroll re-reads the lock it just made) */
+          const appels = EP.REWARDS ? EP.lockEtInscrire({ amount: montant, jours, maintenantSec: Math.floor(Date.now() / 1000), holder: moi })
+            : LK.lockBatch({ amount: montant, jours, maintenantSec: Math.floor(Date.now() / 1000) });
           const r = await envoyerAppels(appels.map((c) => ({ to: c.to, data: c.data, value: c.value })), compte);
-          if (r && r.etat === 'CONFIRME') { dire('🔒 Locked. Your community points count from now on.', 'wOk'); hote.dataset.lu = '0'; wVaultLu = 0; }
+          if (r && r.etat === 'CONFIRME') { dire('🔒 Locked' + (EP.REWARDS ? ' and enrolled in the monthly lock rewards' : '') + '. Your community points count from now on.', 'wOk'); hote.dataset.lu = '0'; wVaultLu = 0; }
           else { dire('Not done: ' + String((r && (r.pourquoi || r.etat)) || 'no answer').slice(0, 160), 'wKo'); go.disabled = false; }
         } catch (err) { dire('Not sent: ' + String((err && err.message) || err).slice(0, 160), 'wKo'); go.disabled = false; }
       });
@@ -32695,6 +32745,65 @@ async function peindreLock(hote, { offre = false } = {}) {
     }
   } catch (_) { hote.dataset.lu = String(Date.now() - 20000); }
   finally { lockEtat.enVol = false; }
+}
+/* ── 2026-11-12: the MONTHLY LOCK REWARDS (TBlockLockRewards, EP.REWARDS) inside the lock card. Everything is read on chain: the month, the
+ *   enrollment, the whole months this lock earns (rewardEpochsFor), whether this wallet played this month (hasPlayed), what it can claim per
+ *   closed month (claimable), and the rate the LAST CLOSED month paid (pot / played weight, labelled as past — never a promise). */
+async function peindreRecompensesLock(hote, { moi, locked, active, unlockAt, requestedAt, el, dire }) {
+  const lit = async (v) => EP.word(await rpc('eth_call', [{ to: v.to, data: v.data }, 'latest']));
+  const quand = (s) => new Date(Number(s) * 1000).toISOString().slice(0, 10);
+  const box = el('div', 'wCoeurs', null); box.id = 'wLockRewards';
+  box.append(el('p', 'sousTitre', 'Monthly lock rewards'));
+  const ligne = (k, v) => { const d = el('div', 'stadeLigne', null); d.append(el('span', null, k), ' ', el('b', null, v)); box.append(d); return d; };
+  try {
+    const c = await lit(EP.VIEW.rCurrentEpoch());
+    const [finMois, joue, prochain, aRelacher, enr] = await Promise.all([lit(EP.VIEW.rEpochEnd(c)), lit(EP.VIEW.hasPlayed(moi, c)), lit(EP.VIEW.nextEpochToClose()), lit(EP.VIEW.nextEpochToRelease()),
+      rpc('eth_call', [EP.VIEW.enrollmentOf(moi), 'latest'])]);
+    ligne('This month', 'month ' + c + ', ends ' + quand(finMois) + ' · ' + (joue === 1n ? 'you played this month' : 'play this month (a heart, a TAM art mint or a skin mint) to be paid for it'));
+    const enrUnlock = EP.word(enr, 0), enrAmount = EP.word(enr, 2);
+    const actif = active > 0n && requestedAt === 0n;
+    if (actif) {
+      const mois = EP.decoderMois(await rpc('eth_call', [EP.VIEW.rewardEpochsFor(unlockAt), 'latest']));
+      const inscrit = enrUnlock === unlockAt && enrAmount === locked;
+      const d = ligne('Your lock', EP.texteMois(mois.n) + (mois.n > 0 ? ' (months ' + mois.premier + ' to ' + mois.dernier + ')' : '') + (inscrit ? ' · enrolled' : ' · not enrolled yet'));
+      if (!inscrit) {
+        const b = el('button', 'bouton sec', 'Enroll my lock'); b.type = 'button'; b.id = 'wLockEnroll'; b.style.marginLeft = '6px';
+        b.addEventListener('click', async () => {
+          b.disabled = true; dire('Waiting for your wallet: enroll your lock in the monthly lock rewards…');
+          const r = await envoyerAppels([EP.enrollCall(moi)].map((x) => ({ to: x.to, data: x.data, value: x.value })), compte);
+          if (r && r.etat === 'CONFIRME') { dire('Enrolled: your lock counts for the monthly lock rewards from next month.', 'wOk'); hote.dataset.lu = '0'; } else { dire('Not done: ' + String((r && (r.pourquoi || r.etat)) || 'no answer').slice(0, 160), 'wKo'); b.disabled = false; }
+        });
+        d.append(b);
+      }
+    }
+    if (prochain === 0n) ligne('Last closed month', 'none yet: month 0 closes after ' + quand(await lit(EP.VIEW.rEpochEnd(0n))));
+    else {
+      const e = prochain - 1n;
+      const p = await rpc('eth_call', [EP.VIEW.pot(e), 'latest']);
+      const potW = EP.word(p, 0), potT = EP.word(p, 1), joueP = await lit(EP.VIEW.playedWeight(e));
+      const apr = EP.aprPasse({ potTblock: potT, played: joueP });
+      ligne('Last closed month (month ' + e + ')', EP.fmt(potT) + ' TBLOCK + ' + EP.fmt(potW, 4) + ' wtCOIN for the players' + (apr === null ? ' · nobody played' : ' · its TBLOCK part paid ' + apr.toFixed(2) + '% a year on what they locked (past, not a promise)'));
+      /* what this wallet can claim, closed month by closed month (claim() refuses a month it did not play) */
+      const ouverts = [];
+      for (let k = prochain - 1n; k >= aRelacher && ouverts.length < 24 && k >= prochain - 24n; k--) ouverts.push(k);
+      const aPayer = [];
+      let sw = 0n, st = 0n;
+      for (const k of ouverts) { const q = await rpc('eth_call', [EP.VIEW.claimable(moi, [k]), 'latest']); const w = EP.word(q, 0), t = EP.word(q, 1); if (w > 0n || t > 0n) { aPayer.push(k); sw += w; st += t; } }
+      const d = ligne('Yours to claim', aPayer.length ? EP.fmt(st) + ' TBLOCK + ' + EP.fmt(sw, 4) + ' wtCOIN (' + aPayer.length + (aPayer.length === 1 ? ' month' : ' months') + ')' : 'nothing for this wallet');
+      if (aPayer.length) {
+        const b = el('button', 'bouton sec', 'Claim'); b.type = 'button'; b.id = 'wLockClaim'; b.style.marginLeft = '6px';
+        b.addEventListener('click', async () => {
+          b.disabled = true; dire('Waiting for your wallet: claim your monthly lock rewards…');
+          const x = EP.claimRewardsCall(aPayer);
+          const r = await envoyerAppels([{ to: x.to, data: x.data, value: x.value }], compte);
+          if (r && r.etat === 'CONFIRME') { dire('Claimed: the rewards are in your wallet.', 'wOk'); hote.dataset.lu = '0'; } else { dire('Not done: ' + String((r && (r.pourquoi || r.etat)) || 'no answer').slice(0, 160), 'wKo'); b.disabled = false; }
+        });
+        d.append(b);
+      }
+    }
+    box.append(el('p', 'note', 'Each month pays the whole months a lock covers, ' + EP.MOIS_MIN_JOURS + ' days minimum to be sure of one, and only to the holders who played in it. The rewards are what is deposited in the rewards contract (anyone can add wtCOIN or TBLOCK); an amount is never promised.'));
+  } catch (_) { ligne('Monthly lock rewards', 'not read just now'); }
+  hote.append(box);
 }
 /* game357: Wallet sections and Holders panels — a click sets data-w / data-v; CSS shows the matching card. */
 function brancherSeg(seg, hote, cle) {
@@ -32916,39 +33025,67 @@ async function proposerTipCoffre(hote) {
   if (tipAuto) { tipAuto = false; btn.click(); }
 }
 
-/* ── Holders vault card of the Wallet tab: read-only, every 60 s while the tab is visible. Hidden until TBlockVault is deployed. */
-let wVaultLu = 0;
+/* ── Holders vault card of the Wallet tab: every 60 s while the tab is visible. 2026-11-12: the vault is the live one (EP.VAULT, lock factor
+ *   tiers, claim needs the hearts' minimum LOCKED); a week of the FIRST vault this wallet is still owed stays claimable here, never lost. */
+let wVaultLu = 0, wVaultRegle = null;
 async function peindreVaultWallet() {
   const carte = $('#wVault');
   if (!carte) return;
-  if (!ECO.VAULT || !ECO.LIKES) { carte.hidden = true; return; }
+  if (!EP.VAULT || !EP.HEARTS) { carte.hidden = true; return; }
   const vol = $('#v-wallet');
   if (document.hidden || (vol && vol.offsetParent === null) || Date.now() - wVaultLu < 60000) return;
   wVaultLu = Date.now();
-  const lit = async (v) => ECO.word(await rpc('eth_call', [{ to: v.to, data: v.data }, 'latest']));
+  const lit = async (v) => EP.word(await rpc('eth_call', [{ to: v.to, data: v.data }, 'latest']));
   const rows = $('#wVaultRows'); rows.textContent = '';
-  const ligne = (k, v) => { const d = document.createElement('div'); d.className = 'stadeLigne'; const a = document.createElement('span'); a.textContent = k; const b = document.createElement('b'); b.textContent = v; d.append(a, ' ', b); rows.append(d); };
+  const ligne = (k, v) => { const d = document.createElement('div'); d.className = 'stadeLigne'; const a = document.createElement('span'); a.textContent = k; const b = document.createElement('b'); b.textContent = v; d.append(a, ' ', b); rows.append(d); return d; };
+  const bouton = (d, texte, id, action) => { const k = document.createElement('button'); k.type = 'button'; k.className = 'bouton sec'; k.id = id; k.textContent = texte; k.style.marginLeft = '6px'; k.addEventListener('click', action); d.append(k); return k; };
   try {
-    const bal = await lit(ECO.VIEW.vaultBalance()), res = await lit(ECO.VIEW.reserved()), ep = await lit(ECO.VIEW.currentEpoch());
-    /* game359 (Phil: "valeur en $, date de fin de semaine, montant réservé attendu, combien de joueurs; reserved = le vault, fusionne") */
-    const [fin, depense, libre, rBps, rbBps, maxB] = await Promise.all([lit(ECO.VIEW.epochEnd(ep)), lit(ECO.VIEW.totalSpentIn(ep)), lit(ECO.VIEW.free()),
-      lit(ECO.VIEW.rewardBps()), lit(ECO.VIEW.rebateBps()), lit(ECO.VIEW.maxEpochBudget())]);
+    const [bal, res, ep] = await Promise.all([lit(EP.VIEW.vaultBalance()), lit(EP.VIEW.reserved()), lit(EP.VIEW.currentEpoch())]);
+    /* game359 (Phil: "valeur en $, date de fin de semaine, montant réservé attendu, combien de joueurs") — on the live vault: the play of
+     *   the week = hearts burned + TBLOCK bought by TAM art and skins (TBlockVaultV2.totalPlayIn) */
+    const [fin, jeu, libre, rBps, rbBps, maxB, need] = await Promise.all([lit(EP.VIEW.epochEnd(ep)), lit(EP.VIEW.totalPlayIn(ep)), lit(EP.VIEW.free()),
+      lit(EP.VIEW.rewardBps()), lit(EP.VIEW.rebateBps()), lit(EP.VIEW.maxEpochBudget()), lit(EP.VIEW.minHold())]);
     let px = null; try { const h = await fetch('/api/tblock/hold', { cache: 'no-store', signal: AbortSignal.timeout(15000) }).then((x) => x.json()); px = h && h.ok && Number(h.priceNow) > 0 ? Number(h.priceNow) : null; } catch (_) { px = null; }
     const usd = (raw) => (px === null ? '' : ' ≈ $' + (Number(raw) / 1e18 * px).toLocaleString('en-US', { maximumFractionDigits: 2, minimumFractionDigits: 2 }));
-    let joueurs = null; try { const c = await fetch('/api/coeurs', { cache: 'no-store', signal: AbortSignal.timeout(15000) }).then((x) => x.json()); if (c && c.ok && c.complet) joueurs = Number(((c.semaines || {})[String(ep)] || {}).joueurs || 0); } catch (_) { joueurs = null; }
-    const attendu = ECO.budgetAttendu({ free: libre, totalSpent: depense, rewardBps: rBps, rebateBps: rbBps, maxBudget: maxB });
+    let joueurs = null; try { const c = await fetch('/api/coeurs', { cache: 'no-store', signal: AbortSignal.timeout(15000) }).then((x) => x.json()); if (c && c.ok && c.complet && c.semainesParContrat) joueurs = Number((((c.semainesParContrat[EP.HEARTS] || {})[String(ep)]) || {}).joueurs || 0); } catch (_) { joueurs = null; }
+    const attendu = EP.budgetAttendu({ free: libre, totalPlay: jeu, rewardBps: rBps, rebateBps: rbBps, maxBudget: maxB });
     const resteS = Number(fin) - Math.floor(Date.now() / 1000), dans = resteS > 0 ? ' (in ' + Math.floor(resteS / 86400) + ' d ' + Math.floor((resteS % 86400) / 3600) + ' h)' : ' (over — waiting for its close)';
-    ligne('In the vault', ECO.fmt(bal) + ' TBLOCK' + usd(bal) + (res > 0n ? ' · ' + ECO.fmt(res) + ' of it reserved for past weeks’ players' : ''));
+    ligne('In the vault', EP.fmt(bal) + ' TBLOCK' + usd(bal) + (res > 0n ? ' · ' + EP.fmt(res) + ' of it reserved for past weeks’ players' : ''));
     ligne('Week ' + ep + ' ends', new Date(Number(fin) * 1000).toISOString().slice(0, 16).replace('T', ' ') + ' UTC' + dans);
-    ligne('Players this week', joueurs === null ? 'not read just now' : joueurs + (joueurs === 1 ? ' player' : ' players') + ' · ' + ECO.fmt(depense) + ' TBLOCK burned in hearts');
-    ligne('For them at the close', attendu > 0n ? ECO.fmt(attendu) + ' TBLOCK' + usd(attendu) + ' if the week closed now' : '0 TBLOCK so far — the budget never exceeds what players burned in hearts this week');
-    if (compte && ep > 0n) {
-      const o = await rpc('eth_call', [ECO.VIEW.owed(ep - 1n, String(compte).toLowerCase()), 'latest']);
-      const s = ECO.word(o, 0) + ECO.word(o, 1);
-      ligne('Yours from last week', s > 0n ? ECO.fmt(s) + ' TBLOCK to claim' : 'nothing to claim (or the week is not closed yet)');
+    ligne('Play this week', EP.fmt(jeu) + ' TBLOCK from hearts, TAM art and skins' + (joueurs === null ? '' : ' · ' + joueurs + (joueurs === 1 ? ' wallet' : ' wallets') + ' gave a heart'));
+    ligne('For the players at the close', attendu > 0n ? EP.fmt(attendu) + ' TBLOCK' + usd(attendu) + ' if the week closed now' : '0 TBLOCK so far — the budget never exceeds what the players put in this week');
+    ligne('To claim', EP.fmt(need) + ' TBLOCK locked' + usd(need) + ' and a lock that lasts at least 7 more days');
+    if (compte) {
+      const moi = String(compte).toLowerCase();
+      const [fac, mien, locked, unlockAt] = await Promise.all([lit(EP.VIEW.lockFactor(moi)), lit(EP.VIEW.playOf(ep, moi)), lit(LK.VIEW.activeLockedOf(moi)), lit(LK.VIEW.unlockAtOf(moi))]);
+      ligne('Your play this week', EP.fmt(mien) + ' TBLOCK · lock factor ' + EP.texteFacteur(fac) + ' (' + EP.fmt(locked) + ' TBLOCK locked)');
+      if (ep > 0n) {
+        const e = ep - 1n;
+        const o = await rpc('eth_call', [EP.VIEW.owed(e, moi), 'latest']);
+        const s = EP.word(o, 0) + EP.word(o, 1);
+        const ferme = EP.decoderEpoque(await rpc('eth_call', [EP.VIEW.epochs(e), 'latest'])).closed;
+        const d = ligne('Yours from week ' + e, s > 0n ? EP.fmt(s) + ' TBLOCK to claim' : (ferme ? 'nothing to claim for this wallet' : 'the week is not closed yet'));
+        if (!ferme && resteS < 7 * 86400) bouton(d, 'Close week ' + e, 'wVaultClose', async () => { const r = await envoyerAppels([EP.closeEpochCall(e)], compte); wVaultLu = 0; d.lastChild.textContent = r && r.etat === 'CONFIRME' ? 'Closed' : 'Not closed'; });
+        if (s > 0n) {
+          const [needE, mc] = await Promise.all([lit(EP.VIEW.needFor(e)), lit(EP.VIEW.minCommit())]);
+          const chk = EP.claimCheck({ locked, need: needE, unlockAt, minCommit: mc, maintenantSec: Date.now() / 1000, owed: s });
+          if (chk.ok) bouton(d, 'Claim ' + EP.fmt(s) + ' TBLOCK', 'wVaultClaim', async () => { const r = await envoyerAppels([EP.claimCall(e)], compte); wVaultLu = 0; d.lastChild.textContent = r && r.etat === 'CONFIRME' ? 'Claimed' : 'Not claimed: ' + String((r && (r.pourquoi || r.etat)) || 'no answer').slice(0, 80); });
+          else ligne('Not claimable yet', chk.why);
+        }
+      }
+      /* the FIRST vault: a week it still owes this wallet is shown and claimable (its rule: TBLOCK held in the wallet), never lost */
+      if (ECO.VAULT) {
+        for (const e of [ep - 1n, ep - 2n].filter((x) => x >= 0n)) {
+          let s1 = 0n; try { const o1 = await rpc('eth_call', [ECO.VIEW.owed(e, moi), 'latest']); s1 = ECO.word(o1, 0) + ECO.word(o1, 1); } catch (_) { s1 = 0n; }
+          if (s1 <= 0n) continue;
+          const d = ligne('First vault, week ' + e, ECO.fmt(s1) + ' TBLOCK to claim (needs ' + ECO.fmt(ECO.CLAIM_MIN_HOLD) + ' TBLOCK held)');
+          bouton(d, 'Claim', 'wVaultClaim1-' + e, async () => { const r = await envoyerAppels([ECO.claimCall(e)], compte); wVaultLu = 0; d.lastChild.textContent = r && r.etat === 'CONFIRME' ? 'Claimed' : 'Not claimed'; });
+        }
+      }
     }
-    const ra = await lit(ECO.VIEW.rescueAmount());
-    if (ra > 0n) ligne('Dev rescue announced', 'up to ' + ECO.fmt(ra) + ' TBLOCK of the free part, after ' + new Date(Number(await lit(ECO.VIEW.rescueAt())) * 1000).toISOString().slice(0, 16).replace('T', ' ') + ' UTC');
+    const ra = await lit(EP.VIEW.rescueAmount());
+    if (ra > 0n) ligne('Dev rescue announced', 'up to ' + EP.fmt(ra) + ' TBLOCK of the free part, after ' + new Date(Number(await lit(EP.VIEW.rescueAt())) * 1000).toISOString().slice(0, 16).replace('T', ' ') + ' UTC');
+    if (!wVaultRegle) { try { const r = {}; for (const k of EP.REGLES_VAULT) r[k] = await lit(EP.VIEW.regleVault(k)); wVaultRegle = EP.texteRegleVault(r); } catch (_) { wVaultRegle = null; } }
     /* game345 (Phil): a visible link to the holders' channel for an ELIGIBLE wallet only (the server's $15 rule, /api/tblock/hold) */
     if (compte) {
       try {
@@ -32971,10 +33108,9 @@ async function peindreVaultWallet() {
   } catch (e) { ligne('Not read just now', String((e && e.message) || e).slice(0, 80)); wVaultLu = Date.now() - 45000; }
   carte.hidden = false;
   const wc = $('#wVaultComment');
-  if (wc && !wc.textContent) wc.textContent = 'Each week the vault keeps a budget for the players: a share of the TBLOCK they burned with hearts, never more than they burned, claimed within the claim window. '
-    + 'Today the contracts check a fixed amount set at launch: ' + ECO.fmt(ECO.LIKE_MIN_HOLD) + ' TBLOCK still held after a heart, ' + ECO.fmt(ECO.CLAIM_MIN_HOLD) + ' TBLOCK to claim. Before your wallet opens, the app also asks, for a heart, that you keep $' + ECO.SEUIL_USD + ' of TBLOCK at the price read now. '
-    + 'A fixed amount is worth a different number of dollars every day. Coming soon, the holders vault asks for $' + ECO.SEUIL_USD + ' of TBLOCK LOCKED instead, at a price kept up to date within fixed bounds: $15 locked to claim; more from $100 locked (+15% at $100, +30% at $500, +50% at $1,000); up to +25% more for 90 days locked; you must play that week (a heart, a TAM mint or a skin). '
-    + 'Community points are separate: they decide your share of the community drop, which is coming soon; the weekly player budget follows what you burned. No rate is promised.';
+  /* 2026-11-12: the rules are READ from the live vault (EP.REGLES_VAULT); unread = a sentence without numbers, never typed ones */
+  if (wc) wc.textContent = (wVaultRegle || 'Each week the vault keeps a budget for the players, never more than part of what each one put in; claiming needs TBLOCK locked.')
+    + ' You must play that week: a heart, a TAM art mint or a skin mint. Community points are separate: they decide your share of a later community drop.';
   void peindreCoeursWallet();
   void peindreLock($('#wLock'));
   void peindrePointsWallet();
@@ -33018,12 +33154,15 @@ async function peindreCoeursWallet() {
       hote.append(d);
     }
   };
-  /* 2026-11-11: first line = what CLAIMING the vault needs (ECO.CLAIM_MIN_HOLD, from the record), with the wallet's balance and the
-   *   value at the price read now when both were read; an unread value is left out, never guessed */
-  let balClaim = null, prixClaim = null;
-  if (compte) { try { const v = ECO.VIEW.balanceOf(String(compte).toLowerCase()); balClaim = ECO.word(await rpc('eth_call', [{ to: v.to, data: v.data }, 'latest'])); } catch (_) { balClaim = null; } }
-  try { const h = await fetch('/api/tblock/hold', { cache: 'no-store', signal: AbortSignal.timeout(15000) }).then((x) => x.json()); prixClaim = h && h.ok && Number(h.priceNow) > 0 ? Number(h.priceNow) : null; } catch (_) { prixClaim = null; } /* labelled "now": the price read now, not the lower of now and ~10 min ago */
-  const ligneClaim = CV.ligneSeuilClaim({ claimMinHold: ECO.CLAIM_MIN_HOLD, balance: balClaim, prixUsd: prixClaim });
+  /* 2026-11-12: first line = what a heart and a vault claim need on the live contracts: the hearts' minimum LOCKED (read from Hearts),
+   *   with this wallet's lock when read; an unread value is left out, never guessed */
+  let ligneClaim = { k: 'A heart and a vault claim need', v: 'TBLOCK locked (not read just now)' };
+  try {
+    const need = EP.word(await rpc('eth_call', [EP.VIEW.minHold(), 'latest']));
+    let v = EP.fmt(need) + ' TBLOCK locked' + (bcLikeUsd ? ' (' + EP.usd(bcLikeUsd.hold) + ' at the contract price)' : '');
+    if (compte) { try { const l = EP.word(await rpc('eth_call', [LK.VIEW.activeLockedOf(String(compte).toLowerCase()), 'latest'])); v += ' · you have ' + EP.fmt(l) + ' locked' + (l >= need ? ' · enough' : ' · not enough yet'); } catch (_) { /* left out */ } }
+    ligneClaim = { k: 'A heart and a vault claim need', v };
+  } catch (_) { /* the plain line stays */ }
   peindre($('#wCoeursMoi'), [ligneClaim].concat(compte ? (r && r.ok && r.compte ? CV.lignesCompte(r.compte, nom) : [{ k: 'Your hearts', v: 'not read just now' }]) : [{ k: 'Your hearts', v: 'connect your wallet to see them' }]));
   peindre($('#wCoeursBoard'), CV.lignesBoard(r, nom, compte));
   box.hidden = false;
@@ -35191,24 +35330,37 @@ async function bcAcheterSkin() {
      *   relus sur la CHAINE (MINT_PRICE, FEE_WALLET) et compares a l app - deux sources qui doivent etre d accord, sinon rien n est demande.
      *   Approbation USDC EXACTE (le prix, jamais illimitee) seulement si celle en place ne couvre pas le prix. La skin est a la personne,
      *   liee a CE block sur la chaine ; elle la porte, la vend ou la met aux encheres (10 % de chaque vente a TokenizedBlock). */
-    let prixC = null, fraisC = null;
+    /* ══ 2026-11-12 (the economy pack is live): the skin is paid through the TBLOCK payment router on the pack's Skins (no direct mint).
+     *   Read on chain first and compared to the app: MINT_PRICE (= the price shown), FEE_WALLET, ROUTER (= the router of the record) and
+     *   USDC_SPLIT (the dev part). Then a FRESH quote of the USDC the router swaps, x 0.99, never under the router's floor. One batch: an
+     *   exact USDC approve to the router, then pay(Skins, price, minimum, deadline, abi.encode(block, packed skin)). */
+    let prixC = null, fraisC = null, routeurC = null, devBps = null;
     try {
       prixC = BigInt(await rpc('eth_call', [{ to: BLOCKSKINS, data: '0x' + selecteur('MINT_PRICE()') }, 'latest']));
       fraisC = '0x' + String(await rpc('eth_call', [{ to: BLOCKSKINS, data: '0x' + selecteur('FEE_WALLET()') }, 'latest'])).slice(-40).toLowerCase();
+      routeurC = '0x' + String(await rpc('eth_call', [{ to: BLOCKSKINS, data: '0x' + selecteur('ROUTER()') }, 'latest'])).slice(-40).toLowerCase();
+      devBps = EP.word(await rpc('eth_call', [EP.VIEW.partJeu(BLOCKSKINS), 'latest']), 1);
     } catch (_) { prixC = null; }
-    if (prixC !== SKIN_MINT_USDC || fraisC !== beneficiaire) {
+    if (prixC !== SKIN_MINT_USDC || fraisC !== beneficiaire || routeurC !== EP.ROUTER || BLOCKSKINS !== EP.SKINS || devBps === null) {
       bcEtape(m, 'The skin price could not be confirmed on chain — nothing was asked.', 'non'); bcBoutons(m, [['Try again', payer, true], ['Dismiss', refuser, true]]); return;
     }
-    let solde = null, autorise = null;
+    let solde = null;
     try { solde = await bcSolde(usdc, compte); } catch (_) { solde = null; }
-    try { autorise = BigInt(await rpc('eth_call', [{ to: usdc, data: '0xdd62ed3e' + String(compte).slice(2).toLowerCase().padStart(64, '0') + BLOCKSKINS.slice(2).padStart(64, '0') }, 'latest'])); } catch (_) { autorise = null; }
-    if (solde === null || autorise === null) { bcEtape(m, 'Your USDC balance or approval could not be read — nothing was asked.', 'non'); bcBoutons(m, [['Try again', payer, true], ['Dismiss', refuser, true]]); return; }
+    if (solde === null) { bcEtape(m, 'Your USDC balance could not be read — nothing was asked.', 'non'); bcBoutons(m, [['Try again', payer, true], ['Dismiss', refuser, true]]); return; }
     if (solde < SKIN_MINT_USDC) { bcEtape(m, 'This wallet holds ' + bcUnites(solde, 6) + ' USDC — a skin is ' + SKIN_MINT_TEXTE + '. Nothing was asked.', 'non'); return; }
+    const spend = EP.usdcEchange(prixC, devBps), dev = prixC - spend;
+    let q = null; try { q = await fetch('/api/tblock/devis-routeur?montant=' + spend.toString(), { cache: 'no-store', signal: AbortSignal.timeout(30000) }).then((x) => x.json()); } catch (_) { q = null; }
+    let plancher = null; try { plancher = EP.word(await rpc('eth_call', [EP.VIEW.minOutFloor(spend), 'latest'])); } catch (_) { plancher = null; }
+    const mo = q && q.ok && plancher !== null ? EP.minimumDepuisDevis({ devis: q.devis, plancher }) : { ok: false, why: 'the TBLOCK quote could not be read just now' };
+    if (!mo.ok) { bcEtape(m, 'Not ready: ' + mo.why + '. Nothing was asked.', 'non'); bcBoutons(m, [['Try again', payer, true], ['Dismiss', refuser, true]]); return; }
+    let t0 = Math.floor(Date.now() / 1000);
+    try { const b = await rpc('eth_getBlockByNumber', ['latest', false]); const ts = b && b.timestamp ? Number(BigInt(b.timestamp)) : 0; if (ts > t0) t0 = ts; } catch (_) { /* the device clock */ }
     let appels;
     try {
-      appels = [...(autorise >= SKIN_MINT_USDC ? [] : [appelApprouver(usdc, SKIN_MINT_USDC, 'Allow the skins contract to take exactly ' + SKIN_MINT_TEXTE)]), appelMint(a, recette)];
+      const [ap, pay] = EP.payBatch({ game: EP.SKINS, usdcIn: prixC, minOut: mo.minOut, deadline: t0 + EP.DELAI_PAIEMENT_S, data: EP.dataSkin({ block: a, recipe: packRecette(recette) }) });
+      appels = [{ ...ap, nom: 'Allow the TBLOCK payment router to take exactly ' + SKIN_MINT_TEXTE }, { ...pay, nom: 'Pay ' + SKIN_MINT_TEXTE + ' through the router: the skin is minted to you' }];
     } catch (e) { bcEtape(m, 'This skin could not be prepared: ' + String((e && e.message) || e).slice(0, 120), 'non'); return; }
-    bcEtape(m, SKIN_MINT_TEXTE + ' goes to TokenizedBlock. The skin is minted to your wallet, bound to this block on chain: you wear it, and you can sell it or auction it (10 % of each sale goes to TokenizedBlock).'); /* 2026-10-10 regle de Phil : jamais l adresse de frais a l ecran ; le WALLET montre le vrai destinataire */
+    bcEtape(m, SKIN_MINT_TEXTE + ' through the TBLOCK payment router: ' + EP.usdcTexte(dev) + ' USDC to TokenizedBlock, ' + EP.usdcTexte(spend) + ' USDC buys at least ' + EP.fmt(mo.minOut) + ' TBLOCK (a fresh quote less 1%), all of it sent to the holders vault. The skin is minted to your wallet, bound to this block on chain: you wear it, and you can sell it or auction it (10 % of each sale goes to TokenizedBlock). If the pools move more than that before you sign, nothing is paid.'); /* 2026-10-10 regle de Phil : jamais l adresse de frais a l ecran ; le WALLET montre le vrai destinataire */
     bcBoutons(m, [['Sign ' + appels.length + ' step' + (appels.length > 1 ? 's' : '') + ' in my wallet', async () => {
       const r = await bcSigner(m, appels, 'skin_mint');
       /* relancer est SUR ici : une approbation deja passee est relue au re-plan (seul le mint est redemande) ; seul un mint PARTI sans

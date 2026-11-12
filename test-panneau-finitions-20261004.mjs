@@ -240,13 +240,16 @@ ok(/id="bcSkinAcheter" hidden>Buy</.test(html) && /\$\('#bcSkinAcheter'\)\.addEv
  *   signer ; approbation EXACTE (1 USDC) seulement si besoin ; adresse de frais jamais a l ecran ; Base seulement. L ancien
  *   enregistrement serveur (bcEnregistrerSkin) ne sert plus qu aux paiements d avant le contrat. */
 ok(/prixC = BigInt\(await rpc\('eth_call', \[\{ to: BLOCKSKINS, data: '0x' \+ selecteur\('MINT_PRICE\(\)'\) \}/.test(achat) && /selecteur\('FEE_WALLET\(\)'\)/.test(achat)
-  && /if \(prixC !== SKIN_MINT_USDC \|\| fraisC !== beneficiaire\) \{/.test(achat),
+  /* 2026-11-12 (the economy pack is live): + the ROUTER read on the contract (a skin of the pack is paid through the TBLOCK payment router) */
+  && /if \(prixC !== SKIN_MINT_USDC \|\| fraisC !== beneficiaire \|\| routeurC !== EP\.ROUTER/.test(achat),
   'C2 achat : le prix et le destinataire GRAVES dans le contrat sont relus sur la CHAINE et doivent etre ceux de l APP, sinon rien n est demande');
-ok(/const usdc = USDC_BASE\.toLowerCase\(\), beneficiaire = FEE_WALLET\.toLowerCase\(\);/.test(achat) && /bcEtape\(m, SKIN_MINT_TEXTE \+ ' goes to TokenizedBlock\./.test(achat) && /appelMint\(a, recette\)/.test(achat),
-  'C2 achat : le mint du contrat (qui paie le wallet de frais grave), NOMME TokenizedBlock a l ecran - le wallet montre l adresse');
+ok(/const usdc = USDC_BASE\.toLowerCase\(\), beneficiaire = FEE_WALLET\.toLowerCase\(\);/.test(achat) && /bcEtape\(m, SKIN_MINT_TEXTE \+ ' through the TBLOCK payment router: ' \+ EP\.usdcTexte\(dev\) \+ ' USDC to TokenizedBlock, '/.test(achat)
+  && /EP\.dataSkin\(\{ block: a, recipe: packRecette\(recette\) \}\)/.test(achat),
+  'C2 achat : le paiement par le routeur (sa part dev au wallet de frais grave), NOMME TokenizedBlock a l ecran - le wallet montre l adresse');
 ok(/if \(solde < SKIN_MINT_USDC\)/.test(achat) && achat.indexOf('if (solde < SKIN_MINT_USDC)') < achat.indexOf("await bcSigner(m, appels, 'skin_mint')"), 'C2 achat : le solde USDC est relu AVANT de signer');
-ok(/autorise >= SKIN_MINT_USDC \? \[\] : \[appelApprouver\(usdc, SKIN_MINT_USDC,/.test(achat) && !/MAX_UINT|ffffffffffffffff/.test(achat),
-  'C2 achat : approbation EXACTE de 1 USDC seulement si celle en place ne couvre pas le prix, jamais illimitee');
+/* 2026-11-12: the router batch approves EXACTLY the price read (economie-pack.js payBatch), never unlimited */
+ok(/EP\.payBatch\(\{ game: EP\.SKINS, usdcIn: prixC, minOut: mo\.minOut/.test(achat) && !/MAX_UINT|ffffffffffffffff/.test(achat),
+  'C2 achat : approbation EXACTE du prix relu (au routeur), jamais illimitee');
 /* Phil, 2026-10-11 : « v2 avant tout mint » - la porte est AVANT tout appel au wallet (bcAvecWallet est dans payer) et ne demande rien. */
 const porte = achat.indexOf('if (!SKIN_MINT_OUVERT) {');
 ok(porte > 0 && porte < achat.indexOf('const payer = async () => {') && /if \(!SKIN_MINT_OUVERT\) \{ bcEtape\(m, '[^']*Nothing was asked\.', 'non'\); return; \}/.test(achat)

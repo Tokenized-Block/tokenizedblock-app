@@ -249,7 +249,10 @@ await rouge('a receipt missing', (c) => { delete c.recus[c.hashes[2]]; }, 'recei
 const P = lire('deployer-economie-v2.html'), S = lire('serveur-web.js');
 t('page imports the shared logic and the PACK record only', P.includes("import { predire, integrite, etapeSuivante, controleEtape, verifierPack, PRODUIT } from './pack-economie-v2.js';") && P.includes("await import('./economie-v2-pack-deploiement.js')") && !P.includes("'./economie-v2-deploiement.js'"));
 t('page types no address', !/0x[0-9a-fA-F]{40}/.test(P));
-t('page sends only what etapeSuivante prepared, at the predicted nonce', P.includes("rpc('eth_sendTransaction', [{ from: acct, data: r.data, nonce: r.nonce }])") && (P.match(/eth_sendTransaction/g) || []).length === 1);
+/* 2026-11-12: the page has a SECOND module (the last step, payee-slot.js): each script sends exactly one thing, the one it prepared */
+const SCRIPTS = [...P.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
+t('page sends only what etapeSuivante prepared, at the predicted nonce', SCRIPTS.length === 2 && SCRIPTS[0].includes("rpc('eth_sendTransaction', [{ from: acct, data: r.data, nonce: r.nonce }])") && (SCRIPTS[0].match(/eth_sendTransaction/g) || []).length === 1);
+t('the last-step module sends only the call payee-slot.js built, from the payee', SCRIPTS[1].includes("rpc('eth_sendTransaction', [{ from: payeeAcct, to: plan.appel.to, data: plan.appel.data, value: '0x0' }])") && (SCRIPTS[1].match(/eth_sendTransaction/g) || []).length === 1 && (P.match(/eth_sendTransaction/g) || []).length === 2);
 t('page re-reads the chain before each signature', /const r = await rafraichir\(\);\r?\n  if \(!r\.pret\) return;/.test(P));
 t('page checks every receipt against its prediction, STOP otherwise', P.includes('const ko = controleEtape(D, r.k, acct, BigInt(r.N), predire(acct, BigInt(r.N)), t, recu);') && P.includes("'<span class=\"warn\">STOP at step '"));
 t('page refuses a fixture or a broken record (connect stays disabled)', P.includes("$('#connect').disabled = !!(faux.length || D.fixtureDeTest);"));

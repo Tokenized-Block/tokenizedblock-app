@@ -17,8 +17,8 @@ const r = FR.rendre(FR.CHIFFRES, null), txt = r.replace(/<[^>]+>/g, ' ').replace
 t('no "the app holds no key" claim', !/the app holds no key/i.test(txt));
 t('the fly key is said', txt.includes('The fly trader signs on its own') && txt.includes('kept unencrypted in this browser only'));
 /* game374 (audit F-holder-1): the holder row now names its two routes in its label */
-for (const k of ['TBLOCK holders: TBLOCK and USDC ↔ stock trades 0% app fee', 'Buy or sell TBLOCK 0.1% app fee', 'Optional TBLOCK buy after a USDC payment 10% of the price', 'Slots spin 0.50 USDC', 'TAM art mint 5 USDC',
-  'Message to a block 0.10 USDC or 1,000 TBLOCK', 'Heart (+1) 86,000 TBLOCK', 'Block contest entry 17,241 TBLOCK · vote 8,621 TBLOCK', 'TBLOCK lock no fee'])
+for (const k of ['TBLOCK holders: TBLOCK and USDC ↔ stock trades 0% app fee', 'Buy or sell TBLOCK 0.1% app fee', /* 2026-11-12: the optional buy is gone (the router payment buys TBLOCK); the weekly vault row is new */ 'Holders vault (every week) no fee', 'Slots spin 0.50 USDC', 'TAM art mint 5 USDC',
+  'Message to a block 0.10 USDC or 1,000 TBLOCK', 'Heart (+1) $0.50 of TBLOCK', 'Block contest entry 17,241 TBLOCK · vote 8,621 TBLOCK', 'TBLOCK lock no fee'])
   t('row: ' + k, txt.includes(k));
 t('0.5% said as the v4 single-market fee, 0.1% as Aerodrome/v3', txt.includes('0.5% on a single Uniswap v4 market; 0.1% on an Aerodrome or Uniswap v3 pool'));
 for (const k of ['Slots lose on average.', 'Holders vault.', 'Anyone can also call feedContest()', 'Who controls the week\'s reward pot.', 'is a server decision, not an on-chain right.',
@@ -29,6 +29,6 @@ t('the real TBLOCK is linked', r.includes('0xb200000000000000000000ba9bf8330307f
 const f = structuredClone(FR.CHIFFRES);
 f.slots.spinPrice = 900000n; f.tam.prix = 6000000n; f.message.usdc = 200000n; f.contest.vote = 1n * 10n ** 18n; f.cl.bps = 20n;
 const rf = FR.rendre(f, null).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
-t('swapped figures are what the page says', rf.includes('Slots spin 0.90 USDC') && rf.includes('TAM art mint 6 USDC') && rf.includes('Message to a block 0.20 USDC') && rf.includes('vote 1 TBLOCK') && rf.includes('Buy or sell TBLOCK 0.2% app fee') && rf.includes('(0.60 USDC on a 6 USDC mint)'));
+t('swapped figures are what the page says', rf.includes('Slots spin 0.90 USDC') && rf.includes('TAM art mint 6 USDC') && rf.includes('Message to a block 0.20 USDC') && rf.includes('vote 1 TBLOCK') && rf.includes('Buy or sell TBLOCK 0.2% app fee') && rf.includes('TAM art mint 6 USDC Paid through the TBLOCK payment router: 10% (0.60 USDC) stays USDC')); /* 2026-11-12: the dev part follows the price */
 console.log(ok + '/' + (ok + ko) + (ko ? ' — RED' : ' — green'));
 process.exit(ko ? 1 : 0);

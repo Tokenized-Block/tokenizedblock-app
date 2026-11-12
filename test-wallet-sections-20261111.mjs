@@ -43,11 +43,11 @@ t('lock links pick Holders + Lock before scrolling', APP.includes("function ouvr
 /* the truth of the words */
 const lock = APP.slice(APP.indexOf('async function peindreLock('), APP.indexOf('async function peindreTipApercu('));
 t('lock card: never says the perks count the LOCK', !/count what you LOCK|holder perks read it|perks are back|holder perks stopped/.test(lock) && !/Holder stage/.test(lock));
-t('lock card: says what it earns today and what still reads the wallet', lock.includes('Locking earns community points') && lock.includes('still count your wallet balance; counting your lock there is coming soon.') && !lock.includes('not deployed'));
+t('lock card: says what it earns today and what still reads the wallet', lock.includes('Locking earns community points') && lock.includes('Hearts ♥ and holders vault claims count your lock; the holders’ channel counts your wallet balance.') /* 2026-11-12: the live hearts and vault read the lock */ && !lock.includes('not deployed'));
 t('lock.js: points, not perks', !/perks/.test(LKJ.split('\n').filter((l) => /texte:/.test(l)).join('\n')));
 t('holders.html: no "holder stage = $15 LOCKED" as a live perk', !HOL.includes("'The holder stage: $' + prix.seuil + ' of TBLOCK LOCKED") && !HOL.includes('lock at least $15 of it to reach the holder stage'));
 const intro = APP.slice(APP.indexOf('<p class="titre">Holders vault</p>'), APP.indexOf('<div id="wVaultRows">'));
-t('holders intro: no typed threshold, says whose payments fill it', !/\d{2},\d{3},\d{3}/.test(intro) && intro.includes('Deposits so far came from the team') && !intro.includes('Fed by buybacks and fees') && !intro.includes('Filled by TBLOCK buybacks'));
+t('holders intro: no typed threshold, says whose payments fill it', !/\d{2},\d{3},\d{3}/.test(intro) && intro.includes('Every TAM art and skin mint sends the TBLOCK it buys here.') /* 2026-11-12: what fills the live vault */ && !intro.includes('Fed by buybacks and fees') && !intro.includes('Filled by TBLOCK buybacks'));
 t('Create: a lock line under the button, hidden until TBlockLock is deployed, opening Wallet → Holders → Lock', /<button class="bouton creaGo" id="cCreer"[^\n]*\n(?:[^\n]*\n){0,3}\s*<p class="note" id="cLockLien" hidden/.test(APP)
   && APP.includes("$('#cLockLien').hidden = false; $('#cLockOuvrir').hidden = false;") /* game368: the real lock form opens in Create */);
 t('Create: the line says what the lock earns and who can take it back, no perk promised', APP.includes('Lock your TBLOCK for community points (7 days minimum; the lock contract has no owner, only you take it back)'));

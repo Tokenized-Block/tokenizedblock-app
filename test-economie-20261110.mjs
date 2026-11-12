@@ -73,10 +73,12 @@ const serv = readFileSync(new URL('./serveur-web.js', import.meta.url), 'utf8');
 t('served: economie.js, economie-deploiement.js, deployer-economie.html', ["'economie.js'", "'economie-deploiement.js'", "'deployer-economie.html'"].every((s) => serv.includes(s)));
 const app = readFileSync(new URL('./app.html', import.meta.url), 'utf8');
 t('app: +1 sits on the name line', /<div class="bcNomLigne"><div class="bcNom" id="bcNom">[^<]*<\/div>\s*<span class="bcLike" id="bcLike" hidden>/.test(app));
-t('app: the click checks (contract hold + $15 now) then sends the likeBatch', /ECO\.likeCheckUsd\(\{ balance: bal, n: 1, prixUsd \}\)[\s\S]{0,400}ECO\.likeBatch\(\{ block: a, n: 1 \}\)/.test(app));
+/* 2026-11-12 (the economy pack is live): hearts are given on Hearts (BlockLikesV2): its OWN rule, read on chain before the wallet opens —
+ *   likePrice() from the wallet, minHold() LOCKED — replaces the app-side $15 check of the first contract */
+t('app: the click checks the contract rule (price, minimum LOCKED) then sends the likeBatch', /EP\.likeCheck\(\{ balance: bal, locked, likePrice: prix, minHold: need[\s\S]{0,400}EP\.likeBatch\(\{ block: a, n: 1, likePrice: prix \}\)/.test(app));
 t('app: Community vault card in the Wallet tab, hidden while the vault is null', /<section class="volet" id="v-wallet"[\s\S]*?<div class="carte" id="wVault" hidden data-v="lock">[\s\S]*?<\/section>/.test(app)
-  && /if \(!ECO\.VAULT \|\| !ECO\.LIKES\) \{ carte\.hidden = true; return; \}/.test(app));
-t('app: hidden while BlockLikes is null', /if \(!ECO\.LIKES \|\| !ECO\.isB20\(a\)\) \{ box\.hidden = true;/.test(app));
+  && /if \(!EP\.VAULT \|\| !EP\.HEARTS\) \{ carte\.hidden = true; return; \}/.test(app)); /* 2026-11-12: the live vault and Hearts */
+t('app: hidden while Hearts is not on this network', /if \(!EP\.HEARTS \|\| !EP\.isB20\(a\)\) \{ box\.hidden = true;/.test(app));
 /* contest.html: its $ is getElementById, so a '#' selector returns null and stops the render after the fund card (game333) */
 { const ch = readFileSync(new URL('./contest.html', import.meta.url), 'utf8');
   t('contest.html $ is getElementById', /const \$ = \(id\) => document\.getElementById\(id\)/.test(ch));
@@ -97,6 +99,7 @@ t('buyback v2 address wired', D.adresseBuyback === '0x1afc3d27c37c9474a17ce83f03
   t('price high: the contract fixed hold still applies (never looser than the contract)', hi.ok === false);
   t('price unread: refused with a sentence, never assumed', E.likeCheckUsd({ balance: P * 1000n, prixUsd: null }).ok === false);
   const appH = readFileSync(new URL('./app.html', import.meta.url), 'utf8');
-  t('app: the heart button uses likeCheckUsd with the lower price', /const chk = ECO\.likeCheckUsd\(\{ balance: bal, n: 1, prixUsd \}\);/.test(appH) && /Math\.min\(Number\(h\.priceNow\), Number\(h\.priceBefore \|\| h\.priceNow\)\)/.test(appH)); }
+  /* 2026-11-12: likeCheckUsd stays in economie.js for the first contract; the app's heart now uses the live contract's own rule */
+  t('app: the heart button no longer uses the app-side $15 check (the contract enforces its dollar rule)', !/ECO\.likeCheckUsd\(/.test(appH) && /EP\.likeCheck\(/.test(appH)); }
 console.log(ko === 0 ? 'GREEN' : 'RED', ok + '/' + (ok + ko));
 process.exitCode = ko ? 1 : 0;

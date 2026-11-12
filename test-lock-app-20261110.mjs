@@ -25,7 +25,7 @@ t('deploy page states the withdrawal period', /D\.retraitSecondes \/ 86400 \+ ' 
 t('gates read activeLockedOf (SEC-001)', /LK\.VIEW\.activeLockedOf\(moi\)/.test(P));
 t('says never to send TBLOCK to the lock directly (review SEC-003)', /Never send TBLOCK to the lock address yourself/.test(P));
 /* game356: the duration is the pill chosen (jours), the pills come from lock.js */
-t('durations 7 / 30 / 90 days from lock.js', /for \(const j of LK\.DUREES_JOURS\)/.test(P));
+t('durations from lock.js (+ 60 days while the monthly lock rewards are live)', /const durees = EP\.REWARDS \? \[\.\.\.new Set\(\[\.\.\.LK\.DUREES_JOURS, EP\.MOIS_MIN_JOURS\]\)\]\.sort\(\(x, y\) => x - y\) : LK\.DUREES_JOURS;/.test(P) && /for \(const j of durees\)/.test(P)); /* 2026-11-12 */
 t('deploy page checks the sha256 before its button opens', /const ok = \(await sha256Hex\(D\.creation\)\) === D\.sha256Creation;/.test(DEP) && /\$\('#d1'\)\.disabled = !\(chain === 8453 && ok && !D\.adresse\);/.test(DEP));
 t('deploy page sends exactly the frozen data', /params: \[\{ from: acct, data: D\.creation \}\]/.test(DEP));
 const st = APP.match(/20261109-game\d+/g) || [];

@@ -70,7 +70,9 @@
 <script type="module">
 import * as C from './block-contest.js';
 import { displayShort, isFeeAddress } from './frais-creation.js';
-import * as ECO from './economie.js';
+import * as ECO from './economie.js'; /* the FIRST holders vault: its past weeks stay claimable here */
+import * as EP from './economie-pack.js'; /* 2026-11-12: the live holders vault (lock factor, claim needs the hearts' minimum locked) */
+import * as LK from './lock.js';
 
 /* ---------------------------------------------------------------- reads: Base public nodes, straight from the browser */
 const NODES = ['https://base-rpc.publicnode.com', 'https://mainnet.base.org'];
@@ -151,19 +153,29 @@ async function readWallet() {
   my = out;
 }
 
-/* ---------------------------------------------------------------- the holders vault (TBlockVault) — hidden until it is deployed */
+/* ---------------------------------------------------------------- the holders vault — 2026-11-12: the live one (EP.VAULT). Its claim needs
+ *   the hearts' minimum LOCKED and a lock that lasts 7 more days, both read here before the wallet opens. The FIRST vault's weeks this
+ *   wallet is still owed stay listed and claimable below it (its own rule: TBLOCK held in the wallet). */
 let V = null;
 async function readVault() {
-  if (!ECO.VAULT || !ECO.LIKES) { V = null; return; }
+  if (!EP.VAULT || !EP.HEARTS) { V = null; return; }
   try {
-    const w = (v) => rd(v).then((h) => ECO.word(h));
-    const v = { balance: await w(ECO.VIEW.vaultBalance()), reserved: await w(ECO.VIEW.reserved()), rescueAmount: await w(ECO.VIEW.rescueAmount()),
-      rescueAt: await w(ECO.VIEW.rescueAt()), renounced: (await w(ECO.VIEW.rescueRenounced())) !== 0n, epoch: await w(ECO.VIEW.currentEpoch()), mine: [] };
-    if (wallet) for (const e of [v.epoch - 1n, v.epoch - 2n].filter((x) => x >= 0n)) {
-      const ep = await rd(ECO.VIEW.epochs(e));
-      const closed = ECO.word(ep, 3) !== 0n;
-      const o = await rd(ECO.VIEW.owed(e, wallet));
-      v.mine.push({ e, closed, share: ECO.word(o, 0), bonus: ECO.word(o, 1) });
+    const w = (v) => rd(v).then((h) => EP.word(h));
+    const v = { balance: await w(EP.VIEW.vaultBalance()), reserved: await w(EP.VIEW.reserved()), rescueAmount: await w(EP.VIEW.rescueAmount()),
+      rescueAt: await w(EP.VIEW.rescueAt()), renounced: EP.word(await call(EP.VAULT, '0x' + ECO.SEL.rescueRenounced)) !== 0n, epoch: await w(EP.VIEW.currentEpoch()),
+      need: await w(EP.VIEW.minHold()), minCommit: await w(EP.VIEW.minCommit()), mine: [], first: [] };
+    if (wallet) {
+      v.locked = await w(LK.VIEW.activeLockedOf(wallet)); v.unlockAt = await w(LK.VIEW.unlockAtOf(wallet)); v.factor = await w(EP.VIEW.lockFactor(wallet));
+      for (const e of [v.epoch - 1n, v.epoch - 2n].filter((x) => x >= 0n)) {
+        const ep = EP.decoderEpoque(await rd(EP.VIEW.epochs(e)));
+        const o = await rd(EP.VIEW.owed(e, wallet));
+        v.mine.push({ e, closed: ep.closed, share: EP.word(o, 0), bonus: EP.word(o, 1), need: await w(EP.VIEW.needFor(e)) });
+      }
+      if (ECO.VAULT) for (const e of [v.epoch - 1n, v.epoch - 2n].filter((x) => x >= 0n)) {
+        const o = await rd(ECO.VIEW.owed(e, wallet));
+        const s = ECO.word(o, 0), b = ECO.word(o, 1);
+        if (s + b > 0n) v.first.push({ e, share: s, bonus: b });
+      }
     }
     V = v;
   } catch (e) { V = { error: String((e && e.message) || e).slice(0, 100) }; }
@@ -172,8 +184,9 @@ function renderVault() {
   if (!V) { $('vault').hidden = true; return; }
   let h = '<h2>Holders vault</h2>';
   if (V.error) { $('vault').innerHTML = h + '<p class="note">Not read just now (' + esc(V.error) + ').</p>'; $('vault').hidden = false; return; }
-  h += '<p>It pays the players of each week first (a share of what they burned with +1, never more than they burned), then fills the contest pot. Holders of ' + tok(ECO.CLAIM_MIN_HOLD) + ' or more can claim.</p>';
+  h += '<p>It pays the players of each week first (a share of what they put in with hearts, TAM art and skins, never more than they put in), then fills the contest pot. Claiming needs ' + tok(V.need) + ' locked and a lock that lasts at least ' + Math.round(Number(V.minCommit) / 86400) + ' more days.</p>';
   h += row('In the vault', tok(V.balance) + dollars(V.balance)) + row('Reserved for players', tok(V.reserved)) + row('This week', 'week ' + V.epoch);
+  if (wallet && V.locked !== undefined) h += row('Your lock', tok(V.locked) + ' · factor ' + esc(EP.texteFacteur(V.factor)));
   if (V.renounced) h += row('Dev rescue', pill('renounced for good', 'ok'));
   else if (V.rescueAmount > 0n) h += '<div class="warnbox">The dev announced taking up to ' + tok(V.rescueAmount) + ' of the free part, not before ' + esc(utc(V.rescueAt)) + '. Player budgets are never touched.</div>';
   else h += row('Dev rescue', 'none announced (it would show here 7 days before)');
@@ -184,6 +197,11 @@ function renderVault() {
     if (m.closed && sum > 0n) h += row('Your share', tok(m.share)) + (m.bonus > 0n ? row('Top contributor bonus', tok(m.bonus)) : '') + '<div class="act"><button data-claimweek="' + m.e + '">Claim ' + tok(sum) + '</button></div>';
     if (!m.closed) h += '<p class="note">Anyone can close a finished week; then each player claims.</p><div class="act"><button class="ghost" data-closeweek="' + m.e + '">Close week ' + m.e + '</button></div>';
     h += '</div>';
+  }
+  for (const m of V.first) {
+    const sum = m.share + m.bonus;
+    h += '<div class="entry"><div class="top"><span><b>First vault, week ' + m.e + '</b></span><span>' + pill('to claim', 'ok') + '</span></div>'
+      + row('Your share', tok(sum)) + '<p class="note">This vault asks for ' + tok(ECO.CLAIM_MIN_HOLD) + ' held in the wallet.</p><div class="act"><button data-claimweek1="' + m.e + '">Claim ' + tok(sum) + '</button></div></div>';
   }
   $('vault').innerHTML = h; $('vault').hidden = false;
 }
@@ -409,10 +427,17 @@ document.addEventListener('click', async (ev) => {
   }
   if (d.max) { const i = $('fundAmt'); if (i) i.value = d.max; return; }
   if (d.claimweek !== undefined) {
-    if (my && my.balance < ECO.CLAIM_MIN_HOLD) { message = 'Claiming needs ' + C.formatUnits18(ECO.CLAIM_MIN_HOLD) + ' TBLOCK in this wallet; it holds ' + C.formatUnits18(my.balance) + '.'; return render(); }
-    return send([ECO.claimCall(BigInt(d.claimweek))], 'claim of week ' + d.claimweek + ' rewards');
+    const m = V && V.mine ? V.mine.find((x) => String(x.e) === String(d.claimweek)) : null;
+    if (!m) return;
+    const chk = EP.claimCheck({ locked: V.locked, need: m.need, unlockAt: V.unlockAt, minCommit: V.minCommit, maintenantSec: chainNow(), owed: m.share + m.bonus });
+    if (!chk.ok) { message = 'Not sent: ' + chk.why + '.'; return render(); }
+    return send([EP.claimCall(BigInt(d.claimweek))], 'claim of week ' + d.claimweek + ' rewards');
   }
-  if (d.closeweek !== undefined) return send([{ to: ECO.VAULT, data: '0x' + ECO.SEL.closeEpoch + ECO.wUint(BigInt(d.closeweek)) }], 'closing week ' + d.closeweek);
+  if (d.claimweek1 !== undefined) {
+    if (my && my.balance < ECO.CLAIM_MIN_HOLD) { message = 'The first vault needs ' + C.formatUnits18(ECO.CLAIM_MIN_HOLD) + ' TBLOCK in this wallet; it holds ' + C.formatUnits18(my.balance) + '.'; return render(); }
+    return send([ECO.claimCall(BigInt(d.claimweek1))], 'claim of week ' + d.claimweek1 + ' rewards from the first vault');
+  }
+  if (d.closeweek !== undefined) return send([EP.closeEpochCall(BigInt(d.closeweek))], 'closing week ' + d.closeweek);
   if (d.fund) {
     if (!my) return;
     const plan = C.fundPlan({ text: ($('fundAmt') || {}).value, room: my.room, balance: my.balance });

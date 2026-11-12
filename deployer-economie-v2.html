@@ -44,6 +44,19 @@ a heart counts as play everywhere). Step 1 already names R, the lock rewards add
   <div id="state" class="note" style="margin-top:10px"></div>
 </div>
 <div class="card" id="verif" hidden><h2>After step 6: read-only checks</h2><div id="lines"></div></div>
+<!-- 2026-11-12: the step after the six deploys, on its own: the hook's CURRENT creator payee (read on chain, never typed) moves its 3400 bps
+     slot to the lock rewards R (from economie-v2-pack-deploye.js). Built and judged by payee-slot.js; this card only shows and asks the
+     payee's own wallet to sign. Any other wallet is refused before the wallet opens; the exact call is simulated (eth_call) from the payee
+     first; after the receipt, hook.payees(key) is read again and must name R with 3400 bps. -->
+<div class="card" id="slot">
+  <h2>Last step: move the creator fee share to the lock rewards</h2>
+  <p class="note">The TBLOCK pool pays its creator fee share to one payee. Only that payee can move it, with one signature from its own
+  wallet. After the move the share is paid to the lock rewards, and this page reads the hook again to confirm.</p>
+  <div id="slotInfo"><span class="note">Loading…</span></div>
+  <button id="slotConnect" disabled>Connect the payee wallet</button>
+  <button id="slotGo" disabled>Move the share to the lock rewards (sign in the wallet)</button>
+  <div id="slotState" class="note" style="margin-top:10px"></div>
+</div>
 </main>
 <script type="module">
 import { predire, integrite, etapeSuivante, controleEtape, verifierPack, PRODUIT } from './pack-economie-v2.js';
@@ -144,7 +157,80 @@ async function verifierFin() {
   $('#verif').hidden = false;
   const res = await verifierPack(D, etat.hashes, rpc);
   $('#lines').innerHTML = res.lignes.map((l) => '<div class="ln ' + (l.ok ? 'ok' : 'ko') + '">' + (l.ok ? 'ok ' : 'KO ') + esc(l.quoi) + (l.ok ? '' : ' · seen ' + esc(l.vu)) + '</div>').join('')
-    + '<p class="st ' + (res.ok ? 'ok' : 'ko') + '">' + (res.ok ? 'ALL CHECKS HOLD. Next, outside this nonce chain: the hook payee moves its payee slot to R (its own signature).' : 'NOT VERIFIED: do not announce it.') + '</p>'
+    + '<p class="st ' + (res.ok ? 'ok' : 'ko') + '">' + (res.ok ? 'ALL CHECKS HOLD. Next, outside this nonce chain: the hook payee moves its payee slot to R (its own signature, the last step below).' : 'NOT VERIFIED: do not announce it.') + '</p>'
     + '<p class="note">Same checks from a terminal: run the pack verifier script with these six hashes: ' + esc(etat.hashes.join(' ')) + '</p>';
 }
+</script>
+<script type="module">
+/* the last step (payee-slot.js). A separate module: if it cannot load, the six-step flow above is untouched. */
+const $ = (s) => document.querySelector(s);
+const esc = (x) => String(x ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const row = (k, v) => '<div class="row"><span class="k">' + esc(k) + '</span><span class="v">' + esc(v) + '</span></div>';
+const lien = (h) => '<a href="https://basescan.org/tx/' + esc(h) + '" target="_blank" rel="noopener">' + esc(h) + '</a>';
+const warn = (s) => '<span class="warn">' + esc(s) + '</span>';
+let M = null;
+try { M = await import('./payee-slot.js'); } catch (_) { M = null; }
+let payeeAcct = null;
+const rpc = (method, params) => window.ethereum.request({ method, params });
+const pause = (ms) => new Promise((o) => setTimeout(o, ms));
+
+function dessiner(plan) {
+  const appel = M.appelTransfert();
+  const p = plan && Array.isArray(plan.payees) ? plan.payees : null;
+  $('#slotInfo').innerHTML = row('hook', M.HOOK) + row('TBLOCK pool id', M.POOL_ID) + row('lock rewards (R)', M.R)
+    + row('payee today (read on chain)', p ? p.map((x) => x.to + ' · ' + x.shareBps + ' bps').join(' , ') : 'read when a wallet is connected')
+    + row('exact call: to', appel.to) + row('exact call: value', '0 ETH')
+    + row('exact call: function', M.SIG_TRANSFER + ' with the TBLOCK pool key and R')
+    + row('exact call: data', appel.data)
+    + row('simulated from the payee', plan && plan.pret ? 'succeeds (eth_call answered ' + (plan.simulation || '0x') + ')' : 'not yet')
+    + '<p class="note">The hook\'s admin key can still set the payees of this pool on its own; moving the slot does not remove that power.</p>';
+}
+
+async function verifier() {
+  const plan = await M.planDeplacement(rpc, payeeAcct);
+  dessiner(plan);
+  if (plan.etat === 'fait') { $('#slotGo').disabled = true; $('#slotState').innerHTML = '<span class="st ok">' + esc(plan.raison) + '</span>'; return plan; }
+  $('#slotGo').disabled = !plan.pret;
+  $('#slotState').innerHTML = plan.pret ? esc(plan.raison) : warn(plan.raison);
+  return plan;
+}
+
+if (!M) {
+  $('#slotInfo').innerHTML = warn('This step cannot load here: nothing can be signed.');
+} else {
+  const faux = M.coherence();
+  dessiner(null);
+  if (faux.length) $('#slotState').innerHTML = warn('STOP: ' + faux.join(' · '));
+  else $('#slotConnect').disabled = false;
+}
+
+$('#slotConnect').onclick = async () => {
+  if (!window.ethereum) { $('#slotState').textContent = 'No wallet in this browser.'; return; }
+  try { [payeeAcct] = await rpc('eth_requestAccounts', []); payeeAcct = String(payeeAcct).toLowerCase(); }
+  catch (e) { $('#slotState').textContent = 'Wallet refused: ' + (e.message || e); return; }
+  await verifier();
+};
+
+$('#slotGo').onclick = async () => {
+  $('#slotGo').disabled = true;
+  const [now] = await rpc('eth_accounts', []).catch(() => []);
+  if (String(now || '').toLowerCase() !== payeeAcct) { payeeAcct = String(now || '').toLowerCase() || null; await verifier(); return; }
+  const plan = await verifier(); /* fresh reads and a fresh simulation right before the wallet opens */
+  if (!plan.pret) return;
+  $('#slotGo').disabled = true;
+  let h;
+  try { h = await rpc('eth_sendTransaction', [{ from: payeeAcct, to: plan.appel.to, data: plan.appel.data, value: '0x0' }]); }
+  catch (e) { $('#slotState').textContent = 'Not sent: ' + (e.message || e); $('#slotGo').disabled = false; return; }
+  $('#slotState').innerHTML = 'Sent: ' + lien(h) + ' · waiting for the receipt…';
+  let recu = null;
+  for (let i = 0; i < 120 && !recu; i++) { recu = await rpc('eth_getTransactionReceipt', [h]).catch(() => null); if (!recu) await pause(2000); }
+  if (!recu) { $('#slotState').innerHTML += '<br>' + warn('No receipt yet: check Basescan, then reload this page and connect again.'); return; }
+  const tx = await rpc('eth_getTransactionByHash', [h]).catch(() => null);
+  const ko = M.controleEnvoi(plan.appel, payeeAcct, tx, recu);
+  if (ko.length) { $('#slotState').innerHTML = warn('STOP: ' + ko.join(' · ')) + '<br>' + lien(h); return; }
+  let v = null, lus = null;
+  for (let i = 0; i < 10; i++) { try { lus = await M.lirePayees(rpc); v = M.etatSlot(lus); } catch (_) { v = null; } if (v && v.etat === 'fait') break; await pause(2000); }
+  if (v && v.etat === 'fait') { $('#slotState').innerHTML = '<span class="st ok">Confirmed on chain: the hook pays the creator fee share (3400 bps) to the lock rewards ' + esc(M.R) + '.</span><br>' + lien(h); dessiner({ payees: lus }); }
+  else $('#slotState').innerHTML = warn('The transaction succeeded but the hook does not name the lock rewards yet: ' + (v ? v.raison : 'payees not readable') + '. Reload and connect again to read it.') + '<br>' + lien(h);
+};
 </script>

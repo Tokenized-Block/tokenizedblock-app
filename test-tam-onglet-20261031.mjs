@@ -58,7 +58,8 @@ const onglet = readFileSync(new URL('./tam-onglet.js', import.meta.url), 'utf8')
  *   du module (onglet TAM mort en prod depuis game224) sans qu aucune assertion ne rougisse. On EXECUTE donc le module, une fois. */
 const chargement = await import(new URL('./tam-onglet.js?banc=' + process.pid, import.meta.url).href).then(() => 'charge').catch((e) => 'ERREUR ' + e.message);
 ok(chargement === 'charge', 'tam-onglet.js se CHARGE (le module s execute jusqu au bout) : ' + chargement);
-ok(/const visible = V\.mintVisible\(TAMART_DEPLOIEMENT\) && /.test(onglet) && /zMint\.hidden = !visible/.test(onglet), 'l onglet cache la zone Mint par CETTE regle');
+/* 2026-11-12 (the economy pack is live): the Mint follows TAM art's deployment record (EP.TAM_DEPLOIEMENT), the first TamArt stays in the gallery */
+ok(/const visible = V\.mintVisible\(EP\.TAM_DEPLOIEMENT\) && /.test(onglet) && /zMint\.hidden = !visible/.test(onglet), 'l onglet cache la zone Mint par CETTE regle');
 ok(/if \(!visible\) \{ zMint\.replaceChildren\(\); return; \}/.test(onglet), 'sans adresse, la zone Mint est VIDEE (aucun bouton construit)');
 
 /* ── 3. le plan : exactement 5 USDC, vers le FEE_WALLET ── */
@@ -410,7 +411,8 @@ ok(/chemin === '\/api\/tam\/choix' \|\| chemin === '\/api\/tam\/oeuvres'/.test(s
   /* game82 (Phil : « cost not read yet ») : les decimals de TOUTE la liste, pas seulement des jetons tenus */
   const appD = readFileSync(new URL('./app.html', import.meta.url), 'utf8');
   ok(/decimales: async \(\) => \{ const file = payerListees\(\)\.filter\(\(l\) => !payer\.dec\.has\(l\.jeton\)\);[^\n]*await decimalesPayer\(l\)/.test(appD)
-    && /if \(P\.decimales\) await P\.decimales\(\);/.test(onglet), 'Pay with : le cout pour 5 USDC lu pour chaque jeton (decimals de toute la liste)');
+    && !/if \(P\.decimales\) await P\.decimales\(\);/.test(onglet) && !/\boptionsPayer\b/.test(onglet),
+    'app : le cout lu pour toute la liste ; game375 (Phil 2026-11-12) : l onglet TAM n a plus de « Pay with » (le Mint paie 5 USDC)');
 }
 
 /* ── 8. (2026-11-01, Phil 31/10) LES VARIABLES : joueur et cerveau ── */
@@ -497,7 +499,7 @@ ok(/chemin === '\/api\/tam\/choix' \|\| chemin === '\/api\/tam\/oeuvres'/.test(s
   ok(!sv2.ok && sv2.etat === 'REFUSE' && sv2.codes.includes('CYCLE'), '/api/tam/certifier : un cycle est REFUSE avec sa raison');
   ok((await srv.certifierParams(b64({ ...Pm, n: 50000 }))).codes.includes('HORS_BORNES') && (await srv.certifierParams('%%%')).etat === 'REFUSE' && (await srv.certifierParams(Buffer.from('x'.repeat(5000)).toString('base64url'))).etat === 'REFUSE', '/api/tam/certifier : hors bornes, illisible, trop long -> REFUSE');
   /* (f) l onglet est cable sur CES fonctions (presence ; le comportement est prouve ci-dessus) */
-  ok(/V\.peutMinter\(\{ dep: TAMART_DEPLOIEMENT, local: c0, serveur, octets: oct, P: P0, compte: c \}\)/.test(onglet) && /if \(!porte\.ok\) \{ dit\.textContent = 'Not ready: '/.test(onglet), 'preparerMint passe par V.peutMinter avant toute lecture du contrat');
+  ok(/V\.peutMinter\(\{ dep: EP\.TAM_DEPLOIEMENT, local: c0, serveur, octets: oct, P: P0, compte: c \}\)/.test(onglet) && /if \(!porte\.ok\) \{ dit\.textContent = 'Not ready: '/.test(onglet), 'preparerMint passe par V.peutMinter avant toute lecture du contrat');
   ok(/const vb = S\.P\.regle \? M\.validerReglage\(S\.P\)/.test(onglet) && /S\.c && S\.c\.ok\);/.test(onglet), 'une oeuvre reglee : bornes puis certificats ; pas de zone Mint sans certificat local');
   /* game128 (Phil 04/11 : « retire Let the brain nudge it, il y a deja un bouton pour le cerveau ») : le bouton n existe plus ; M.coupDePouce reste prouve plus haut */
   /* game129 : le poids d un melange de science a son curseur, aux bornes du moteur, et il repasse par chargerScience (donc les certificats) */
@@ -540,7 +542,7 @@ ok(/chemin === '\/api\/tam\/choix' \|\| chemin === '\/api\/tam\/oeuvres'/.test(s
   /* game76 : les sciences en direct — modules SERVIS (sinon page morte), vue seule (jamais de Mint), unites en anglais */
   ok(/'tam-physique\.js', 'tam-sciences\.js', 'tam-fluides\.js'/.test(serveur), 'les 3 modules de science sont dans la liste servie');
   /* ⛔ corrige le 01/11 : TamArt v1 ne connait pas la famille (octet 4 = q) — une science se minte, par le MEME portail */
-  ok(/V\.mintVisible\(TAMART_DEPLOIEMENT\) && !!\(\(S\.choix \|\| \(S\.P && S\.P\.regle\) \|\| S\.science\) && S\.octets && S\.c && S\.c\.ok\)/.test(onglet), 'une science montre le Mint seulement avec ses octets et son certificat local');
+  ok(/V\.mintVisible\(EP\.TAM_DEPLOIEMENT\) && !!\(\(S\.choix \|\| \(S\.P && S\.P\.regle\) \|\| S\.science\) && S\.octets && S\.c && S\.c\.ok\)/.test(onglet), 'une science montre le Mint seulement avec ses octets et son certificat local');
   ok(/'par radian d orbite': 'per radian of orbit'/.test(onglet) && /uniteEn\(o\.uniteLyapunov\)/.test(onglet), 'les unites des modules sont dites en anglais a l ecran');
   { const fichiers = ['./tam-physique.js', './tam-sciences.js', './tam-fluides.js', './tam-astro.js', './tam-cosmos.js', './tam-invisible.js', './tam-quantique.js',
     './tam-fusion.js', './tam-grandes-questions.js', './tam-grandes-questions-2.js', './tam-champs-quantiques.js', './tam-vide-quantique.js', './tam-theories-2.js', './tam-theories-3.js', './tam-biologie.js', './tam-chimie.js', './tam-maths.js', './tam-ondes.js', './tam-electricite.js', './tam-mecanique.js'];
@@ -669,7 +671,8 @@ if (!process.env.TAM_MUTANT) {
     ['rejeu d une oeuvre reglee qui differe (octets du curseur non arrondi)', 'tam-vue.js', '  const o = generer(Q);\n', "  const o = generer(chemin.startsWith('params.') ? { ...Q, params: { ...Q.params, [chemin.slice(7)]: Number(valeur) } } : Q);\n"],
     ['curseur qui ecrit le mauvais angle', 'tam-moteur.js', "else if (tete === 'angles') Q.angles[Number(sous)] = v;", "else if (tete === 'angles') Q.angles[Math.min(Q.angles.length - 1, Number(sous) + 1)] = v;"],
     ['curseur qui ecrit le mauvais parametre', 'tam-moteur.js', 'Q.params[sous] = v;', 'Q.params[Object.keys(Q.params).sort()[0]] = v;'],
-    ['signature non lue ecartee en silence (serveur)', 'tam-serveur.js', 'const existantes = oe.oeuvres.map((o) => oe.sigs.get(o.tokenId) || null);\n    const cle = graine', 'const existantes = oe.oeuvres.map((o) => oe.sigs.get(o.tokenId)).filter(Boolean);\n    const cle = graine'],
+    /* 2026-11-12 (the economy pack): the server reads TAM art AND the first TamArt; the unread signature is kept in toutesExistantes() */
+    ['signature non lue ecartee en silence (serveur)', 'tam-serveur.js', 'E.oe.oeuvres.map((o) => E.oe.sigs.get(o.tokenId) || null));', 'E.oe.oeuvres.map((o) => E.oe.sigs.get(o.tokenId)).filter(Boolean));'],
     ['minteur non transmis au moteur (serveur)', 'tam-serveur.js', 'existantes, minteur }));', 'existantes, minteur: null }));'],
     ['garde CPU : plafond simultane retire', 'tam-serveur.js', 'if (garde.enCours >= TAM_CALCULS_MAX) return', 'if (false) return'],
     ['garde CPU : budget par IP retire', 'tam-serveur.js', 'if (n > TAM_BUDGET_IP_MINUTE) return', 'if (false) return'],

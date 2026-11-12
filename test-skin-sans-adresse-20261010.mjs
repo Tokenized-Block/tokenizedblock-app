@@ -15,8 +15,9 @@ const ecran = [...corps.matchAll(/(?:bcEtape|bcMessage)\([^;]*?\);|textContent\s
 assert.ok(ecran.length > 3, 'textes d ecran introuvables');
 for (const l of ecran) assert.ok(!/\bbeneficiaire\b|FEE_WALLET|BLOCKSKINS|fraisC/.test(l.replace(/\/\*.*?\*\//g, '')), 'adresse a l ecran : ' + l.trim().slice(0, 120));
 /* 2026-10-18 : le prix n est plus tape — c est SKIN_MINT_TEXTE (le MINT_PRICE du contrat actif, blockskins-actif.js) qui ouvre la phrase */
-assert.ok(corps.includes("SKIN_MINT_TEXTE + ' goes to TokenizedBlock."), 'le destinataire n est pas nomme (ou le prix est tape au lieu de SKIN_MINT_TEXTE)');
+/* 2026-11-12 (the economy pack is live): paid through the TBLOCK payment router; the dev part is NAMED TokenizedBlock, never its address */
+assert.ok(corps.includes("SKIN_MINT_TEXTE + ' through the TBLOCK payment router: ' + EP.usdcTexte(dev) + ' USDC to TokenizedBlock, '"), 'le destinataire n est pas nomme (ou le prix est tape au lieu de SKIN_MINT_TEXTE)');
 assert.ok(!/'[^']*\b\d+ USDC\b[^']*'/.test(corps.replace(/\/\*[\s\S]*?\*\//g, '')), 'un prix est TAPE dans un texte de bcAcheterSkin');
-assert.match(corps, /appelMint\(a, recette\)/, 'le mint du contrat doit porter le block et la recette');
-assert.match(corps, /if \(prixC !== SKIN_MINT_USDC \|\| fraisC !== beneficiaire\)/, 'la verification contrat/app (prix et destinataire graves) doit rester');
+assert.match(corps, /EP\.dataSkin\(\{ block: a, recipe: packRecette\(recette\) \}\)/, 'le paiement doit porter le block et la recette');
+assert.match(corps, /if \(prixC !== SKIN_MINT_USDC \|\| fraisC !== beneficiaire \|\| routeurC !== EP\.ROUTER/, 'la verification contrat/app (prix, destinataire et routeur graves) doit rester');
 console.log('ok skin-sans-adresse - ' + ecran.length + ' textes d ecran sans adresse, mint et verification intacts ; NE PROUVE PAS l ecran du wallet');

@@ -57,7 +57,7 @@ function monter(src, etat, horloge, chaine, compte, cfg) {
     V4_ADRESSES: { 8453: { poolm: '0x' + '0'.repeat(40) } }, POOLS_UNIT_TB: new Set(), JETONS_ACTIONS: new Set([JETON]),
     prixUsdPourPlan: async (adr) => { if (chaine.prixNull > 0) { chaine.prixNull -= 1; return null; } return adr === null ? 2000 : 1; },
     decimalesCache: new Map(), WETH_SRV: '0x' + '42'.repeat(20), valeurUsd, crediter, jourDe, joursPass, saisonDe, SEUIL_VOLUME_JOUR_USD: 10,
-    passSkinVerifie: () => ({ ok: true, payeur: PAYEUR }), BLOCKSKINS_SRV: '0x' + 'c0'.repeat(20), USDC_BASE: '0x' + 'aa'.repeat(20), FEE_WALLET: '0x' + 'fe'.repeat(20), SKIN_MINT_USDC_SRV: 1000000n,
+    passSkinVerifie: () => ({ ok: true, payeur: PAYEUR }), BLOCKSKINS_SRV: '0x' + 'c0'.repeat(20), BLOCKSKINS_ACTIF_SRV: { routeur: null } /* 2026-11-12: crediterPassSkin reads the active contract's router (none here) */, USDC_BASE: '0x' + 'aa'.repeat(20), FEE_WALLET: '0x' + 'fe'.repeat(20), SKIN_MINT_USDC_SRV: 1000000n,
     compterRevenu: (x) => { compte.n += 1; return x; }, createurDuBlock: async () => null, ligneRegistre: () => ({}), horodatagesBlocsRolls: new Map(), console: { log() {} },
   };
   const noms = Object.keys(deps);

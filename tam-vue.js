@@ -305,10 +305,19 @@ export function oeuvreReglee(P, chemin, valeur) {
  * LE PORTAIL DU MINT (choix du cerveau ET oeuvre reglee) : TamArt deploye, les certificats de CETTE page sur CES params (local), ceux du
  * SERVEUR (qui mesure la distance a toutes les oeuvres mintees) sur les MEMES octets, et une oeuvre tiree pour CE wallet.
  */
+function pourquoiServeur(serveur) {
+  if (!serveur) return 'the server has not certified this work';
+  const codes = Array.isArray(serveur.codes) ? serveur.codes.filter((k) => CODES_EN[k]) : [];
+  if (codes.length) return codes.map((k) => CODES_EN[k]).join('; ');
+  const fr = String(serveur.pourquoi || '').split('; ').filter(Boolean);
+  if (fr.length && fr.every((x) => RAISONS_EN[x])) return fr.map((x) => RAISONS_EN[x]).join('; ');
+  return serveur.pourquoi ? String(serveur.pourquoi) : 'the server has not certified this work';
+}
 export function peutMinter({ dep, local, serveur, octets, P, compte = null }) {
   if (!mintVisible(dep)) return { ok: false, pourquoi: 'TAM minting is coming soon' };
   if (!local || !local.ok) return { ok: false, pourquoi: verdictReglage(local).texte };
-  if (!serveur || serveur.ok !== true || serveur.etat !== 'CERTIFIE') return { ok: false, pourquoi: serveur && serveur.pourquoi ? serveur.pourquoi : 'the server has not certified this work' };
+  /* 2026-11-12 (browser check): the server's refusal carries the engine's FRENCH reasons ("quasi-doublon") — the screen says its codes in English */
+  if (!serveur || serveur.ok !== true || serveur.etat !== 'CERTIFIE') return { ok: false, pourquoi: pourquoiServeur(serveur) };
   if (!(octets instanceof Uint8Array) || serveur.hash !== keccak256Hex(octets)) return { ok: false, pourquoi: 'the server certified other bytes' };
   if (!P || !P.minteur || !compte) return { ok: false, pourquoi: 'connect your wallet, then ask again: each work is drawn for one wallet' };
   if (String(P.minteur).toLowerCase() !== String(compte).toLowerCase()) return { ok: false, pourquoi: 'this work was drawn for another wallet' };

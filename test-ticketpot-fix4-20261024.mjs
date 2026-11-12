@@ -98,7 +98,7 @@ function monterSrv(src, etat, horloge, chaine) {
     V4_ADRESSES: { 8453: { poolm: '0x' + '0'.repeat(40) } }, POOLS_UNIT_TB: new Set(), JETONS_ACTIONS: new Set([JA, JX]),
     prixUsdPourPlan: async (adr) => (chaine.prix ? chaine.prix(adr) : (adr === null ? 2000 : adr === JX ? null : 1)),
     decimalesCache: new Map(), WETH_SRV: '0x' + '42'.repeat(20), valeurUsd, crediter, jourDe, joursPass, saisonDe, SEUIL_VOLUME_JOUR_USD,
-    passSkinVerifie: ({ tx }) => (chaine.skin[tx && tx.hash] ? { ok: true, payeur: PAYEUR } : { ok: false }), BLOCKSKINS_SRV: '0x' + 'c0'.repeat(20), USDC_BASE: '0x' + 'aa'.repeat(20),
+    passSkinVerifie: ({ tx }) => (chaine.skin[tx && tx.hash] ? { ok: true, payeur: PAYEUR } : { ok: false }), BLOCKSKINS_SRV: '0x' + 'c0'.repeat(20), BLOCKSKINS_ACTIF_SRV: { routeur: null } /* 2026-11-12: crediterPassSkin reads the active contract's router (none here) */, USDC_BASE: '0x' + 'aa'.repeat(20),
     FEE_WALLET: '0x' + 'fe'.repeat(20), SKIN_MINT_USDC_SRV: 1000000n,
     compterRevenu: (x) => { compte.n += 1; return x; }, createurDuBlock: async () => null, ligneRegistre: () => ({}), horodatagesBlocsRolls: new Map(), console: { log() {} },
     TICKETPOT_DEPLOIEMENT: { adresse: CT }, dayDeJourIdPot, JOUR_MS, joursEntre, entreesPeriode, bonusNiveauxSemaine, joursTicketParWallet, niveauWallet, ticketsJour,

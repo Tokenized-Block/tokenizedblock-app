@@ -322,7 +322,7 @@ export function prochaineProposition(etat = {}) {
     catch (_) { ps = null; }
   }
   if (ps && ps.genre === 'REGLER') {
-    return proposition('SETTLE', [appelRegler(ps.skin.tokenId)], 'The auction of skin #' + ps.skin.tokenId + ' has ended and you are in it — settling hands the skin (or the money) over. No USDC.', 0n, 'SKINREG:' + ps.skin.tokenId);
+    return proposition('SETTLE', [appelRegler(ps.skin.tokenId, ps.skin.contrat || null)], 'The auction of skin #' + ps.skin.tokenId + ' has ended and you are in it — settling hands the skin (or the money) over. No USDC.', 0n, 'SKINREG:' + ps.skin.tokenId);
   }
 
   /* 2. TAKE_MISSION — une reclamation dont l attestation du verifier est en main */
@@ -421,7 +421,9 @@ export function prochaineProposition(etat = {}) {
     /* deuxieme garde, ici : propositionSkin borne deja, mais la promesse « jamais au-dessus du plafond » est celle de CE module */
     if (m > 0n && m <= regles.maxSkinBidUsdc && m <= reste && solde !== null && m <= solde && bas(ps.skin.devise) === bas(S.usdc)) {
       const id = ps.skin.tokenId;
-      const appels = [appelApprouver(S.usdc, m, 'Allow the skins market to take exactly ' + usdcTxt(m)), ps.genre === 'ACHETER' ? appelAcheter(id, S.usdc, m) : appelEncherir(id, S.usdc, m)];
+      /* 2026-11-12: approved for and sent to the skin's OWN contract (skins live on several, blockskins.js BLOCKSKINS_LUS) */
+      const k = ps.skin.contrat || null;
+      const appels = [appelApprouver(S.usdc, m, 'Allow the skins market to take exactly ' + usdcTxt(m), k), ps.genre === 'ACHETER' ? appelAcheter(id, S.usdc, m, k) : appelEncherir(id, S.usdc, m, k)];
       return proposition(ps.genre === 'ACHETER' ? 'BUY_SKIN' : 'BID_SKIN', appels, (ps.genre === 'ACHETER' ? 'Buy skin #' + id + ' for ' : 'Bid the minimum on skin #' + id + ': ')
         + usdcTxt(m) + ' (your limit ' + usdcTxt(regles.maxSkinBidUsdc) + '). 10 % of a sale goes to TokenizedBlock; an outbid offer is credited back to you.', m, 'SKIN:' + id);
     }

@@ -67,7 +67,10 @@ const sansSignature = (c) => { const { signature: _s, ...r } = c || {}; return r
 const hexDe = (u8) => '0x' + [...u8].map((b) => b.toString(16).padStart(2, '0')).join('');
 
 /** le moteur de reponses ; `rpc(methode, params)` injecte, `deploiement` = TAMART_DEPLOIEMENT */
-export function serveurTam({ rpc, deploiement, lireVie = null, lireSymbole = null, maintenant = () => Date.now() }) {
+/* 2026-11-12 (the economy pack is live): `deploiement` = the TAM art contract minted on now (paid through the TBLOCK router); `autres` =
+ *   the earlier TAM contracts, read the same way. Distinctness is measured against EVERY minted work of every contract, and the list of one
+ *   is never said whole while another is unread. */
+export function serveurTam({ rpc, deploiement, autres = [], lireVie = null, lireSymbole = null, maintenant = () => Date.now() }) {
   const parGraine = new Map(), vies = new Map();
   /* le cerveau d un block : sa vie lue (cache 60 s), puis cerveau.js ; repli IB022 SEULEMENT si celui-la ne se construit pas */
   async function cerveauDe(adr) {
@@ -103,7 +106,12 @@ export function serveurTam({ rpc, deploiement, lireVie = null, lireSymbole = nul
     try { await new Promise((r) => setImmediate(r)); return f(); } finally { garde.enCours--; }
   }
   let tete = null; /* { bloc, hash, a } */
-  const oe = { oeuvres: [], sigs: new Map(), jusqua: null, a: 0, enVol: null, erreur: null };
+  const etats = [deploiement, ...(autres || [])].filter((d) => adresseTam(d)).map((d) => ({ dep: d, contrat: adresseTam(d), oe: { oeuvres: [], sigs: new Map(), jusqua: null, a: 0, enVol: null, erreur: null } }));
+  const deploye = etats.length > 0;
+  /** the signature of every minted work of every contract (null where unread: choix/certifier refuse then) */
+  const toutesExistantes = () => etats.flatMap((E) => E.oe.oeuvres.map((o) => E.oe.sigs.get(o.tokenId) || null));
+  /** null when every contract's minted works were read up to the head; otherwise why not */
+  const pasLu = () => { for (const E of etats) { if (E.oe.jusqua === null || E.oe.erreur) return 'the minted works were not read, so distinctness cannot be measured' + (E.oe.erreur ? ': ' + E.oe.erreur : ''); if (!E.oe.aJour) return 'the minted works are still being read up to the latest block'; } return null; };
 
   async function teteLue() {
     if (tete && maintenant() - tete.a < TTL_MS) return tete;
@@ -134,11 +142,11 @@ export function serveurTam({ rpc, deploiement, lireVie = null, lireSymbole = nul
     }
     /* ⛔ 2026-11-01 : la distinction se mesure contre TOUTES les oeuvres mintees. Une fois TamArt deploye : liste non lue jusqu a la tete,
      *   ou UNE signature non lue -> NON_LU, jamais une oeuvre comparee a une liste trouee. */
-    if (adresseTam(deploiement)) {
-      if (oe.jusqua === null || oe.erreur) return { ok: false, etat: 'NON_LU', graine, bloc, pourquoi: 'the minted works were not read, so distinctness cannot be measured' + (oe.erreur ? ': ' + oe.erreur : '') };
-      if (!oe.aJour) return { ok: false, etat: 'NON_LU', graine, bloc, pourquoi: 'the minted works are still being read up to the latest block' };
+    if (deploye) {
+      const p = pasLu();
+      if (p) return { ok: false, etat: 'NON_LU', graine, bloc, pourquoi: p };
     }
-    const existantes = oe.oeuvres.map((o) => oe.sigs.get(o.tokenId) || null);
+    const existantes = toutesExistantes();
     const cle = graine + ':' + etat.cerveau + ':' + etat.tick + ':' + etat.etatVie + ':' + etat.vie + ':' + existantes.length + ':' + minteur + ':' + (tirage || '-');
     /* revue game79 (medium) : le tirage entre dans la cle — sinon un appel « graine seule » (attracteur) recevait la science en cache */
     if (parGraine.has(cle)) return parGraine.get(cle); /* un cache touche ne coute rien : ni budget, ni place */
@@ -186,7 +194,8 @@ export function serveurTam({ rpc, deploiement, lireVie = null, lireSymbole = nul
 
   /* la signature (distance) d une oeuvre existante : lue dans ses OCTETS stockes, jamais supposee. Echec -> signatureNonLue (relue au
    *   balayage suivant) ; tant qu une seule manque, choix() rend NON_LU — elle n est jamais retiree en silence des `existantes`. */
-  async function lireSignature(contrat, o) {
+  async function lireSignature(E, o) {
+    const { contrat, oe } = E;
     try { const d = decoderBytes(await rpc('eth_call', [appelLecture(contrat, SIG_TAM.donnees, o.tokenId), 'latest'])); const x = decoder(d); oe.sigs.set(o.tokenId, signature(x.points, x.q)); delete o.signatureNonLue; }
     catch (_) { o.signatureNonLue = true; }
   }
@@ -199,10 +208,8 @@ export function serveurTam({ rpc, deploiement, lireVie = null, lireSymbole = nul
     try { json = Buffer.from(String(p64 || ''), 'base64url').toString('utf8'); } catch (_) { json = ''; }
     if (!json || json.length > MAX_PARAMS_JSON) return { ok: false, etat: 'REFUSE', codes: ['HORS_BORNES'], pourquoi: 'params missing or longer than ' + MAX_PARAMS_JSON + ' bytes' };
     let P; try { P = JSON.parse(json); } catch (_) { return { ok: false, etat: 'REFUSE', codes: ['HORS_BORNES'], pourquoi: 'params are not JSON' }; }
-    if (adresseTam(deploiement)) {
-      if (oe.jusqua === null || oe.erreur || !oe.aJour) return { ok: false, etat: 'NON_LU', codes: ['SIGNATURE_NON_LUE'], pourquoi: 'the minted works were not read up to the latest block, so distinctness cannot be measured' };
-    }
-    const existantes = oe.oeuvres.map((o) => oe.sigs.get(o.tokenId) || null);
+    if (deploye && pasLu()) return { ok: false, etat: 'NON_LU', codes: ['SIGNATURE_NON_LUE'], pourquoi: 'the minted works were not read up to the latest block, so distinctness cannot be measured' };
+    const existantes = toutesExistantes();
     const cle = json + ':' + existantes.length;
     if (parReglage.has(cle)) return parReglage.get(cle); /* un cache touche ne coute rien : ni budget, ni place */
     /* game76 : une oeuvre de SCIENCE (P.science) passe ses propres certificats (tam-science.js) : bornes du module, bornee, distincte */
@@ -215,8 +222,9 @@ export function serveurTam({ rpc, deploiement, lireVie = null, lireSymbole = nul
     return rep;
   }
 
-  async function balayer(contrat) {
-    for (const o of oe.oeuvres) if (o.signatureNonLue) await lireSignature(contrat, o);
+  async function balayer(E) {
+    const { contrat, oe, dep: deploiement } = E;
+    for (const o of oe.oeuvres) if (o.signatureNonLue) await lireSignature(E, o);
     const h = parseInt(await rpc('eth_blockNumber', []), 16);
     /* game359 (Grok's live test 2026-11-11: "Not ready: the minted works were not read up to the latest block"): measured on prod, the log
      *   scan sat at block 53,906,473 with the head ~2.1M blocks ahead — 180k blocks per call, only when someone opens TAM, restarted from the
@@ -233,7 +241,7 @@ export function serveurTam({ rpc, deploiement, lireVie = null, lireSymbole = nul
           const mot = async (sig) => String(await rpc('eth_call', [appelLecture(contrat, sig, id), '0x' + h.toString(16)])).toLowerCase();
           const o = { tokenId: id, minter: null, empreinte: await mot(SIG_TAM.empreinte), graine: await mot(SIG_TAM.graine), tx: null, bloc: null, parId: true };
           oe.oeuvres.push(o);
-          await lireSignature(contrat, o);
+          await lireSignature(E, o);
         }
         oe.oeuvres.sort((x, y) => x.tokenId - y.tokenId);
         const entiers = oe.oeuvres.length === sup && oe.oeuvres.every((o, k) => o.tokenId === k + 1) && !oe.oeuvres.some((o) => o.signatureNonLue);
@@ -250,7 +258,7 @@ export function serveurTam({ rpc, deploiement, lireVie = null, lireSymbole = nul
         if (oe.oeuvres.some((o) => o.tokenId === id)) continue;
         const o = { tokenId: id, minter: '0x' + String(l.topics[2]).slice(26).toLowerCase(), empreinte: String(l.topics[3]).toLowerCase(), graine: '0x' + String(l.data).slice(2, 66).toLowerCase(), tx: l.transactionHash, bloc: parseInt(l.blockNumber, 16) };
         oe.oeuvres.push(o);
-        await lireSignature(contrat, o);
+        await lireSignature(E, o);
       }
       oe.jusqua = a; de = a + 1;
     }
@@ -258,14 +266,20 @@ export function serveurTam({ rpc, deploiement, lireVie = null, lireSymbole = nul
     return oe.jusqua >= h;
   }
 
-  async function oeuvres() {
-    const contrat = adresseTam(deploiement);
-    if (!contrat) return { ok: true, etat: 'PAS_DEPLOYE', pourquoi: 'TAM minting is coming soon: no work can have been minted', contrat: null, oeuvres: [] };
+  /** one contract's answer, read at most every TTL_MS */
+  async function oeuvresDe(E) {
+    const { contrat, oe } = E;
     if (maintenant() - oe.a < TTL_MS && oe.jusqua !== null) return { ok: true, etat: oe.aJour ? 'LU' : 'EN_RETARD', contrat, jusqua: oe.jusqua, oeuvres: oe.oeuvres };
-    if (!oe.enVol) oe.enVol = balayer(contrat).then((aJour) => { oe.aJour = aJour; oe.erreur = null; }, (e) => { oe.erreur = String((e && e.message) || e).slice(0, 120); }).finally(() => { oe.a = maintenant(); oe.enVol = null; });
+    if (!oe.enVol) oe.enVol = balayer(E).then((aJour) => { oe.aJour = aJour; oe.erreur = null; }, (e) => { oe.erreur = String((e && e.message) || e).slice(0, 120); }).finally(() => { oe.a = maintenant(); oe.enVol = null; });
     await oe.enVol;
     if (oe.jusqua === null) return { ok: false, etat: 'NON_LU', pourquoi: 'the Minted events were not read: ' + (oe.erreur || 'no answer'), contrat, oeuvres: [] };
     return { ok: true, etat: oe.erreur ? 'PARTIEL' : oe.aJour ? 'LU' : 'EN_RETARD', pourquoi: oe.erreur, contrat, jusqua: oe.jusqua, oeuvres: oe.oeuvres };
+  }
+  /** the contract minted on now (its fields, as before) + `parContrat`: every contract's answer, the one minted on now first */
+  async function oeuvres() {
+    if (!adresseTam(deploiement)) return { ok: true, etat: 'PAS_DEPLOYE', pourquoi: 'TAM minting is coming soon: no work can have been minted', contrat: null, oeuvres: [], parContrat: [] };
+    const rs = await Promise.all(etats.map((E) => oeuvresDe(E)));
+    return { ...rs[0], parContrat: rs };
   }
 
   return { choix, oeuvres, cerveauDe, certifierParams };

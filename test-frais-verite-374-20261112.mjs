@@ -85,7 +85,7 @@ t('F-holder-1', 'what still pays: a stock bought from its own page (' + pct(C.cl
 t('F-holder-2', 'the threshold is the fee rule\'s own (tblock-hold-regle.js), re-exported by tblock-hold.js', !!HR && C.holder && C.holder.seuilUsd === HR.HOLD_THRESHOLD_USD
   && /export \{ HOLD_THRESHOLD_USD \}/.test(lireSrc('tblock-hold.js')) && /tsHead - HOLD_PRICE_LOOKBACK_S/.test(lireSrc('tblock-hold.js')));
 t('F-holder-2', 'a changed holder threshold moves the fee rows, not the heart rule', !!C.holder && (() => { const x = avec((c) => { c.holder.seuilUsd = 20; });
-  return x.includes('A wallet holding at least $20 of TBLOCK pays no app fee') && x.includes('falls below $20') && x.includes('$' + C.coeur.seuilUsd + ' of TBLOCK (the app\'s rule)'); })());
+  return x.includes('A wallet holding at least $20 of TBLOCK pays no app fee') && x.includes('falls below $20') && x.includes('A heart needs $15 of TBLOCK locked'); })()); /* 2026-11-12: the heart rule is the hearts contract's own (pack), untouched by the fee threshold */
 t('F-holder-2', 'the price look-back is said from HOLD_PRICE_LOOKBACK_S', !!HR && txt.includes('the lower of the price now and about ' + Math.round(HR.HOLD_PRICE_LOOKBACK_S / 60) + ' minutes ago'));
 
 /* ---- F-tb-2: the TBLOCK route as tblock-route.js builds it; a sell pays out in USDC only */
@@ -126,14 +126,18 @@ t('F-duel-4', 'duels: the reward pool wallet is an ordinary wallet', txt.include
 
 /* ---- F-heart-2: burned, never refunded — and the vault rebate, from the vault's config */
 const VC = ED.vault.config;
-t('F-heart-2', 'hearts: never refunded + the vault rebate (' + pct(VC.rebateBps) + ', ' + (VC.claimWindow / 86400) + ' days, ' + EC.fmt(EC.CLAIM_MIN_HOLD) + ' TBLOCK)',
-  txt.includes('Sent to the dead address (burned): the TBLOCK you pay is never refunded.') && txt.includes('each player at most ' + pct(VC.rebateBps) + ' of what they burned, plus, for the week\'s top player, a bonus capped at another '
-  + pct(VC.rebateBps) + ' of what they burned; claimed within ' + (VC.claimWindow / 86400) + ' days by a wallet holding at least ' + EC.fmt(EC.CLAIM_MIN_HOLD) + ' TBLOCK') && !/burned\); nothing comes back/.test(txt));
-t('F-heart-2', 'the rebate follows its source', C.coeur.rabaisBps !== undefined && avec((c) => { c.coeur.rabaisBps = 4000n; }).includes('at most 40% of what they burned'));
+/* 2026-11-12 (the economy pack is live): hearts are the pack's (burned from the wallet, a lock needed); the weekly rebate is the live vault's
+ *   own row, from the pack record's V config (rebateBps, claimWindow) and its source (MIN_COMMIT, ACCESS_USD); the first vault keeps its hold */
+const VP = (await imp('economie-v2-pack-deploiement.js')).PACK_ECONOMIE_V2.etapes.find((e) => e.lettre === 'V').config;
+t('F-heart-2', 'hearts: burned from the wallet, never refunded; the live vault rebate (' + pct(VP.rebateBps) + ', ' + (VP.claimWindow / 86400) + ' days, $15 locked)',
+  txt.includes('Burned from your wallet (sent to the dead address): the TBLOCK you pay is never refunded.') && txt.includes('Each player gets at most ' + pct(VP.rebateBps) + ' of what they put in that week')
+  && txt.includes('a bonus capped at another ' + pct(VP.rebateBps)) && txt.includes('Claimed within ' + (VP.claimWindow / 86400) + ' days of the week\'s close by a wallet with $15 of TBLOCK locked')
+  && txt.includes('Weeks of the first holders vault stay claimable under its own rule (' + EC.fmt(EC.CLAIM_MIN_HOLD) + ' TBLOCK held in the wallet)') && !/burned\); nothing comes back/.test(txt));
+t('F-heart-2', 'the rebate follows its source', !!C.pack && avec((c) => { c.pack.vault.rabaisBps = 4000n; }).includes('Each player gets at most 40% of what they put in'));
 /* review game374: TBlockVault.owed caps the share AND the top bonus each at spent * REBATE_BPS -> the top player can get 2x; « in all, at most 50% » was false */
-const vaultSol = readFileSync(path.join(ICI, 'contracts/src/TBlockVault.sol'), 'utf8');
+const vaultSol = readFileSync(path.join(ICI, 'contracts/src/TBlockVaultV2.sol'), 'utf8'); /* 2026-11-12: the live vault */
 t('F-heart-2', 'the top player\'s bonus is said (owed(): topBonus capped at the same cap), never « in all, at most »', /if \(topBonus > cap\) topBonus = cap;/.test(vaultSol) && /if \(share > cap\) share = cap;/.test(vaultSol)
-  && !txt.includes('in all, at most') && txt.includes('a bonus capped at another ' + pct(VC.rebateBps)));
+  && !txt.includes('in all, at most') && txt.includes('a bonus capped at another ' + pct(VP.rebateBps)));
 
 /* ---- F-contest-6: settle by someone, the quorum, the rollover — from the contest's config */
 const cc = CO.config;

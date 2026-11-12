@@ -1,7 +1,8 @@
 /* tam-onglet.js — TAM phase C : l onglet TAM (le DOM, le canvas, les gestes, le son). Importe par app.html A L OUVERTURE de l onglet.
  *   La logique prouvee vit dans tam-vue.js (projection, couches, verdict du rejeu, carte, regle du Mint) et tam-plan.js (le plan du mint).
- *   ⛔ Rien n est signe ici : le mint passe par le « Pay with » de l app (ctx.preparer / ctx.envoyer), que le WALLET signe.
- *   ⛔ Sans adresse TamArt (tamart-deploiement.js), AUCUN bouton Mint : pas un controle inerte. */
+ *   ⛔ Rien n est signe ici : le mint (5 USDC, par le routeur de paiement TBLOCK sur TAM art) passe par ctx.envoyer, que le WALLET signe.
+ *     (game375 : le « Pay with » est retire, Phil 2026-11-12.)
+ *   ⛔ Sans adresse TAM art (economie-pack.js, EP.TAM_DEPLOIEMENT), AUCUN bouton Mint : pas un controle inerte. */
 import { generer, certifier, rejouer, decoder, canon } from './tam-moteur.js';
 import { PORTEUSES } from './tam-moteur.js';
 import * as M from './tam-moteur.js';
@@ -9,7 +10,9 @@ import * as V from './tam-vue.js';
 import { adresseTam, PRIX_TAM, SIG_TAM, appelLecture, decoderBytes, decoderMot, decoderAdresse, octetsDe } from './tam-plan.js';
 import { TAMART_DEPLOIEMENT } from './tamart-deploiement.js';
 import { planJeuUsdc } from './misables.js';
-import * as AT from './achat-tblock-usdc.js'; /* game358: after a USDC mint, 10 % of the price buys TBLOCK for the payer (optional) */
+/* 2026-11-12 (the economy pack is live): the mint is paid through the TBLOCK payment router on TAM art (EP.TAM): the payment itself buys
+ *   TBLOCK for the holders vault, so the separate optional buy after a USDC mint (game358) is gone. The first TamArt stays in the gallery. */
+import * as EP from './economie-pack.js';
 import { projectCam } from './map3d.js';
 import { navGesture } from './vision-inside.js';
 import { keccak256Hex } from './keccak.js';
@@ -660,6 +663,20 @@ const el = (tag, attrs = {}, ...kids) => {
 let cssPose = false;
 const reduit = () => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (_) { return false; } };
 const hexDe = (u8) => '0x' + [...u8].map((b) => b.toString(16).padStart(2, '0')).join('');
+/* game374 (Phil: "the Replay button must show it on the TAM map, to really replay the TAM"): what Replay decides for a minted work read
+ *   from Base — its stored params replayed to bytes, compared with the bytes stored on Base. The scene loads it only when they are
+ *   identical (what is drawn is then the minted work, not a look-alike). Pure: the click runs this, then draws. */
+export function planRejeuMintee(paramsTexte, donnees) {
+  let P = null; try { P = JSON.parse(String(paramsTexte)); } catch (_) { P = null; }
+  const non = (pourquoi, genre = null) => ({ ok: false, genre, P: null, verdict: V.verdictRejeu(null, donnees), pourquoi });
+  if (!P || typeof P !== 'object' || Array.isArray(P)) return non('its stored parameters could not be read');
+  const sci = typeof P.science === 'string';
+  if (sci && !SYSTEMES_SCI.some((s) => s.id === P.science)) return non('this page does not know its system yet: reload the page', 'science');
+  let r = null; try { const Q = JSON.parse(JSON.stringify(P)); r = sci ? TS.rejouerScience(Q) : rejouer(Q); } catch (_) { r = null; }
+  const verdict = V.verdictRejeu(r && r.ok ? r.octets : null, donnees);
+  return { ok: verdict.identique === true, genre: sci ? 'science' : 'attracteur', P: verdict.identique ? P : null, verdict,
+    pourquoi: verdict.identique ? null : 'its parameters do not replay to the bytes stored on Base' };
+}
 
 /**
  * @param {HTMLElement} racine  le conteneur de l onglet (#tamRacine)
@@ -711,9 +728,13 @@ export function monter(racine, ctx = {}) {
   const legende = el('details', { class: 'tamLegende', id: 'tamLegende', open: true }, el('summary', { text: 'What you are seeing' }));
   const scene = el('div', { class: 'tamScene' }, cv, info, varsScene, bulle);
   const etatLigne = el('p', { class: 'tamDoux', id: 'tamEtat', 'aria-live': 'polite' });
+  /* game374 : under the scene, while a minted work is replayed — which one, and the byte check ("identical ✓") */
+  const rejeuLigne = el('p', { class: 'tamDoux', id: 'tamRejeu', hidden: true, 'aria-live': 'polite' });
   /* 2026-11-01 (Phil) : en haut, QUEL block fait le graphe, son humeur (moteur) et sa lecture (le mot humain), avec le glow de l humeur */
   const qui = el('p', { class: 'tamQui', id: 'tamQui', text: 'No work yet: let a brain choose, or pick a family.' });
   function peindreQui() {
+    /* game374 : a replayed minted work says so (not "you set it", not the brain of the work shown before) */
+    if (S.rejeu) { qui.dataset.phase = ''; qui.replaceChildren(document.createTextNode('Replay of '), el('b', { text: 'TAM #' + S.rejeu.id + collectionRejeu() }), document.createTextNode(' — minted on Base, drawn again from its stored parameters')); return; }
     if (S.science && !((S.choix && S.choix.cerveau) || S.origine)) { qui.dataset.phase = ''; qui.replaceChildren(document.createTextNode('Live simulation: '), el('b', { text: S.science.s.nom }), document.createTextNode(' · ' + S.science.s.science + ' · you set it')); return; }
     /* le cerveau qui a choisi reste nomme apres un reglage (S.origine) : « then tuned » le dit */
     const ch = (S.choix && S.choix.cerveau) || S.origine;
@@ -863,7 +884,7 @@ export function monter(racine, ctx = {}) {
         el('div', { class: 'tamRang' }, el('label', { class: 'tamDoux', for: 'tamChaos', text: 'Chaos' }), curChaos, chaosTxt, bChaos),
         curseurs, verdictTxt)),
     el('div', { class: 'tamCarte' },
-      scene,
+      scene, rejeuLigne,
       el('div', { class: 'tamRang' }, bRot, bVue, bBoucle, bSon, selVitesse),
       el('div', { class: 'tamRang' }, bDecor, bLien, bCsv),
       zFilm,
@@ -881,6 +902,7 @@ export function monter(racine, ctx = {}) {
 
   /* ── charger une oeuvre (params) ── */
   function charger(P, choix = null, octetsServeur = null) {
+    S.rejeu = null;
     let o;
     try { o = generer(P); } catch (e) { etatLigne.textContent = 'This combination could not be computed.'; return; }
     if (!o.bornee) {
@@ -912,6 +934,7 @@ export function monter(racine, ctx = {}) {
   /* game79 : extra = { melange, graine, note, choix } — ce que le CERVEAU a tire (melange d un motif, sa graine, sa note on-chain) ;
    *   un reglage a la main garde le melange mais perd la note (elle ne decrit plus l oeuvre) */
   function chargerScience(id, params = {}, extra = {}) {
+    S.rejeu = null;
     /* game79 : un curseur a..d ou Chaos sur « Your formula » repasse par la formule (vue seule) */
     if (id === 'formule') { const { a, b, c, d, ...spec } = params; const vars = { ...(spec.vars || {}) }; for (const [k, v] of Object.entries({ a, b, c, d })) if (typeof v === 'number') vars[k] = v; chargerFormule({ ...spec, vars }); return; }
     const s = SYSTEMES_SCI.find((x) => x.id === id); if (!s) return;
@@ -974,6 +997,7 @@ export function monter(racine, ctx = {}) {
   }
   /* la formule passe par la MEME scene que les sciences ; vue seule (pas d octets, pas de Mint) */
   function chargerFormule(spec, { note = null } = {}) {
+    S.rejeu = null;
     for (const [k, txt] of Object.entries(spec.expressions || {})) {
       const a = F.analyser(txt); if (!a.ok) { formDit.textContent = (spec.mode === 'systeme' ? 'd' + k + '/dt' : k) + ': ' + a.erreur; return false; }
     }
@@ -2358,12 +2382,22 @@ export function monter(racine, ctx = {}) {
         ...Object.entries((o && o.invariants) || {}).filter(([k]) => !INVARIANT_MUET.has(k)).map(([k, v]) => { const nom = NOMS_MESURES[k] || k; return { k: 'Check: ' + nom, v: ligneInvariant(k, v).slice(nom.length + 2) }; }),
         { k: 'Chaos (λ)', v: o && typeof o.lyapunov === 'number' && Number.isFinite(o.lyapunov) ? nb4(o.lyapunov) + (o.uniteLyapunov ? ' ' + uniteEn(o.uniteLyapunov) : '') + ' — finite-run estimate' : 'not defined for this system' },
         { k: 'Mint', v: '5 USDC, stored on Base like every work (same contract). Anyone can replay these parameters to the same bytes.' }];
-      dl.replaceChildren(...lignes.flatMap((l) => [el('dt', { text: l.k }), el('dd', { text: l.v })]));
+      dl.replaceChildren(...lignesRejeu(lignes).flatMap((l) => [el('dt', { text: l.k }), el('dd', { text: l.v })]));
       return;
     }
     const c = S.choix && S.choix.certificats ? { ...S.c, ...S.choix.certificats } : S.c;
     const lignes = V.carte({ P: S.P, c, choix: S.choix, nMintees: S.choix ? S.nMintees : 0 });
-    dl.replaceChildren(...lignes.flatMap((l) => [el('dt', { text: l.k }), el('dd', { text: l.v })]));
+    dl.replaceChildren(...lignesRejeu(lignes).flatMap((l) => [el('dt', { text: l.k }), el('dd', { text: l.v })]));
+  }
+  /* game374 : on a replay the work IS minted — "Distinct from the minted works: yes (no minted work to compare with yet)" and the price
+   *   line would be false there ; they say which minted work it is instead */
+  function lignesRejeu(lignes) {
+    if (!S.rejeu) return lignes;
+    const minte = { k: 'Minted', v: 'yes — this is TAM #' + S.rejeu.id + collectionRejeu() + ', read from Base. Anyone can replay its parameters to the same bytes.' };
+    /* "You did" / "You set the variables yourself" speak to the viewer: on a replay the choice was its minter's */
+    return lignes.map((l) => l.k === 'Distinct from the minted works' || l.k === 'Mint' ? minte
+      : l.k === 'Who chose' && /^You did/.test(l.v) ? { k: l.k, v: 'Its minter, in the free explorer.' }
+        : l.k === 'Tuned' && /^You set/.test(l.v) ? { k: l.k, v: 'Its minter set the variables by hand.' } : l);
   }
 
   /* ── le son (optionnel, coupe par defaut) ── */
@@ -2416,63 +2450,45 @@ export function monter(racine, ctx = {}) {
   /* ── le Mint (seulement adresse connue ; seulement une oeuvre choisie par le cerveau) ── */
   function peindreMint() {
     /* 2026-11-01 : le choix du cerveau OU une oeuvre reglee, et seulement si les certificats LOCAUX passent ; le serveur re-certifie au clic */
-    const visible = V.mintVisible(TAMART_DEPLOIEMENT) && !!((S.choix || (S.P && S.P.regle) || S.science) && S.octets && S.c && S.c.ok);
+    peindreRejeu();
+    /* game374 : a replayed work is already minted — no Mint offered on it */
+    if (S.rejeu) { zMint.hidden = true; racine.dataset.mint = 'off'; zMint.replaceChildren(); return; }
+    const visible = V.mintVisible(EP.TAM_DEPLOIEMENT) && !!((S.choix || (S.P && S.P.regle) || S.science) && S.octets && S.c && S.c.ok);
     zMint.hidden = !visible; racine.dataset.mint = visible ? 'on' : 'off';
     if (!visible) { zMint.replaceChildren(); return; }
-    const selPay = el('select', { 'aria-label': 'Pay with', id: 'tamPayer' }, el('option', { value: 'usdc', text: 'USDC' }));
+    /* game375 (Phil 2026-11-12: the "Pay with" selector goes, the Mint button does the same; label it $5). Merged on the economy pack:
+     *   TAM art takes its USDC price through the router, which turns most of it into TBLOCK for the holders vault — no separate buy. */
     const dit = el('p', { class: 'tamDoux', 'aria-live': 'polite' });
     const signe = el('div', { class: 'tamSigne', hidden: true });
-    const bMint = el('button', { type: 'button', class: 'tamPrim', id: 'tamMintBouton', text: 'Mint this work — 5 USDC' });
-    /* game358 (Phil 2026-11-11: "Mint this work — 5 USDC … ça ouvre un buy sur tblock"): TamArt sends the 5 USDC to the fee wallet as
-     *   USDC (TamArt.sol, not changeable), so the buy is a SECOND step in the payer's own wallet: 10 % of the price -> TBLOCK, theirs.
-     *   Ticked by default, offered only when paying in USDC and when the page has the buy route (ctx.acheterTblock). */
-    const achat = AT.montantAchat(PRIX_TAM);
-    const cbAchat = el('input', { type: 'checkbox', id: 'tamAchatTblock', checked: true });
-    const labAchat = el('label', { class: 'tamDoux tamAchat', for: 'tamAchatTblock' }, cbAchat, document.createTextNode(' ' + AT.texteOption(achat)));
-    const majAchat = () => { labAchat.hidden = !(achat > 0n && typeof ctx.acheterTblock === 'function' && selPay.value === 'usdc'); };
-    selPay.addEventListener('change', majAchat);
-    /* review 358: the summary shown is what runs — any change of the box or of "Pay with" clears it; press Mint again */
-    const perime = () => { if (!signe.hidden) { signe.hidden = true; signe.replaceChildren(); dit.textContent = 'Changed: press Mint again to see what you sign.'; } };
-    selPay.addEventListener('change', perime);
-    cbAchat.addEventListener('change', perime);
-    majAchat();
-    zMint.replaceChildren(el('div', { class: 'tamRang' }, el('label', { class: 'tamDoux', for: 'tamPayer', text: 'Pay with' }), selPay, bMint), labAchat, signe, dit);
-    void optionsPayer(selPay);
-    bMint.addEventListener('click', () => preparerMint({ selPay, signe, dit, achat: () => (!labAchat.hidden && cbAchat.checked ? achat : 0n) }));
+    const bMint = el('button', { type: 'button', class: 'tamPrim', id: 'tamMintBouton', text: 'Mint this work — $5' });
+    /* 2026-11-12: the payment buys TBLOCK itself (the router), for the holders vault — said under the button, from what TAM art reads */
+    const note = el('p', { class: 'tamDoux', id: 'tamMintNote', text: 'Paid through the TBLOCK payment router: most of the price buys TBLOCK for the holders vault, and the mint counts as play.' });
+    zMint.replaceChildren(el('div', { class: 'tamRang' }, bMint), note, signe, dit);
+    bMint.addEventListener('click', () => preparerMint({ signe, dit }));
   }
-  /* 2026-11-01 (Phil : « payement des stocks tokenized et usdc comme pour les slots ») : comme la carte des jeux — le menu = USDC + les
-   *   jetons TENUS en assez grande quantite ; en dessous, TOUS les jetons qui peuvent payer, grises avec leur raison et leur cout pour 5 USDC.
-   *   Sans wallet : la liste quand meme (lecture seule), « Connect a wallet to pay with a token ». */
-  async function optionsPayer(sel) {
-    const P = ctx.payer, c = ctx.compte && ctx.compte();
-    if (!P) return;
-    const tous = el('details', { class: 'tamPayTous', id: 'tamPayTous' }), ul = el('ul', { class: 'tamPayListe' });
-    try { if (c) await P.lire(String(c).toLowerCase()); else if (P.lister) await P.lister(); } catch (_) { return; }
-    /* game82 : le cout de chaque jeton, tenu ou non (les decimals de toute la liste ; une lecture ratee reste « cost not read yet ») */
-    try { if (P.decimales) await P.decimales(); } catch (_) { /* rien : le cout reste non lu */ }
-    const lignes = P.lignes(), autres = [];
-    for (const l of lignes) {
-      const e = P.taille(l, PRIX_TAM), s = c ? P.soldes.get(l.jeton) : null, d = P.dec.get(l.jeton);
-      const cout = !e.ok ? 'not for 5 USDC: ' + e.raison : d == null ? 'cost not read yet' : 'about ' + P.qte(e.est, d) + ' for 5 USDC';
-      if (c && e.ok && s != null && d != null && s >= e.est) { sel.append(el('option', { value: l.jeton, text: P.sym(l) + ' — ' + cout })); continue; }
-      const pourquoi = !c ? '' : s == null ? 'balance not read' : s === 0n ? 'you hold none' : e.ok && s < e.est ? 'you hold too little' : '';
-      autres.push(el('li', {}, el('b', { text: P.sym(l) }), document.createTextNode(' — ' + [pourquoi, cout].filter(Boolean).join(' · '))));
-    }
-    if (!autres.length) return;
-    ul.replaceChildren(...autres);
-    tous.replaceChildren(el('summary', { text: 'All ' + lignes.length + ' tokens that can pay' + (c ? ' · ' + (lignes.length - autres.length) + ' in the menu' : '') }), ul,
-      el('p', { class: 'tamDoux', text: c ? 'Greyed tokens cannot be picked until your wallet holds enough.' : 'Connect a wallet to pay with a token.' }));
-    sel.closest('.tamRang').after(tous);
-  }
+  /* 2026-11-12: what TAM art says on chain — its price, its dev split and its router — before anything is built */
   async function lireContrat(contrat) {
     const lire = async (sig) => ctx.rpc('eth_call', [appelLecture(contrat, sig), 'latest']);
-    const [p, b, u] = await Promise.all([lire(SIG_TAM.PRICE), lire(SIG_TAM.beneficiaire), lire(SIG_TAM.USDC)]);
-    return { prix: BigInt(decoderMot(p)), beneficiaire: decoderAdresse(b), usdc: decoderAdresse(u) };
+    const [p, s, r] = await Promise.all([lire('PRICE_USDC()'), lire('USDC_SPLIT()'), lire('ROUTER()')]);
+    return { prix: EP.word(p), devBps: EP.word(s, 1), routeur: decoderAdresse(r) };
   }
-  async function preparerMint({ selPay, signe, dit, achat = () => 0n }) {
+  /* the router's minimum for this payment: a FRESH quote of the USDC it swaps (/api/tblock/devis-routeur) x 0.99, never under the
+   *   router's own floor (minOutFloor, read now); the deadline from the chain's clock */
+  async function minimumRouteur(lu) {
+    const spend = EP.usdcEchange(lu.prix, lu.devBps);
+    let q = null; try { q = await fetch('/api/tblock/devis-routeur?montant=' + spend.toString(), { cache: 'no-store', signal: AbortSignal.timeout(30000) }).then((x) => x.json()); } catch (_) { q = null; }
+    if (!q || !q.ok) return { ok: false, why: 'the TBLOCK quote could not be read just now' + (q && q.pourquoi ? ' (' + String(q.pourquoi).slice(0, 100) + ')' : '') };
+    let plancher; try { plancher = EP.word(await ctx.rpc('eth_call', [EP.VIEW.minOutFloor(spend), 'latest'])); } catch (_) { return { ok: false, why: 'the router floor could not be read just now' }; }
+    const m = EP.minimumDepuisDevis({ devis: q.devis, plancher });
+    if (!m.ok) return m;
+    let t = Math.floor(Date.now() / 1000);
+    try { const b = await ctx.rpc('eth_getBlockByNumber', ['latest', false]); const ts = b && b.timestamp ? Number(BigInt(b.timestamp)) : 0; if (ts > t) t = ts; } catch (_) { /* the device clock */ }
+    return { ok: true, minOut: m.minOut, deadline: t + EP.DELAI_PAIEMENT_S };
+  }
+  async function preparerMint({ signe, dit }) {
     const c = ctx.compte && ctx.compte();
     if (!c) { dit.textContent = 'Connect a wallet to mint.'; return; }
-    const contrat = adresseTam(TAMART_DEPLOIEMENT);
+    const contrat = EP.TAM;
     /* ⛔ on ne signe que des octets REJOUES ici : le serveur a choisi, la page recalcule */
     /* game77 (chasse aux bugs : course) : l oeuvre est FIGEE au clic — params, octets, certificat, choix. Un curseur bouge pendant la
      *   verification du serveur : on s arrete et on le dit, au lieu de signer les octets d une oeuvre avec le certificat d une autre. */
@@ -2491,92 +2507,118 @@ export function monter(racine, ctx = {}) {
       try { serveur = await fetch('/api/tam/certifier?p=' + p64, { cache: 'no-store' }).then((x) => x.json()); } catch (_) { serveur = null; }
     } else if (choix0 && choix0.hash) serveur = { ok: true, etat: 'CERTIFIE', hash: choix0.hash };
     if (change()) { dit.textContent = 'The work changed while it was being checked. Press Mint again for the work on screen.'; return; }
-    const porte = V.peutMinter({ dep: TAMART_DEPLOIEMENT, local: c0, serveur, octets: oct, P: P0, compte: c });
+    const porte = V.peutMinter({ dep: EP.TAM_DEPLOIEMENT, local: c0, serveur, octets: oct, P: P0, compte: c });
     if (!porte.ok) { dit.textContent = 'Not ready: ' + porte.pourquoi + '.'; return; }
-    let lu; try { lu = await lireContrat(contrat); } catch (_) { dit.textContent = 'The TamArt contract could not be read.'; return; }
+    let lu; try { lu = await lireContrat(contrat); } catch (_) { dit.textContent = 'The TAM art contract could not be read.'; return; }
+    dit.textContent = 'Reading a fresh TBLOCK quote for the payment…';
+    const mr = await minimumRouteur(lu);
+    if (!mr.ok) { dit.textContent = 'Not ready: ' + mr.why + '.'; return; }
     if (change()) { dit.textContent = 'The work changed while it was being checked. Press Mint again for the work on screen.'; return; }
     /* la graine : celle du cerveau quand il y en a une ; sinon le keccak des params (dit tel quel dans les params stockes) */
     const graine = P0.graine || keccak256Hex(new TextEncoder().encode(canon(P0)));
-    const jeu = { genre: 'tam', contrat, deploiement: TAMART_DEPLOIEMENT, lu, octets: oct, graine, paramsJson };
+    const jeu = { genre: 'tam-routeur', contrat: EP.ROUTER, pack: EP, lu, octets: oct, graine, paramsJson, minOut: mr.minOut, deadline: mr.deadline };
     const planUsdc = planJeuUsdc(jeu);
     if (planUsdc.etat !== 'PRET') { dit.textContent = planUsdc.pourquoi + '.'; return; }
-    let pj;
-    if (selPay.value === 'usdc') pj = { ok: true, plan: planUsdc, sym: 'USDC', phrase: 'Pay with USDC: 5 USDC.' };
-    else {
-      const ligne = ctx.payer.lignes().find((l) => l.jeton === selPay.value);
-      pj = ligne ? await ctx.preparer({ ligne, c, planUsdc, jeu }) : { ok: false, pourquoi: 'that token is not offered.' };
-    }
-    if (!pj.ok) { dit.textContent = 'Not ready: ' + pj.pourquoi; return; }
+    const pj = { ok: true, plan: planUsdc, sym: 'USDC', phrase: 'Paid as ' + EP.usdcTexte(planUsdc.resume.prixUsdc) + ' USDC.' };
     const rs = planUsdc.resume;
-    /* game358: the buy is decided at THIS click (what the payer sees in "You sign" is what runs) */
-    const montantAchat = selPay.value === 'usdc' ? achat() : 0n;
+    /* 2026-11-12 (browser check): the plan is on screen — "Reading a fresh TBLOCK quote…" stayed under it, as if still waiting */
+    dit.textContent = '';
     signe.hidden = false;
     /* ⛔ 2026-11-01 (test-no-fee-address-shown D2) : le calldata signe porte l adresse ; l ECRAN jamais — tout texte passe par le masque */
     signe.replaceChildren(
-      el('p', { text: maskFeeAddresses('You sign: 5 USDC to ' + String(FEE_WALLET).toLowerCase() + ' (TamArt ' + displayShort(contrat) + ' moves it, in the mint).') }),
+      el('p', { text: maskFeeAddresses('You sign: ' + EP.usdcTexte(rs.prixUsdc) + ' USDC through the TBLOCK payment router ' + displayShort(rs.routeur) + ': ' + EP.usdcTexte(rs.devUsdc) + ' USDC to the dev wallet, '
+        + EP.usdcTexte(rs.achatUsdc) + ' USDC buys at least ' + EP.fmt(rs.minTblock) + ' TBLOCK (a fresh quote less 1%), all of it sent to the holders vault; TAM art ' + displayShort(contrat) + ' mints the work to you.') }),
       el('p', { text: maskFeeAddresses('The work: ' + rs.octets + ' bytes, keccak ' + rs.empreinte + '. Seed ' + rs.graine + '.') }),
       el('p', { text: maskFeeAddresses(pj.phrase + ' ' + pj.plan.appels.length + ' calls: ' + pj.plan.appels.map((a) => a.quoi).join(' · ') + '.') }),
-      montantAchat > 0n ? el('p', { text: 'Then: ' + AT.texteOption(montantAchat).replace(/^Also buy/, 'buy') + ' — after the mint: one more signature if your wallet batches, otherwise a few in order (the app finishes the buy if it stops halfway).' }) : null,
+      el('p', { class: 'tamDoux', text: 'If the pools move more than that before your wallet signs, the payment is refused whole and nothing is paid: press Mint again.' }),
       el('button', { type: 'button', class: 'tamPrim', text: 'Sign in my wallet', onclick: async () => {
         dit.textContent = 'Waiting for your wallet…';
         const res = await ctx.envoyer(pj, c, (t) => { dit.textContent = t; });
         const minte = !!(res && (res.etat === 'CONFIRME' || res.etat === 'OK' || res.etat === 'PRET'));
-        if (minte && montantAchat > 0n) {
-          /* game358: the mint is done whatever the buy does; the buy says its own result */
-          /* review 358: the mint is said and the gallery refreshed BEFORE the buy; the buy belongs to the wallet that paid (c) */
-          void galerie();
-          dit.textContent = 'Minted. ' + AT.texteEtape(montantAchat);
-          const b = await ctx.acheterTblock(montantAchat, (t) => { dit.textContent = 'Minted. ' + t; }, c);
-          dit.textContent = 'Minted. It appears in the gallery once the block is read. ' + String((b && b.texte) || '');
-          /* game361 (Grok: "l'app doit proposer de terminer l'achat seul après un mint, sans refaire de mint") */
-          if (!(b && b.ok)) {
-            const fin = el('button', { type: 'button', class: 'tamPrim', id: 'tamFinirAchat', text: 'Finish the TBLOCK buy — ' + AT.texteOption(montantAchat).replace(/^Also buy TBLOCK with /, '').replace(/ \(10%\).*$/, '') + ' (no new mint)' });
-            fin.addEventListener('click', async () => {
-              fin.disabled = true;
-              const b2 = await ctx.acheterTblock(montantAchat, (t) => { dit.textContent = t; }, c);
-              dit.textContent = String((b2 && b2.texte) || '');
-              if (b2 && b2.ok) fin.remove(); else fin.disabled = false;
-            });
-            signe.replaceChildren(fin);
-          }
-          return;
-        }
         dit.textContent = minte ? 'Minted. It appears in the gallery once the block is read.' : 'Not minted: ' + String((res && (res.pourquoi || res.etat)) || 'no answer') + '.';
         void galerie();
       } }));
   }
 
-  /* ── la galerie : lue sur la chaine, GRATUIT ── */
-  async function galerie() {
-    const contrat = adresseTam(TAMART_DEPLOIEMENT);
-    if (!contrat) { galEtat.textContent = 'No work is minted yet: TAM minting is coming soon.'; gal.replaceChildren(); racine.dataset.galerie = 'pas-deploye'; return; }
-    let ids = [];
-    try { const j = await fetch('/api/tam/oeuvres', { cache: 'no-store' }).then((r) => r.json()); if (j && Array.isArray(j.oeuvres)) ids = j.oeuvres.map((o) => o.tokenId); } catch (_) { ids = []; }
-    if (!ids.length) { try { const n = Number(BigInt(decoderMot(await ctx.rpc('eth_call', [appelLecture(contrat, SIG_TAM.totalSupply), 'latest'])))); ids = Array.from({ length: Math.min(n, 60) }, (_, i) => i + 1); } catch (_) { ids = []; } }
-    galEtat.textContent = ids.length ? ids.length + ' work' + (ids.length === 1 ? '' : 's') + ', read from Base.' : 'No work minted yet.';
-    carteGal.hidden = ids.length === 0;
-    S.nMintees = ids.length;
-    gal.replaceChildren(...ids.map((id) => carteOeuvre(contrat, id)));
+  /* ── game374 : Replay = the minted work loaded into the SCENE and drawn again from zero (same renderer as every work) ── */
+  /* attractor : charger() with the bytes read from Base (the stored view draws THOSE bytes) ; science : chargerScience(), then the
+   *   params exactly as minted (their angles, their minter — the projection reads S.P.angles) and the bytes read from Base */
+  function rejouerMintee(id, plan, donnees, graineHex, premiere = false) {
+    const P = plan.P;
+    if (plan.genre === 'science') {
+      const s = SYSTEMES_SCI.find((x) => x.id === P.science); if (!s) return false;
+      selGroupe.value = groupeDe(s); peindreGroupe(); selSys.value = s.id;
+      chargerScience(s.id, P.params || {}, { melange: P.melange || null, graine: P.graine, note: P.note });
+      if (!S.science || S.science.s.id !== s.id || !S.o) return false;
+      S.P = JSON.parse(JSON.stringify(P)); S.octets = hexDe(donnees);
+    } else {
+      if (selGroupe.value !== 'attracteurs') { selGroupe.value = 'attracteurs'; peindreGroupe(); }
+      if ([...selFam.options].some((o) => o.value === P.famille)) {
+        selFam.value = P.famille; optionsDims();
+        const d = P.famille === 'lorenz96' ? String(P.dim) : P.operateur === 'couplage' ? String(P.k) : '1';
+        if ([...selDim.options].some((o) => o.value === d)) selDim.value = d;
+      }
+      charger(P, null, hexDe(donnees));
+      if (!S.o) return false;
+    }
+    S.rejeu = { id, premiere: !!premiere, verdict: plan.verdict.texte, graine: String(graineHex || '') }; S.choix = null; S.origine = null;
+    S.t = 0; S.dessines = reduit() ? S.n : 0; S.pause = 0; S.survol = null;
+    peindreQui(); peindreCarte(); peindreReglages(); peindreMint();
+    S.sale = true;
+    return true;
   }
-  function carteOeuvre(contrat, id) {
+  /* the gallery holds TAM art and the first TamArt: the same number can exist in both, so a replay of the first one says so */
+  function collectionRejeu() { return S.rejeu && S.rejeu.premiere ? ' (first collection)' : ''; }
+  function peindreRejeu() {
+    rejeuLigne.hidden = !S.rejeu;
+    if (!S.rejeu) { rejeuLigne.replaceChildren(); racine.dataset.rejeu = ''; return; }
+    racine.dataset.rejeu = String(S.rejeu.id) + (S.rejeu.premiere ? '-first' : '');
+    rejeuLigne.replaceChildren(document.createTextNode('Replay of TAM #' + S.rejeu.id + collectionRejeu() + ' (read from Base' + (S.rejeu.graine ? ', seed ' + S.rejeu.graine.slice(0, 10) + '…' : '') + '). Check: '),
+      el('b', { text: S.rejeu.verdict }), document.createTextNode(' — its stored parameters replay to the same bytes as the ones stored on Base.'));
+  }
+
+  /* ── la galerie : lue sur la chaine, GRATUIT ── */
+  /* 2026-11-12: the works of TAM art (minted now) first, then those of the first TamArt — both read from Base, both replayable */
+  async function galerie() {
+    const sources = [{ contrat: adresseTam(EP.TAM_DEPLOIEMENT), premiere: false }, { contrat: adresseTam(TAMART_DEPLOIEMENT), premiere: true }].filter((x) => x.contrat);
+    if (!sources.length) { galEtat.textContent = 'No work is minted yet: TAM minting is coming soon.'; gal.replaceChildren(); racine.dataset.galerie = 'pas-deploye'; return; }
+    let j = null;
+    try { j = await fetch('/api/tam/oeuvres', { cache: 'no-store' }).then((r) => r.json()); } catch (_) { j = null; }
+    const cartes = [];
+    for (const s of sources) {
+      const lu = j && Array.isArray(j.parContrat) ? j.parContrat.find((x) => String(x.contrat || '').toLowerCase() === s.contrat) : (j && String(j.contrat || '').toLowerCase() === s.contrat ? j : null);
+      let ids = lu && Array.isArray(lu.oeuvres) ? lu.oeuvres.map((o) => o.tokenId) : [];
+      if (!ids.length) { try { const n = Number(BigInt(decoderMot(await ctx.rpc('eth_call', [appelLecture(s.contrat, SIG_TAM.totalSupply), 'latest'])))); ids = Array.from({ length: Math.min(n, 60) }, (_, i) => i + 1); } catch (_) { ids = []; } }
+      for (const id of ids) cartes.push(carteOeuvre(s.contrat, id, s.premiere));
+    }
+    galEtat.textContent = cartes.length ? cartes.length + ' work' + (cartes.length === 1 ? '' : 's') + ', read from Base.' : 'No work minted yet.';
+    carteGal.hidden = cartes.length === 0;
+    S.nMintees = cartes.length;
+    gal.replaceChildren(...cartes);
+  }
+  function carteOeuvre(contrat, id, premiere = false) {
     const c = el('canvas'), badge = el('span', { class: 'tamBadge' }), txt = el('p', { class: 'tamDoux' });
     const bRejouer = el('button', { type: 'button', text: 'Replay' });
-    const f = el('div', { class: 'tamOeuvre' }, c, el('b', { text: 'TAM #' + id }), txt, el('div', { class: 'tamRang' }, bRejouer, badge));
-    let donnees = null, params = null;
+    const f = el('div', { class: 'tamOeuvre' }, c, el('b', { text: 'TAM #' + id + (premiere ? ' · first collection' : '') }), txt, el('div', { class: 'tamRang' }, bRejouer, badge));
+    let donnees = null, params = null, graineHex = null;
     (async () => {
       try {
         const [d, p, g] = await Promise.all([SIG_TAM.donnees, SIG_TAM.params, SIG_TAM.graine].map((s) => ctx.rpc('eth_call', [appelLecture(contrat, s, id), 'latest'])));
-        donnees = decoderBytes(d); params = new TextDecoder().decode(decoderBytes(p));
+        donnees = decoderBytes(d); params = new TextDecoder().decode(decoderBytes(p)); graineHex = decoderMot(g);
         const dec = decoder(donnees); dessinerVignette(c, dec);
-        txt.textContent = donnees.length + ' bytes · keccak ' + keccak256Hex(donnees).slice(0, 12) + '… · seed ' + decoderMot(g).slice(0, 10) + '…';
+        txt.textContent = donnees.length + ' bytes · keccak ' + keccak256Hex(donnees).slice(0, 12) + '… · seed ' + graineHex.slice(0, 10) + '…';
       } catch (_) { txt.textContent = 'Not read.'; }
     })();
+    /* game374 (Phil: "sur le bouton replay ça doit afficher sur la map de TAM pour vraiment replay le TAM") : the byte check stays (badge +
+     *   the line under the scene), and the work is loaded into the scene and drawn again — only when the bytes are identical */
     bRejouer.addEventListener('click', () => {
       if (!donnees || !params) { badge.className = 'tamBadge ko'; badge.textContent = 'not read'; return; }
-      /* revue game79 : une oeuvre de SCIENCE se rejoue avec tam-science.js (avant : rejouer du moteur -> toujours « different ») */
-      let r = null; try { const Pj = JSON.parse(params); r = Pj && Pj.science ? TS.rejouerScience(Pj) : rejouer(Pj); } catch (_) { r = null; }
-      const v = V.verdictRejeu(r && r.ok ? r.octets : null, donnees);
-      badge.className = 'tamBadge ' + (v.identique ? 'ok' : 'ko'); badge.textContent = v.texte;
+      /* revue game79 : une oeuvre de SCIENCE se rejoue avec tam-science.js (planRejeuMintee choisit le meme rejeu) */
+      const p = planRejeuMintee(params, donnees);
+      badge.className = 'tamBadge ' + (p.verdict.identique ? 'ok' : 'ko'); badge.textContent = p.verdict.texte; badge.title = p.pourquoi || '';
+      if (!p.ok) return;
+      if (!rejouerMintee(id, p, donnees, graineHex, premiere)) { badge.className = 'tamBadge ko'; badge.textContent = p.verdict.texte + ' · not drawn'; badge.title = 'this page could not draw it'; return; }
+      scene.scrollIntoView({ behavior: reduit() ? 'auto' : 'smooth', block: 'center' });
     });
     return f;
   }

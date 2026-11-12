@@ -26,10 +26,9 @@ t('an ok plan -> NO retry', R({ etat: 'PRET' }, { ok: true }) === false);
 const f = APP.slice(APP.indexOf('async function acheterTblockUsdc('), APP.indexOf('async function envoyerPaiementJeton('));
 t('page: 3 tries, 4 s then 8 s, said on screen, stops at ok or real refusal', f.includes('for (let essai = 0; essai < 3; essai += 1) {') && f.includes('setTimeout(o, 4000 * essai)')
   && f.includes("dire('Base nodes are busy — asking the TBLOCK route again (' + (essai + 1) + '/3)…');") && f.includes('if (v.ok || !AT.planAReessayer(p, v)) break;'));
-const fin = TAM.slice(TAM.indexOf('if (!(b && b.ok)) {'), TAM.indexOf('if (!(b && b.ok)) {') + 900);
-t('TAM: a failed buy leaves "Finish the TBLOCK buy … (no new mint)"', fin.includes("id: 'tamFinirAchat'") && fin.includes("(no new mint)"));
-t('TAM: that button calls the buy alone, never the mint', fin.includes('await ctx.acheterTblock(montantAchat,') && !fin.includes('ctx.envoyer('));
-t('TAM: it replaces the old sign button (no accidental second mint)', fin.includes('signe.replaceChildren(fin);'));
+/* 2026-11-12 (the economy pack is live): the TAM mint is paid through the TBLOCK router, which buys TBLOCK in the same transaction: there is
+ *   no separate buy after a TAM mint any more, so no half-done buy to finish there. Pinned as removed; the resume route below is unchanged. */
+t('TAM: no separate buy after the mint, so no finish-the-buy button and no second call after a mint', !TAM.includes('tamFinirAchat') && !TAM.includes('ctx.acheterTblock('));
 t('server: publicnode + tenderly in the read list', SRV.includes("|| 'https://mainnet.base.org,https://base.drpc.org,https://base-rpc.publicnode.com,https://gateway.tenderly.co/public/base')"));
 console.log(ok + '/' + (ok + ko) + (ko ? ' — RED' : ' — green'));
 process.exit(ko ? 1 : 0);

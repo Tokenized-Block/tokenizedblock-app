@@ -20,7 +20,11 @@ import { FRAIS_GESTE_BPS } from './frais-du-geste.js';
 import { BLOCKROLLS_DEPLOIEMENT } from './blockrolls-deploiement.js';
 import { TAILLES, FENETRE } from './blockrolls-plan.js';
 import { usdc6 } from './blockrolls-config.js';
-import { contratActif } from './blockskins-actif.js';
+import { BLOCKSKINS_ACTIF } from './blockskins-actif.js';
+/* 2026-11-12 (the economy pack is live): its rules come from the frozen pack record (configs) and from the generated constants of the very
+ *   sources that record hashes (frais-contrats.js); the addresses from the deployment record (economie-pack.js). Never typed. */
+import { PACK_ECONOMIE_V2 } from './economie-v2-pack-deploiement.js';
+import * as EPK from './economie-pack.js';
 import { MISSIONS_DEPLOIEMENT } from './missions-deploiement.js';
 import { TICKETPOT_DEPLOIEMENT } from './ticketpot-deploiement.js';
 import { DUELS_DEPLOIEMENT } from './duels-deploiement.js';
@@ -61,7 +65,7 @@ import { MESURE_ALLER_RETOUR, TAXE_MAX_FRACTION } from './pool-lanceur-taxe.js';
 const ADR = /^0x[0-9a-fA-F]{40}$/;
 const deploye = (a) => ADR.test(String(a || ''));
 const rc = BLOCKROLLS_DEPLOIEMENT.constructeur;
-const skinsActif = contratActif();
+const skinsActif = BLOCKSKINS_ACTIF; /* 2026-11-12: the contract the app mints and sells on (the pack's Skins) */
 const MI = FRAIS_CONTRATS.BlockMissionsV3, SK = FRAIS_CONTRATS.BlockSkins;
 const missionsTb = BigInt(MI.FEE_BPS) * BigInt(MI.TB_SHARE_BPS) / 10000n;
 
@@ -82,12 +86,27 @@ export const MESURE_BUYBACK = Object.freeze({ date: '2026-11-12', ethWei: [0n, 0
 const FC = FRAIS_CONTRATS;
 const ACTIONS = new Set(ACTIONS_COINBASE.map((a) => String(a.adr).toLowerCase()));
 const VC = ECONOMIE_DEPLOIEMENT.vault.config;
+const cfgPack = (l) => PACK_ECONOMIE_V2.etapes.find((e) => e.lettre === l).config;
+const LC = cfgPack('L'), PC = cfgPack('P'), VC2 = cfgPack('V'), V2 = FRAIS_CONTRATS.TBlockVaultV2, RW = FRAIS_CONTRATS.TBlockLockRewards;
 
 export const CHIFFRES = Object.freeze({
   /* game360: the products the page did not list, read from their deployment data / modules */
   slots: { spinPrice: BigInt(SLOTS_DEPLOIEMENT.constructeur.spinPrice), potShareBps: BigInt(SLOTS_DEPLOIEMENT.constructeur.potShareBps),
     prizes: SLOTS_DEPLOIEMENT.constructeur.prizes.map(BigInt), probGainBps: Number(SLOTS_DEPLOIEMENT.probGainBps), esperance: BigInt(SLOTS_DEPLOIEMENT.esperanceBrut) },
-  tam: { prix: PRIX_TAM, achatBps: PART_ACHAT_BPS, achatMin: ACHAT_MIN_USDC },
+  /* 2026-11-12: TAM art of the pack, paid through the TBLOCK payment router (TamArtV2.sol PRICE_USDC, DEV_BPS); the optional buy after a
+   *   USDC payment is gone (the payment itself buys TBLOCK) */
+  tam: { prix: BigInt(FRAIS_CONTRATS.TamArtV2.PRICE_USDC), devBps: BigInt(FRAIS_CONTRATS.TamArtV2.DEV_BPS) },
+  pack: {
+    coeur: { usd: BigInt(LC.likeUsdE18), garde: BigInt(LC.holdUsdE18), pasBps: BigInt(LC.maxStepBps), intervalleS: Number(LC.minInterval) },
+    routeur: { minOutPpm: 1000000n - BigInt(PC.minOutBudgetPpm), toleranceBps: EPK.TOLERANCE_BPS },
+    skinDevBps: BigInt(FRAIS_CONTRATS.BlockSkinsPack.DEV_BPS),
+    vault: { rewardBps: BigInt(VC2.rewardBps), rabaisBps: BigInt(VC2.rebateBps), topBps: BigInt(VC2.topBps), fenetreClaimS: Number(VC2.claimWindow),
+      minCommitS: Number(V2.MIN_COMMIT), accessUsd: Number(V2.ACCESS_USD), maxFactor: BigInt(V2.MAX_FACTOR), timeBonus: BigInt(V2.TIME_BONUS), timeFullS: Number(V2.TIME_FULL),
+      tiers: [[V2.TIER1_USD, V2.TIER1_BONUS], [V2.TIER2_USD, V2.TIER2_BONUS], [V2.TIER3_USD, V2.TIER3_BONUS]].map(([u, b]) => ({ usd: Number(u), bonus: BigInt(b) })),
+      annonceS: Number(V2.RESCUE_DELAY), fenetreS: Number(V2.RESCUE_WINDOW), feedQuietS: Number(V2.FEED_QUIET), feedMax: BigInt(VC2.maxFeedPerCall), feedPauseS: Number(VC2.feedCooldown),
+      devs: new Set([VC2.dev, VC2.dev2].map((a) => String(a).toLowerCase())).size },
+    recompenses: { moisS: Number(RW.EPOCH), rewardBps: BigInt(RW.REWARD_BPS), fenetreMois: Number(RW.CLAIM_WINDOW), rescueS: Number(RW.RESCUE_DELAY), minJours: EPK.MOIS_MIN_JOURS },
+  },
   message: { usdc: FRAIS_MESSAGE_USDC, tblock: FRAIS_MESSAGE_TBLOCK },
   coeur: { prix: LIKE_PRICE, garde: LIKE_MIN_HOLD, seuilUsd: SEUIL_USD,
     /* game374 (F-heart-2): the holders vault's weekly rebate to heart players, from the vault's deployment config + economie.js */
@@ -211,7 +230,8 @@ export function duelsRisque(du, live) {
  * Le contenu HTML de la page. `C` = CHIFFRES (ou une copie modifiee par le test) ; `live` = /api/tirage ou null.
  */
 export function rendre(C, live) {
-  const h = C.hook, nb = C.naissance, sk = C.skins, mi = C.missions, ti = C.tirage, bq = C.banque || null;
+  const h = C.hook, nb = C.naissance, sk = C.skins, mi = C.missions, ti = C.tirage, bq = C.banque || null, pk = C.pack || null;
+  const usdE18 = (x) => EPK.usd(x);
   /* 2026-10-24 (audit rolls-duels) : les gains et le score minimum sont ceux LUS sur le contrat (currentRules, servis par /api/tirage) quand
    *   ils le sont — setRules les change ; sinon ceux de la fiche, DITS comme ceux du deploiement. Qui peut les changer : unitCreator() LU. */
   const lr = live && live.rolls ? live.rolls : null;
@@ -287,8 +307,6 @@ export function rendre(C, live) {
     ligne('Buy or sell TBLOCK', pctBps(C.cl.bps) + ' app fee',
       'Route: USDC (or ETH, swapped to USDC first) → wtCOIN on Aerodrome → TBLOCK on its Uniswap v4 pool. A sell goes TBLOCK → wtCOIN on Uniswap v4 → USDC on Aerodrome and pays out in USDC only. '
       + 'One app fee per batch, 0 for TBLOCK holders. On top: the pools\' own fees and the TBLOCK pool\'s hook, which keeps part of each swap and burns part of it. All of it is inside the quote you see before you sign.'),
-    ligne('Optional TBLOCK buy after a USDC payment', pctBps(C.tam.achatBps) + ' of the price',
-      'After a USDC payment (today: the TAM mint) the app offers a box, ticked by default, that spends ' + pctBps(C.tam.achatBps) + ' of the price (' + usdc(C.tam.prix * C.tam.achatBps / 10000n) + ' on a ' + usdc(C.tam.prix) + ' mint) to buy TBLOCK into your own wallet, after the payment: one batch when your wallet can group calls, otherwise the same calls signed one by one (if a step stops, the app offers to finish the buy without a new mint). Not offered below ' + usdc(C.tam.achatMin) + '. It pays the TBLOCK route\'s fees above. Untick it to skip.'),
     ligne('Bring a block to life', eth(nb.totalWei) + ' ETH',
       eth(nb.creationWei) + ' ETH when it is created + ' + eth(nb.inscriptionWei) + ' ETH when its market is registered, inside the same signatures. '
       + 'You also deposit a creator minimum: $' + C.naissanceCaution.usd + ' of the paired currency at today\'s price, or the hook\'s fixed floor for that currency if higher (the hook refuses less than its floor). '
@@ -306,7 +324,8 @@ export function rendre(C, live) {
       'From the BlockRolls contract: ' + ro.passRolls + ' rolls to use within ' + heures(ro.passWindow) + ' and one entry per wallet in that UTC day\'s pass pot (a second pass the same day adds to the pot but not a second entry); ' + pctBps(partPot) + ' of the price goes to that pot, ' + pctBps(partDev) + ' to TokenizedBlock. '
       + 'From our server, once it reads the purchase on Base: a ticket every day for ' + jours(ti.joursPassSemaine * 86400) + ' and ' + ti.bonusPassSemaine + ' bonus entries in that week\'s pot (once per wallet per week; a second pass the same week adds none).'),
     ligne('Skin', usdc(sk.mintUsdc),
-      'All of it to TokenizedBlock. On a resale (fixed price or auction), the contract takes ' + pctBps(sk.venteBps) + ' of each sale; the seller gets the rest.'),
+      (pk ? 'Paid through the TBLOCK payment router, like TAM art: ' + pctBps(pk.skinDevBps) + ' (' + usdc(sk.mintUsdc * pk.skinDevBps / 10000n) + ') stays USDC for TokenizedBlock, the rest buys TBLOCK, all of it for the holders vault. ' : 'All of it to TokenizedBlock. ')
+      + 'On a resale (fixed price or auction), the contract takes ' + pctBps(sk.venteBps) + ' of each sale; the seller gets the rest.' + (pk ? ' Skins bought earlier stay yours, each on its own contract and market.' : '')),
     ligne('Mission reward', pctBps(mi.feeBps),
       'Doer ' + pctBps(mi.faiseurBps) + ' · community reward wallet ' + pctBps(mi.reserveBps) + ' (a wallet TokenizedBlock holds, not a contract) · TokenizedBlock ' + pctBps(mi.devBps)
       + (mi.createurBps > 0n ? ' · creator ' + pctBps(mi.createurBps) : '') + ' of each reward.'),
@@ -317,13 +336,27 @@ export function rendre(C, live) {
       pctBps(C.slots.potShareBps) + ' goes to the slots prize pot, the rest to TokenizedBlock. Prizes from '
       + usdc(C.slots.prizes.filter((x) => x > 0n).reduce((a, b) => (b < a ? b : a))) + ' to ' + usdc(C.slots.prizes.reduce((a, b) => (b > a ? b : a)))
       + ', paid by the contract from the pot only. A spin wins something ' + (C.slots.probGainBps / 100).toFixed(2) + '% of the time.'),
-    ligne('TAM art mint', usdc(C.tam.prix), 'All of it goes from you to TokenizedBlock in the mint itself. The TamArt contract has no owner and takes no resale fee.'),
+    ligne('TAM art mint', usdc(C.tam.prix), pk ? 'Paid through the TBLOCK payment router: ' + pctBps(C.tam.devBps) + ' (' + usdc(C.tam.prix * C.tam.devBps / 10000n) + ') stays USDC for TokenizedBlock; the router swaps the rest to TBLOCK '
+      + '(USDC → wtCOIN on Aerodrome → TBLOCK on its Uniswap v4 pool; the pools\' fees and the TBLOCK hook apply) and all of it goes to the holders vault. The app sets your minimum at a fresh quote less ' + pctBps(pk.routeur.toleranceBps)
+      + ', and the router refuses any minimum under ' + pctPpm(pk.routeur.minOutPpm) + ' of the pools\' spot value: if the pools move past your minimum, the payment is refused whole and nothing is paid. The TAM art contract has no owner and takes no resale fee; works minted on the first TamArt stay readable.'
+      : 'All of it goes from you to TokenizedBlock in the mint itself. The TamArt contract has no owner and takes no resale fee.'),
     ligne('Message to a block', usdc(C.message.usdc) + ' or ' + fmtTb(C.message.tblock) + ' TBLOCK', 'One transfer to TokenizedBlock with your message attached: a fee, not a buyback; nothing comes back.'),
-    ligne('Heart (+1)', fmtTb(C.coeur.prix) + ' TBLOCK', 'Sent to the dead address (burned): the TBLOCK you pay is never refunded. '
+    /* 2026-11-12: the hearts of the pack (BlockLikesV2): a dollar price at the contract's kept price, a hold LOCKED, not in the wallet */
+    pk ? ligne('Heart (+1)', usdE18(pk.coeur.usd) + ' of TBLOCK', 'Burned from your wallet (sent to the dead address): the TBLOCK you pay is never refunded. The TBLOCK amount is ' + usdE18(pk.coeur.usd)
+      + ' at the price the hearts contract keeps: a keeper key writes it, at most ' + (pk.coeur.intervalleS === 3600 ? 'once an hour' : 'once every ' + heures(pk.coeur.intervalleS)) + ' and by at most ' + pctBps(pk.coeur.pasBps) + ' a write, within fixed bounds. '
+      + 'A heart needs ' + usdE18(pk.coeur.garde) + ' of TBLOCK locked (at that price); paying never touches the lock. It counts as play for the holders vault and the monthly lock rewards.')
+      : ligne('Heart (+1)', fmtTb(C.coeur.prix) + ' TBLOCK', 'Sent to the dead address (burned): the TBLOCK you pay is never refunded. '
       + (C.coeur.rabaisBps != null ? 'Separately, after each week the holders vault may pay that week\'s heart players a share of its free TBLOCK: each player at most ' + pctBps(C.coeur.rabaisBps)
         /* game374 review (TBlockVault.sol owed): the share AND the top player's bonus are each capped at spent * REBATE_BPS */
         + ' of what they burned, plus, for the week\'s top player, a bonus capped at another ' + pctBps(C.coeur.rabaisBps) + ' of what they burned; claimed within ' + jours(C.coeur.fenetreClaimS) + ' by a wallet holding at least ' + fmtTb(C.coeur.gardeClaim) + ' TBLOCK. It pays only if the vault has free TBLOCK; nothing is guaranteed. ' : '')
       + 'After paying, your wallet must still hold the larger of ' + fmtTb(C.coeur.garde) + ' TBLOCK (the contract\'s rule) and $' + C.coeur.seuilUsd + ' of TBLOCK (the app\'s rule).'),
+    ...(pk ? [ligne('Holders vault (every week)', 'no fee', 'After each week the vault keeps a budget for that week\'s players: at most ' + pctBps(pk.vault.rewardBps) + ' of its free TBLOCK. '
+      /* TBlockVaultV2.owed: the share and the top bonus are each capped at play x REBATE_BPS, THEN scaled by lockFactor / MAX_FACTOR */
+      + 'Each player gets at most ' + pctBps(pk.vault.rabaisBps) + ' of what they put in that week (hearts burned + the TBLOCK their TAM art and skin mints bought), plus, for the week\'s top player, a bonus capped at another '
+      + pctBps(pk.vault.rabaisBps) + '; each is then scaled by the lock factor out of its maximum ×' + decimal(pk.vault.maxFactor, 10000n, 2) + ': ' + pctFrac(10000n, pk.vault.maxFactor) + ' of it at ×1 ($' + pk.vault.accessUsd + ' locked), '
+      + pk.vault.tiers.map((t) => '+' + pctBps(t.bonus) + ' from $' + t.usd.toLocaleString('en-US') + ' locked').join(', ') + ', and up to +' + pctBps(pk.vault.timeBonus) + ' more for ' + jours(pk.vault.timeFullS) + ' left on the lock. '
+      + 'Claimed within ' + jours(pk.vault.fenetreClaimS) + ' of the week\'s close by a wallet with $' + pk.vault.accessUsd + ' of TBLOCK locked and a lock date at least ' + jours(pk.vault.minCommitS) + ' ahead. '
+      + 'Weeks of the first holders vault stay claimable under its own rule (' + fmtTb(C.coeur.gardeClaim) + ' TBLOCK held in the wallet). It pays only if the vault has free TBLOCK; nothing is guaranteed.')] : []),
     ligne('Block contest', 'entry ' + fmtTb(ct.entree) + ' TBLOCK · vote ' + fmtTb(ct.vote) + ' TBLOCK',
       'An entry goes into the prize pot (capped at ' + fmtTb(ct.maxPot) + ' TBLOCK). A vote is ' + pctBps(ct.burnBps) + ' burned: never refunded. '
       + (ct.split1 != null ? 'After a round ends, anyone (the winner too) can send settle; nothing sends it on its own. The contract then pays ' + partage + ', but only if at least '
@@ -339,6 +372,9 @@ export function rendre(C, live) {
     ligne('TBLOCK lock', 'no fee', 'You lock your own TBLOCK for ' + jours(C.lock.appMinS != null ? C.lock.appMinS : C.lock.minS)
       + (C.lock.appMaxS != null ? ' to ' + jours(C.lock.appMaxS) + ' in the app (the contract itself accepts up to ' + jours(C.lock.contratMaxS) + ')' : '')
       + '. While the lock is active (its date ahead, no exit requested), our server counts community points from its on-chain events. ' + esc(REGLE_POINTS)
+      + (pk ? ' Monthly lock rewards: the app enrolls the lock in the same batch. Each ' + decimal(pk.recompenses.moisS, 86400n, 2) + '-day month pays the enrolled locks that cover it whole — ' + pk.recompenses.minJours + ' days minimum to be sure of one — and only their holders who played in it (a heart, a TAM art mint or a skin mint): at its close, '
+        + pctBps(pk.recompenses.rewardBps) + ' of what the rewards contract holds unassigned, capped, shared by TBLOCK locked × the same commitment bands as the points; claimable for ' + pk.recompenses.fenetreMois + ' months after the close. '
+        + 'What it pays is what was deposited into it (wtCOIN or TBLOCK); no rate is promised.' : '')
       + ' Leaving takes two steps (see Risks).'),
     ligne('Daily ticket', 'no entry fee', 'Reach $' + ti.seuilUsd + ' of verified volume in a UTC day (trades, or rolls and the Week pass) and that day\'s ticket is yours: 1 entry in that week\'s reward pot. '
       + 'The ticket costs nothing extra; the trades or rolls that make the volume pay their own fees.'),
@@ -398,10 +434,18 @@ export function rendre(C, live) {
       + 'Check your wallet\'s own preview before you sign: it shows what you are signing, but the result is settled on chain (a swap lands within its slippage limit, a spin\'s outcome comes from later blocks).</li>'
     + '<li><b>' + (slotsEv < C.slots.spinPrice ? 'Slots lose on average.' : 'Slots, on average:') + '</b> A ' + usdc(C.slots.spinPrice) + ' spin pays back at most ' + usdc4({ num: slotsEv, den: 1n }) + ' USDC on average (the prize table, before the pot limit). '
       + 'A prize larger than the pot is paid only in part (if the player accepts that) or not at all once ' + C.slotsFenetre + ' blocks have passed.</li>'
-    + '<li><b>Holders vault.</b> ' + (cf.devs === 2 ? 'Two' : String(cf.devs)) + ' fixed dev wallets can take TBLOCK out of the vault\'s free part: one announces the amount on chain, and after ' + jours(cf.annonceS)
+    + (pk ? '<li><b>Holders vault.</b> ' + (pk.vault.devs === 2 ? 'Two' : String(pk.vault.devs)) + ' fixed dev wallets can take TBLOCK out of the vault\'s free part: one announces the amount on chain, and after ' + jours(pk.vault.annonceS)
+      + ' only that dev can execute it, within ' + jours(pk.vault.fenetreS) + ' after that. A budget already reserved for an ended week (by closeEpoch) is never touched; TBLOCK not yet reserved can be taken, and until an ended week is closed, none of it is reserved. This power has not been given up. '
+      + 'Anyone can also call feedContest(): at most ' + (pk.vault.feedPauseS === 86400 ? 'once a day' : 'once every ' + jours(pk.vault.feedPauseS)) + ', it moves up to ' + fmtTb(pk.vault.feedMax) + ' free TBLOCK (and no more than the contest round has room for) to the current contest round\'s pot, only after every ended week with players has been closed, and never in the last '
+      + (pk.vault.feedQuietS === 86400 ? 'day' : jours(pk.vault.feedQuietS)) + ' of a week that has players. The first holders vault keeps the same kind of rule for what it still holds.</li>'
+      + '<li><b>Monthly lock rewards.</b> A guardian wallet can move reward tokens out of the rewards contract, only after a public notice of ' + heures(pk.recompenses.rescueS) + ' on chain; lockers keep claiming meanwhile, and the role can only be given up. '
+      + 'A month pays only the holders who played in it.</li>'
+      + '<li><b>The hearts\' dollar price is kept by a key.</b> A keeper key writes the TBLOCK price the hearts contract uses for its dollar rules, within fixed bounds and steps; if it lags the pool, a heart and the $' + pk.vault.accessUsd + ' minimum are worth more or less than their dollar amount at the pool price.</li>'
+      + '<li><b>A router payment can be refused.</b> TAM art and skin payments buy TBLOCK in the same transaction; if the pools moved past your minimum, or past the router\'s own bounds, the whole payment reverts and only gas is spent.</li>'
+      : '<li><b>Holders vault.</b> ' + (cf.devs === 2 ? 'Two' : String(cf.devs)) + ' fixed dev wallets can take TBLOCK out of the vault\'s free part: one announces the amount on chain, and after ' + jours(cf.annonceS)
       + ' only that dev can execute it, within ' + jours(cf.fenetreS) + ' after that. A budget already reserved for an ended week (by closeEpoch) is never touched; TBLOCK not yet reserved can be taken, and until an ended week is closed, none of it is reserved. This power has not been given up. '
       + 'Anyone can also call feedContest(): at most ' + (cf.feedPauseS === 86400 ? 'once a day' : 'once every ' + jours(cf.feedPauseS)) + ', it moves up to ' + fmtTb(cf.feedMax) + ' free TBLOCK (and no more than the contest round has room for) to the current contest round\'s pot, only after every ended week with players has been closed, and never in the last '
-      + (Number(FC.TBlockVault.FEED_QUIET) === 86400 ? 'day' : jours(Number(FC.TBlockVault.FEED_QUIET))) + ' of a week that has players.</li>'
+      + (Number(FC.TBlockVault.FEED_QUIET) === 86400 ? 'day' : jours(Number(FC.TBlockVault.FEED_QUIET))) + ' of a week that has players.</li>')
     + '<li><b>Who controls the week\'s reward pot.</b> TicketPot pays each ticket holder only with a signature from TokenizedBlock\'s verifier key, and that signature also sets the amount, so claims depend on that key. '
       + 'No function lets the owner withdraw the pot: USDC leaves only through claims signed by the verifier key. That key decides who is paid and how much, and the owner can replace it after a public notice of '
       + heures(tpr.adminDelaiS) + ' on chain. The owner or a guardian can pause claims.</li>'

@@ -8,7 +8,7 @@
 // ⛔ CE MODULE NE SIGNE RIEN ET N ENVOIE RIEN : il encode des appels NON SIGNES et decode des lectures. Le wallet de la personne signe.
 // ⛔ La skin appartient a qui DETIENT le NFT (ownerOf / skinsPage.holder) - jamais a un index de serveur.
 import { BLOCKSKINS_DEPLOIEMENT } from './blockskins-deploiement.js';
-import { BLOCKSKINS_ACTIF, BLOCKSKINS, BLOCKSKINS_VERSION, SKIN_MINT_USDC, SKIN_MINT_TEXTE, SKIN_MINT_OUVERT } from './blockskins-actif.js';
+import { BLOCKSKINS_ACTIF, BLOCKSKINS, BLOCKSKINS_VERSION, SKIN_MINT_USDC, SKIN_MINT_TEXTE, SKIN_MINT_OUVERT, BLOCKSKINS_LUS } from './blockskins-actif.js';
 import { selecteur } from './encodeur.js';
 import { ACTIONS_COINBASE } from './paires.js';
 
@@ -16,7 +16,11 @@ import { ACTIONS_COINBASE } from './paires.js';
  *   contrat DEPLOYE de l enregistrement genere (v3 des que son adresse est notee par noter-deploiement-blockskins.mjs ; v2, 1 USDC, avant),
  *   avec le prix RELU sur la chaine quand l adresse a ete notee. Plus aucune constante de prix tapee ici : l app relit MINT_PRICE() avant
  *   d acheter et refuse si la chaine dit autre chose que l enregistrement. */
-export { BLOCKSKINS_ACTIF, BLOCKSKINS, BLOCKSKINS_VERSION, SKIN_MINT_USDC, SKIN_MINT_TEXTE, SKIN_MINT_OUVERT };
+export { BLOCKSKINS_ACTIF, BLOCKSKINS, BLOCKSKINS_VERSION, SKIN_MINT_USDC, SKIN_MINT_TEXTE, SKIN_MINT_OUVERT, BLOCKSKINS_LUS };
+/* 2026-11-12 (the economy pack is live): skins live on SEVERAL contracts — the pack's Skins (minted on now, through the TBLOCK payment
+ *   router) and the earlier ones. Every skin read carries its `contrat`; every market call takes the skin's own contract as its last
+ *   argument (default: the active one), so an earlier skin is still sold, bought or settled where it lives. */
+const contratDe = (c) => { const b = bas(c || BLOCKSKINS); if (!BLOCKSKINS_LUS.includes(b)) throw new Error('not a skins contract of this app'); return b; };
 export const BLOCKSKINS_CHAINE = BLOCKSKINS_DEPLOIEMENT.chaine;
 export const SKIN_FRAIS_BPS = 1000n;      /* SALE_FEE_BPS : 10 % */
 export const SKIN_ENCHERE_MAX_S = 604800n; /* MAX_AUCTION : 7 jours */
@@ -52,37 +56,39 @@ export function unpackRecette(n) {
 }
 
 /* ── LES APPELS (non signes) ── */
-const appel = (sig, args, value = 0n, nom = '') => ({ to: BLOCKSKINS, data: '0x' + selecteur(sig) + args.join(''), value: '0x' + BigInt(value).toString(16), nom });
+const appel = (sig, args, value = 0n, nom = '', contrat = null) => ({ to: contratDe(contrat), data: '0x' + selecteur(sig) + args.join(''), value: '0x' + BigInt(value).toString(16), nom });
 /** mint : MINT_PRICE (SKIN_MINT_USDC) passe du wallet de la personne au wallet de frais ; le NFT est a elle. Suppose l approbation USDC (appelApprouver). */
 export function appelMint(block, recette) {
   /* ⛔ le nom de l etape S AFFICHE (« Step 2 of 2: ... ») : jamais « NFT » a l ecran (Phil, 2026-10-11 : « un nouveau type relie au block ») */
+  /* 2026-11-12 : un contrat paye par le routeur n a PAS de mint direct (economie-pack.js payBatch + dataSkin) */
+  if (BLOCKSKINS_ACTIF.routeur) throw new Error('skins are paid through the TBLOCK payment router');
   return appel('mint(address,uint64)', [adrMot(block), mot(packRecette(recette))], 0n, 'Mint this skin for this block — ' + SKIN_MINT_TEXTE + ' to TokenizedBlock');
 }
 /** approve(BlockSkins, montant) EXACT sur un jeton (USDC, une action admise) - jamais illimite. */
-export function appelApprouver(jeton, montant, nom = 'Allow the skins market to take exactly this amount') {
+export function appelApprouver(jeton, montant, nom = 'Allow the skins market to take exactly this amount', contrat = null) {
   const m = positif(montant, 'the amount');
-  return { to: bas(jeton), data: '0x095ea7b3' + adrMot(BLOCKSKINS) + mot(m), value: '0x0', nom };
+  return { to: bas(jeton), data: '0x095ea7b3' + adrMot(contratDe(contrat)) + mot(m), value: '0x0', nom };
 }
-export function appelMettreEnVente(tokenId, devise, prix) {
-  return appel('list(uint256,address,uint256)', [mot(positif(tokenId, 'the skin')), adrMot(devise), mot(positif(prix, 'the price'))], 0n, 'List your skin at a fixed price');
+export function appelMettreEnVente(tokenId, devise, prix, contrat = null) {
+  return appel('list(uint256,address,uint256)', [mot(positif(tokenId, 'the skin')), adrMot(devise), mot(positif(prix, 'the price'))], 0n, 'List your skin at a fixed price', contrat);
 }
-export function appelRetirer(tokenId) { return appel('unlist(uint256)', [mot(positif(tokenId, 'the skin'))], 0n, 'Take your skin back from the market'); }
+export function appelRetirer(tokenId, contrat = null) { return appel('unlist(uint256)', [mot(positif(tokenId, 'the skin'))], 0n, 'Take your skin back from the market', contrat); }
 /** buy : en ETH la valeur EST le prix ; en jeton, la valeur est 0 (approbation exacte du prix avant). */
-export function appelAcheter(tokenId, devise, prix) {
+export function appelAcheter(tokenId, devise, prix, contrat = null) {
   const p = positif(prix, 'the price');
-  return appel('buy(uint256)', [mot(positif(tokenId, 'the skin'))], bas(devise) === ETH ? p : 0n, 'Buy this skin — 10 % of the price goes to TokenizedBlock');
+  return appel('buy(uint256)', [mot(positif(tokenId, 'the skin'))], bas(devise) === ETH ? p : 0n, 'Buy this skin — 10 % of the price goes to TokenizedBlock', contrat);
 }
-export function appelOuvrirEnchere(tokenId, devise, offreMin, dureeS) {
+export function appelOuvrirEnchere(tokenId, devise, offreMin, dureeS, contrat = null) {
   const d = positif(dureeS, 'the duration');
   if (d > SKIN_ENCHERE_MAX_S) throw new Error('an auction lasts 7 days at most');
-  return appel('startAuction(uint256,address,uint256,uint256)', [mot(positif(tokenId, 'the skin')), adrMot(devise), mot(positif(offreMin, 'the minimum bid')), mot(d)], 0n, 'Open an auction for your skin');
+  return appel('startAuction(uint256,address,uint256,uint256)', [mot(positif(tokenId, 'the skin')), adrMot(devise), mot(positif(offreMin, 'the minimum bid')), mot(d)], 0n, 'Open an auction for your skin', contrat);
 }
-export function appelEncherir(tokenId, devise, montant) {
+export function appelEncherir(tokenId, devise, montant, contrat = null) {
   const m = positif(montant, 'the bid');
-  return appel('bid(uint256,uint256)', [mot(positif(tokenId, 'the skin')), mot(m)], bas(devise) === ETH ? m : 0n, 'Bid on this skin');
+  return appel('bid(uint256,uint256)', [mot(positif(tokenId, 'the skin')), mot(m)], bas(devise) === ETH ? m : 0n, 'Bid on this skin', contrat);
 }
-export function appelRegler(tokenId) { return appel('settle(uint256)', [mot(positif(tokenId, 'the skin'))], 0n, 'Settle the auction'); }
-export function appelRetirerCredit(devise) { return appel('withdraw(address)', [adrMot(devise)], 0n, 'Withdraw what the market owes you'); }
+export function appelRegler(tokenId, contrat = null) { return appel('settle(uint256)', [mot(positif(tokenId, 'the skin'))], 0n, 'Settle the auction', contrat); }
+export function appelRetirerCredit(devise, contrat = null) { return appel('withdraw(address)', [adrMot(devise)], 0n, 'Withdraw what the market owes you', contrat); }
 
 /** L offre minimale suivante : le prix d ouverture sans offre ; sinon +5 % ET strictement au-dessus (regle du contrat).
  *  ⛔ 2026-10-11 (banc fork) : lisait `v.enchere` - le BOOLEEN « c est une enchere » de la vitrine - au lieu de `v.offre` : minimum de 2 wei,
@@ -117,14 +123,21 @@ export function decoderPage(hex) {
 }
 /** Toutes les skins, par pages de `pas` (lecture seule). Rend { etat:'LU', skins } ou { etat:'NON_LU', pourquoi } - jamais une liste vide
  *  a la place d une lecture ratee. */
-export async function lireSkins({ rpc, pas = 100, max = 2000 }) {
+export async function lireSkins({ rpc, pas = 100, max = 2000, contrats = BLOCKSKINS_LUS }) {
+  /* 2026-11-12 : every skins contract, oldest first (the active one last: skinPortee keeps the LAST skin held for a block); each skin
+   *   carries its contract. One contract unread = NON_LU for all (never a list with a silent hole). */
   try {
-    const total = Number(BigInt(await rpc('eth_call', [{ to: BLOCKSKINS, data: '0x' + selecteur('totalSupply()') }, 'latest'])));
+    let total = 0, tronque = false;
     const skins = [];
-    for (let depuis = 1; depuis <= Math.min(total, max); depuis += pas) {
-      skins.push(...decoderPage(await rpc('eth_call', [{ to: BLOCKSKINS, data: appelPage(depuis, pas) }, 'latest'])));
+    for (const c of contrats) {
+      const k = bas(c);
+      const n = Number(BigInt(await rpc('eth_call', [{ to: k, data: '0x' + selecteur('totalSupply()') }, 'latest'])));
+      total += n; if (n > max) tronque = true;
+      for (let depuis = 1; depuis <= Math.min(n, max); depuis += pas) {
+        for (const s of decoderPage(await rpc('eth_call', [{ to: k, data: appelPage(depuis, pas) }, 'latest']))) skins.push({ ...s, contrat: k });
+      }
     }
-    return { etat: 'LU', total, skins, tronque: total > max };
+    return { etat: 'LU', total, skins, tronque };
   } catch (e) { return { etat: 'NON_LU', pourquoi: String((e && e.message) || e).slice(0, 120) }; }
 }
 /** Les skins d un compte (detenues, ou mises en vente par lui), et celle qu il PORTE sur un block : la derniere qu il detient pour ce block. */
@@ -161,9 +174,9 @@ export function appelAdmettre(devise, oui = true) {
  *   Mesure 2026-10-23, bloc 52 993 407, contrat v2 0xc0d1…8e2f : 11 admises = ETH, USDC + les 9 candidates (AAPLc AMZNc GOOGLc METAc
  *   MSFTc MSTRc NVDAc SPCXc TSLAc) ; 62 autres actions de paires.js lues NON admises ; 11 evenements CurrencySet depuis le deploiement
  *   (52 470 279), tous « allowed », aucun hors de cette liste. */
-export async function deviseAdmise({ rpc, devise }) {
+export async function deviseAdmise({ rpc, devise, contrat = null }) {
   try {
-    const brut = String(await rpc('eth_call', [{ to: BLOCKSKINS, data: '0x' + selecteur('currencyAllowed(address)') + adrMot(devise) }, 'latest']));
+    const brut = String(await rpc('eth_call', [{ to: contratDe(contrat), data: '0x' + selecteur('currencyAllowed(address)') + adrMot(devise) }, 'latest']));
     if (!/^0x[0-9a-f]{64}$/i.test(brut)) return null;
     const v = BigInt(brut);
     return v === 1n ? true : v === 0n ? false : null;

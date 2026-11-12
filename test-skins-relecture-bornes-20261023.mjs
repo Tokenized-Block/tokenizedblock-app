@@ -262,7 +262,7 @@ if (!process.env.TB_RB_SANS_MUTANTS) {
     ['app', 'bcActionMarche ignore le plafond', 'plafond: x && x.plafond != null ? x.plafond : null', 'plafond: null'],
     ['app', 'le brain ne passe plus son montant', "montant: p.genre === 'ENCHERIR' ? p.montant : null,", 'montant: null,'],
     ['app', 'relance offerte au brain', "&& qui === 'Skins') bcBoutons(m, [[(genre === 'ACHETER'", ") bcBoutons(m, [[(genre === 'ACHETER'"],
-    ['app', 'devise d une annonce neuve non relue', '(await deviseAdmise({ rpc, devise: x.devise })) !== true', 'false'],
+    ['app', 'devise d une annonce neuve non relue', '(await deviseAdmise({ rpc, devise: x.devise, contrat: K })) !== true', 'false'],
     ['app', 'Sell propose la liste d affichage', 'const offertes = bcDevisesOffertes();', 'const offertes = bcDevisesSkin();'],
     ['app', 'rien de lu = ETH/USDC proposes', 'bc.devisesSkinAdmises || {}', 'bc.devisesSkinAdmises || DEVISES_SKIN'],
     ['app', 'approbation pas exacte', "appels.push(appelApprouver(s.devise, montant, 'Allow", "appels.push(appelApprouver(s.devise, montant * 2n, 'Allow"],

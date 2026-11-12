@@ -25,18 +25,18 @@ const vu = (cond, label) => { n += 1; if (cond === true) console.log('  ok   ' +
 
 const D = (await import('./blockskins-deploiement.js')).BLOCKSKINS_DEPLOIEMENT;
 const AC = await import('./blockskins-actif.js');
-const actif = AC.contratActif(D);
+const actif = AC.BLOCKSKINS_ACTIF; /* 2026-11-12: the pack's Skins (paid through the router); its precedent is the record D */
 const walletFrais = String(actif.constructeur.walletDesFrais).toLowerCase();
 
 /* ── A ── */
-const corpsOk = (c, a) => !!c && c.ok === true && c.format === 'mint'
+const corpsOk = (c, a) => !!c && c.ok === true && (a.routeur ? (c.format === 'router' && c.router === String(a.routeur).toLowerCase() && c.steps[0].spender === 'router' && /^pay\(/.test(c.steps[1].call)) : (c.format === 'mint' && c.steps[1].call === 'mint(address,uint64)'))
   && c.contract === String(a.adresse).toLowerCase()
   && c.priceUsdc === String(a.mintPriceUsdc) && c.prixUsdc === String(a.mintPriceUsdc)
   && c.decimals === 6 && c.decimales === 6
   && c.usdc === String(a.constructeur.usdc).toLowerCase()
   && Array.isArray(c.steps) && c.steps.length === 2
   && c.steps[0].call === 'approve(address,uint256)' && c.steps[0].exact === true
-  && c.steps[1].call === 'mint(address,uint64)'
+
   && Array.isArray(c.readBack) && c.readBack.includes('MINT_PRICE()')
   && !('beneficiaire' in c) && !('memo' in c)
   && !JSON.stringify(c).includes('tb-skin')
@@ -95,7 +95,9 @@ if (srcAc.includes(ancre)) {
   const dir = mkdtempSync(join(tmpdir(), 'skp369-'));
   const p = join(dir, 'blockskins-actif-mutant.mjs');
   const urlDep = pathToFileURL(join(ICI, 'blockskins-deploiement.js')).href;
-  writeFileSync(p, srcAc.replace(ancre, "contract: '" + AC.BLOCKSKINS + "',").replace("from './blockskins-deploiement.js'", "from '" + urlDep + "'"));
+  /* 2026-11-12: blockskins-actif.js imports the pack modules too: the copy points every relative import at the tree */
+  const abs = (f) => pathToFileURL(join(ICI, f)).href;
+  writeFileSync(p, srcAc.split(ancre).join("contract: '" + AC.BLOCKSKINS + "',").replace("from './blockskins-deploiement.js'", "from '" + urlDep + "'").replace("from './economie-pack.js'", "from '" + abs('economie-pack.js') + "'").replace("from './frais-contrats.js'", "from '" + abs('frais-contrats.js') + "'"));
   try {
     const M = await import(pathToFileURL(p).href);
     mutCharge = typeof M.skinsPrixCorps === 'function' && corpsOk(M.skinsPrixCorps(), actif); /* the mutant loads and passes A: it is alive */

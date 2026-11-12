@@ -364,6 +364,35 @@ export async function planWtcoinVersTblock({ rpc, compte, montant, toleranceBps 
 }
 
 /**
+ * 2026-11-12 (the economy pack is live): a FRESH quote of what `montant` raw USDC buys in TBLOCK on the route the payment router
+ * (TblockPayRouter) swaps: USDC -> wtCOIN on the pinned Aerodrome pool (the router's AERO_POOL), then wtCOIN -> TBLOCK on the pinned v4 pool
+ * (hook included). Nothing is built or simulated: the page turns it into the router's minimum (quote x 0.99) and checks it against the
+ * router's own floor. Returns { etat: 'OK', devis, pivot } or { etat: 'REFUSE' | 'NON_MESURE', pourquoi }.
+ */
+export async function devisUsdcVersTblock({ rpc, montant } = {}) {
+  if (typeof rpc !== 'function') return { etat: 'NON_MESURE', pourquoi: 'no chain reader' };
+  let m; try { m = BigInt(montant); } catch (_) { m = 0n; }
+  if (m <= 0n) return { etat: 'REFUSE', pourquoi: 'the amount must be a positive integer in raw USDC units' };
+  const cleOk = verifierCleTblock();
+  if (!cleOk.ok) return { etat: 'REFUSE', pourquoi: cleOk.pourquoi };
+  let code;
+  try {
+    if (!(await pinnedPoolOk(rpc, POOL_WTCOIN_USDC))) return { etat: 'REFUSE', pourquoi: 'the factory no longer returns the pinned pool ' + POOL_WTCOIN_USDC.pool + ': no quote on another pool' };
+    code = await lireCodeQuoteurNouvelle(rpc);
+  } catch (e) { return { etat: 'NON_MESURE', pourquoi: 'the pinned pool could not be read just now: ' + short(e) }; }
+  if (!code) return { etat: 'NON_MESURE', pourquoi: 'the Aerodrome quoter no longer has the measured shape: no quote' };
+  try {
+    const c = await quoteAero(rpc, code, POOL_WTCOIN_USDC, USDC, WTCOIN, m);
+    if (c.etat !== 'OK') return c;
+    const q2 = await quoteV4(rpc, WTCOIN, c.q);
+    if (!(q2 > 0n)) return { etat: 'REFUSE', pourquoi: 'the TBLOCK pool quotes nothing for this amount' };
+    return { etat: 'OK', devis: q2, pivot: c.q, impactBpsAerodrome: c.impactBps };
+  } catch (e) {
+    return isRevert(e) ? { etat: 'REFUSE', pourquoi: 'a quote reverted: ' + short(e) } : { etat: 'NON_MESURE', pourquoi: 'a read failed just now: ' + short(e) };
+  }
+}
+
+/**
  * game337 (Phil 2026-11-10): the TBLOCK part of a birth, BOUGHT WITH ETH and sent to the holders vault, in ONE atomic batch:
  * the ETH > TBLOCK buy above (with NO app fee: it is a gift to the vault) + TBLOCK.transfer(vault, the buy's guaranteed minimum).
  * Anything the pools give above that minimum stays with the buyer. The WHOLE batch is simulated from the account; PRET only if

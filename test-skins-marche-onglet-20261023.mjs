@@ -150,7 +150,7 @@ if (!process.env.TB_SKM_SANS_MUTANTS) {
     ['app', 'lecture ratee : liste vide sans le dire', "if (!skm.liste) { z.textContent = ''; note.textContent = 'The skins could not be read right now — nothing is listed rather than a wrong list. Read again in a moment.'; }", "if (!skm.liste) { z.textContent = ''; note.textContent = 'No skin minted yet.'; }"],
     ['app', 'relecture meme onglet ferme', "  if (document.hidden || !v || !v.classList.contains('on')) return;\n  if (Date.now() - skm.lu", '  if (document.hidden) return;\n  if (Date.now() - skm.lu'],
     ['app', 'onglet Market ne lit plus les skins', "  if (nom === 'trade') void peindreSkinsMarche();", ''],
-    ['app', 'pas de relecture avant de signer', "try { frais = decoderPage(await rpc('eth_call', [{ to: BLOCKSKINS, data: appelPage(s.tokenId, 1) }, 'latest']))[0] || null; } catch (_) { frais = null; }", 'frais = s;'],
+    ['app', 'pas de relecture avant de signer', "try { frais = decoderPage(await rpc('eth_call', [{ to: K, data: appelPage(s.tokenId, 1) }, 'latest']))[0] || null; if (frais) frais.contrat = K; } catch (_) { frais = null; }", 'frais = s;'],
     ['app', 'refus de la relecture ignore', '      if (!rl.ok) {', '      if (false) {'],
     ['app', 'montant recalcule apres relecture', 'v = frais; montant = rl.montant;', 'v = frais; montant = offreMinimale(frais);'],
     ['app', 'le panneau ne s ouvre plus', "  try { bcOuvrirPop({ vue: 'chat', sansBasculer: true, deplier: true }); } catch (_) { /* la carte est quand meme dans le fil */ }\n", ''],

@@ -66,7 +66,7 @@ eq(C.rolls.adresse, BLOCKROLLS_DEPLOIEMENT.adresse, 'BlockRolls : adresse de la 
 for (const k of ['rollPrice', 'passPrice', 'prize5', 'prize4', 'prize3', 'prize2']) eq(C.rolls[k], BigInt(rc[k]), 'BlockRolls ' + k + ' = fiche');
 for (const k of ['passRolls', 'passWindow', 'potShareBps', 'minScore']) eq(C.rolls[k], Number(rc[k]), 'BlockRolls ' + k + ' = fiche');
 eq(C.rolls.fenetreBlocs, FENETRE, 'fenetre de reglement = blockrolls-plan FENETRE');
-const actif = contratActif();
+const actif = (await import('./blockskins-actif.js')).BLOCKSKINS_ACTIF; /* 2026-11-12: the pack's Skins (contratActif() alone reads only the record) */
 eq(C.skins.adresse, String(actif.adresse).toLowerCase(), 'skins : contrat ACTIF');
 eq(C.skins.mintUsdc, BigInt(actif.mintPriceUsdc), 'skins : prix de mint du contrat actif');
 /* 2026-11-12: no `prochain`: the standalone v3 is retired (Skins ships in the economy pack), and the page never announces a contract that is not live */
@@ -122,7 +122,7 @@ ok(evMax > evUni, 'le meilleur guess (valeurs biaisees par le modulo) paie un pe
 const vrai = FR.rendre(FR.CHIFFRES, null);
 for (const attendu of ['>0.1%<', '0.07% to TokenizedBlock', '0.03% to the block', '0.001 ETH', '0.0007 ETH when', '0.0003 ETH when', '>0.50 USDC<', '>10 USDC<', '30 rolls',
   '24 hours', '50% goes to the roll pot', '0.5% on a single Uniswap v4 market', /* game374 (audit F-route-6, F-mis-3): the tiers as frais-degressif.js applies them; the 7% goes to a wallet, not a pool */ '0.2% up to $100', '0.1% from $200', 'Doer 90%', 'community reward wallet 7%', 'TokenizedBlock 3%',
-  'takes 10% of each sale', '>1 USDC<', FR.usdc4(E.uniforme) + ' USDC on average', FR.usdc4(E.meilleur) + ' USDC (', 'Rolls lose on average.',
+  'takes 10% of each sale', /* 2026-11-12: the skin is 10 USDC on the pack's Skins (already in the list) */ FR.usdc4(E.uniforme) + ' USDC on average', FR.usdc4(E.meilleur) + ' USDC (', 'Rolls lose on average.',
   'A pass loses on average too.', 'within 256 blocks', 'taxBps() = 9999', 'about 0.01% of the ETH it paid', '129 of 129']) ok(vrai.includes(attendu), 'rendu reel contient « ' + attendu + ' »');
 ok(/\$10(?!\d)/.test(vrai), 'rendu reel : le seuil du ticket $10');
 /* 2026-11-12 (Phil copy rule): no internal status words about the skin contract on the page */

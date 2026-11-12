@@ -14,7 +14,8 @@ const R = { id: 'random', angle: 10, h: [20, 30, 359], cube: 0, noyau: 200, fond
 const D = BLOCKSKINS_DEPLOIEMENT;
 /* 2026-10-18 (v3 a 10 USDC prepare, pas encore signe) : l app prend le PREMIER enregistrement DEPLOYE de la chaine racine -> precedent -> … ;
  *   son adresse ET son prix (mintPriceUsdc, relu sur la chaine quand l adresse a ete notee) viennent de lui (blockskins-actif.js). */
-const chaine = []; for (let x = D; x; x = x.precedent) chaine.push(x);
+/* 2026-11-12 (the economy pack is live): the chain starts at the pack's Skins (blockskins-actif.js SKINS_PACK), whose precedent IS this record */
+const chaine = []; for (let x = (S.BLOCKSKINS_ACTIF.precedent === D ? S.BLOCKSKINS_ACTIF : D); x; x = x.precedent) chaine.push(x);
 const actif = chaine.find((x) => /^0x[0-9a-f]{40}$/i.test(String(x.adresse || '')));
 vu(!!actif && S.BLOCKSKINS === String(actif.adresse).toLowerCase() && S.BLOCKSKINS_ACTIF === actif, 'l adresse lue n est pas celle du premier enregistrement deploye');
 vu(S.SKIN_MINT_USDC === BigInt(actif.mintPriceUsdc) && S.SKIN_MINT_TEXTE === (S.SKIN_MINT_USDC / 1000000n).toString() + ' USDC', 'le prix de mint ne vient pas de l enregistrement du contrat actif');
@@ -33,14 +34,16 @@ for (const mauvais of [{ ...R, angle: 360 }, { ...R, h: [1, 2] }, { ...R, fond: 
   vu(leve, 'recette invalide acceptee : ' + JSON.stringify(mauvais));
 }
 const B = '0xb200000000000000000000e4b0c5fbe9c8df579e', USDC = '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913';
-const m = S.appelMint(B, R);
-vu(m.to === S.BLOCKSKINS && m.data.startsWith('0x' + selecteur('mint(address,uint64)')) && m.data.slice(10, 74).endsWith(B.slice(2)) && BigInt('0x' + m.data.slice(74)) === p && m.value === '0x0', 'mint mal encode');
+/* 2026-11-12 (the economy pack is live): the active contract is paid through the TBLOCK router only: no direct mint (economie-pack.js payBatch +
+ *   dataSkin build the payment; test-bascule-pack-economie-v2 and the fork bench check them) */
+let sansMint = false; try { S.appelMint(B, R); } catch (_) { sansMint = true; }
+vu(S.BLOCKSKINS_ACTIF.routeur ? sansMint : true, 'un mint direct est construit sur un contrat paye par le routeur');
 const a = S.appelApprouver(USDC, S.SKIN_MINT_USDC);
 vu(a.to === USDC && a.data.startsWith('0x095ea7b3') && a.data.slice(10, 74).endsWith(S.BLOCKSKINS.slice(2)) && BigInt('0x' + a.data.slice(74)) === BigInt(actif.mintPriceUsdc), 'approbation pas exacte (le prix de l enregistrement actif)');
 let leve = false; try { S.appelApprouver(USDC, 0n); } catch (_) { leve = true; } vu(leve, 'approbation de 0 acceptee');
 /* le nom de chaque etape S AFFICHE dans la carte de signature (« Step 2 of 2: ... ») : jamais « NFT » (Phil, 2026-10-11).
  *   ROUGE sur 3693e6f : 'Mint this skin as your NFT — 1 USDC to TokenizedBlock'. */
-const etapes = [m, a, S.appelMettreEnVente(7n, USDC, 2000000n), S.appelRetirer(7n), S.appelAcheter(7n, USDC, 2000000n), S.appelOuvrirEnchere(7n, USDC, 1000000n, 3600n),
+const etapes = [a, S.appelMettreEnVente(7n, USDC, 2000000n), S.appelRetirer(7n), S.appelAcheter(7n, USDC, 2000000n), S.appelOuvrirEnchere(7n, USDC, 1000000n, 3600n),
   S.appelEncherir(7n, USDC, 9n), S.appelRegler(7n), S.appelRetirerCredit(USDC)];
 vu(etapes.every((x) => typeof x.nom === 'string' && x.nom.length > 0 && !/\bNFTs?\b/i.test(x.nom)), 'une etape affichee dit « NFT » ou n a pas de nom : ' + etapes.map((x) => x.nom).filter((t) => !t || /\bNFTs?\b/i.test(t)).join(' | '));
 vu(S.appelAcheter(7n, S.ETH, 5n * 10n ** 15n).value === '0x' + (5n * 10n ** 15n).toString(16) && S.appelAcheter(7n, USDC, 2000000n).value === '0x0', 'valeur ETH / jeton fausse a l achat');

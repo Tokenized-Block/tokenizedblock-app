@@ -82,8 +82,10 @@ const holdersApi = (connecte) => (url) => {
   t('holders render before a wallet: the perks were drawn (witness)', (perks.match(/class="perk"/g) || []).length >= 6, perks.slice(0, 120));
   const tx1 = avant.textes();
   t('holders render before a wallet: no status or version word', fautes(tx1).length === 0, fautes(tx1).join(' '));
-  t('holders: the coming vault says "Coming soon" and what it does', tx1.some((s) => s.startsWith('Coming soon — the holders vault')) && tx1.some((s) => s.includes('$15 locked to claim; more from $100 locked (+15% at $100, +30% at $500, +50% at $1,000); up to +25% more for 90 days locked; you must play that week (a heart, a TAM mint or a skin)')));
-  t('holders: the channel badge says "coming soon" while it is closed', tx1.filter((s) => s === 'coming soon').length >= 2, tx1.filter((s) => /soon/.test(s)).join(' | '));
+/* 2026-11-12 (the economy pack is live): the holders vault and the lock rewards are LIVE; their rules are READ on chain (economie-pack.js
+ *   texteRegleVault, REGLES_VAULT) and said by what they do — the "coming soon" vault row and the first vault's fixed holds are gone */
+  t('holders: the live vault and the lock rewards are listed by what they do, not as coming soon', tx1.some((s) => s.startsWith('Holders vault, every week')) && tx1.some((s) => s.startsWith('Monthly lock rewards')) && !tx1.some((s) => s.startsWith('Coming soon — the holders vault')));
+  t('holders: the channel badge says "coming soon" while it is closed', tx1.filter((s) => s === 'coming soon').length >= 1, tx1.filter((s) => /soon/.test(s)).join(' | '));
 
   const eth = { request: async ({ method }) => (method === 'eth_requestAccounts' ? ['0x' + 'ab'.repeat(20)] : null) };
   const apres = await rendre(H, { fetchJson: holdersApi(true), ethereum: eth });
@@ -137,10 +139,10 @@ const { verifierPack, LETTRES } = await import('./pack-economie-v2.js');
   const lockCarte = chaines(tranche("hote.append(el('p', 'sous', 'Locking earns", '\n'));
   const vault = chaines(tranche("const wc = $('#wVaultComment');", 'void peindreCoeursWallet();'));
   const ptsNote = chaines(tranche('ptsNote.textContent = m > 0n', '\n'));
-  t('app strings found (witness)', lockCarte.length >= 1 && vault.length >= 4 && ptsNote.length >= 2, [lockCarte.length, vault.length, ptsNote.length].join('/'));
+  t('app strings found (witness)', lockCarte.length >= 1 && vault.length >= 2 && ptsNote.length >= 2 /* 2026-11-12: the explainer is the live vault's rules, read on chain */, [lockCarte.length, vault.length, ptsNote.length].join('/'));
   const tout = [...lockCarte, ...vault, ...ptsNote];
   t('app lock card, vault explainer and points note: no status or version word', fautes(tout).length === 0, fautes(tout).join(' '));
-  t('app vault explainer: the coming vault says "Coming soon" and the same rule as holders', vault.join('').includes('Coming soon, the holders vault') && vault.join('').includes('$15 locked to claim; more from $100 locked (+15% at $100, +30% at $500, +50% at $1,000); up to +25% more for 90 days locked; you must play that week (a heart, a TAM mint or a skin)'));
+  t('app vault explainer: the live vault\'s rules read on chain, and you must play that week', vault.join('').includes('You must play that week: a heart, a TAM art mint or a skin mint.') && !vault.join('').includes('Coming soon, the holders vault'));
 }
 
 /* ======== the view modules those pages print ======== */

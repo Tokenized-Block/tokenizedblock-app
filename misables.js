@@ -31,7 +31,7 @@ import { planSpins } from './slots-plan.js';
 import { planFund } from './ticketpot-plan.js';
 import { planCreate as planCreateDuel, planJoin as planJoinDuel } from './duels-plan-app.js';
 import { FEE_WALLET } from './frais-creation.js';
-import { planMintTam } from './tam-plan.js';
+import { planMintTam, planMintTamRouteur } from './tam-plan.js';
 import { selecteur } from './keccak.js';
 
 /* ── adresses (copiees des modules qui les ont mesurees) ─────────────────────────────────────────────────── */
@@ -232,6 +232,8 @@ export function planJeuUsdc(jeu = {}) {
     case 'ticketpot': return planFund({ contrat: c, usdc: USDC, day: jeu.day, montant: jeu.montant, ferme: jeu.ferme ?? false, maintenant: jeu.maintenant });
     /* 2026-10-31 (TAM phase C) : le mint d une oeuvre, 5 USDC tout droit au FEE_WALLET (tam-plan.js : approve exact puis mint) */
     case 'tam': return planMintTam({ deploiement: jeu.deploiement, lu: jeu.lu, octets: jeu.octets, graine: jeu.graine, paramsJson: jeu.paramsJson });
+    /* 2026-11-12 : le mint sur TAM art du pack, paye par le routeur TBLOCK — jeu.contrat = le ROUTEUR (c est lui que l approve vise) */
+    case 'tam-routeur': return planMintTamRouteur({ pack: jeu.pack, lu: jeu.lu, octets: jeu.octets, graine: jeu.graine, paramsJson: jeu.paramsJson, minOut: jeu.minOut, deadline: jeu.deadline });
     case 'duel-create': return planCreateDuel({ contrat: c, token: USDC, stake: jeu.stake, guess: jeu.guess, expiresIn: jeu.expiresIn });
     case 'duel-join':
       if (!jeu.duel || bas(jeu.duel.token) !== USDC) return { etat: 'REFUSE', pourquoi: 'only a duel staked in USDC can be joined by paying with another token' };

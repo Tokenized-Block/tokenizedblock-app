@@ -18,6 +18,12 @@ export const SOURCES = Object.freeze([
   Object.freeze({ contrat: 'TicketPot', fichier: 'contracts/src/TicketPot.sol', noms: Object.freeze(['GRACE', 'FUNDING_DELAY', 'ADMIN_DELAY', 'PROPOSAL_TTL']) }),
   Object.freeze({ contrat: 'BlockRolls', fichier: 'contracts/src/BlockRolls.sol', noms: Object.freeze(['MIN_SCORE_FLOOR', 'SETTLE_WINDOW']) }),
   Object.freeze({ contrat: 'BlockSlots', fichier: 'contracts/src/BlockSlots.sol', noms: Object.freeze(['SETTLE_WINDOW']) }),
+  /* 2026-11-12 (the economy pack is live): the rules the fees page states for the pack, read from the SAME sources the pack record hashes
+   *   (economie-v2-pack-deploiement.js etapes[].sha256Source; the test compares them) */
+  Object.freeze({ contrat: 'BlockSkinsPack', fichier: 'contracts/src/BlockSkins.sol', noms: Object.freeze(['DEV_BPS']) }),
+  Object.freeze({ contrat: 'TamArtV2', fichier: 'contracts/src/TamArtV2.sol', noms: Object.freeze(['PRICE_USDC', 'DEV_BPS']) }),
+  Object.freeze({ contrat: 'TBlockVaultV2', fichier: 'contracts/src/TBlockVaultV2.sol', noms: Object.freeze(['MIN_COMMIT', 'MAX_FACTOR', 'ACCESS_USD', 'TIER1_USD', 'TIER2_USD', 'TIER3_USD', 'TIER1_BONUS', 'TIER2_BONUS', 'TIER3_BONUS', 'TIME_BONUS', 'TIME_FULL', 'RESCUE_DELAY', 'RESCUE_WINDOW', 'FEED_QUIET']) }),
+  Object.freeze({ contrat: 'TBlockLockRewards', fichier: 'contracts/src/TBlockLockRewards.sol', noms: Object.freeze(['EPOCH', 'REWARD_BPS', 'CLAIM_WINDOW', 'MAX_CLAIM_EPOCHS', 'RESCUE_DELAY']) }),
 ]);
 
 const UNITES = { days: 86400n, hours: 3600n, minutes: 60n, seconds: 1n };

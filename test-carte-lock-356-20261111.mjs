@@ -11,7 +11,8 @@ let ok = 0, ko = 0;
 const t = (m, c) => { if (c) ok++; else { ko++; console.log('KO', m); } };
 const L = APP.slice(APP.indexOf('async function peindreLock('), APP.indexOf('async function peindreTipApercu('));
 t('chips: 1,000 / holder stage / Max', L.includes("puce('1,000', 1000n * 10n ** 18n);") && !L.includes('Holder stage') /* game357: no holder-stage chip while v1 reads the wallet balance */ && L.includes("puce('Max', bal);"));
-t('pills from lock.js durations', /for \(const j of LK\.DUREES_JOURS\) \{\n\s+const b = el\('button', 'lkPuce', ''\)/.test(L));
+/* 2026-11-12: the lock.js durations, plus 60 days while the monthly lock rewards are live (the shortest lock sure to cover a whole month) */
+t('pills from lock.js durations (+ 60 days with the lock rewards)', /const durees = EP\.REWARDS \? \[\.\.\.new Set\(\[\.\.\.LK\.DUREES_JOURS, EP\.MOIS_MIN_JOURS\]\)\]\.sort\(\(x, y\) => x - y\) : LK\.DUREES_JOURS;/.test(L) && /for \(const j of durees\) \{\n\s+const b = el\('button', 'lkPuce', ''\)/.test(L));
 t('the button names the amount AND the days — or the LATER date a top-up keeps (review 356)', L.includes("(garde ? 'Add ' + LK.fmt(m) + ' TBLOCK to your lock (until '") && L.includes(": 'Lock ' + LK.fmt(m) + ' TBLOCK for ' + jours + ' days')"));
 t('review 356: the kept date = the later of the stored date (active, no withdrawal asked) and the asked one', L.includes('const fin = Math.max(t0 + jours * 86400, Number(unlockAt) > t0 && locked > 0n && requestedAt === 0n ? Number(unlockAt) : 0);'));
 /* review 356: '1.5' was read as 15 — the parse is EXECUTED here, extracted from the real file */
@@ -32,7 +33,9 @@ t('game359 points v2: 1M TBLOCK for 7 days = 10 a day x 7 = 70', Math.abs(p7 - 7
 t('game359 points v2: 1M TBLOCK for 90 days = 10 a day x 1.5 x 90 = 1350', Math.abs(p90 - 1350) < 1e-6, String(p90));
 t('big counter painted from /api/points total, hidden when none', APP.includes('gros.hidden = !(tot > 0);') && APP.includes('<p class="wPtsGros" id="wPointsGros" hidden></p>'));
 /* 2026-11-12 (UI copy rule, Phil): same facts, no version or internal status on screen ("Coming soon" for what is not live) */
-t('vault explainer reads today\'s holds and the $15, never typed', APP.includes("ECO.fmt(ECO.LIKE_MIN_HOLD)") && APP.includes("ECO.fmt(ECO.CLAIM_MIN_HOLD)") && APP.includes("Coming soon, the holders vault asks for $' + ECO.SEUIL_USD + ' of TBLOCK LOCKED") && APP.includes("the app also asks, for a heart, that you keep $' + ECO.SEUIL_USD") && !/17,200,000|2,580,000/.test(APP.slice(APP.indexOf("const wc = $('#wVaultComment');"), APP.indexOf('void peindreCoeursWallet();', APP.indexOf("const wc = $('#wVaultComment');")))));
-t('vault explainer says the locked rule is coming soon (never live), and points are NOT the weekly budget (review 356)', APP.includes('. Coming soon, the holders vault asks for $') && APP.includes('the weekly player budget follows what you burned') && !APP.includes('Points decide a share of what the vault actually receives'));
+/* 2026-11-12 (the economy pack is live): the explainer is the LIVE vault's rules, read on chain (EP.REGLES_VAULT -> texteRegleVault), never
+ *   typed; these two clauses replace those of the first vault's explainer */
+t('vault explainer: the live vault rules read on chain, never typed', APP.includes('for (const k of EP.REGLES_VAULT) r[k] = await lit(EP.VIEW.regleVault(k)); wVaultRegle = EP.texteRegleVault(r);') && APP.includes("if (wc) wc.textContent = (wVaultRegle || ") && !/17,200,000|2,580,000/.test(APP.slice(APP.indexOf("const wc = $('#wVaultComment');"), APP.indexOf("const wc = $('#wVaultComment');") + 900)));
+t('vault explainer: you must play that week; points are separate from the weekly budget', APP.includes(' You must play that week: a heart, a TAM art mint or a skin mint. Community points are separate') && !APP.includes('Points decide a share of what the vault actually receives'));
 console.log(ok + '/' + (ok + ko) + (ko ? ' — RED' : ' — green'));
 process.exit(ko ? 1 : 0);

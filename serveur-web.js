@@ -142,8 +142,9 @@ import { verifierFrais, compterRevenu, walletsInternes, devisesComptees, LIGNES_
 import { ligneRegistre, totauxParCreateur } from './ref-vitrine.js';
 import { saisonDe, valeurUsd, crediter, tickets, racine, tirer, F_USD_V1, jourDe, moisDe, joursEntre, entreesPeriode, SEUIL_VOLUME_JOUR_USD, JOUR_MS, ticketsJour, joursPass, crediterPassSemaine } from './tirage-saison.js';
 import { volumeVerifie, poolIdDe, passSkinVerifie } from './volume-tirage.js';
-import { BLOCKSKINS as BLOCKSKINS_SRV, BLOCKSKINS_ACTIF as BLOCKSKINS_ACTIF_SRV, SKIN_MINT_USDC as SKIN_MINT_USDC_SRV, lireSkins as lireSkinsSrv, DEVISES_SKIN as DEVISES_SKIN_SRV } from './blockskins.js';
+import { BLOCKSKINS as BLOCKSKINS_SRV, BLOCKSKINS_LUS as BLOCKSKINS_LUS_SRV, BLOCKSKINS_ACTIF as BLOCKSKINS_ACTIF_SRV, SKIN_MINT_USDC as SKIN_MINT_USDC_SRV, lireSkins as lireSkinsSrv, DEVISES_SKIN as DEVISES_SKIN_SRV } from './blockskins.js';
 import { skinsPrixCorps } from './blockskins-actif.js';
+import { contratActif as contratSkinsActif } from './blockskins-actif.js'; /* 2026-11-12: the earlier skins contract, for its XP source */
 import { lireEvenementsJeu, evenementsPractice, fusionnerJournal, avecBlocks, TOPICS_ROLLS as TOPICS_ROLLS_JOURNAL, TOPICS_SKINS as TOPICS_SKINS_JOURNAL,
   TOPICS_DUELS as TOPICS_DUELS_JOURNAL, TOPICS_MISSIONS as TOPICS_MISSIONS_JOURNAL, JOURNAL_MAX, tempsDeBloc as tempsDeBlocJournal,
   profondeurJournee, premierBlocDuJour, journeeCouverte, garderJournal, completerJournal, ajouterListing } from './journal-jeu.js';
@@ -260,14 +261,15 @@ import { avecRepliLogs, lecteurUrl as lecteurUrlNu, classeEnvoi } from './repli-
 import { pairesProposees, pairesLancables, ACTIONS_COINBASE, DEVISES_BASE } from './paires.js';
 import { lireAvoirs, classeLot } from './avoirs.js';
 import { planRail, echangesDevisesAnnonces } from './rails-api.js';
-import { planAchatPourCoffre, planWtcoinVersTblock } from './tblock-route.js'; /* game337: ETH -> TBLOCK -> holders vault; game339: resume */
+import { planAchatPourCoffre, planWtcoinVersTblock, devisUsdcVersTblock } from './tblock-route.js'; /* game337: ETH -> TBLOCK -> holders vault; game339: resume */
 import { ECONOMIE_DEPLOIEMENT } from './economie-deploiement.js';
 import { validerRelais, RELAIS_CORPS_MAX } from './relais-rpc.js'; /* game341: the page's last-resort read relay */
 import { lireEtatNaissance } from './etat-naissance.js'; /* game343 CREATE-ONE-PATH: the one reader of a birth */
 import { lireCoffrePaye } from './coffre-paye.js';
 import { classement, vueCompte, joueursParSemaine } from './coeurs.js'; /* game346: hearts given / received / board */
 import { creerSante } from './rpc-sante.js'; /* game362: one health state per RPC host */
-import { creerIndexCoeurs, LIKES_DEPLOY_BLOC } from './coeurs-index.js';
+import { creerIndexCoeursSuite, LIKES_DEPLOY_BLOC } from './coeurs-index.js';
+import * as EP_PACK from './economie-pack.js'; /* 2026-11-12: the live economy pack (addresses from its deployment record) */
 import { creerIndexLogs } from './index-logs.js'; /* game353: the community points */
 import { TOPICS as TOPICS_LOCK, decoderLock, LOCK_DEPLOY_BLOC } from './lock-evenements.js';
 import { tableauPoints } from './points.js';
@@ -4074,8 +4076,13 @@ const rpcCoeurs = async (methode, params) => {
   }
   throw new Error(derniere);
 };
-if (ECONOMIE_DEPLOIEMENT.adresseLikes) {
-  COEURS.index = creerIndexCoeurs({ rpc: rpcCoeurs, likes: String(ECONOMIE_DEPLOIEMENT.adresseLikes).toLowerCase() });
+/* 2026-11-12 (the economy pack is live): hearts are now given on Hearts (economie-pack.js HEARTS, from the deployment record, read from its
+ *   creation block); the first contract's hearts stay readable history. One index over both, same never-skip rule each. */
+if (ECONOMIE_DEPLOIEMENT.adresseLikes || EP_PACK.HEARTS) {
+  COEURS.index = creerIndexCoeursSuite({ rpc: rpcCoeurs, sources: [
+    ...(ECONOMIE_DEPLOIEMENT.adresseLikes ? [{ likes: String(ECONOMIE_DEPLOIEMENT.adresseLikes).toLowerCase(), depuis: LIKES_DEPLOY_BLOC }] : []),
+    ...(EP_PACK.HEARTS ? [{ likes: EP_PACK.HEARTS, depuis: EP_PACK.BLOC_DEPLOIEMENT.L }] : []),
+  ] });
   if (process.env.TB_SONDES !== '0' && !ESSAI_SRV.actif) {
     setTimeout(() => { void COEURS.index.avancer(); setInterval(() => { void COEURS.index.avancer(); }, 60000).unref?.(); }, 20000).unref?.();
   }
@@ -5151,7 +5158,9 @@ function invaliderPartsTPJours(ids) {
  *   bloc illisible -> NON_LU (rien de marque). null = pas un pass. */
 async function crediterPassSkin({ h, tx, recu, internes }) {
   if ((revenu.passVus || {})[h]) return null;
-  const ps = passSkinVerifie({ tx, recu, skins: BLOCKSKINS_SRV, usdc: USDC_BASE, wallet: FEE_WALLET, prix: SKIN_MINT_USDC_SRV });
+  /* 2026-11-12 (the economy pack is live): a skin of the pack is paid to the TBLOCK payment ROUTER (which keeps the dev part for the fee wallet
+   *   and buys TBLOCK with the rest, in the same tx): the price must leave the payer for the router; before, for the fee wallet */
+  const ps = passSkinVerifie({ tx, recu, skins: BLOCKSKINS_SRV, usdc: USDC_BASE, wallet: BLOCKSKINS_ACTIF_SRV.routeur || FEE_WALLET, prix: SKIN_MINT_USDC_SRV });
   if (!(ps.ok && !internes.has(ps.payeur))) return null;
   const blocPass = await jourDuRecu(recu);
   if (!blocPass.ok) return blocPass;
@@ -5267,7 +5276,8 @@ async function crediterDetenteursSkins() {
     const internes = walletsInternes([COMPTE_SONDE, '0x31e0dbc9038c82184b9fa6a90057a3ed500bde3b', ...String(process.env.REVENU_INTERNES || '').split(',')]);
     const jour = jourDe(Date.now()).id, contrat = String(BLOCKSKINS_SRV).toLowerCase();
     revenu.passes = revenu.passes || {};
-    const externe = (a) => /^0x[0-9a-f]{40}$/.test(a) && a !== contrat && !/^0x0{40}$/.test(a) && !internes.has(a);
+    /* 2026-11-12: skins live on several contracts (blockskins.js BLOCKSKINS_LUS): none of them is a holder (a skin held for sale) */
+    const externe = (a) => /^0x[0-9a-f]{40}$/.test(a) && a !== contrat && !BLOCKSKINS_LUS_SRV.includes(a) && !/^0x0{40}$/.test(a) && !internes.has(a);
     const detenteurs = new Set(r.skins.map((s) => String(s.detenteur || '').toLowerCase()).filter(externe));
     /* ⛔⛔ 2026-10-24 (revue adverse, audit-ticketpot 2, HIGH) : UN ticket par JETON et par jour. Avant, chaque detenteur vu a une lecture
      *   gagnait le jour : un seul skin (ERC-721 transferable) passe de wallet en wallet entre deux lectures donnait jusqu a 144 tickets par
@@ -5280,7 +5290,8 @@ async function crediterDetenteursSkins() {
     revenu.skinsJour = revenu.skinsJour || {};
     const parJeton = revenu.skinsJour[jour] = revenu.skinsJour[jour] || {};
     for (const s of r.skins) {
-      const id = String(s.tokenId), a = String(s.detenteur || '').toLowerCase();
+      /* 2026-11-12: a token of the active contract keeps its plain id (the key used so far); one of an earlier contract is keyed by contract */
+      const id = (!s.contrat || s.contrat === contrat ? '' : s.contrat + ':') + String(s.tokenId), a = String(s.detenteur || '').toLowerCase();
       if (!externe(a)) continue;
       if (parJeton[id]) continue;
       parJeton[id] = a; revenuSale = true;
@@ -5895,7 +5906,10 @@ function sourcesXp() {
   const adr = (x) => (/^0x[0-9a-f]{40}$/i.test(String(x || '')) ? String(x).toLowerCase() : null);
   return [
     { cle: 'rolls', contrat: adr(BLOCKROLLS_DEPLOIEMENT.adresse), bloc: BLOCKROLLS_DEPLOIEMENT.bloc, topics: [TOPICS_XP.rolled, TOPICS_XP.settled, TOPICS_XP.pass] },
-    { cle: 'skins', contrat: adr(BLOCKSKINS_SRV), bloc: BLOCKSKINS_ACTIF_SRV.blocDeploiement, topics: [TOPICS_XP.skinMinted, TOPICS_XP.skinSold] },
+    /* 2026-11-12 (the economy pack is live): skins are minted on the pack's Skins now. The earlier contract keeps its key and cursor ('skins');
+     *   the pack's Skins gets its OWN key, read from its creation block (never resumed from the earlier contract's cursor) */
+    { cle: 'skins', genre: 'skins', contrat: adr(BLOCKSKINS_ACTIF_SRV.precedent ? contratSkinsActif(BLOCKSKINS_ACTIF_SRV.precedent).adresse : BLOCKSKINS_SRV), bloc: BLOCKSKINS_ACTIF_SRV.precedent ? contratSkinsActif(BLOCKSKINS_ACTIF_SRV.precedent).blocDeploiement : BLOCKSKINS_ACTIF_SRV.blocDeploiement, topics: [TOPICS_XP.skinMinted, TOPICS_XP.skinSold] },
+    ...(BLOCKSKINS_ACTIF_SRV.precedent ? [{ cle: 'skinsPack', genre: 'skins', contrat: adr(BLOCKSKINS_SRV), bloc: BLOCKSKINS_ACTIF_SRV.blocDeploiement, topics: [TOPICS_XP.skinMinted, TOPICS_XP.skinSold] }] : []),
     { cle: 'missions', contrat: adr(MISSIONS_DEPLOIEMENT.adresse), bloc: MISSIONS_DEPLOIEMENT.bloc, topics: [TOPICS_XP.taskClaimed] },
   ].filter((s) => s.contrat && Number.isSafeInteger(s.bloc) && s.bloc > 0);
 }
@@ -5921,7 +5935,7 @@ async function crediterXp() {
         let logs;
         try { logs = await rpcServeur('eth_getLogs', [{ address: s.contrat, fromBlock: '0x' + de.toString(16), toBlock: '0x' + a.toString(16), topics: [s.topics] }]); } catch (_) { break; }
         if (!Array.isArray(logs)) break;
-        revenu.xpEtat = crediterActions(revenu.xpEtat || {}, actionsDesLogs(logs, adresses));
+        revenu.xpEtat = crediterActions(revenu.xpEtat || {}, actionsDesLogs(logs, s.genre ? { [s.genre]: s.contrat } : adresses));
         revenu.xpScan[s.cle] = a; revenuSale = true; de = a + 1;
       }
     }
@@ -6297,6 +6311,10 @@ const SERVIS = [
    * 2026-11-12: deployer-economie-v2.html is the six-step pack (economie-v2-pack-deploiement.js + pack-economie-v2.js); the stale
    * two-signature record economie-v2-deploiement.js is deliberately NOT served any more, so no page can offer it. */
   'economie.js', 'economie-deploiement.js', 'deployer-economie.html', 'create-vault-tip.js', 'relais-rpc.js', 'etat-naissance.js', 'coffre-paye.js', 'carte-naissance.js', 'coeurs-vue.js', 'lock.js', 'lock-deploiement.js', 'deployer-lock.html', 'deployer-economie-v2.html', 'economie-v2-pack-deploiement.js', 'pack-economie-v2.js', 'points-vue.js', 'points.js',
+  /* 2026-11-12: the economy pack is live: its deployment record (generated from the six receipts) and the page module that reads it */
+  'economie-v2-pack-deploye.js', 'economie-pack.js',
+  /* 2026-11-12: the last step of the pack page, the hook payee moves its creator fee slot to the lock rewards (payee-slot.js) */
+  'payee-slot.js',
   /* game120 : ondes, lumiere et son */
   'tam-ondes.js',
   /* game122 : electricite */
@@ -8011,11 +8029,13 @@ function traiterRequete(req, res) {
     const sesBlocks = (a) => (inv.get(a) || []).slice(0, 3);
     let likes = 0n, burned = 0n; for (const c of tous) { likes += c.likes; burned += c.burned; }
     const corps = {
-      ok: true, complet: ix.complet(), lusJusqua: ix.etat.prochain - 1, tete: ix.etat.tete, trou: ix.etat.trou, depuis: LIKES_DEPLOY_BLOC,
+      ok: true, complet: ix.complet(), lusJusqua: ix.etat.prochain - 1, tete: ix.etat.tete, trou: ix.etat.trou, depuis: LIKES_DEPLOY_BLOC, contrats: ix.contrats(),
       total: { coeurs: likes, burned, donneurs: new Set(tous.map((c) => c.liker)).size },
       board: classement(tous, 10).map((e) => ({ ...e, sesBlocks: sesBlocks(e.liker) })),
       /* game359 (Phil: "montre à combien de joueurs"): per week, the distinct wallets that gave a heart and the TBLOCK burned */
       semaines: joueursParSemaine(tous),
+      /* 2026-11-12: the same, per hearts contract (the live vault counts only the hearts given on Hearts) */
+      semainesParContrat: Object.fromEntries(ix.contrats().map((k) => [k.adresse, joueursParSemaine(tous.filter((c) => c.contrat === k.adresse))])),
     };
     if (compteC) {
       const v = vueCompte(tous, compteC, crDe);
@@ -8103,6 +8123,25 @@ function traiterRequete(req, res) {
       : planAchatPourCoffre({ rpc: rpcNaissance, compte: compteV, montantEth: BigInt(ethV), coffre: coffreV, garder: q.get('garder') === '1' }))
       .then((r) => rendreV(200, { ok: r.etat === 'PRET', ...r }))
       .catch((e) => rendreV(200, { ok: false, etat: 'NON_MESURE', pourquoi: String((e && e.message) || e).slice(0, 160) }))
+      .finally(() => { railsEnVol -= 1; });
+    return;
+  }
+  /* 2026-11-12 (the economy pack is live): the FRESH quote the page turns into the payment router's minimum (quote x 0.99), for the USDC
+   *   the router swaps after the game's own dev cut. Read only (two pool reads, two quotes); never cached; same budget as the rails. */
+  if (chemin === '/api/tblock/devis-routeur') {
+    const rendreQ = (code, corps) => { res.writeHead(code, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' });
+      res.end(JSON.stringify(corps, (k, v) => (typeof v === 'bigint' ? v.toString() : v))); };
+    if (req.method !== 'GET') { rendreQ(405, { ok: false, pourquoi: 'GET only' }); return; }
+    const mQ = String(new URL(req.url, 'http://x').searchParams.get('montant') || '');
+    if (!/^[1-9][0-9]{0,8}$/.test(mQ) || BigInt(mQ) > 50000000n) { rendreQ(400, { ok: false, etat: 'REFUSE', pourquoi: 'usage: /api/tblock/devis-routeur?montant=<raw USDC, at most 50 USDC>' }); return; }
+    const ipQ = ipClient(req), minuteQ = Math.floor(Date.now() / 60000);
+    if (railsBudget.minute !== minuteQ) { railsBudget.minute = minuteQ; railsBudget.n = 0; railsBudget.parIp.clear(); }
+    const nIpQ = (railsBudget.parIp.get(ipQ) || 0) + 1;
+    if (nIpQ > RAILS_IP_MINUTE || railsBudget.n >= RAILS_MINUTE || railsEnVol >= RAILS_EN_VOL_MAX) { rendreQ(429, { ok: false, etat: 'NON_MESURE', pourquoi: 'busy: retry in a minute' }); return; }
+    railsBudget.parIp.set(ipQ, nIpQ); railsBudget.n += 1; railsEnVol += 1;
+    devisUsdcVersTblock({ rpc: rpcRails, montant: BigInt(mQ) })
+      .then((r) => rendreQ(200, { ok: r.etat === 'OK', montant: mQ, ...r }))
+      .catch((e) => rendreQ(200, { ok: false, etat: 'NON_MESURE', pourquoi: String((e && e.message) || e).slice(0, 160) }))
       .finally(() => { railsEnVol -= 1; });
     return;
   }
@@ -8901,7 +8940,8 @@ function traiterRequete(req, res) {
     const ipT = ipClient(req); /* la meme source d IP que /api/jeu/roll */
     if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405, { 'content-type': 'application/json; charset=utf-8' }); res.end(JSON.stringify({ ok: false, pourquoi: 'GET only' })); return; }
     /* le cerveau d un block est nourri comme sonderLeReste nourrit celui de IB022 : sa vie lue par vieDuBlock (rpcRails), la tete de lecture, son symbol() */
-    if (!tamSrv) tamSrv = serveurTam({ rpc: rpcServeur, deploiement: TAMART_DEPLOIEMENT,
+    /* 2026-11-12: works are minted on TAM art of the economy pack (EP_PACK.TAM_DEPLOIEMENT); the first TamArt stays read (gallery, distinctness) */
+    if (!tamSrv) tamSrv = serveurTam({ rpc: rpcServeur, deploiement: EP_PACK.TAM_DEPLOIEMENT, autres: [TAMART_DEPLOIEMENT],
       lireVie: async (jeton) => {
         const v = await vieDuBlock({ rpc: rpcRails, stateView: V4_ADRESSES[8453].stateView, jeton, clesExactes: await clesRails(jeton) });
         let bloc = null; try { bloc = parseInt(await rpcServeur('eth_blockNumber', []), 16); } catch (_) { bloc = null; }

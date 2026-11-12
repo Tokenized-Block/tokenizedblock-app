@@ -31,7 +31,7 @@ const GOLD = { id: 'gold' }, RND = { id: 'random', angle: 278, h: [17, 237, 163]
 async function jeu(dir, dire) {
   const S = await imp('skins.js', dir);
   const appel = S.appelAchatSkin({ usdc: USDC, beneficiaire: FRAIS, block: BLOCK, recette: GOLD });
-  const log = (o = {}) => ({ address: USDC, topics: [T, mot(o.de || ACHETEUR), mot(o.vers || FRAIS)], data: '0x' + (o.montant ?? 1000000n).toString(16).padStart(64, '0'), ...o.plus });
+  const log = (o = {}) => ({ address: USDC, topics: [T, mot(o.de || ACHETEUR), mot(o.vers || FRAIS)], data: '0x' + (o.montant ?? S.SKIN_PRIX_USDC).toString(16).padStart(64, '0'), ...o.plus });
   const tx = (o = {}) => ({ hash: HASH, from: ACHETEUR, to: USDC, input: appel.data, ...o });
   const recu = (o = {}) => ({ transactionHash: HASH, status: '0x1', blockNumber: '0x10', logs: [log()], ...o });
   const v = (t, r, plus = {}) => S.verifierAchatSkin({ tx: t, recu: r, usdc: USDC, beneficiaire: FRAIS, block: BLOCK, recette: GOLD, ...plus });
@@ -44,8 +44,8 @@ async function jeu(dir, dire) {
   dire(sw.ok === true && sw.payeur === SMART && sw.signataire === RELAIS, 'C achat ENVELOPPE (smart wallet) : accepte, le payeur est l emetteur du Transfer USDC, pas le relais');
   dire(v(tx(), recu({ logs: [log({ plus: { address: AUTRE } })] })).ok === false, 'C un Transfer emis par un AUTRE contrat que l USDC (evenement forge) : refuse');
   dire(v(tx(), recu({ logs: [log({ vers: ACHETEUR })] })).ok === false, 'C un Transfer vers un autre beneficiaire : refuse');
-  dire(v(tx(), recu({ logs: [log({ montant: 999999n })] })).ok === false, 'C un Transfer de 0,999999 USDC : refuse');
-  dire(v(tx(), recu({ logs: [log({ montant: 5000000n })] })).ok === true, 'C un Transfer de 5 USDC (plus que le prix) : accepte');
+  dire(v(tx(), recu({ logs: [log({ montant: S.SKIN_PRIX_USDC - 1n })] })).ok === false, 'C un Transfer d une unite sous le prix : refuse'); /* 2026-11-12: the price follows the active contract (10 USDC on the pack Skins) */
+  dire(v(tx(), recu({ logs: [log({ montant: S.SKIN_PRIX_USDC * 5n })] })).ok === true, 'C un Transfer de 5 fois le prix : accepte');
   dire(v(tx(), recu({ status: '0x0' })).etat === 'REFUSE', 'C transaction echouee (status 0x0) : refuse');
   dire(v(tx(), recu({ logs: [] })).ok === false, 'C aucun Transfer dans le recu : refuse (le calldata seul ne prouve pas que l argent est arrive)');
   dire(v(tx(), recu({ transactionHash: '0x' + 'cd'.repeat(32) })).ok === false, 'C le recu d une AUTRE transaction : refuse');
@@ -83,8 +83,8 @@ ok(leve, 'A memoSkin refuse une adresse tronquee (leve)');
 
 console.log('— B. l appel');
 const appel = S.appelAchatSkin({ usdc: USDC, beneficiaire: FRAIS, block: BLOCK, recette: GOLD });
-ok(appel.to === USDC && appel.value === '0x0' && appel.data.startsWith('0xa9059cbb' + mot(FRAIS).slice(2) + (1000000n).toString(16).padStart(64, '0')),
-  'B transfer(wallet des frais, 1 000 000) vers le contrat USDC, sans ETH');
+ok(appel.to === USDC && appel.value === '0x0' && appel.data.startsWith('0xa9059cbb' + mot(FRAIS).slice(2) + S.SKIN_PRIX_USDC.toString(16).padStart(64, '0')),
+  'B transfer(wallet des frais, le prix actif) vers le contrat USDC, sans ETH');
 const lu = M.lireMemo(appel.data);
 ok(lu.etat === 'LU' && lu.texte === memoG, 'B le memo se relit dans le calldata avec le lecteur de messages de l app (« ' + String(lu.texte).slice(0, 18) + '… »)');
 

@@ -207,7 +207,11 @@ async function clientB(t, unit = null) {
 const PU0 = await import(pathToFileURL(process.env.PAYER_UNIT_MODULE || path.join(ICI, 'payer-unit.js')).href);
 const eA = await moduleA(PU0);
 vu(eA.length === 0, 'A module : ' + (eA.join(' | ') || 'tout vert'));
-const APP = lireApp();
+/* game374 (Phil 2026-11-12: "retire le UNIT pour du TBLOCK"): app.html no longer OFFERS UNIT (PAYER_UNIT_OFFERT = false; proven by
+ *   test-unit-tblock-374-20261112.mjs). The path stays in the code: B and the app mutants run on a copy with the flag on, so it stays proven. */
+const APP_REEL = lireApp();
+const APP = APP_REEL.replace('const PAYER_UNIT_OFFERT = false;', 'const PAYER_UNIT_OFFERT = true;');
+vu(APP_REEL.split('const PAYER_UNIT_OFFERT = false;').length === 2 && APP !== APP_REEL, 'app.html : UNIT retire de Pay with par UN drapeau (PAYER_UNIT_OFFERT = false) ; B tourne sur la copie drapeau allume');
 const eB = await clientB(APP);
 vu(eB.length === 0, 'B app.html : ' + (eB.join(' | ') || 'tout vert'));
 

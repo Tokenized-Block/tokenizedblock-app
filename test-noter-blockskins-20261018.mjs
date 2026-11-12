@@ -34,10 +34,13 @@ vu(/ \* ⛔ v3 DEPLOYE \(bloc 52772683\)/.test(v.texte) && !/PAS ENCORE DEPLOYE/
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'tb-noter-skins-'));
 try {
   fs.writeFileSync(path.join(tmp, 'blockskins-deploiement.js'), v.texte);
-  fs.copyFileSync(new URL('./blockskins-actif.js', import.meta.url), path.join(tmp, 'blockskins-actif.js'));
-  const M = await import(pathToFileURL(path.join(tmp, 'blockskins-actif.js')).href);
-  vu(M.BLOCKSKINS === A && M.BLOCKSKINS_VERSION === 3 && M.SKIN_MINT_USDC === 10000000n && M.SKIN_MINT_TEXTE === '10 USDC' && M.SKIN_MINT_OUVERT === true,
-    'une fois notee, v3 est le contrat actif : adresse, 10 USDC, mint ouvert (lu : ' + M.BLOCKSKINS + ' v' + M.BLOCKSKINS_VERSION + ' ' + M.SKIN_MINT_TEXTE + ')');
+  /* 2026-11-12 : l app mint sur Skins du pack economie (blockskins-actif.js SKINS_PACK, avant cet enregistrement) ; la REGLE de choix
+   *   (contratActif : le premier deploye de la chaine) est celle qui est verifiee ici, sur la fiche notee reimportee */
+  const M = await import(new URL('./blockskins-actif.js', import.meta.url).href);
+  const notee = (await import(pathToFileURL(path.join(tmp, 'blockskins-deploiement.js')).href)).BLOCKSKINS_DEPLOIEMENT;
+  const act = M.contratActif(notee);
+  vu(String(act.adresse).toLowerCase() === A && act.version === 3 && BigInt(act.mintPriceUsdc) === 10000000n && M.usdcTexte(act.mintPriceUsdc) + ' USDC' === '10 USDC' && act.imageDansLeWallet === true,
+    'une fois notee, v3 est le premier contrat deploye de cette fiche : adresse, 10 USDC, image (lu : ' + act.adresse + ' v' + act.version + ')');
   /* et la fiche notee n est PAS reinscriptible (une deuxieme adresse n ecrase jamais la premiere) */
   const r2 = noter({ ...bon(), fiche: (await import(pathToFileURL(path.join(tmp, 'blockskins-deploiement.js')).href)).BLOCKSKINS_DEPLOIEMENT, texte: v.texte });
   vu(r2.ok === false && /already carries an address/.test(r2.pourquoi), 'la fiche notee refuse une seconde inscription');

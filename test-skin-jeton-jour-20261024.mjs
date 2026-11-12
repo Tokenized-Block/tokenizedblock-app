@@ -29,7 +29,7 @@ function monter(src, etat, horloge, lecture) {
   if (a < 0 || b < a) throw new Error('decoupe introuvable');
   class D extends Date { constructor(...x) { if (x.length) super(...x); else super(horloge.t); } static now() { return horloge.t; } }
   const deps = { revenu: etat, Date: D, lireSkinsSrv: async () => lecture(), rpcServeur: null, walletsInternes, COMPTE_SONDE: '0x00000000000000000000000000000000c0ffee77',
-    process: { env: {} }, jourDe, BLOCKSKINS_SRV: CONTRAT };
+    process: { env: {} }, jourDe, BLOCKSKINS_SRV: CONTRAT, BLOCKSKINS_LUS_SRV: [CONTRAT] }; /* 2026-11-12: every skins contract read (blockskins.js BLOCKSKINS_LUS) */
   const noms = Object.keys(deps);
   return new Function(...noms, 'let revenuSale = false;\n' + src.slice(a, b) + '\nreturn crediterDetenteursSkins;')(...noms.map((k) => deps[k]));
 }

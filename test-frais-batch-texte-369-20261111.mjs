@@ -7,7 +7,7 @@ const TAM = readFileSync(new URL('./tam-onglet.js', import.meta.url), 'utf8');
 let ok = 0, ko = 0;
 const t = (m, c) => { if (c) ok++; else { ko++; console.log('KO', m); } };
 t('no "all-or-nothing batch" promise left on the fees row', !FR.includes('as one all-or-nothing batch after the payment'));
-t('the row says both paths: one batch, or signed one by one', FR.includes('one batch when your wallet can group calls, otherwise the same calls signed one by one'));
-t('the row names the finish step, which really exists in the TAM tab', FR.includes('offers to finish the buy without a new mint') && /Finish the TBLOCK buy/.test(TAM));
+/* 2026-11-12 (the economy pack is live): the optional buy row is gone with the buy (TAM art is paid through the TBLOCK router, which buys TBLOCK) */
+t('no optional-buy row and no finish step promised (none exists in the TAM tab)', !FR.includes('Optional TBLOCK buy after a USDC payment') && !FR.includes('offers to finish the buy without a new mint') && !/Finish the TBLOCK buy/.test(TAM));
 console.log(ok + '/' + (ok + ko) + (ko ? ' — RED' : ' — green'));
 process.exit(ko ? 1 : 0);

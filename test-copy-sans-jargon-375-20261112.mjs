@@ -81,13 +81,14 @@ for (const [f, min, temoin] of PAGES) {
 /* the coming vault is announced, not hidden behind a status */
 {
   const h = page(lire('holders.html')).tout;
-  t('holders: the coming vault says "Coming soon" and what it does', h.some((s) => s.includes('Coming soon — the holders vault'))
-    && h.some((s) => s.includes('$15 locked to claim; more from $100 locked (+15% at $100, +30% at $500, +50% at $1,000); up to +25% more for 90 days locked; you must play that week (a heart, a TAM mint or a skin)')));
+/* 2026-11-12 (the economy pack is live): the holders vault and the lock rewards are LIVE; their rules are READ on chain (economie-pack.js
+ *   texteRegleVault, REGLES_VAULT) and said by what they do — the "coming soon" vault row and the first vault's fixed holds are gone */
+  t('holders: the live vault and the lock rewards are listed by what they do, not as coming soon', h.some((s) => s.includes('Holders vault, every week')) && h.some((s) => s.includes('Monthly lock rewards')) && !h.some((s) => s.includes('Coming soon — the holders vault')));
 }
 /* the scan sees the kind of text Phil flagged: put his line back into a copy of holders.html, the scan turns red */
 {
   const H = lire('holders.html');
-  const ancre = "['🏦', 'Coming soon — the holders vault', ";
+  const ancre = "['🎰', 'Games (Spin, Roll, Duels)', "; /* 2026-11-12: a perk row that exists in the live page */
   const i = H.indexOf(ancre);
   const mutant = i < 0 ? H.replace('</body>', "<script>const x = ['Vault v2: more from $100 locked', 'written, under review and fork test — not deployed'];</script></body>")
     : H.slice(0, i) + "['🏦', 'Vault v2: more from $100 locked', 'written, under review and fork test — not deployed', " + H.slice(i + ancre.length);
