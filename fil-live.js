@@ -97,6 +97,8 @@ export const LECTURES_PAR_FILTRE = {
   ACHAT: ['swaps', 'decouverte', 'creations'], VENTE: ['swaps', 'decouverte', 'creations'], SWAP: ['swaps', 'decouverte', 'creations'],
   ECHANGES: ['swaps', 'decouverte', 'creations'], GROS: ['swaps', 'decouverte', 'creations'], HOOKED: ['swaps', 'decouverte', 'creations'],
   GM: ['transfers', 'creations'], NOTE: ['transfers', 'creations'], MESSAGE: ['messages'],
+  /* game378: hearts come from the server hearts index (/api/coeurs), not from the page chain reads: only its own miss makes « ? » */
+  COEUR: ['coeurs'],
 };
 const LECTURES_CONNUES = [...new Set(Object.values(LECTURES_PAR_FILTRE).flat())];
 

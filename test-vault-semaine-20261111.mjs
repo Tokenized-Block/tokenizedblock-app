@@ -26,11 +26,12 @@ t('views: epochEnd + totalSpentIn on BlockLikes, free / REWARD_BPS / REBATE_BPS 
 const j = joueursParSemaine([{ epoch: 0, liker: 'a', burned: 5n }, { epoch: 0, liker: 'a', burned: 5n }, { epoch: 0, liker: 'b', burned: 1n }, { epoch: 1, liker: 'a', burned: 2n }]);
 t('players per week: distinct givers and burned', j[0].joueurs === 2 && j[0].burned === 11n && j[1].joueurs === 1 && j[1].burned === 2n);
 t('server serves the weeks', SRV.includes('semaines: joueursParSemaine(tous),'));
-const f = APP.slice(APP.indexOf('async function peindreVaultWallet('), APP.indexOf('async function peindreVaultWallet(') + 6000);
+const f = APP.slice(APP.indexOf('async function peindreVaultWallet('), APP.indexOf('async function peindreVaultWallet(') + 9000); /* lot 378 task 6: the card is drawn, its function is longer */
 /* 2026-11-12 (the economy pack is live): the same card on the live vault (EP): the week's play = hearts + TAM art + skins (totalPlayIn), the
  *   heart givers of Hearts only (/api/coeurs semainesParContrat), the close budget from the live vault's caps */
-t('card: one merged vault line, with $ and the reserved part inside', f.includes("ligne('In the vault', EP.fmt(bal) + ' TBLOCK' + usd(bal) + (res > 0n ?") && !f.includes("ligne('Reserved for players'"));
-t('card: the week end READ from Hearts epochEnd, never typed', f.includes('lit(EP.VIEW.epochEnd(ep))') && f.includes("ligne('Week ' + ep + ' ends', new Date(Number(fin) * 1000)"));
+/* lot 378 task 6: the vault figure is drawn big (hvHero) — still ONE block, with the $ and the reserved part inside it */
+t('card: one merged vault line, with $ and the reserved part inside', f.includes("hero.append(mk('span', 'hvK', 'In the vault'), ' ', mk('b', 'hvGros', EP.fmt(bal) + ' TBLOCK'), mk('span', 'hvSous', usd(bal) + (res > 0n ?") && !f.includes("ligne('Reserved for players'"));
+t('card: the week end READ from Hearts epochEnd, never typed', f.includes('lit(EP.VIEW.epochEnd(ep))') && f.includes("bs.append(tete('Week ' + ep + ' ends', HV.minute(fin) + dans));") /* lot 378 task 6: drawn with its bar; HV.minute = the same ISO minute + UTC */);
 t('card: heart givers from /api/coeurs (Hearts only); left out when unread', f.includes('c.semainesParContrat[EP.HEARTS]') && f.includes("(joueurs === null ? '' : ' · ' + joueurs"));
 t('card: what the close would reserve, from budgetAttendu, said as "if the week closed now"', f.includes('EP.budgetAttendu({ free: libre, totalPlay: jeu,') && f.includes("' if the week closed now'"));
 t('card: $ only from the price read (no price -> no $)', f.includes("const usd = (raw) => (px === null ? '' :"));

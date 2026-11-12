@@ -165,7 +165,7 @@ const coeur = fn(app, 'async function bcCoeur(', 3200);
 t('F the heart reads the price, the minimum and the LOCK, checks with EP.likeCheck and sends EP.likeBatch at the price read', /EP\.VIEW\.likePrice\(\)/.test(coeur) && /EP\.VIEW\.minHold\(\)/.test(coeur) && /LK\.VIEW\.activeLockedOf\(moi\)/.test(coeur)
   && /EP\.likeCheck\(/.test(coeur) && /EP\.likeBatch\(\{ block: a, n: 1, likePrice: prix \}\)/.test(coeur) && !/ECO\.likeBatch|ECO\.likeCheckUsd/.test(coeur));
 t('F a block\'s hearts = the live ones + the first contract\'s (history kept)', /const n = n1 \+ n2;/.test(fn(app, 'function bcPeindreLike(', 2400)));
-const vault = fn(app, 'async function peindreVaultWallet()', 9000);
+const vault = fn(app, 'async function peindreVaultWallet()', 12000); /* lot 378 task 6: the card is drawn, its function is longer */
 t('F the vault card reads the live vault (play of the week, lock factor) and claims there; the first vault\'s owed weeks stay claimable',
   /EP\.VIEW\.totalPlayIn\(ep\)/.test(vault) && /EP\.VIEW\.lockFactor\(moi\)/.test(vault) && /EP\.claimCall\(e\)/.test(vault) && /EP\.claimCheck\(/.test(vault) && /ECO\.claimCall\(e\)/.test(vault) && /ECO\.VIEW\.owed\(e, moi\)/.test(vault));
 const rec = fn(app, 'async function peindreRecompensesLock(', 7000);

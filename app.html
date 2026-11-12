@@ -1696,6 +1696,62 @@ button.mienTuile:hover{border-color:var(--accent)}
 #v-wallet:not([data-w="hold"]) #wVault,#v-wallet:not([data-w="actifs"]) #wActifsCarte,#v-wallet:not([data-w="fiat"]) #wFiat,#v-wallet:not([data-w="bank"]) #wBankCarte{display:none!important}
 #wVault:not([data-v="lock"]) #wLock,#wVault:not([data-v="pts"]) #wPoints,#wVault:not([data-v="coeurs"]) #wCoeurs,#wVault:not([data-v="how"]) #wVaultHow{display:none!important}
 .lkPuce.on{border-color:var(--accent);background:rgba(var(--accentRgb,90,140,255),.18);font-weight:700}
+/* lot 378 task 6 (Phil 2026-11-12): the Holders cards drawn (holders-vue.js) — the page's tokens only, flat fills, two radii */
+.hvBloc{margin:10px 0;padding:12px 14px;border:1px solid var(--ligne);border-radius:var(--rs);background:rgb(var(--accentRgb) / .04)}
+.hvK{color:var(--doux);font-size:12.5px;font-weight:600}
+.hvHero .hvK{display:block}
+.hvGros{display:inline-block;font-size:28px;font-weight:800;letter-spacing:-.01em;line-height:1.15;margin-top:2px;overflow-wrap:anywhere}
+.hvSous{color:var(--doux);font-size:13px;margin-left:4px}
+.hvTete{margin:0 0 6px;display:flex;flex-wrap:wrap;gap:2px 8px;align-items:baseline}
+.hvTitreBloc{font-weight:700;margin:0 0 8px}
+.hvDetail{color:var(--doux);font-size:12.5px;margin:2px 0 0;line-height:1.45}
+.hvPiste{position:relative;height:10px;border-radius:999px;background:var(--creux);border:1px solid var(--ligne);overflow:hidden}
+.hvRempli{height:100%;border-radius:999px;background:var(--accent)}
+.hvBornes{display:flex;justify-content:space-between;gap:8px;color:var(--doux);font-size:12px;margin:4px 0 0}
+.hvRang{margin:10px 0 0}
+.hvRang .hvTete{margin-bottom:4px}
+.hvRang[data-l="play-mine"] .hvRempli{background:var(--vif)}
+.hvEtapes{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px}
+.hvEtape{display:flex;gap:10px;align-items:flex-start;padding:10px;border-radius:var(--rs);border:1px solid var(--ligne);background:var(--fond2);min-width:0}
+.hvEtape[data-etat="fait"]{border-color:rgb(61 220 151 / .5)}
+.hvMarque{flex:0 0 26px;height:26px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:13px;border:1px solid var(--ligne);color:var(--doux)}
+.hvEtape[data-etat="fait"] .hvMarque{background:var(--vif);border-color:var(--vif);color:var(--fond)}
+.hvEtape[data-etat="afaire"] .hvMarque{border-color:var(--tiede);color:var(--tiede)}
+.hvEtapeCorps{min-width:0}
+.hvEtapeTitre{margin:0;line-height:1.35}
+.hvEtat{display:inline-block;font-size:11.5px;font-weight:700;padding:0 7px;border-radius:999px;border:1px solid var(--ligne);color:var(--doux);white-space:nowrap}
+.hvEtape[data-etat="fait"] .hvEtat{color:var(--vif);border-color:rgb(61 220 151 / .5)}
+.hvEtape[data-etat="afaire"] .hvEtat{color:var(--tiede);border-color:rgb(240 198 116 / .5)}
+.hvJauge{margin:8px 0 0}
+.hvJauge .hvPiste,.hvChrono .hvPiste{overflow:visible}
+.hvTic{position:absolute;top:-4px;bottom:-4px;width:2px;margin-left:-1px;background:var(--doux)}
+.hvReperes{position:relative;height:32px;margin:5px 0 0;font-size:11.5px;color:var(--doux)}
+.hvRep{position:absolute;top:0;transform:translateX(-50%);text-align:center;line-height:1.25;white-space:nowrap}
+.hvRep b,.hvRep span{display:block}
+.hvRep b{color:var(--texte);font-weight:600}
+.hvRepDeb{left:0;transform:none;text-align:left}
+.hvRepFin{right:0;transform:none;text-align:right}
+.hvPisteChrono{display:flex}
+.hvSeg{height:100%}
+.hvSegLock{background:var(--accent)}
+.hvSegSortie{background:var(--tiede)}
+.hvPisteChrono .hvSeg:first-child{border-radius:999px 0 0 999px}.hvPisteChrono .hvSeg:last-child{border-radius:0 999px 999px 0}.hvPisteChrono .hvSeg:only-child{border-radius:999px}
+.hvLegende{font-size:12px;color:var(--doux);margin:6px 0 0;line-height:1.5}
+.hvCle{display:inline-block;width:10px;height:10px;border-radius:3px;vertical-align:-1px;margin-right:4px}
+.hvMois{list-style:none;margin:8px 0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
+.hvMoisP{padding:6px 10px;border-radius:var(--rs);border:1px solid var(--ligne);font-size:12.5px;line-height:1.3}
+.hvMoisP span{display:block;color:var(--doux);font-size:11.5px}
+.hvMoisP[data-etat="gagne"]{border-color:var(--accent);background:rgb(var(--accentRgb) / .12)}
+.hvMoisP[data-etat="fait"]{border-color:rgb(61 220 151 / .5)}
+.hvMoisP[data-etat="afaire"]{border-style:dashed}
+.lkPuce.hvDuree{border-radius:var(--rs);padding:6px 12px;text-align:left;line-height:1.25}
+.hvDuree b,.hvDuree .hvPuceSous{display:block}
+.hvPuceSous{font-size:11.5px;color:var(--doux);font-weight:400}
+.hvForm .champ{margin-top:0}
+.hvForm .bouton{margin-top:10px}
+.hvPtsNote{color:var(--texte)}
+.hvStat{margin:10px 2px 0}
+.hvPli{margin-top:12px}.hvPli>summary{color:var(--doux)}
 /* game356: the "?" guide as a sheet over the map — centred window on a computer, bottom sheet on a phone */
 section#v-learn.feuille{display:block;position:fixed;inset:0;z-index:9000;max-width:none;margin:0;padding:24px 16px;overflow-y:auto;
   background:rgba(2,6,18,.62);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
@@ -3380,13 +3436,14 @@ details[open] > summary::before{transform:rotate(90deg)}
     <div class="carte" id="wVault" hidden data-v="lock">
       <p class="titre">Holders vault</p>
       <!-- game357: the threshold is no longer typed here (it is READ in "How it works"); "fees" said who: creators' TBLOCK at birth -->
-      <p class="sous">TBLOCK set aside for the players. Each week it pays them back part of what they put in — hearts ♥, TAM art and skins — never more than they put in. Every TAM art and skin mint sends the TBLOCK it buys here.</p>
+      <!-- lot 378 task 6: the long words folded (Phil: "visually easy to understand, better than plain text") -->
+      <details class="wPli hvPli"><summary class="note">How it works</summary><p class="sous">TBLOCK set aside for the players. Each week it pays them back part of what they put in — hearts ♥, TAM art and skins — never more than they put in. Every TAM art and skin mint sends the TBLOCK it buys here.</p></details>
       <div id="wVaultRows"></div>
       <div class="lkPuces wSeg" id="wVaultSeg" role="group" aria-label="Holders sections">
         <button type="button" class="lkPuce on" data-v="lock" aria-pressed="true">Lock</button>
         <button type="button" class="lkPuce" data-v="pts" aria-pressed="false">Points</button>
         <button type="button" class="lkPuce" data-v="coeurs" aria-pressed="false">Hearts ♥</button>
-        <button type="button" class="lkPuce" data-v="how" aria-pressed="false">How it works</button>
+        <button type="button" class="lkPuce" data-v="how" aria-pressed="false">Rules</button>
       </div>
       <!-- game346 (Phil 2026-11-10): the hearts in YOUR wallet — given, received on your blocks, who gave and what you gave back — and the live
            board of the contributors. From /api/coeurs (BlockLikes' own Liked events); read-only. -->
@@ -3708,6 +3765,8 @@ details[open] > summary::before{transform:rotate(90deg)}
              · « Trades » recopiait Feed + Kill.
              Les BRANCHES de filtreLive restent : rien n est supprime, ce sont les boutons qui partent. -->
         <button type="button" class="puce" data-filtre="GM" title="Blocks moved between wallets, and free notes">➡️ Sent</button>
+        <!-- game378: hearts given to blocks, from the server hearts index (Hearts' own Liked logs); each giver checked on its transaction -->
+        <button type="button" class="puce" data-filtre="COEUR" title="Hearts given to blocks: each one burns TBLOCK, and the giver is read from its transaction">♥ Hearts</button>
         <!-- ⛔ PHIL (2026-09-17) : « Ours / Trusted / Alive here : on s en fout, refais ca et ajoute si besoin ».
              Les trois filtraient sur des listes a nous (nos deux blocks, une liste gardee dans le navigateur, un
              hook) — donc presque toujours vides, et ils prenaient la place de ce qui bouge vraiment. Les branches
@@ -4412,7 +4471,8 @@ details[open] > summary::before{transform:rotate(90deg)}
       <p class="note" id="potEligUnit" style="margin:2px 0 0" hidden></p>
       <label class="champ" id="potFondLab" hidden>Add to this week's pot (USDC)<input id="potMontant" inputmode="decimal" value="1"></label>
       <div class="jourEtapes">
-        <button type="button" class="bouton sec" id="jourUnit">Trade UNIT</button>
+        <!-- ui-378 (Phil 2026-11-12: TBLOCK on screen, not UNIT): the same BaseStonk page as #payerTblockAchat (Pay with), new tab -->
+        <a class="bouton sec" id="jourTblock" href="https://basestonk.io/tokens/0xb200000000000000000000ba9bf8330307f8830e" target="_blank" rel="noopener" style="display:flex;align-items:center;justify-content:center;text-decoration:none">Buy TBLOCK on BaseStonk ↗</a>
         <button type="button" class="bouton sec" id="jourActions">Trade stocks</button>
         <!-- Phil 2026-10-18 00:05 (dernier message) : « garde les boutons qui ont du sens avec ce qu on a fait aujourd hui ». Un skin MINTE
              (au prix du contrat ACTIF, relu sur la chaine) = le ticket du jour, credite par le serveur au recu (pass-skin) : REEL aujourd hui.
@@ -5024,6 +5084,7 @@ import * as BrainOs from './brain-os.js';
 import { SKIN_ACTIONS_CANDIDATES as DUEL_ACTIONS_CANDIDATES } from './blockskins.js';
 import { poolId as poolIdV4 } from './pool.js';
 import { topic as topicDe } from './keccak.js';
+import { coeursDuServeur, quiDuCoeur, tblockTexte as coeurTblockTexte } from './coeurs-fil.js'; /* game378: hearts in the Live feed */
 /* ⛔⛔ L IMAGE GRAVEE (2026-09-22). `budgetSurFace` vient de `photo.js`, qui porte le mur MESURE du
  * precompile B20 : 12 Ko de fichier passent, 13 Ko sont refuses, et le refus persiste en offrant
  * cent millions de gas. Calculer le budget ici plutot que le deviner evite de faire SIGNER une
@@ -5339,6 +5400,7 @@ import * as EP from './economie-pack.js'; /* 2026-11-12: the live economy pack �
 import * as CV from './coeurs-vue.js'; /* game346: hearts given / received, the board, the signals between blocks (text only) */
 import * as PTS from './points.js'; /* game356: the server's own points function, for the lock pills */
 import * as PV from './points-vue.js'; /* game353: the community points (text only) */
+import * as HV from './holders-vue.js'; /* lot 378: the Holders cards drawn (bars, steps, gauge, timeline); figures passed in, never its own */
 import * as AT from './achat-tblock-usdc.js'; /* game358: USDC -> TBLOCK buy after a USDC payment (planned by /api/rails/plan, checked here) */
 import * as LK from './lock.js'; /* game349: TBlockLock — unsigned calls only; every lock button hidden until it is deployed */
 import * as TIP from './create-vault-tip.js';
@@ -6528,12 +6590,20 @@ $('#jourReclamerPot').addEventListener('click', () => { void reclamerPot(); });
  *   reclame LUI-MEME par planClaim, comme le pot USDC. Le financement est manuel (le wallet owner) : aucun bouton ici. */
 const DEC_UNIT_POT = 18;
 let maPartPotUnit = null;
+/* ui-378 (Phil 2026-11-12: "TBLOCK, not UNIT" on screen): the pot line exists ONLY when the amounts READ are > 0 (this week's pot left, its
+ *   frozen pot once closed, or yesterday's closed pot left to claim). A pot read at 0, or not read, shows no line: no "0.0000 UNIT". */
+function potUnitTient(tp) {
+  const pos = (x) => { try { return BigInt(String(x)) > 0n; } catch (_) { return false; } };
+  const sem = tp && tp.semaine && /^J[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(String(tp.semaine.jourId)) ? tp.semaine : null, v = tp ? tp.veille : null;
+  return !!tp && ((!!sem && (pos(sem.reste) || (sem.ferme === true && pos(sem.potAtClose)))) || (!!v && v.ferme === true && pos(v.reste)));
+}
 function peindrePotUnit(t, c) {
   const p = $('#potJourUnit');
   const tp = t && t.ticketpotUnit && /^0x[0-9a-fA-F]{40}$/.test(String(t.ticketpotUnit.contrat)) && t.ticketpotUnit.jeton === 'UNIT' ? t.ticketpotUnit : null;
-  if (p) p.hidden = !tp;
-  void peindreReclamerPotUnit(tp, c);
-  if (!tp || !p) return;
+  const tient = potUnitTient(tp);
+  if (p) p.hidden = !tient;
+  void peindreReclamerPotUnit(tp, c, tient);
+  if (!tient || !p) return;
   const u = (x) => montantPotTexte(x, DEC_UNIT_POT);
   const sem = tp.semaine && /^J\d{4}-\d{2}-\d{2}$/.test(String(tp.semaine.jourId)) ? tp.semaine : null, v = tp.veille;
   p.textContent = (!sem ? 'This week\'s UNIT pot: not read yet (TicketPot ' + tp.contrat.slice(0, 6) + '…' + tp.contrat.slice(-4) + ').'
@@ -6548,7 +6618,7 @@ function phraseEligUnit(r, moi, jourId) {
   const val = Number.isFinite(e.usd) ? '$' + e.usd.toFixed(2) + ' of UNIT' : 'not read';
   return 'Your UNIT at the end of ' + jourId.slice(1) + ': ' + val + ' — ' + (e.ok === true ? 'eligible for the UNIT pot.' : 'not eligible (' + (e.pourquoi || 'not read') + ').');
 }
-async function peindreReclamerPotUnit(tp, c) {
+async function peindreReclamerPotUnit(tp, c, tient = true) {
   const b = $('#jourReclamerPotUnit'); if (!b) return;
   maPartPotUnit = null; b.hidden = true;
   if (!tp || !c) return;
@@ -6570,7 +6640,7 @@ async function peindreReclamerPotUnit(tp, c) {
     /* la part du pot UNIT seulement : son contrat (jamais une part du pot USDC montree en UNIT) */
     if (!r || !r.ok || r.jeton !== 'UNIT' || String(r.contrat).toLowerCase() !== contratU) continue;
     const ph = phraseEligUnit(r, moi, jr.jourId);
-    if (pe && ph && pe.hidden) { pe.textContent = ph; pe.hidden = false; }
+    if (pe && ph && pe.hidden && tient) { pe.textContent = ph; pe.hidden = false; }
     const p = (r.parts || []).find((x) => x.wallet === moi && x.signature);
     if (!p) continue;
     if ((await dejaReclamePot(contratU, p.day, moi)) !== false) continue;
@@ -6990,7 +7060,7 @@ async function signalerRoll(bloc, score) {
 }
 const jourDeApp = (ms) => 'J' + new Date(Math.floor(ms / 86400000) * 86400000).toISOString().slice(0, 10);
 $('#jourRoll').addEventListener('click', () => { void roll(); });
-$('#jourUnit').addEventListener('click', () => { try { void ouvrirProfil(UNIT_APP, 'UNIT'); } catch (_) { allerA('trade'); } });
+/* ui-378: #jourUnit (Trade UNIT) is gone; #jourTblock is a plain link to BaseStonk, no handler */
 $('#jourActions').addEventListener('click', () => allerA('trade'));
 /* ══ LE TABLEAU DES MISSIONS (2026-10-17 soir) — lit /api/missions ; « I did it — claim » : attestation du verifier puis claim signe par le
  *   wallet. Rien n est montre comme jouable tant que le serveur dit PAS_OUVERT. Montants en unites brutes du jeton de recompense. */
@@ -16230,12 +16300,32 @@ async function lireOpenLaunch() {
     + ' · read ' + new Date(d.lu).toLocaleTimeString() + ' · figures are OpenLaunch\'s, not checked on chain by us.';
 }
 
+/* ══ game378 (Phil: the Live feed shows HEARTS live) — the hearts come from /api/coeurs: the server index of Hearts' own Liked logs, every
+ *   heart since the contract's creation block, each giver checked on its transaction receipt (tx.from, coeurs-fil.js). The page reads that
+ *   answer at most once a minute (the index advances once a minute) and reads no chain for it: no new node load. A missed answer makes
+ *   the chip « ? », never 0. */
+const COEURS_LIVE_MS = 60000;
+let coeursLiveLuA = 0;
+function lireCoeursLive() {
+  if (CHAINE !== 8453 || Date.now() - coeursLiveLuA < COEURS_LIVE_MS) return null;
+  coeursLiveLuA = Date.now();
+  return fetch('/api/coeurs', { cache: 'no-store', signal: AbortSignal.timeout(15000) }).then((x) => (x.ok ? x.json() : null)).catch(() => null);
+}
+function fusionnerCoeursLive(r) {
+  const symDe = (adr) => { const h = habitants.find((x) => String(x.adr).toLowerCase() === adr); return (h && h.sym) || (r && r.symboles && r.symboles[adr]) || null; };
+  const v = coeursDuServeur(r, symDe);
+  if (v.etat === 'LU') liveRateesParQuoi.delete('coeurs'); else liveRateesParQuoi.set('coeurs', 1);
+  /* a heart seen before its receipt was checked is REPLACED when the server has checked it (same key) */
+  const ou = new Map(liveEvts.map((e, i) => [cleEvtLive(e), i]));
+  for (const e of v.evenements) { const i = ou.get(cleEvtLive(e)); if (i === undefined) liveEvts.push(e); else liveEvts[i] = e; }
+}
 async function lireLive(sens) {
   void lireOpenLaunch();
   const V = V4_ADRESSES[CHAINE];
   if (liveEnCours || !V) return;
   liveEnCours = true;
   liveLuA = Date.now();
+  const pCoeurs = sens !== 'ancien' ? lireCoeursLive() : null;
   try {
     const fin = parseInt(await rpc('eth_blockNumber', []), 16);
     let deBloc, aBloc;
@@ -16319,6 +16409,10 @@ async function lireLive(sens) {
   } catch (e) {
     noterRateesLive([{ quoi: 'tout' }]);
   } finally {
+    /* game378: the hearts answer is merged whatever the chain reads did (an early return or a refused read never drops it) */
+    if (pCoeurs) {
+      try { fusionnerCoeursLive(await pCoeurs); liveEvts.sort((a, b) => (b.bloc ?? 0) - (a.bloc ?? 0) || (b.logIndex ?? 0) - (a.logIndex ?? 0)); } catch (_) { /* read again next minute */ }
+    }
     liveEnCours = false;
     peindreLive();
   }
@@ -16516,7 +16610,7 @@ function peindreCreateFeeHonesty() {
  *    que celui qui est ouvert) ; il revient seul des qu il a de la matiere. Le compte vient des memes evenements. */
 /** ⛔ Les categories qui se PARTAGENT les evenements (aucun evenement dans deux a la fois). « Big » et
  *  « Trades » n en sont pas : ils recoupent les autres, et ils ne comptent donc pas dans la somme. */
-const FILTRES_PARTITION = ['CREATION', 'ACHAT', 'VENTE', 'SWAP', 'GM', 'MESSAGE'];
+const FILTRES_PARTITION = ['CREATION', 'ACHAT', 'VENTE', 'SWAP', 'GM', 'MESSAGE', 'COEUR'];
 /** Le total par type, calcule SANS passer par filtreLive : deux chemins qui doivent tomber d accord. */
 function comptesParType() {
   const c = Object.create(null);
@@ -16561,10 +16655,10 @@ function reconciliationFiltres() {
   const parType = comptesParType();
   const total = liveEvts.length;
   const cat = { creation: parType.CREATION || 0, bought: parType.ACHAT || 0, sold: parType.VENTE || 0,
-    sent: (parType.GM || 0) + (parType.NOTE || 0), messages: parType.MESSAGE || 0 };
+    sent: (parType.GM || 0) + (parType.NOTE || 0), messages: parType.MESSAGE || 0, hearts: parType.COEUR || 0 };
   const illisibles = parType.SWAP || 0;
   const somme = Object.values(cat).reduce((a, x) => a + x, 0) + illisibles;
-  const connus = new Set(['CREATION', 'ACHAT', 'VENTE', 'SWAP', 'GM', 'NOTE', 'MESSAGE']);
+  const connus = new Set(['CREATION', 'ACHAT', 'VENTE', 'SWAP', 'GM', 'NOTE', 'MESSAGE', 'COEUR']);
   const autres = Object.keys(parType).filter((t) => !connus.has(t));
   /* ⛔⛔ L ADDITION AFFICHEE DOIT TOMBER JUSTE, SINON C EST NOUS QUI AVONS L AIR FAUX.
    *    Defaut vu par Phil le 2026-09-20 : « 574 = creation 6 + bought 324 + sold 223 + sent 20 +
@@ -16611,6 +16705,10 @@ function riennDeTrouve() {
       + 'That is the good case: a number here would mean we lost some.';
   }
   if (liveFiltre === 'GROS') return 'No trade of 0.02 ETH or more among these ' + n + ' events.';
+  if (liveFiltre === 'COEUR') {
+    return liveRateesParQuoi.has('coeurs') ? 'The hearts could not all be read just now — not read, not zero. They are read again in a minute.'
+      : 'No heart has been given to a block yet: every heart since Hearts opened was read.';
+  }
   return 'None of the ' + n + ' events read matches this filter.';
 }
 
@@ -17100,6 +17198,13 @@ function peindreLive() {
       : e.type === 'MESSAGE' ? (e.aaOpaque
         ? '✉️ a paid message from a smart wallet · ' + enTexte(court(e.signataire))
         : '✉️ <b>' + symDe(e.de) + '</b> → <b>' + symDe(e.a) + '</b>: “' + enTexte(String(e.texte || '').slice(0, 140)) + '” · wallet ' + enTexte(court(e.signataire)) + ' paid the TBLOCK fee')
+      /* game378: a heart names its giver only once the server checked its transaction (tx.from); a smart wallet sent through
+       *   the transaction of another wallet says both (no apostrophe here: the feed tests count braces outside quotes) */
+      : e.type === 'COEUR' ? (() => { const w = quiDuCoeur(e), pour = e.sym ? nom : enTexte(court(e.jeton));
+        const brule = enTexte(lisible(coeurTblockTexte(e.burned))) + '&nbsp;TBLOCK burned';
+        return w.qui
+          ? '♥ <b>' + enTexte(court(w.qui)) + '</b> gave ' + w.n + ' to <b>' + pour + '</b>' + (w.via ? ' · sent by ' + enTexte(court(w.via)) : '') + ' · ' + brule
+          : '♥ ' + w.n + ' for <b>' + pour + '</b> · ' + brule + ' · giver not checked yet'; })()
       : (e.type === 'ACHAT' || e.type === 'VENTE') ? ligneEchange(e, nom)
           /* ⛔ « traded » ne reste que pour ce qui n a PAS pu etre classe : signes incoherents, pool
            * inconnue, log illisible. Ce n est plus le cas general — c est l aveu d un cas precis. */
@@ -17175,6 +17280,7 @@ function peindreLive() {
     + parConf('SANS_HOOK') + ' without hook, ' + parConf('HOOK') + ' with a hook) plus the app\'s own market keys'
     + (liveRatees ? ' · ⚠️ ' + liveRatees + ' read(s) refused by the node — incomplete, not quiet' : '')
     + (liveTrou ? ' · ' + liveTrou.toLocaleString('en-US') + ' chain blocks not read while you were away — a gap, not a quiet time' : '')
+    + (liveEvts.some((e) => e.type === 'COEUR') ? ' · hearts: the latest given since Hearts opened, not only these blocks' : '')
     + reconciliationFiltres() + '.';
   /* ⛔⛔ DEFAUT TROUVE EN VERIFIANT (2026-09-13) : le repere du bas etait DEJA visible avant la premiere
    * lecture ; l IntersectionObserver ne se redeclenche que sur un CHANGEMENT de visibilite — le passe ne se
@@ -32629,21 +32735,51 @@ async function peindreLock(hote, { offre = false } = {}) {
   if (!hote || !LK.LOCK) { if (hote) hote.hidden = true; return; }
   hote.hidden = false;
   if (!compte) { hote.textContent = ''; const p = document.createElement('p'); p.className = 'note'; p.textContent = 'Connect your wallet to see your TBLOCK lock.'; hote.append(p); return; }
-  if (lockEtat.enVol || (hote.dataset.lu && Date.now() - Number(hote.dataset.lu) < 30000)) return;
+  if (lockEtat.enVol || (hote.dataset.lu && hote.dataset.pour === String(compte).toLowerCase() && Date.now() - Number(hote.dataset.lu) < 30000)) return;
   lockEtat.enVol = true;
   try {
     const moi = String(compte).toLowerCase();
     const lit = async (v) => ECO.word(await rpc('eth_call', [{ to: v.to, data: v.data }, 'latest']));
+    /* lot 378 task 6: the points a day of this lock, the same server number as the Points panel (/api/points), read alongside */
+    const ptsP = fetch('/api/points?compte=' + moi, { cache: 'no-store', signal: AbortSignal.timeout(15000) }).then((x) => x.json()).catch(() => null);
     const [locked, active, unlockAt, requestedAt, withdrawableAt, bal] = await Promise.all([lit(LK.VIEW.lockedOf(moi)), lit(LK.VIEW.activeLockedOf(moi)),
       lit(LK.VIEW.unlockAtOf(moi)), lit(LK.VIEW.requestedAtOf(moi)), lit(LK.VIEW.withdrawableAtOf(moi)), lit(ECO.VIEW.balanceOf(moi))]);
     const e = LK.etatLock({ locked, active, unlockAt, requestedAt, withdrawableAt, maintenantSec: Math.floor(Date.now() / 1000) });
-    hote.dataset.lu = String(Date.now());
+    const ptsLu = await ptsP;
+    /* lot 378 (Phil 2026-11-12: "bien attribué pour chaque user"): this card is FOR one wallet — a read that finishes after a switch paints nothing */
+    const autreWallet = () => String(compte || '').toLowerCase() !== moi;
+    if (autreWallet()) return;
+    hote.dataset.lu = String(Date.now()); hote.dataset.pour = moi;
     hote.textContent = '';
     const el = (tag, cls, txt) => { const x = document.createElement(tag); if (cls) x.className = cls; if (txt != null) x.textContent = txt; return x; };
     hote.append(el('p', 'titre', offre ? 'Lock your TBLOCK — earn points and monthly rewards' : 'Your TBLOCK lock'));
+    /* lot 378 task 6 (Phil 2026-11-12: "better than plain text"): the long explanations go in a folded How it works, put at the end of the card */
+    const pli = el('details', 'wPli hvPli', null); pli.append(el('summary', 'note', 'How it works'));
     /* 2026-11-12: the live Hearts and holders vault read the LOCK (activeLockedOf); the holders' channel still reads the wallet balance
      *   (/api/tblock/hold). The monthly lock rewards (EP.REWARDS) pay the whole months a lock covers, for the months its holder played. */
-    hote.append(el('p', 'sous', 'Locking earns community points, and monthly lock rewards for each whole month your lock covers and you play in. Hearts ♥ and holders vault claims count your lock; the holders’ channel counts your wallet balance. To leave: request the withdrawal (points and rewards stop at once); you take it all back ' + LK.RETRAIT_JOURS + ' days after the request, or at the lock date if that is later.'));
+    pli.append(el('p', 'sous', 'Locking earns community points, and monthly lock rewards for each whole month your lock covers and you play in. Hearts ♥ and holders vault claims count your lock; the holders’ channel counts your wallet balance. To leave: request the withdrawal (points and rewards stop at once); you take it all back ' + LK.RETRAIT_JOURS + ' days after the request, or at the lock date if that is later.'));
+    const t0c = Math.floor(Date.now() / 1000), R7 = LK.RETRAIT_JOURS * 86400;
+    if (locked > 0n) {
+      const hero = el('div', 'hvBloc hvHero', null); hero.dataset.l = 'lock';
+      hero.append(el('span', 'hvK', e.cle === 'actif' ? 'Locked' : (e.cle === 'expire' ? 'Lock date passed' : 'Leaving the lock')), ' ', el('b', 'hvGros', LK.fmt(locked) + ' TBLOCK'),
+        el('span', 'hvSous', e.cle === 'actif' ? ' until ' + HV.jour(unlockAt) + ' · ' + HV.duree(Number(unlockAt) - t0c) + ' left' : (e.cle === 'sortie' ? ' · yours again on ' + HV.jour(withdrawableAt) : '')));
+      hote.append(hero);
+      /* the timeline: today -> the lock date, then the withdrawal period (it starts when you ask, and never ends before the lock date) */
+      if (e.cle === 'actif') hote.append(HV.chronologie(document, { segments: [{ part: Number(unlockAt) - t0c, cls: 'hvSegLock' }, { part: R7, cls: 'hvSegSortie' }],
+        reperes: [{ pos: 0, haut: 'Today', bas: HV.jour(t0c) }, { pos: 100, haut: HV.jour(unlockAt), bas: 'lock date, then ' + LK.RETRAIT_JOURS + ' days to leave' }],
+        etiquette: 'Locked from today to ' + HV.jour(unlockAt) + ' (' + HV.duree(Number(unlockAt) - t0c) + ' left), then a ' + LK.RETRAIT_JOURS + '-day withdrawal period once you ask, never ending before that date' }));
+      else if (e.cle === 'sortie') hote.append(HV.chronologie(document, { segments: [{ part: Math.max(0, Number(withdrawableAt) - t0c), cls: 'hvSegSortie' }],
+        reperes: [{ pos: 0, haut: 'Today', bas: HV.jour(t0c) }, { pos: 100, haut: HV.jour(withdrawableAt), bas: 'yours to take back' }],
+        etiquette: 'Withdrawal requested: yours to take back on ' + HV.jour(withdrawableAt) + ' (' + HV.duree(Number(withdrawableAt) - t0c) + ' left)' }));
+      if (e.cle === 'actif') {
+        const leg = el('p', 'hvLegende', null); leg.append(el('span', 'hvCle hvSegLock', null), ' locked, earning points ', el('span', 'hvCle hvSegSortie', null), ' ' + LK.RETRAIT_JOURS + '-day withdrawal period: it starts when you ask, never ending before the lock date');
+        hote.append(leg);
+      }
+      /* only a COMPLETE count is drawn: on 2026-11-12 prod's index was still reading (complet false) and gave Grok +0.01 a day (his 1,000 TBLOCK lock
+       *   only, not the 3,000,000) — a partial figure is left out here, never shown as his rate */
+      const c = ptsLu && ptsLu.ok && ptsLu.complet !== false && ptsLu.compte && String(ptsLu.compte.holder || '').toLowerCase() === moi ? ptsLu.compte : null;
+      if (e.cle === 'actif' && c && Number(c.parJour) > 0 && c.mult) { const d = el('p', 'hvTete', null); d.dataset.l = 'lock-pts'; d.append(el('span', 'hvK', 'Points'), ' ', el('b', null, '+' + PV.fmtPts(c.parJour) + ' a day'), ' (' + PV.multTexte(c.mult) + ' commitment)'); hote.append(d); }
+    }
     const etat = el('p', 'note' + (e.cle === 'actif' ? ' wOk' : ''), e.texte); hote.append(etat);
     const dire = (t, k = '') => { etat.className = 'note' + (k ? ' ' + k : ''); etat.textContent = t; };
     /* the ONE exit action etatLock chooses: request (perks stop, 7-day period starts), cancel (perks back), or take back (period over) */
@@ -32667,7 +32803,8 @@ async function peindreLock(hote, { offre = false } = {}) {
       });
       hote.append(w);
     }
-    if (EP.REWARDS) await peindreRecompensesLock(hote, { moi, locked, active, unlockAt, requestedAt, el, dire });
+    if (EP.REWARDS) await peindreRecompensesLock(hote, { moi, locked, active, unlockAt, requestedAt, el, dire, pli });
+    if (autreWallet()) return;
     if (bal > 0n) {
       /* game357: no 'holder stage' amount while the v1 contracts read the wallet balance — the offer is 1,000 TBLOCK, or all you hold if less */
       const MILLE = 1000n * 10n ** 18n;
@@ -32676,13 +32813,15 @@ async function peindreLock(hote, { offre = false } = {}) {
        *   exactly what it sends. The points come from points.js — the SAME function the server's board uses (no copy of the rule). */
       /* review 356: '1.5' was read as 15 — whole TBLOCK only (digits, with optional thousands commas/spaces); anything else = 0 = refused */
       const brut = (v) => { const s = String(v || '').trim(); if (!/^\d[\d,\s]*$/.test(s)) return 0n; try { return BigInt(s.replace(/[,\s]/g, '')) * 10n ** 18n; } catch (_) { return 0n; } };
+      const form = el('div', 'hvBloc hvForm', null); form.dataset.l = 'form'; hote.append(form);
+      form.append(el('p', 'hvTitreBloc', locked > 0n ? 'Lock more TBLOCK' : 'Lock TBLOCK'));
       const champ = el('label', 'champ', 'TBLOCK to lock'); const inp = document.createElement('input'); inp.inputMode = 'numeric'; inp.value = LK.fmt(propose).replace(/,/g, ''); champ.append(inp);
-      hote.append(champ);
+      form.append(champ);
       const puces = el('div', 'lkPuces');
       const puce = (txt, raw) => { const b = el('button', 'lkPuce', txt); b.type = 'button'; b.addEventListener('click', () => { inp.value = LK.fmt(raw).replace(/,/g, ''); majLock(); }); puces.append(b); };
       if (bal >= 1000n * 10n ** 18n) puce('1,000', 1000n * 10n ** 18n);
       puce('Max', bal);
-      hote.append(puces);
+      form.append(puces);
       /* 2026-11-12: with the monthly lock rewards live, 60 days (the shortest lock that always covers one whole month) is offered too */
       const durees = EP.REWARDS ? [...new Set([...LK.DUREES_JOURS, EP.MOIS_MIN_JOURS])].sort((x, y) => x - y) : LK.DUREES_JOURS;
       let jours = durees[0];
@@ -32695,17 +32834,21 @@ async function peindreLock(hote, { offre = false } = {}) {
         const t0m = Math.floor(Date.now() / 1000);
         await Promise.all(durees.map(async (j) => { try { moisPour.set(j, EP.decoderMois(await rpc('eth_call', [EP.VIEW.rewardEpochsFor(finPour(j, t0m)), 'latest'])).n); } catch (_) { /* not read: no month count */ } }));
       }
+      if (autreWallet()) return;
       for (const j of durees) {
         const b = el('button', 'lkPuce', ''); b.type = 'button'; b.dataset.jours = String(j);
-        b.addEventListener('click', () => { jours = j; majLock(); }); pills.append(b); pillsB.push(b);
+        b.classList.add('hvDuree'); b.addEventListener('click', () => { jours = j; majLock(); }); pills.append(b); pillsB.push(b);
       }
-      hote.append(pills);
-      const ptsNote = el('p', 'note', '');
-      hote.append(ptsNote);
-      hote.append(el('p', 'note', 'You hold ' + LK.fmt(bal) + ' TBLOCK. Adding to a lock keeps its later date. Never send TBLOCK to the lock address yourself: only this button locks, a plain transfer is lost.'));
+      pills.setAttribute('aria-label', 'Lock duration'); form.append(pills);
+      const ptsNote = el('p', 'note hvPtsNote', '');
+      form.append(ptsNote);
+      const tient = el('p', 'note', 'You hold ' + LK.fmt(bal) + ' TBLOCK. Adding to a lock keeps its later date. Never send TBLOCK to the lock address yourself: only this button locks, a plain transfer is lost.');
       /* game354 (Grok live test): a wallet without batched calls (Rabby) asks twice — the label says so, never "one batch" */
       const go = el('button', 'bouton', ''); go.type = 'button';
-      hote.append(el('p', 'note', (EP.REWARDS ? 'Approve, lock, then join the monthly lock rewards: your wallet may ask up to three times.' : 'Approve, then lock: your wallet may ask twice.') + ' Locked TBLOCK cannot be sold until the date, then the ' + LK.RETRAIT_JOURS + '-day withdrawal period.'));
+      const demande = el('p', 'note', EP.REWARDS ? 'Approve, lock, then join the monthly lock rewards: your wallet may ask up to three times.' : 'Approve, then lock: your wallet may ask twice.');
+      pli.append(el('p', 'note', 'Locked TBLOCK cannot be sold until the date, then the ' + LK.RETRAIT_JOURS + '-day withdrawal period.'),
+        el('p', 'note', 'Community points: 1 a day per 100,000 TBLOCK, ×1.25 from 30 days, ×1.5 from 90, ×2 from 1 year. Points decide your share of the community drop, a separate distribution coming soon; the weekly player budget follows what you put in.'
+          + (EP.REWARDS ? ' Monthly lock rewards are paid for the months you play in (a heart, a TAM art mint or a skin mint).' : '') + ' No rate is promised.'));
       /* the live words: the button names the amount and the days; each pill the points THAT amount earns over THAT lock (points.js) */
       function majLock() {
         const m = brut(inp.value);
@@ -32714,20 +32857,21 @@ async function peindreLock(hote, { offre = false } = {}) {
           const j = Number(b.dataset.jours);
           b.classList.toggle('on', j === jours);
           b.setAttribute('aria-pressed', j === jours ? 'true' : 'false');
-          b.textContent = j + ' days' + (moisPour.has(j) ? ' · ' + (moisPour.get(j) > 0 ? moisPour.get(j) + (moisPour.get(j) === 1 ? ' month' : ' months') : 'no month') : '');
+          b.textContent = ''; b.append(el('b', null, j + ' days'), ' ', el('span', 'hvPuceSous', moisPour.has(j) ? (moisPour.get(j) > 0 ? moisPour.get(j) + (moisPour.get(j) === 1 ? ' month' : ' months') + ' earned' : 'no month earned') : ''));
         }
         /* review 356: TBlockLock keeps the LATER of the stored date and the asked one — a top-up onto a longer lock stays until that date */
         const fin = Math.max(t0 + jours * 86400, Number(unlockAt) > t0 && locked > 0n && requestedAt === 0n ? Number(unlockAt) : 0);
         const garde = fin > t0 + jours * 86400;
         const pts = m > 0n ? PTS.pointsLockIntervalle(m, fin, t0, fin) : 0;
         const nm = moisPour.get(jours);
-        ptsNote.textContent = m > 0n ? (garde ? 'Your lock already runs until ' + new Date(fin * 1000).toISOString().slice(0, 10) + ': added TBLOCK stays locked until then too. ' : '') + 'Until that date these TBLOCK earn about ' + PV.fmtPts(pts) + ' community points: 1 a day per 100,000 TBLOCK, ×1.25 from 30 days, ×1.5 from 90, ×2 from 1 year. Points decide your share of the community drop, a separate distribution coming soon; the weekly player budget follows what you put in.'
-          + (EP.REWARDS && nm !== undefined ? ' Monthly lock rewards: this lock ' + EP.texteMois(nm) + ', paid for the months you play in (a heart, a TAM art mint or a skin mint).' : '') + ' No rate is promised.' : '';
+        ptsNote.textContent = m > 0n ? (garde ? 'Your lock already runs until ' + new Date(fin * 1000).toISOString().slice(0, 10) + ': added TBLOCK stays locked until then too. ' : '') + 'Until that date these TBLOCK earn about ' + PV.fmtPts(pts) + ' community points'
+          + (EP.REWARDS && nm !== undefined ? '; this lock ' + EP.texteMois(nm) + ' of monthly lock rewards' : '') + '. No rate is promised.' : '';
         go.textContent = m > 0n ? (garde ? 'Add ' + LK.fmt(m) + ' TBLOCK to your lock (until ' + new Date(fin * 1000).toISOString().slice(0, 10) + ')' : 'Lock ' + LK.fmt(m) + ' TBLOCK for ' + jours + ' days') : 'Lock — enter a whole number of TBLOCK';
       }
       inp.addEventListener('input', majLock);
       majLock();
       go.addEventListener('click', async () => {
+        if (autreWallet()) { dire('Your wallet changed: this card is being read again for it.', 'wKo'); return; }
         const montant = brut(inp.value);
         const chk = LK.lockCheck({ balance: bal, amount: montant });
         if (!chk.ok) { dire('Not sent: ' + chk.why + '.', 'wKo'); return; }
@@ -32741,15 +32885,16 @@ async function peindreLock(hote, { offre = false } = {}) {
           else { dire('Not done: ' + String((r && (r.pourquoi || r.etat)) || 'no answer').slice(0, 160), 'wKo'); go.disabled = false; }
         } catch (err) { dire('Not sent: ' + String((err && err.message) || err).slice(0, 160), 'wKo'); go.disabled = false; }
       });
-      hote.append(go);
+      form.append(go, demande, tient);
     }
+    hote.append(pli);
   } catch (_) { hote.dataset.lu = String(Date.now() - 20000); }
   finally { lockEtat.enVol = false; }
 }
 /* ── 2026-11-12: the MONTHLY LOCK REWARDS (TBlockLockRewards, EP.REWARDS) inside the lock card. Everything is read on chain: the month, the
  *   enrollment, the whole months this lock earns (rewardEpochsFor), whether this wallet played this month (hasPlayed), what it can claim per
  *   closed month (claimable), and the rate the LAST CLOSED month paid (pot / played weight, labelled as past — never a promise). */
-async function peindreRecompensesLock(hote, { moi, locked, active, unlockAt, requestedAt, el, dire }) {
+async function peindreRecompensesLock(hote, { moi, locked, active, unlockAt, requestedAt, el, dire, pli = null }) {
   const lit = async (v) => EP.word(await rpc('eth_call', [{ to: v.to, data: v.data }, 'latest']));
   const quand = (s) => new Date(Number(s) * 1000).toISOString().slice(0, 10);
   const box = el('div', 'wCoeurs', null); box.id = 'wLockRewards';
@@ -32762,8 +32907,10 @@ async function peindreRecompensesLock(hote, { moi, locked, active, unlockAt, req
     ligne('This month', 'month ' + c + ', ends ' + quand(finMois) + ' · ' + (joue === 1n ? 'you played this month' : 'play this month (a heart, a TAM art mint or a skin mint) to be paid for it'));
     const enrUnlock = EP.word(enr, 0), enrAmount = EP.word(enr, 2);
     const actif = active > 0n && requestedAt === 0n;
+    let moisLu = null;
     if (actif) {
       const mois = EP.decoderMois(await rpc('eth_call', [EP.VIEW.rewardEpochsFor(unlockAt), 'latest']));
+      moisLu = mois;
       const inscrit = enrUnlock === unlockAt && enrAmount === locked;
       const d = ligne('Your lock', EP.texteMois(mois.n) + (mois.n > 0 ? ' (months ' + mois.premier + ' to ' + mois.dernier + ')' : '') + (inscrit ? ' · enrolled' : ' · not enrolled yet'));
       if (!inscrit) {
@@ -32776,6 +32923,8 @@ async function peindreRecompensesLock(hote, { moi, locked, active, unlockAt, req
         d.append(b);
       }
     }
+    /* lot 378 task 6: the months as chips — this month (played or not, read), then each month this lock earns (rewardEpochsFor, read) */
+    box.append(HV.puces(document, HV.moisPuces({ courant: c, premier: moisLu ? moisLu.premier : 0, dernier: moisLu ? moisLu.dernier : 0, n: moisLu ? moisLu.n : 0, joue: joue === 1n }), 'Months of the lock rewards'));
     if (prochain === 0n) ligne('Last closed month', 'none yet: month 0 closes after ' + quand(await lit(EP.VIEW.rEpochEnd(0n))));
     else {
       const e = prochain - 1n;
@@ -32801,8 +32950,9 @@ async function peindreRecompensesLock(hote, { moi, locked, active, unlockAt, req
         d.append(b);
       }
     }
-    box.append(el('p', 'note', 'Each month pays the whole months a lock covers, ' + EP.MOIS_MIN_JOURS + ' days minimum to be sure of one, and only to the holders who played in it. The rewards are what is deposited in the rewards contract (anyone can add wtCOIN or TBLOCK); an amount is never promised.'));
+    (pli || box).append(el('p', 'note', 'Each month pays the whole months a lock covers, ' + EP.MOIS_MIN_JOURS + ' days minimum to be sure of one, and only to the holders who played in it. The rewards are what is deposited in the rewards contract (anyone can add wtCOIN or TBLOCK); an amount is never promised.'));
   } catch (_) { ligne('Monthly lock rewards', 'not read just now'); }
+  if (String(compte || '').toLowerCase() !== moi) return; /* lot 378: read for the previous wallet */
   hote.append(box);
 }
 /* game357: Wallet sections and Holders panels — a click sets data-w / data-v; CSS shows the matching card. */
@@ -33027,17 +33177,36 @@ async function proposerTipCoffre(hote) {
 
 /* ── Holders vault card of the Wallet tab: every 60 s while the tab is visible. 2026-11-12: the vault is the live one (EP.VAULT, lock factor
  *   tiers, claim needs the hearts' minimum LOCKED); a week of the FIRST vault this wallet is still owed stays claimable here, never lost. */
-let wVaultLu = 0, wVaultRegle = null;
+let wVaultLu = 0, wVaultRegle = null, wVaultPour = null, wVaultJeton = 0, wVaultRegleBrut = null, wVaultSemaineS = null;
 async function peindreVaultWallet() {
   const carte = $('#wVault');
   if (!carte) return;
   if (!EP.VAULT || !EP.HEARTS) { carte.hidden = true; return; }
   const vol = $('#v-wallet');
-  if (document.hidden || (vol && vol.offsetParent === null) || Date.now() - wVaultLu < 60000) return;
-  wVaultLu = Date.now();
+  /* lot 378 (Phil 2026-11-12: "bien attribué pour chaque user"): the card is painted FOR one wallet. Another wallet (switched, connected,
+   *   disconnected) repaints at once instead of keeping the last one's play, factor and lock for up to 60 s; a read still running for
+   *   the previous wallet paints nothing (its lines would land under the new one) */
+  const pour = compte ? String(compte).toLowerCase() : null;
+  if (document.hidden || (vol && vol.offsetParent === null) || (Date.now() - wVaultLu < 60000 && pour === wVaultPour)) return;
+  const autre = pour !== wVaultPour; /* another wallet: its hearts and points lines at once, not after the vault reads */
+  wVaultLu = Date.now(); wVaultPour = pour;
+  if (autre) {
+    for (const k of ['#wCoeursMoi', '#wPointsMoi', '#wCoeursBoard', '#wPointsBoard', '#wLock']) { const x = $(k); if (x) x.textContent = ''; }
+    const g = $('#wPointsGros'); if (g) g.hidden = true;
+    void peindreCoeursWallet(); void peindrePointsWallet(); void peindreLock($('#wLock'));
+  }
+  const jeton = ++wVaultJeton, actuel = () => jeton === wVaultJeton;
   const lit = async (v) => EP.word(await rpc('eth_call', [{ to: v.to, data: v.data }, 'latest']));
-  const rows = $('#wVaultRows'); rows.textContent = '';
-  const ligne = (k, v) => { const d = document.createElement('div'); d.className = 'stadeLigne'; const a = document.createElement('span'); a.textContent = k; const b = document.createElement('b'); b.textContent = v; d.append(a, ' ', b); rows.append(d); return d; };
+  /* lot 378 task 6 (Phil 2026-11-12: "visually easy to understand, better than plain text"): the SAME reads, drawn — the vault figure big, the
+   *   week as a bar, the three steps of a payment ticked for this wallet, your play against every player's, the lock factor on its gauge
+   *   (holders-vue.js). Built off-screen and put in place in one go: no blank card every 60 s; another wallet still empties it at once. */
+  const rows = $('#wVaultRows');
+  if (autre) rows.textContent = '';
+  const neuf = [];
+  const mk = (tag, cls, txt) => { const x = document.createElement(tag); if (cls) x.className = cls; if (txt != null) x.textContent = txt; return x; };
+  const ligne = (k, v) => { const d = document.createElement('div'); d.className = 'stadeLigne'; const a = document.createElement('span'); a.textContent = k; const b = document.createElement('b'); b.textContent = v; d.append(a, ' ', b); neuf.push(d); return d; };
+  const bloc = (cls, cle) => { const d = mk('div', 'hvBloc ' + cls); d.dataset.l = cle; neuf.push(d); return d; };
+  const tete = (k, v) => { const p = mk('p', 'hvTete'); p.append(mk('span', 'hvK', k), ' ', mk('b', null, v)); return p; };
   const bouton = (d, texte, id, action) => { const k = document.createElement('button'); k.type = 'button'; k.className = 'bouton sec'; k.id = id; k.textContent = texte; k.style.marginLeft = '6px'; k.addEventListener('click', action); d.append(k); return k; };
   try {
     const [bal, res, ep] = await Promise.all([lit(EP.VIEW.vaultBalance()), lit(EP.VIEW.reserved()), lit(EP.VIEW.currentEpoch())]);
@@ -33049,16 +33218,51 @@ async function peindreVaultWallet() {
     const usd = (raw) => (px === null ? '' : ' ≈ $' + (Number(raw) / 1e18 * px).toLocaleString('en-US', { maximumFractionDigits: 2, minimumFractionDigits: 2 }));
     let joueurs = null; try { const c = await fetch('/api/coeurs', { cache: 'no-store', signal: AbortSignal.timeout(15000) }).then((x) => x.json()); if (c && c.ok && c.complet && c.semainesParContrat) joueurs = Number((((c.semainesParContrat[EP.HEARTS] || {})[String(ep)]) || {}).joueurs || 0); } catch (_) { joueurs = null; }
     const attendu = EP.budgetAttendu({ free: libre, totalPlay: jeu, rewardBps: rBps, rebateBps: rbBps, maxBudget: maxB });
-    const resteS = Number(fin) - Math.floor(Date.now() / 1000), dans = resteS > 0 ? ' (in ' + Math.floor(resteS / 86400) + ' d ' + Math.floor((resteS % 86400) / 3600) + ' h)' : ' (over — waiting for its close)';
-    ligne('In the vault', EP.fmt(bal) + ' TBLOCK' + usd(bal) + (res > 0n ? ' · ' + EP.fmt(res) + ' of it reserved for past weeks’ players' : ''));
-    ligne('Week ' + ep + ' ends', new Date(Number(fin) * 1000).toISOString().slice(0, 16).replace('T', ' ') + ' UTC' + dans);
-    ligne('Play this week', EP.fmt(jeu) + ' TBLOCK from hearts, TAM art and skins' + (joueurs === null ? '' : ' · ' + joueurs + (joueurs === 1 ? ' wallet' : ' wallets') + ' gave a heart'));
-    ligne('For the players at the close', attendu > 0n ? EP.fmt(attendu) + ' TBLOCK' + usd(attendu) + ' if the week closed now' : '0 TBLOCK so far — the budget never exceeds what the players put in this week');
-    ligne('To claim', EP.fmt(need) + ' TBLOCK locked' + usd(need) + ' and a lock that lasts at least 7 more days');
-    if (compte) {
-      const moi = String(compte).toLowerCase();
+    const maintenant = Math.floor(Date.now() / 1000);
+    const resteS = Number(fin) - maintenant, dans = resteS > 0 ? ' (in ' + Math.floor(resteS / 86400) + ' d ' + Math.floor((resteS % 86400) / 3600) + ' h)' : ' (over — waiting for its close)';
+    /* the vault's rules (read once) give the claim step its $ and days and the factor gauge its marks; the hearts' EPOCH gives the week its start */
+    if (!wVaultRegle) { try { const r = {}; for (const k of EP.REGLES_VAULT) r[k] = await lit(EP.VIEW.regleVault(k)); wVaultRegle = EP.texteRegleVault(r); wVaultRegleBrut = r; } catch (_) { wVaultRegle = null; } }
+    if (wVaultSemaineS === null) { try { wVaultSemaineS = Number(await lit({ to: EP.HEARTS, data: '0x' + EP.SEL.EPOCH })); } catch (_) { wVaultSemaineS = null; } }
+    const regle = wVaultRegleBrut;
+    let w = null; /* this wallet's figures, read before anything is drawn */
+    if (pour) {
+      const moi = pour;
       const [fac, mien, locked, unlockAt] = await Promise.all([lit(EP.VIEW.lockFactor(moi)), lit(EP.VIEW.playOf(ep, moi)), lit(LK.VIEW.activeLockedOf(moi)), lit(LK.VIEW.unlockAtOf(moi))]);
-      ligne('Your play this week', EP.fmt(mien) + ' TBLOCK · lock factor ' + EP.texteFacteur(fac) + ' (' + EP.fmt(locked) + ' TBLOCK locked)');
+      w = { fac, mien, locked, unlockAt };
+    }
+    const hero = bloc('hvHero', 'vault');
+    hero.append(mk('span', 'hvK', 'In the vault'), ' ', mk('b', 'hvGros', EP.fmt(bal) + ' TBLOCK'), mk('span', 'hvSous', usd(bal) + (res > 0n ? ' · ' + EP.fmt(res) + ' of it reserved for past weeks’ players' : '')));
+    const sem = HV.semaine({ fin, longueur: wVaultSemaineS, maintenant });
+    const bs = bloc('hvSemaine', 'week');
+    bs.append(tete('Week ' + ep + ' ends', HV.minute(fin) + dans));
+    if (sem) {
+      bs.append(HV.barre(document, { pct: sem.pct, etiquette: 'Week ' + ep, texte: HV.duree(sem.ecoule) + ' gone of ' + Math.round(sem.longueur / 86400) + ' days; ' + (sem.finie ? 'over, waiting for its close' : HV.duree(sem.reste) + ' left') }));
+      const bornes = mk('p', 'hvBornes'); bornes.append(mk('span', null, 'started ' + HV.jour(sem.debut)), mk('span', null, sem.finie ? 'over' : HV.duree(sem.reste) + ' left'));
+      bs.append(bornes);
+    }
+    const bp = bloc('hvPaye', 'steps');
+    bp.append(mk('p', 'hvTitreBloc', pour ? 'How you get paid — this wallet' : 'How you get paid'));
+    bp.append(HV.etapes(document, HV.etapesPaiement({ wallet: pour, locked: w ? w.locked : 0n, need, unlockAt: w ? w.unlockAt : 0n, minCommit: regle ? regle.MIN_COMMIT : null,
+      maintenant, mien: w ? w.mien : 0n, finSemaine: fin, semaineNo: ep, accesUsd: regle ? regle.ACCESS_USD : null, fmt: EP.fmt, fenetreJours: regle ? Math.round(Number(regle.CLAIM_WINDOW) / 86400) : null }), 'How you get paid'));
+    const bj = bloc('hvJeu', 'play');
+    bj.append(mk('p', 'hvTitreBloc', 'Play this week'), mk('p', 'hvDetail', 'from hearts, TAM art and skins'));
+    const rang = (cle, k, v, p, txt) => { const d = mk('div', 'hvRang'); d.dataset.l = cle; d.append(tete(k, v), HV.barre(document, { pct: p, role: 'meter', etiquette: k, texte: txt })); bj.append(d); };
+    if (w) rang('play-mine', 'You', EP.fmt(w.mien) + ' TBLOCK', HV.pct(w.mien, jeu), EP.fmt(w.mien) + ' TBLOCK, ' + HV.pct(w.mien, jeu) + '% of this week’s play');
+    rang('play-all', 'All players', EP.fmt(jeu) + ' TBLOCK' + (joueurs === null ? '' : ' · ' + joueurs + (joueurs === 1 ? ' wallet' : ' wallets') + ' gave a heart'), jeu > 0n ? 100 : 0, EP.fmt(jeu) + ' TBLOCK in all this week');
+    if (w) {
+      const bf = bloc('hvFacteur', 'factor');
+      bf.append(tete('Lock factor', EP.texteFacteur(w.fac) + ' (' + EP.fmt(w.locked) + ' TBLOCK locked)'));
+      if (regle && regle.MAX_FACTOR > 10000n) {
+        const max = Number(regle.MAX_FACTOR) / 10000;
+        bf.append(HV.jauge(document, { valeur: w.fac > 0n ? Number(w.fac) / 10000 : 1, min: 1, max, reperes: HV.reperesFacteur(regle), etiquette: 'Lock factor',
+          texte: w.fac > 0n ? EP.texteFacteur(w.fac) + ' of at most ×' + max.toFixed(2) : 'not eligible now' }));
+        bf.append(mk('p', 'hvDetail', 'Your share of the week grows with the dollar value you lock (the steps above) and up to +' + (Number(regle.TIME_BONUS) / 100) + '% more for ' + Math.round(Number(regle.TIME_FULL) / 86400) + ' days left on the lock.'));
+      }
+    }
+    ligne('For the players at the close', attendu > 0n ? EP.fmt(attendu) + ' TBLOCK' + usd(attendu) + ' if the week closed now' : '0 TBLOCK so far — the budget never exceeds what the players put in this week').classList.add('hvStat');
+    if (pour) {
+      const moi = pour;
+      const { locked, unlockAt } = w;
       if (ep > 0n) {
         const e = ep - 1n;
         const o = await rpc('eth_call', [EP.VIEW.owed(e, moi), 'latest']);
@@ -33085,11 +33289,10 @@ async function peindreVaultWallet() {
     }
     const ra = await lit(EP.VIEW.rescueAmount());
     if (ra > 0n) ligne('Dev rescue announced', 'up to ' + EP.fmt(ra) + ' TBLOCK of the free part, after ' + new Date(Number(await lit(EP.VIEW.rescueAt())) * 1000).toISOString().slice(0, 16).replace('T', ' ') + ' UTC');
-    if (!wVaultRegle) { try { const r = {}; for (const k of EP.REGLES_VAULT) r[k] = await lit(EP.VIEW.regleVault(k)); wVaultRegle = EP.texteRegleVault(r); } catch (_) { wVaultRegle = null; } }
     /* game345 (Phil): a visible link to the holders' channel for an ELIGIBLE wallet only (the server's $15 rule, /api/tblock/hold) */
-    if (compte) {
+    if (pour) {
       try {
-        const h = await fetch('/api/tblock/hold?wallet=' + String(compte).toLowerCase(), { cache: 'no-store', signal: AbortSignal.timeout(20000) }).then((x) => x.json());
+        const h = await fetch('/api/tblock/hold?wallet=' + pour, { cache: 'no-store', signal: AbortSignal.timeout(20000) }).then((x) => x.json());
         if (h && h.ok) {
           const d = document.createElement('div'); d.className = 'stadeLigne';
           /* game370: the link only once the server says the holders' bot is configured (telegramReady, a boolean); before that the
@@ -33101,11 +33304,12 @@ async function peindreVaultWallet() {
           } else {
             d.textContent = 'You hold $' + Number(h.usd).toFixed(2) + ' of TBLOCK · Holders’ channel: opening soon';
           }
-          rows.append(d);
+          neuf.push(d);
         }
       } catch (_) { /* not read: no link, never a wrong one */ }
     }
-  } catch (e) { ligne('Not read just now', String((e && e.message) || e).slice(0, 80)); wVaultLu = Date.now() - 45000; }
+  } catch (e) { ligne('Not read just now', String((e && e.message) || e).slice(0, 80)); if (actuel()) wVaultLu = Date.now() - 45000; }
+  if (actuel()) { rows.textContent = ''; rows.append(...neuf); }
   carte.hidden = false;
   const wc = $('#wVaultComment');
   /* 2026-11-12: the rules are READ from the live vault (EP.REGLES_VAULT); unread = a sentence without numbers, never typed ones */
@@ -33120,11 +33324,14 @@ async function peindreVaultWallet() {
 async function peindrePointsWallet() {
   const box = $('#wPoints');
   if (!box || !LK.LOCK) return;
-  let r = null;
+  let r = null; const pour = compte;
   try { r = await fetch('/api/points' + (compte ? '?compte=' + String(compte).toLowerCase() : ''), { cache: 'no-store', signal: AbortSignal.timeout(15000) }).then((x) => x.json()); } catch (_) { r = null; }
+  if (pour !== compte) return; /* lot 378: an answer for the previous wallet never paints under the new one */
   const nom = (x) => bcResoudre(x).sym || court(x);
   const peindre = (hote, lignes) => { hote.textContent = ''; for (const l of lignes) { const d = document.createElement('div'); d.className = 'stadeLigne' + (l.moi ? ' moi' : ''); const a = document.createElement('span'); a.textContent = l.k; const b = document.createElement('b'); b.textContent = l.v; d.append(a, ' ', b); hote.append(d); } };
-  peindre($('#wPointsMoi'), compte ? PV.lignesMesPoints(r, nom) : [{ k: 'Your points', v: 'connect your wallet to see them' }]);
+  /* lot 378: while the server is still reading the chain (after a restart, a 429 gap) a wallet with 0 counted SO FAR is not told "none yet" */
+  const pasFini = !!(r && r.ok && r.complet === false && !(Number(r.compte && r.compte.total) > 0));
+  peindre($('#wPointsMoi'), compte ? (pasFini ? [{ k: 'Your points', v: 'still reading the chain — not counted yet' }] : PV.lignesMesPoints(r, nom)) : [{ k: 'Your points', v: 'connect your wallet to see them' }]);
   const gros = $('#wPointsGros');
   if (gros) { const tot = r && r.ok && r.compte ? Number(r.compte.total) : NaN; gros.hidden = !(tot > 0); if (tot > 0) gros.textContent = PV.fmtPts(tot) + ' pts'; } /* game359: never "0" for a positive balance */
   peindre($('#wPointsBoard'), PV.lignesBoardPoints(r, nom, compte));
@@ -33137,7 +33344,7 @@ async function peindrePointsWallet() {
 async function peindreCoeursWallet() {
   const box = $('#wCoeurs');
   if (!box) return;
-  let r = null;
+  let r = null; const pour = compte;
   try { r = await fetch('/api/coeurs' + (compte ? '?compte=' + String(compte).toLowerCase() : ''), { cache: 'no-store', signal: AbortSignal.timeout(15000) }).then((x) => x.json()); } catch (_) { r = null; }
   const nom = (x) => (r && r.symboles && r.symboles[x]) || bcResoudre(x).sym || court(x);
   const peindre = (hote, lignes) => {
@@ -33163,7 +33370,8 @@ async function peindreCoeursWallet() {
     if (compte) { try { const l = EP.word(await rpc('eth_call', [LK.VIEW.activeLockedOf(String(compte).toLowerCase()), 'latest'])); v += ' · you have ' + EP.fmt(l) + ' locked' + (l >= need ? ' · enough' : ' · not enough yet'); } catch (_) { /* left out */ } }
     ligneClaim = { k: 'A heart and a vault claim need', v };
   } catch (_) { /* the plain line stays */ }
-  peindre($('#wCoeursMoi'), [ligneClaim].concat(compte ? (r && r.ok && r.compte ? CV.lignesCompte(r.compte, nom) : [{ k: 'Your hearts', v: 'not read just now' }]) : [{ k: 'Your hearts', v: 'connect your wallet to see them' }]));
+  if (pour !== compte) return; /* lot 378: the same for the hearts lines */
+  peindre($('#wCoeursMoi'), [ligneClaim].concat(compte ? (r && r.ok && r.complet === false ? [{ k: 'Your hearts', v: 'still reading the chain — not counted yet' }] : r && r.ok && r.compte ? CV.lignesCompte(r.compte, nom) : [{ k: 'Your hearts', v: 'not read just now' }]) : [{ k: 'Your hearts', v: 'connect your wallet to see them' }]));
   peindre($('#wCoeursBoard'), CV.lignesBoard(r, nom, compte));
   box.hidden = false;
 }

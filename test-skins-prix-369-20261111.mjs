@@ -9,7 +9,8 @@
  * B  EXECUTED  skinsPrixCorps() follows the record: a synthetic record whose v3 has an address reports v3 and 10000000.
  * C  SOURCE    serveur-web.js, the '/api/skins/prix' branch renders skinsPrixCorps() and carries neither beneficiaire: nor 'tb-skin:1'.
  *              The route opener line (anchored on by test-cle-par-pool-id-20261026.mjs) is kept word for word.
- * D  SOURCE    llms.txt describes mint(address,uint64), not transfer(fee wallet, ...) and not "not a token".
+ * D  SOURCE    llms.txt describes the live route (game378): an exact approve to the TBLOCK payment router, then pay(...) on the router;
+ *              no direct mint(address,uint64) (the Skins contract has none), not transfer(fee wallet, ...) and not "not a token".
  * E  SOURCE    app.html no longer imports the dead v1 helpers (appelAchatSkin, SKIN_PRIX_USDC) from skins.js.
  * F  MUTANTS   each must turn its clause red: beneficiary back in the route; a typed contract in skinsPrixCorps; v1 sentence back in llms.txt.
  * The test counts itself and prints n/n. */
@@ -71,9 +72,10 @@ vu(srv.includes("  if (chemin === '/api/skins/prix' || chemin === '/api/skins/ac
   'C the route opener line is kept word for word (test-cle-par-pool-id-20261026.mjs anchors on it)');
 
 /* ── D ── */
-const clauseD = (t) => t.includes('mint(address,uint64)') && !t.includes('transfer(fee wallet') && !t.includes('not a token') && !t.includes('tb-skin:1');
+const clauseD = (t) => t.includes('approve(router, price)') && t.includes('pay(address,uint256,uint256,uint256,bytes)') && !t.includes('mint(address,uint64)')
+  && !t.includes('approve(contract, price)') && !t.includes('transfer(fee wallet') && !t.includes('not a token') && !t.includes('tb-skin:1');
 const llms = lire('llms.txt');
-vu(clauseD(llms), 'D llms.txt describes mint(address,uint64); no transfer(fee wallet, ...), no memo, no "not a token"');
+vu(clauseD(llms), 'D llms.txt describes approve(router, price) then pay(...) on the router; no direct mint, no transfer(fee wallet, ...), no memo, no "not a token"');
 vu(!llms.toLowerCase().includes(walletFrais), 'D llms.txt does not print the fee-wallet address');
 
 /* ── E ── */
@@ -85,8 +87,10 @@ vu(!/import \{ appelAchatSkin, SKIN_PRIX_USDC \} from '\.\/skins\.js';/.test(app
 const b0 = brancheDe(srv);
 const mutSrv = b0 ? srv.replace(b0, b0.replace('rendreS(200, skinsPrixCorps())', "rendreS(200, { ...skinsPrixCorps(), beneficiaire: FEE_WALLET.toLowerCase() })")) : srv;
 vu(b0 !== '' && mutSrv !== srv && clauseC(mutSrv) === false, 'F mutant: beneficiary back in the route -> C goes red');
-const mutLlms = llms.replace('mint(address,uint64)', 'transfer(fee wallet, 1 USDC)');
+const mutLlms = llms.replace('pay(address,uint256,uint256,uint256,bytes)', 'transfer(fee wallet, 1 USDC)');
 vu(mutLlms !== llms && clauseD(mutLlms) === false, 'F mutant: the v1 sentence back in llms.txt -> D goes red');
+const mutMint = llms.replace('pay(address,uint256,uint256,uint256,bytes)', 'mint(address,uint64)');
+vu(mutMint !== llms && clauseD(mutMint) === false, 'F mutant: the retired direct mint back in llms.txt -> D goes red');
 /* typed contract: a copy of blockskins-actif.js whose body names a literal address (the value is the live one, written at run time) */
 let mutTue = false, mutCharge = false;
 const srcAc = lire('blockskins-actif.js');

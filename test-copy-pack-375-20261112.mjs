@@ -136,7 +136,8 @@ const { verifierPack, LETTRES } = await import('./pack-economie-v2.js');
   const APP = lire('app.html');
   const tranche = (debut, fin) => { const i = APP.indexOf(debut); return i < 0 ? '' : APP.slice(i, APP.indexOf(fin, i)); };
   const chaines = (s) => [...s.replace(/\/\*[\s\S]*?\*\//g, ' ').matchAll(/'((?:[^'\\\n]|\\.)*)'/g)].map((x) => x[1].replace(/\\'/g, "'")).filter((x) => /[A-Za-z]{2,}\s+[A-Za-z]/.test(x));
-  const lockCarte = chaines(tranche("hote.append(el('p', 'sous', 'Locking earns", '\n'));
+  /* lot 378 task 6: the lock rule moved into the lock card's folded How it works (pli), the same sentence */
+  const lockCarte = chaines(tranche("pli.append(el('p', 'sous', 'Locking earns", '\n'));
   const vault = chaines(tranche("const wc = $('#wVaultComment');", 'void peindreCoeursWallet();'));
   const ptsNote = chaines(tranche('ptsNote.textContent = m > 0n', '\n'));
   t('app strings found (witness)', lockCarte.length >= 1 && vault.length >= 2 && ptsNote.length >= 2 /* 2026-11-12: the explainer is the live vault's rules, read on chain */, [lockCarte.length, vault.length, ptsNote.length].join('/'));
