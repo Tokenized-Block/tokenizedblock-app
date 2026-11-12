@@ -12,7 +12,9 @@ t('the link is engraved and can never be changed', A.includes('in the same trans
 t('step 2 names the REAL Create controls', A.includes('<summary class="note">Tokenize a post from X — engraved with the block</summary>') && A.includes('<li><b>Open Create → “Tokenize a post from X”</b> <span>and tick “Tokenize a post”</span></li>') && A.includes('<input type="checkbox" id="cTweetOui"> Tokenize a post'));
 t('says the link is NOT checked', A.includes('We do not check the link when it is engraved: we cannot tell whether the post exists or who wrote it.'));
 t('nothing is published from here', A.includes('send it yourself: nothing is published from here.'));
-t('post text keeps the ".@" before a handle, and a sentence without one', A.includes(`const debut = h ? '.@' + h + ' just tokenized a block on Base.' : 'A new block was just tokenized on Base.';`));
+t('post text keeps the ".@" before a handle, and a sentence without one', A.includes(`const debut = h ? '.@' + h + ' just tokenized a block on Base.' : 'A new block just went live on Base.';`));
+/* game374: tabs are just "Token" and "Post on X" (Phil) */
+t('tabs named Token / Post on X', A.includes('data-itab="jeton">Token</button>') && A.includes('data-itab="post">Post on X</button>') && !A.includes('⬢ A token'));
 t('old wording gone', !A.includes('Write it, read it, then decide') && !A.includes('under the face settings') && !A.includes('Someone tokenized a block.'));
 console.log(ok + '/' + (ok + ko) + (ko ? ' — RED' : ' — green'));
 process.exit(ko ? 1 : 0);
