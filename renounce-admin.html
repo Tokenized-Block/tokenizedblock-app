@@ -1,0 +1,234 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Give up a block's admin role</title>
+<!--
+  game378 (Phil 2026-11-12). Every block born in the app gives its creator the admin role (DEFAULT_ADMIN_ROLE). With it the creator can raise
+  the supply cap and give itself the mint role. This page lets the CONNECTED wallet hand that role to 0x…dEaD and drop its own, for the
+  blocks of our births where it is admin, re-read live. All logic is renounce-admin.js (pure); this page only shows, asks and reports.
+  ⛔ Never anything for a block where the wallet is not admin; a wallet admin of none is refused. The chosen blocks are read AGAIN and
+     simulated (eth_simulateV1, or eth_call call by call when no node runs it: the page says which) right before the wallet opens.
+  ⛔ After the receipts: tx.from = the wallet, status 1, RoleGranted(dEaD) and RoleRevoked(wallet) logged BY the block, hasRole read again.
+  ⛔ The connected wallet is shown through displayShort (frais-creation.js): the fee wallet never appears raw.
+-->
+<style>
+:root{--bg:#050d24;--card:#0f1d3d;--line:#1e2f57;--fg:#e9f0ff;--dim:#8ba0c9;--or:#f7a318;--ok:#3ecf8e;--ko:#ff6b6b}
+*{box-sizing:border-box}html,body{margin:0}
+body{background:var(--bg);color:var(--fg);font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;padding:16px}
+main{max-width:760px;margin:0 auto}h1{font-size:19px}h2{font-size:15px;margin:0 0 6px;display:flex;gap:10px;align-items:center}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:12px}
+.row{display:flex;gap:10px;padding:5px 0;border-bottom:1px solid var(--line)}.row:last-child{border:0}
+.k{color:var(--dim);flex:0 0 170px;font-size:12px}.v{flex:1;font-size:12px;overflow-wrap:anywhere;min-width:0}
+@media (max-width:560px){.row{flex-direction:column;gap:2px}.k{flex:none}}
+button{width:100%;background:var(--or);color:#20160a;border:0;border-radius:8px;padding:14px;font:inherit;font-weight:700;margin-top:10px;cursor:pointer}
+button:disabled{opacity:.45;cursor:not-allowed}.note{color:var(--dim);font-size:12px}
+a{color:var(--or);word-break:break-all}
+input[type=checkbox]{width:20px;height:20px;accent-color:var(--or);flex:none;margin:0}
+.st{font-weight:700}.st.ok{color:var(--ok)}.st.ko{color:var(--ko)}.warn{color:var(--ko);font-weight:700}
+.ln{font-size:12px;padding:2px 0}.ln.ko{color:var(--ko)}.ln.ok{color:var(--ok)}
+.off{opacity:.7}
+</style>
+<main>
+<h1>Give up a block's admin role (Base)</h1>
+<p class="note">Every block born in the app gives its creator the admin role. With it, the creator can raise the supply cap and give
+itself the right to mint more. Signing here hands that role to 0x…dEaD, an address whose key nobody holds, and removes it from your
+wallet. It cannot be undone.</p>
+<div class="card">
+  <button id="connect" disabled>Connect wallet</button>
+  <div id="state" class="note" style="margin-top:10px">Loading the list of blocks born in the app…</div>
+</div>
+<div id="blocks"></div>
+<div class="card" id="signCard" hidden>
+  <div id="simState" class="note"></div>
+  <button id="go" disabled>Give up the admin role (sign in the wallet)</button>
+  <div id="goState" class="note" style="margin-top:10px"></div>
+</div>
+</main>
+<script type="module">
+const $ = (s) => document.querySelector(s);
+const esc = (x) => String(x ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const row = (k, v) => '<div class="row"><span class="k">' + esc(k) + '</span><span class="v">' + v + '</span></div>';
+const warn = (s) => '<span class="warn">' + esc(s) + '</span>';
+const lien = (h) => '<a href="https://basescan.org/tx/' + esc(h) + '" target="_blank" rel="noopener">' + esc(h) + '</a>';
+const pause = (ms) => new Promise((o) => setTimeout(o, ms));
+let RA = null, displayShort = (a) => String(a);
+try { RA = await import('./renounce-admin.js'); ({ displayShort } = await import('./frais-creation.js')); } catch (_) { RA = null; }
+const wal = (method, params) => window.ethereum.request({ method, params });
+const chain = RA ? RA.publicReader() : null;
+let wallet = null, candidates = null, rows = [], busy = false, lastSim = null;
+
+async function lireListe() {
+  const get = async (u) => { try { const r = await fetch(u, { cache: 'no-store' }); return r.ok ? await r.json() : null; } catch (_) { return null; } };
+  const [routerIndex, ourBlocks] = await Promise.all([get('/api/blocks-routeur'), get('/api/nos-blocks')]);
+  candidates = RA.candidateBlocks({ routerIndex, ourBlocks });
+  $('#state').innerHTML = esc(candidates.blocks.length + ' blocks born in the app are known to this page.')
+    + (candidates.complete ? '' : '<br>' + warn('The full list of blocks born in the app could not be read right now: a block of yours may be missing. Reload in a moment.'));
+  $('#connect').disabled = false;
+}
+
+function carte(r) {
+  const nom = (r.symbol || 'Block') + (r.name && r.name !== r.symbol ? ' — ' + r.name : '');
+  const offre = r.state === 'OFFER';
+  const sup = r.totalSupply !== undefined ? RA.units(r.totalSupply, r.decimals) + ' ' + (r.symbol || '') : 'not read';
+  return '<div class="card' + (offre ? '' : ' off') + '" data-block="' + esc(r.block) + '" data-state="' + esc(r.state) + '">'
+    + '<h2>' + (offre ? '<input type="checkbox" class="pick" checked aria-label="Choose ' + esc(nom) + '">' : '') + '<span>' + esc(nom) + '</span></h2>'
+    + row('block', '<a href="https://basescan.org/token/' + esc(r.block) + '" target="_blank" rel="noopener">' + esc(r.block) + '</a>')
+    + (r.totalSupply !== undefined ? row('supply', esc(sup) + (r.totalSupply === r.supplyCap ? ' = its cap' : ' (cap ' + esc(RA.units(r.supplyCap, r.decimals)) + ')')) : '')
+    + row('who can raise the cap today', esc('you (' + displayShort(wallet) + ')'))
+    + (offre
+      ? row('after you sign', esc(RA.AFTER + ' Its admin role is held by 0x…dEaD, whose key nobody holds.'))
+        + row('what else changes', esc(RA.CONSEQUENCE_PAIR))
+        + row('what stays', esc(RA.STAYS))
+        + row('what you sign', esc(r.calls.map((c) => c.name).join(', then ')))
+        + '<div class="sim" data-sim="' + esc(r.block) + '"></div>'
+      : row('not offered', warn(r.why || 'not readable right now')))
+    + '</div>';
+}
+
+function choisis() {
+  const picked = new Set([...document.querySelectorAll('.pick')].filter((x) => x.checked).map((x) => x.closest('[data-block]').dataset.block));
+  return rows.filter((r) => r.state === 'OFFER' && picked.has(r.block));
+}
+
+async function simuler() {
+  const sel = choisis();
+  document.querySelectorAll('.sim').forEach((d) => { d.innerHTML = ''; });
+  $('#go').disabled = true; lastSim = null;
+  if (!sel.length) { $('#simState').textContent = 'Choose at least one block.'; return null; }
+  $('#simState').textContent = 'Checking the batch on Base before anything is asked…';
+  let sim;
+  try { sim = await RA.simulate({ rpc: chain, wallet, rows: sel }); } catch (e) { $('#simState').innerHTML = warn('The batch could not be checked: ' + ((e && e.message) || e)); return null; }
+  for (const b of sim.blocks) {
+    const d = document.querySelector('[data-sim="' + b.block + '"]');
+    if (d) d.innerHTML = row('checked on Base', b.lines.map((l) => '<div class="ln ' + (l.ok ? 'ok' : 'ko') + '">' + esc(l.text) + '</div>').join(''));
+  }
+  const how = sim.method === 'eth_simulateV1' ? 'simulated as one sequence (eth_simulateV1)' : 'checked call by call (eth_call): the public nodes did not run eth_simulateV1';
+  $('#simState').innerHTML = sim.ok
+    ? '<span class="st ok">' + esc(sel.length + ' block' + (sel.length > 1 ? 's' : '') + ': every check holds') + '</span> · ' + esc(how)
+    : warn('A check does not hold, so nothing is offered to sign') + ' · ' + esc(how);
+  $('#go').disabled = !sim.ok;
+  $('#go').textContent = 'Give up the admin role on ' + sel.length + ' block' + (sel.length > 1 ? 's' : '') + ' (sign in the wallet)';
+  lastSim = sim.ok ? { sel, sim } : null;
+  return lastSim;
+}
+
+async function lireWallet() {
+  $('#state').textContent = 'Reading your role on each block born in the app…';
+  const lu = await RA.readWallet({ rpc: chain, wallet, candidates: candidates.blocks });
+  rows = lu.admin;
+  const unread = lu.rows.filter((r) => r.state === 'UNREAD' && r.walletAdmin !== true).length;
+  if (!lu.admin.length) {
+    $('#blocks').innerHTML = ''; $('#signCard').hidden = true;
+    $('#state').innerHTML = warn('This wallet (' + displayShort(wallet) + ') holds the admin role of none of the blocks born in the app. Nothing to sign.')
+      + (unread ? '<br>' + esc(unread + ' block' + (unread > 1 ? 's' : '') + ' could not be read right now; reload to read again.') : '');
+    return;
+  }
+  $('#state').innerHTML = esc('Connected: ' + displayShort(wallet) + '. Admin of ' + lu.admin.length + ' block' + (lu.admin.length > 1 ? 's' : '') + ' born in the app'
+    + (lu.offered.length !== lu.admin.length ? ', ' + lu.offered.length + ' offered here' : '') + '.')
+    + (unread ? '<br>' + esc(unread + ' block' + (unread > 1 ? 's' : '') + ' could not be read right now; reload to read again.') : '');
+  $('#blocks').innerHTML = rows.map(carte).join('');
+  document.querySelectorAll('.pick').forEach((x) => x.addEventListener('change', () => { if (!busy) simuler(); }));
+  $('#signCard').hidden = !lu.offered.length;
+  if (lu.offered.length) await simuler();
+}
+
+async function recu(h) {
+  for (let i = 0; i < 150; i++) {
+    const r = await chain('eth_getTransactionReceipt', [h]).catch(() => null) || await wal('eth_getTransactionReceipt', [h]).catch(() => null);
+    if (r) return r;
+    await pause(2000);
+  }
+  return null;
+}
+
+async function apres(sel, h) {
+  const lus = [];
+  for (const r of sel) {
+    let a = null;
+    for (let i = 0; i < 6; i++) { a = await RA.readAfter({ rpc: chain, block: r.block, wallet }); if (a.done) break; await pause(2000); }
+    lus.push(a);
+  }
+  const fait = lus.every((a) => a.done);
+  $('#goState').innerHTML = (fait
+    ? '<span class="st ok">Confirmed on chain: you no longer hold the admin role of ' + esc(sel.map((r) => r.symbol || r.block).join(', ')) + '; 0x…dEaD does. ' + esc(RA.AFTER) + '</span>'
+    : warn('The transactions succeeded but the role does not read as moved yet on ' + lus.filter((a) => !a.done).map((a) => a.block).join(', ') + '. Reload and connect again to read it.'))
+    + (h.length ? '<br>' + h.map(lien).join('<br>') : '');
+}
+
+if (!RA) {
+  $('#state').innerHTML = warn('This page cannot load here: nothing can be signed.');
+} else {
+  lireListe();
+}
+
+$('#connect').onclick = async () => {
+  if (!window.ethereum) { $('#state').textContent = 'No wallet in this browser.'; return; }
+  try { [wallet] = await wal('eth_requestAccounts', []); wallet = String(wallet || '').toLowerCase(); } catch (e) { $('#state').textContent = 'Wallet refused: ' + ((e && e.message) || e); return; }
+  if (!/^0x[0-9a-f]{40}$/.test(wallet)) { $('#state').textContent = 'The wallet gave no account.'; return; }
+  $('#connect').disabled = true;
+  await lireWallet();
+  $('#connect').disabled = false; $('#connect').textContent = 'Read again';
+};
+
+$('#go').onclick = async () => {
+  if (busy) return;
+  busy = true; $('#go').disabled = true;
+  let sent = false; /* once anything went to the wallet, the button stays off: "Read again" reads the chain first */
+  try {
+    const [now] = await wal('eth_accounts', []).catch(() => []);
+    if (String(now || '').toLowerCase() !== wallet) { $('#goState').textContent = 'The wallet account changed: reading again.'; wallet = String(now || '').toLowerCase() || null; if (wallet) await lireWallet(); return; }
+    let cid = await wal('eth_chainId', []).catch(() => null);
+    if (String(cid).toLowerCase() !== RA.CHAIN_ID_HEX) { try { await wal('wallet_switchEthereumChain', [{ chainId: RA.CHAIN_ID_HEX }]); } catch (_) {} cid = await wal('eth_chainId', []).catch(() => null); }
+    if (String(cid).toLowerCase() !== RA.CHAIN_ID_HEX) { $('#goState').innerHTML = warn('Switch the wallet to Base, then sign again.'); return; }
+    /* fresh: every chosen block read again, then simulated again, right before the wallet opens */
+    const chosen = choisis();
+    $('#goState').textContent = 'Reading the chosen blocks again…';
+    const re = await RA.recheck({ rpc: chain, wallet, rows: chosen });
+    if (!re.ok) { $('#goState').innerHTML = warn('A chosen block changed since it was read (' + re.lost.map((x) => x.block + ': ' + (x.why || x.state)).join(' · ') + '). Nothing was asked.'); await lireWallet(); return; }
+    const sim = await RA.simulate({ rpc: chain, wallet, rows: re.rows });
+    if (!sim.ok) { $('#goState').innerHTML = warn('The batch no longer checks out on Base. Nothing was asked.'); return; }
+    const calls = RA.batchFor(re.rows, wallet);
+    let caps = null;
+    try { caps = await wal('wallet_getCapabilities', [wallet]); } catch (_) { caps = null; }
+    const mode = RA.sendMode(caps);
+    if (mode === 'batch') {
+      $('#goState').textContent = 'One batch of ' + calls.length + ' calls: confirm it in the wallet…';
+      const q = RA.sendCallsRequest(wallet, calls);
+      let id;
+      try { sent = true; const r = await wal(q.method, q.params); id = typeof r === 'string' ? r : r && r.id; }
+      catch (e) { $('#goState').textContent = 'Not sent: ' + ((e && e.message) || e) + ' Press “Read again” to start over.'; return; }
+      $('#goState').textContent = 'Sent as one batch · waiting for the receipt…';
+      let st = null;
+      for (let i = 0; i < 150; i++) {
+        st = await wal('wallet_getCallsStatus', [id]).catch(() => null);
+        const done = st && (st.status === 200 || st.status === 'CONFIRMED' || (typeof st.status === 'number' && st.status >= 400));
+        if (done) break;
+        await pause(2000);
+      }
+      const receipts = st && Array.isArray(st.receipts) ? st.receipts : [];
+      const hashes = receipts.map((r) => r.transactionHash).filter(Boolean);
+      const txs = [];
+      for (const h of hashes) txs.push(await chain('eth_getTransactionByHash', [h]).catch(() => null));
+      const ko = RA.checkBatch({ calls, wallet, receipts, txs });
+      if (ko.length) { $('#goState').innerHTML = warn('STOP: ' + ko.join(' · ')) + (hashes.length ? '<br>' + hashes.map(lien).join('<br>') : ''); return; }
+      await apres(re.rows, hashes);
+    } else {
+      const hashes = [];
+      for (let k = 0; k < calls.length; k++) {
+        const c = calls[k];
+        $('#goState').textContent = 'Transaction ' + (k + 1) + ' of ' + calls.length + ' (' + c.name + ' on ' + c.to + '): confirm it in the wallet…';
+        let h;
+        try { sent = true; h = await wal('eth_sendTransaction', [{ from: wallet, to: c.to, data: c.data, value: '0x0' }]); }
+        catch (e) { $('#goState').innerHTML = esc('Not sent: ' + ((e && e.message) || e)) + (hashes.length ? '<br>' + warn('Transactions ' + hashes.length + ' of ' + calls.length + ' went through; read again to see what is left.') + '<br>' + hashes.map(lien).join('<br>') : ' Press “Read again” to start over.'); return; }
+        hashes.push(h);
+        $('#goState').innerHTML = 'Sent ' + (k + 1) + ' of ' + calls.length + ': ' + lien(h) + ' · waiting for the receipt…';
+        const r = await recu(h);
+        const tx = await chain('eth_getTransactionByHash', [h]).catch(() => null);
+        const ko = RA.checkSent({ call: c, wallet, tx, receipt: r });
+        if (ko.length) { $('#goState').innerHTML = warn('STOP after transaction ' + (k + 1) + ': ' + ko.join(' · ')) + '<br>' + hashes.map(lien).join('<br>'); return; }
+      }
+      await apres(re.rows, hashes);
+    }
+  } finally { busy = false; if (!sent && lastSim) $('#go').disabled = false; }
+};
+</script>
