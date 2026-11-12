@@ -175,6 +175,10 @@ import { coterUnitTailles, ligneUnit, UNIT_APPELS_MAX } from './payer-unit.js';
 /* 2026-10-23 (Phil, option 3) : le REGLEUR des slots — sans SLOTS_KEEPER_KEY il ne fait rien et le dit (/sante) ; avec, il envoie settleMany
  *   (et rien d autre) au contrat de la fiche, du wallet du regleur (gas seulement ; le contrat paie les joueurs). slots-regleur.js. */
 import { creerRegleur } from './slots-regleur.js';
+/* 2026-11-12 : le keeper du TBLOCK buyback qui paie le holders vault (buyback-keeper.js) — rien tant que la fiche n a pas d adresse ;
+ *   sans BUYBACK_KEEPER_KEY (ou si sa cle n est pas le KEEPER de la fiche) il ne fait rien et le dit (/sante). N envoie que buyback(uint256). */
+import { creerKeeperBuyback } from './buyback-keeper.js';
+import { BUYBACK_VAULT_DEPLOIEMENT } from './tblock-buyback-vault-deploiement.js';
 /* 2026-10-18 : TicketPot LIVE (0xf986…1df1, bloc 52 776 705) — la fiche notee, et la lecture PURE du jour (lireJour : aucune cle requise) */
 import { TICKETPOT_DEPLOIEMENT } from './ticketpot-deploiement.js';
 /* 2026-10-27 : le SECOND TicketPot, qui paie en UNIT (18 decimales ; meme contrat, son propre verifyingContract), note par noter-deploiement */
@@ -5728,6 +5732,15 @@ const regleurSlots = ESSAI_SRV.actif
     rollsJoues: { contrat: contratRollsKeeper, bloc: Number.isSafeInteger(BLOCKROLLS_DEPLOIEMENT.bloc) ? BLOCKROLLS_DEPLOIEMENT.bloc : 0 } });
 if (regleurSlots.demarrer()) console.log('[slots-keeper] on, keeper ' + regleurSlots.etat().adresse);
 else console.log('[slots-keeper] off: ' + regleurSlots.etat().pourquoi);
+/* 2026-11-12 : le keeper des buybacks. La fiche tblock-buyback-vault-deploiement.js (adresse null = OFF, rien ne change) ; ensuite il
+ *   appelle le nouveau buyback (il est son KEEPER), et l ancien (economie-deploiement.js adresseBuyback, chemin public apres son delai)
+ *   tant qu il tient au moins MIN_SPEND, puis plus jamais. La cle vient de process.env seulement et ne sort jamais de buyback-keeper.js. */
+const keeperBuyback = ESSAI_SRV.actif
+  ? creerKeeperBuyback({ desactive: 'trial mode (ESSAI): the buyback keeper never runs against a trial node' })
+  : creerKeeperBuyback({ cle: process.env.BUYBACK_KEEPER_KEY || null, rec: BUYBACK_VAULT_DEPLOIEMENT, ancien: ECONOMIE_DEPLOIEMENT.adresseBuyback || null,
+    rpc: rpcServeur, journal: (t) => console.log(t) });
+if (keeperBuyback.demarrer()) console.log('[buyback-keeper] on, keeper ' + keeperBuyback.etat().adresse);
+else console.log('[buyback-keeper] off: ' + keeperBuyback.etat().pourquoi);
 
 /* ══ LE JOURNAL DU JOUR DU JEU (Phil 2026-10-18 : « les brains sont les occupants de la Map ») — journal-jeu.js, GET /api/jeu/journal.
  * ⛔ LU SUR UN MINUTEUR, JAMAIS PAR REQUETE : un tour toutes les JOURNAL_TOUR_MS, au plus JOURNAL_FENETRES_PAR_TOUR fenetres de
@@ -6338,6 +6351,9 @@ const SERVIS = [
   'holders.html',
   /* game324: the unsigned deployment of the TBLOCK buyback contract (generated) and the page that offers it to the connected wallet */
   'deployer-tblock-buyback.html', 'tblock-buyback-deploiement.js',
+  /* 2026-11-12: the TBLOCK buyback that pays the holders vault: its unsigned deployment (generated), the pure module that checks and judges
+   *   it, and the page that offers its ONE signature (buyback-vault.js imports keccak.js, pack-economie-v2.js and the two pack records) */
+  'deployer-tblock-buyback-vault.html', 'tblock-buyback-vault-deploiement.js', 'buyback-vault.js',
   /* game325: the unsigned deployment of the block contest (generated) and its page */
   'deployer-block-contest.html', 'block-contest-deploiement.js',
   /* the block contest page for users (reads Base, builds unsigned calls for the wallet of the user) and its pure module */
@@ -6774,6 +6790,7 @@ function traiterRequete(req, res) {
     res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'public, max-age=3600' });
     res.end(['User-agent: *', 'Allow: /', 'Disallow: /frais.html', 'Disallow: /deploy-v2.html', 'Disallow: /deploy-v3.html', 'Disallow: /deploy-v4.html', 'Disallow: /deploy-v5.html', 'Disallow: /deploy-v6.html', 'Disallow: /deploy-v7.html', 'Disallow: /deploy-v8.html', 'Disallow: /deploy-pot.html', 'Disallow: /pot.html',
       'Disallow: /deployer-tblock-buyback.html', /* 2026-11-11: the retired buyback v1 page stays served, not indexed */
+      'Disallow: /deployer-tblock-buyback-vault.html', /* 2026-11-12: a deploy page, served, not indexed */
       'Disallow: /api/', '', 'Sitemap: https://tokenizedblock.space/sitemap.xml', ''].join('\n'));
     return;
   }
@@ -9255,6 +9272,8 @@ function traiterRequete(req, res) {
       paires: etatPaires.resume(),
       /* 2026-10-23 : le regleur des slots — OFF (et pourquoi) / ON / ARRETE, son ADRESSE, le dernier reglement, les erreurs ; jamais la cle */
       slotsRegleur: regleurSlots.etat(),
+      /* 2026-11-12 : le keeper des buybacks — OFF (et pourquoi) / ON / ARRETE, son adresse, ses compteurs ; jamais la cle */
+      buybackKeeper: keeperBuyback.etat(),
       mcpWidget: widgetHtml !== null, trousCreations: trousCreations.slice(-10), trousRelus: trousRelus.slice(-10), noeuds: etatNoeuds, ...(ok ? {} : { modulesManquants }),
       /* 2026-10-16 : le revenu VERIFIE par recu, par ligne et par devise (unites brutes), externe et interne separes — jamais les hashes.
        *   ⛔ BORNES dites : seules les transactions que le client poste sont vues ; l ETH natif (sans log) n est pas compte. */
