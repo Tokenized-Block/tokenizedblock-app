@@ -132,7 +132,10 @@ export function champ({ adr, faits = null, vu = null, voisins = [], marche = nul
   const champM = (k) => (m && fini(Number(m[k])) && m[k] !== null && m[k] !== '' ? Number(m[k]) : null);
   const ctxMarche = m ? {
     dex: m.dex ? String(m.dex) : null, quote: m.quoteSym ? String(m.quoteSym) : null,
-    prixUsd: champM('prixUsd'), liquiditeUsd: champM('liquiditeUsd'), fdvUsd: champM('fdvUsd'),
+    /* 2026-11-12 (Phil, CLOUD) : a row the server marks as a pool too thin to trust carries its CASH as liquidity and no valuation —
+     *   never its paper mark ($7.6B for ~$4). `mince` says why the valuation is empty. */
+    prixUsd: champM('prixUsd'), liquiditeUsd: m.liquiditePapier === true ? champM('profondeurUsd') : champM('liquiditeUsd'),
+    fdvUsd: m.liquiditePapier === true ? null : champM('fdvUsd'), mince: m.liquiditePapier === true,
     volume24hUsd: champM('volume24hUsd'), trades24h: champM('trades24h'), change24h: champM('change24h'),
     /* ⛔ la seule part de cette ligne que le cerveau peut lire : sa taille quand NOTRE lecture de chaine a echoue */
     luParLeCerveau: aFaits && fini(faits.vie) && (faits.vie === champM('fdvUsd') || faits.vie === champM('liquiditeUsd')),

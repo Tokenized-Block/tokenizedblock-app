@@ -31,7 +31,8 @@ const need = [
   ['achat_ok', "etape('achat_ok')"],
   ['Market unread retry', 'Market unread — retry'],
   ['Re-scan market', 'id="pRescanMarche"'],
-  ['No TB-readable', 'No TB-readable pool yet'],
+  /* 2026-11-12 (Phil): the NON_TROUVEE state keeps its own phrase, now in plain English for a visitor */
+  ['No market on TokenizedBlock', 'No market on TokenizedBlock yet'],
   ['cles no empty cache', 'only cache positive cles'],
   ['enrich 50k', 'head - 50000'],
   ['vivant enrich', 'if (etatVieProfil === \'NON_TROUVEE\')'],

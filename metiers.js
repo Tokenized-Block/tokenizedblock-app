@@ -178,7 +178,9 @@ export function rapport({ metier, symbole = null, vie = null, devise = null, ten
   /* ⛔ SANS MARCHE, CHAQUE METIER LE DIT AU LIEU DE MEUBLER. Un rapport qui parle quand meme
    * apprend a ne plus le lire. */
   if (!aVie) {
-    lignes.push(nom + ' has no readable market cap right now — never traded, or we could not read it.');
+    /* ⛔ review 2026-11-12 (CLOUD, 375 px) : « never traded » s affichait sous un prix et 130 trades en 24 h. `vie` est NOTRE
+     *   lecture de marche ; son absence ne dit rien de l historique du block. */
+    lignes.push(nom + ' has no market cap read on TokenizedBlock right now — that says nothing about whether it trades elsewhere.');
   } else {
     lignes.push('Market cap read: ' + vie + (devise ? ' ' + devise : '') + '.');
   }

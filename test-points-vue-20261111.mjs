@@ -6,7 +6,7 @@ const nom = (a) => a.slice(0, 6) + '…';
 t('the rule says no rate is promised', /no rate is promised/.test(REGLE_COURTE) && !/APY|APR|yield|%\/(year|day)/i.test(REGLE_COURTE));
 t('unread: said', lignesMesPoints(null, nom)[0].v === 'not read just now' && lignesBoardPoints({ ok: false }, nom)[0].v === 'not read just now');
 t('no wallet: asks to connect', /connect your wallet/.test(lignesMesPoints({ ok: true }, nom)[0].v));
-t('zero points: says how to start, with the v2 numbers', /lock 100,000 TBLOCK for 1 point a day, or send a heart: 1 point per 8,600 TBLOCK it burns/.test(lignesMesPoints({ ok: true, compte: { total: 0 } }, nom)[0].v));
+t('zero points: says how to start, with the v2 numbers', /lock 100,000 TBLOCK for 1 point a day, or send a heart: 1 point per 8,600 TBLOCK it burns/.test(lignesMesPoints({ ok: true, complet: true, compte: { total: 0 } }, nom)[0].v)); /* 2026-11-12: "none yet" only once the index is complete */
 const r = { ok: true, complet: false, compte: { total: 12.345, lock: 10, jeu: 2.345, rang: 3, part: 0.1234, parJour: 35, mult: 1.25 }, board: [{ rang: 1, holder: '0xaaaaaaaa', total: 50, part: 0.5, sesBlocks: ['0xb1b1b1'] }, { rang: 2, holder: '0xbbbbbbbb', total: 1, part: 0.00001, sesBlocks: [] }] };
 const m = lignesMesPoints(r, nom);
 t('my points: total, lock, hearts (v2 format)', m[0].v === '12 (lock 10 · hearts 2.3)', m[0].v);

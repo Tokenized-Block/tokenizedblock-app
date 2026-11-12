@@ -232,6 +232,7 @@ import { scannerLancements } from './lancements-etrangers.js';
 import { scanFrais, verifierArrivee, resumerFrais } from './veille-frais.js';
 import { NOS_BLOCKS_GENESE, GRAINE_NOS_BLOCKS, graineNosBlocksAdmise, verifierGraineNos } from './origine.js';
 import { FEE_WALLET, USDC_BASE, CREATE_ROUTER } from './frais-creation.js';
+import { verifierEmission, creerServiceEmission, phraseEmission } from './emission-b20.js'; /* game376 : who can still create more of a block */
 import { etatLive, htmlLive } from './live.js';
 import { TBLOCK as TBLOCK_JETON, TBLOCK_TEST_ANCIEN, estJetonMasque, OPTIONS_LANCEMENT, HOOK_7030, estNotreHook as estNotreHookAchat } from './tokenomics.js';
 import { verifierAchatSkin, validerRecette, jugerBlocSkinV1, COUPURE_SKINS_V1 } from './skins.js';
@@ -273,6 +274,7 @@ import * as EP_PACK from './economie-pack.js'; /* 2026-11-12: the live economy p
 import { creerIndexLogs } from './index-logs.js'; /* game353: the community points */
 import { TOPICS as TOPICS_LOCK, decoderLock, LOCK_DEPLOY_BLOC } from './lock-evenements.js';
 import { tableauPoints } from './points.js';
+import { TBLOCK_PAR_POINT_JEU } from './points.js'; /* 2026-11-12: /api/points says the hearts rule from points.js, never typed */
 import { LOCK_DEPLOIEMENT } from './lock-deploiement.js';
 const TBLOCK_ADR = '0xb200000000000000000000ba9bf8330307f8830e';
 const NAISS_ETAT = { cache: new Map(), minute: 0, parIp: new Map() };
@@ -4057,6 +4059,39 @@ let blocsLusJusqua = null, trCache = { a: 0, corps: null }, trEnCours = null;
  *   `faitsDepuis` = le premier bloc a partir duquel CHAQUE creation lue est notee (pose au premier scan vers l avant qui avance) :
  *   en dessous, le navigateur relit lui-meme (creations-index.js). Sert aussi la Map (/api/creations-recentes). */
 const faitsCreation = new Map();
+/* ══ game376 (Phil 2026-11-12, CLOUD panel: « pourquoi pas vérifier ») — CAN ANYONE STILL CREATE MORE OF A BLOCK? ══════════════════
+ * ⛔ The panel said « We did not check whether anyone can still create them ». emission-b20.js now checks it on the chain: the roles
+ *   held at the end of the token's creation block (its own RoleGranted / RoleRevoked logs, ONE block, address-filtered), then
+ *   hasRole() now for each holder found there and the creator. Measured 2026-11-12: CLOUD FIXE (no right given at creation, 1 log
+ *   in its creation block), TBLOCK FIXE (rights given up in the same block), the 8 router-born seed blocks PEUT_CROITRE (an admin
+ *   still holds DEFAULT_ADMIN_ROLE).
+ * ⛔ COST, PER TOKEN AND ONCE: the creation block comes from THIS server's factory-log index (faitsCreation, creationsLuesIci) and is
+ *   re-checked (2 eth_call); without it, a bisection on totalSupply() at past blocks (~26 eth_call). Then TWO eth_getLogs of that one block
+ *   (the factory's B20Created for the token — the proof it IS the creation block, review 2026-11-12 — and the token's own logs) through lecteurLogs (deep window + archive budget exhausted = not sent: NON_LU, retried later) and a few hasRole. A FIXE verdict
+ *   never goes stale (nobody can ever be given the right) and is saved; PEUT_CROITRE is re-read after 30 min; a failure after 60 s.
+ *   At most VERIFS_PAR_MINUTE checks start per minute for the whole server, one at a time. The route never waits on the chain. */
+const FICHIER_EMISSION = (process.env.RAILWAY_VOLUME_MOUNT_PATH || (existsSync('/data') ? '/data' : null))
+  ? join(process.env.RAILWAY_VOLUME_MOUNT_PATH || '/data', 'emission-cache.json') : null;
+const serviceEmission = creerServiceEmission({
+  verifier: ({ jeton, precedent }) => consommateurArchive.run('route /api/emission', async () => {
+    const tete = parseInt(await rpcServeur('eth_blockNumber', []), 16);
+    const f = faitsCreation.get(jeton);
+    /* else the block the previous check found (re-checked by verifierEmission: born at b, not at b-1) — no new bisection per re-read */
+    const bloc = f && Number.isSafeInteger(f.bloc) ? f.bloc : (creationsLuesIci.get(jeton)
+      ?? (precedent && Number.isSafeInteger(precedent.blocCreation) ? precedent.blocCreation : null));
+    return verifierEmission({ rpc: rpcServeur, rpcLogs: lecteurLogs(Number.isSafeInteger(tete) ? tete : null).rpc, jeton,
+      blocCreation: bloc, createur: createurParBlock.get(jeton) || null, tete: Number.isSafeInteger(tete) ? tete : null,
+      etiquettes: { [String(FEE_WALLET).toLowerCase()]: 'TokenizedBlock’s fee wallet' } });
+  }),
+  surFixe: () => {
+    if (!FICHIER_EMISSION) return;
+    try { writeFileSync(FICHIER_EMISSION + '.tmp', JSON.stringify(serviceEmission.exporter())); renameSync(FICHIER_EMISSION + '.tmp', FICHIER_EMISSION); }
+    catch (_) { /* a failed save never breaks a read: the verdict stays in memory */ }
+  },
+});
+try {
+  if (FICHIER_EMISSION && existsSync(FICHIER_EMISSION)) console.log('[emission] ' + serviceEmission.importer(JSON.parse(readFileSync(FICHIER_EMISSION, 'utf8'))) + ' fixed-supply verdict(s) read back');
+} catch (e) { console.warn('[emission] cache unreadable, starting empty: ' + e.message); }
 /* ── game346 (Phil 2026-11-10: "the hearts given must show in the user's wallet, who gave them and how many the holder gave back; a
  *   leaderboard of the best contributors, live"; "a signal between blocks for those who heart"). The index reads BlockLikes' own `Liked`
  *   logs from its deploy block (coeurs-index.js: a failed window is read again, never skipped); creators come from `createurParBlock`
@@ -6317,6 +6352,8 @@ const SERVIS = [
   'payee-slot.js',
   /* 2026-11-12: the pack page shows the six deployed steps without a wallet (record judged, code read on Base) */
   'pack-deployed-view.js',
+  /* 2026-11-12 (game377): the pure lines of the "Your wallet" card on holders.html (the lock for hearts and the vault, the wallet for the channel) */
+  'holders-wallet.js',
   /* game120 : ondes, lumiere et son */
   'tam-ondes.js',
   /* game122 : electricite */
@@ -7423,6 +7460,23 @@ function traiterRequete(req, res) {
     return;
   }
 
+  /* ══ game376 — /api/emission/0x… : can anyone still create more of this block? (emission-b20.js, cached per token) ══════════════
+   * { ok, etat: FIXE | PEUT_CROITRE | INCERTAIN | NON_LU, detenteurs, enCours, reessayerDansS }. Never waits on the chain: a token not
+   * checked yet answers NON_LU + enCours (the panel says « checking… » and asks again), and its check runs in the background. */
+  if (chemin.startsWith('/api/emission/')) {
+    const jetonE = chemin.slice('/api/emission/'.length).toLowerCase();
+    const rendreE = (code, corps) => {
+      res.writeHead(code, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' });
+      res.end(JSON.stringify(corps));
+    };
+    if (!/^0x[0-9a-f]{40}$/.test(jetonE)) { rendreE(400, { ok: false, pourquoi: 'whole address required' }); return; }
+    const d = serviceEmission.demander(jetonE);
+    const v = d.v || { etat: 'NON_LU', jeton: jetonE, pourquoi: 'checking' };
+    /* `phrase` = the screen sentence, written in ONE place (emission-b20.js) — the page shows it, it does not rebuild it */
+    rendreE(200, { ok: true, ...v, phrase: phraseEmission(v), enCours: d.enCours, reessayerDansS: d.frais && v.etat !== 'NON_LU' ? null : 8 });
+    return;
+  }
+
   /* ══ LA VOIX D UN BLOCK : /api/voix (Raksha, 2026-10-02) ══════════════════════════════════════
    * GET  /api/voix?b=0x…,0x…   → les voix PUBLIQUES (sans le savoir entier, seulement son court resume), 60 au plus
    * GET  /api/voix/0x…         → la voix entiere d un block (pour sa fiche)
@@ -8008,7 +8062,7 @@ function traiterRequete(req, res) {
       lock: { complet: lockOk, lusJusqua: POINTS.index.etat.prochain - 1, trou: POINTS.index.etat.trou, sansTemps: POINTS.index.etat.sansTemps, evenements: evs.length },
       coeurs: { complet: coeursOk },
       /* game359: rule v2 (points.js); the old text said points share what the vault received — false (the vault pays by hearts) */
-      regle: 'v2: lock points per day = TBLOCK locked / 100,000 x commitment multiplier (x1 under 30 days, x1.25 from 30, x1.5 from 90, x1.75 from 180, x2 from 365 days; set at the last Locked/Extended) while the lock is active; hearts = 10 points each (1 point per 8,600 TBLOCK burned). Points decide a share of a separate community drop, not live; no rate is promised.',
+      regle: 'v2: lock points per day = TBLOCK locked / 100,000 x commitment multiplier (x1 under 30 days, x1.25 from 30, x1.5 from 90, x1.75 from 180, x2 from 365 days; set at the last Locked/Extended) while the lock is active; hearts: 1 point per ' + (TBLOCK_PAR_POINT_JEU / 10n ** 18n).toLocaleString('en-US') + ' TBLOCK burned (a heart earns what it burns, at the hearts contract price, which moves with TBLOCK). Points decide a share of a separate community drop, not live; no rate is promised.',
       board: tab.lignes.slice(0, 20).map((x) => ({ ...x, sesBlocks: (inv.get(x.holder) || []).slice(0, 3) })),
       somme: tab.somme,
     };

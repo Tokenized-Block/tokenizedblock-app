@@ -40,7 +40,7 @@ export const MARQUEURS_RESERVE = [
 export function phraseSigne(cle, etat) {
   const T = {
     mintFerme: {
-      VIF: ['Nobody can ever make more of this one.', 'supply == cap'],
+      VIF: ['All of it was made at birth: the supply equals the cap. Only an admin could raise the cap.', 'supply == cap'],
       FAIBLE: ['More of it can still be created.', 'supply < cap'],
     },
     sansAdmin: {

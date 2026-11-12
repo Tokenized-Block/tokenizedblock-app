@@ -95,7 +95,8 @@ const holdersApi = (connecte) => (url) => {
   await apres.el('#connecter').onclick();
   for (let i = 0; i < 20; i++) await new Promise((o) => setTimeout(o, 5));
   const tx2 = apres.textes();
-  t('holders render after Connect: the wallet was read (witness)', tx2.includes('HOLDER') && tx2.some((s) => s === '✓ YOU CAN'), tx2.slice(0, 12).join(' | '));
+  /* game377: the card says each rule on its own value; the server's wallet answer ($27, enough) is the channel line, the lock is not read here */
+  t('holders render after Connect: the wallet was read (witness)', tx2.includes('enough: $27.00 in your wallet') && tx2.includes('Locked') && tx2.some((s) => s === '✓ YOU CAN'), tx2.slice(0, 12).join(' | '));
   t('holders render after Connect: no status or version word', fautes(tx2).length === 0, fautes(tx2).join(' '));
 }
 

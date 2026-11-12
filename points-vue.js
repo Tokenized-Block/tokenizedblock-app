@@ -38,6 +38,9 @@ export function lignesMesPoints(r, nom) {
   if (!r || !r.ok) return [{ k: 'Your points', v: 'not read just now' }];
   const c = r.compte;
   if (!c) return [{ k: 'Your points', v: 'connect your wallet to see them' }];
+  /* 2026-11-12: while the index is still reading the chain (complet:false), a zero is NOT known — a fresh server told a wallet with points
+   *   it had "none yet". Say it is still reading; "none yet" only once the index is complete. */
+  if (!(c.total > 0) && !r.complet) return [{ k: 'Your points', v: 'still reading the chain — your points show once it is read' }];
   if (!(c.total > 0)) return [{ k: 'Your points', v: 'none yet — lock 100,000 TBLOCK for 1 point a day, or send a heart: 1 point per ' + TBLOCK_PAR_POINT_TEXTE + ' TBLOCK it burns' }];
   const l = [
     { k: 'Your points', v: fmtPts(c.total) + ' (lock ' + fmtPts(c.lock) + ' · hearts ' + fmtPts(c.jeu) + ')' },

@@ -119,7 +119,8 @@ lock are read from the hook, not from the app.
 
 ## What a fork inherits, and what it does not
 
-**Inherits:** the B-20 factory (adminless tokens, supply minted at creation, no minter ever), the
+**Inherits:** the B-20 factory (the whole supply minted at creation, equal to the cap; the app names the
+creating wallet as each block's admin, which could raise the cap later — see the README), the
 Uniswap v4 launch plan, the permanent-liquidity rule, the 17 currencies a deployed hook admits, and
 every measurement script in this repository with its stated bounds.
 

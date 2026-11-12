@@ -25,6 +25,10 @@
 export const LIQ_MIN_ECHELLE_USD = 500;
 
 const nb = (v) => { const x = Number(v); return Number.isFinite(x) && x > 0 ? x : 0; };
+/* ⛔⛔ 2026-11-12 : CLOUD alone put $7.6B in this total — DexScreener's pool "liquidity", of which ~$4 is cash (0.002 WETH), the
+ *   rest its own tokens priced at a price that $4 sets. A line the index marks as paper (`liquiditePapier`, trending.js) counts
+ *   by the cash a seller can get out; it then usually falls under the floor and is counted as set aside, not added. */
+const liqHonnete = (l) => (l && l.liquiditePapier === true ? nb(l.profondeurUsd) : nb(l && l.liquiditeUsd));
 
 /**
  * @param {object[]} lignes  les lignes de marche deja lues ({ liquiditeUsd, volume24hUsd, trades24h, dex })
@@ -38,12 +42,12 @@ export function echelleDesMarches(lignes) {
   if (!Array.isArray(lignes) || !lignes.length) {
     return { etat: 'NON_LU', pourquoi: 'no market lines were given yet' };
   }
-  const gardees = lignes.filter((l) => l && nb(l.liquiditeUsd) >= LIQ_MIN_ECHELLE_USD);
+  const gardees = lignes.filter((l) => l && liqHonnete(l) >= LIQ_MIN_ECHELLE_USD);
   if (!gardees.length) {
     return { etat: 'AUCUN_MARCHE', pourquoi: 'no line reaches the liquidity floor' };
   }
   const volume24hUsd = gardees.reduce((a, l) => a + nb(l.volume24hUsd), 0);
-  const liquiditeUsd = gardees.reduce((a, l) => a + nb(l.liquiditeUsd), 0);
+  const liquiditeUsd = gardees.reduce((a, l) => a + liqHonnete(l), 0);
   const trades24h = gardees.reduce((a, l) => a + nb(l.trades24h), 0);
 
   /* ⛔ LA REPARTITION PAR DEX EST DANS LE MEME CALCUL, parce que c est elle qui rend le total
@@ -52,7 +56,7 @@ export function echelleDesMarches(lignes) {
   for (const l of gardees) {
     const d = String((l && l.dex) || '?').slice(0, 20);
     const e = parDexMap.get(d) || { dex: d, blocks: 0, liquiditeUsd: 0, volume24hUsd: 0 };
-    e.blocks += 1; e.liquiditeUsd += nb(l.liquiditeUsd); e.volume24hUsd += nb(l.volume24hUsd);
+    e.blocks += 1; e.liquiditeUsd += liqHonnete(l); e.volume24hUsd += nb(l.volume24hUsd);
     parDexMap.set(d, e);
   }
   const parDex = [...parDexMap.values()].sort((a, b) => b.liquiditeUsd - a.liquiditeUsd);

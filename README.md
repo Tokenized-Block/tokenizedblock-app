@@ -15,12 +15,67 @@
 
 ## What a block is
 
-- **No administrator, no minter.** No account holds `DEFAULT_ADMIN_ROLE` or `MINT_ROLE` — at any
-  point, creation included.
-- **Supply is final at birth.** It is minted inside the creation transaction and equals the cap, so
-  no further unit can ever exist. Not for the creator, not for us.
+- **Every block born through this app has an administrator: its creator's wallet.** The app passes
+  the creating wallet as the B-20 `admin` at birth (`calldataCreation` in `app.html`,
+  `naissance-api.js`), and the factory grants it `DEFAULT_ADMIN_ROLE` in the creation transaction;
+  nothing revokes it. Nobody holds `MINT_ROLE` at birth, but the admin can raise the cap
+  (`updateSupplyCap`) and grant itself `MINT_ROLE`, or any other role (each one is administered by `DEFAULT_ADMIN_ROLE`). The B-20 precompile also
+  refuses to let the last admin leave (`renounceRole` and `revokeRole` revert
+  `LastAdminCannotRenounce()`). All read on Base on 2026-11-12, including on the newest app birth
+  (`0xb200…3f2f`, 2026-11-10).
+- **Supply equals the cap at birth.** 1,000,000,000 units are minted inside the creation
+  transaction (all to the creator on the current path), and the cap is set to that number. It stays
+  that way unless the block's admin raises the cap.
 - **The market is permanent.** Liquidity is deposited to the dead address. Nobody can withdraw it,
   and therefore nobody can collect LP fees — which is why the LP fee is set to `0`.
+
+<details>
+<summary><b>The 17 blocks we know were born through TokenizedBlock, and who holds their admin role</b></summary>
+
+<br>
+
+Read on 2026-11-12 with `emission-b20.js` (`verifierEmission`: the creation block's `RoleGranted` /
+`RoleRevoked` logs, then `hasRole` now), on base-rpc.publicnode.com. All 17: supply = cap =
+1,000,000,000, no `MINT_ROLE` granted in the creation transaction, and the account below holds
+`DEFAULT_ADMIN_ROLE` today.
+
+| block | born (Base block) | holds `DEFAULT_ADMIN_ROLE` |
+|---|---|---|
+| `0xb20000000000000000000003d296be435ae4bbe3` (TTB) | 51224806 | `0xaf8e0a44496a6b90da03fbadd9daec875fc3e2a6`, its creator |
+| `0xb20000000000000000000024c30d3fcb7931272e` | 51260745 | `0xaf8e0a44496a6b90da03fbadd9daec875fc3e2a6`, its creator |
+| `0xb200000000000000000000407ee1732664dc8028` | 51314358 | `0x410640c3048ab18fc27a6e274e4ae907580e0dea`, its creator |
+| `0xb200000000000000000000dae0212b61be4c49bb` | 51314670 | `0x410640c3048ab18fc27a6e274e4ae907580e0dea`, its creator |
+| `0xb200000000000000000000913c2d82ea435eb2aa` | 51356384 | `0x410640c3048ab18fc27a6e274e4ae907580e0dea`, its creator |
+| `0xb20000000000000000000072eb43b8db1029b7d9` | 51358276 | `0x410640c3048ab18fc27a6e274e4ae907580e0dea`, its creator |
+| `0xb200000000000000000000df3ffcd9be89b3843c` | 51359874 | `0x410640c3048ab18fc27a6e274e4ae907580e0dea`, its creator |
+| `0xb200000000000000000000ab549fa65ad4edae3f` | 51527429 | `0xa6cf99d35949c6cb911adb910078f4ca46f0f5d4`, **our fee wallet** |
+| `0xb200000000000000000000baa5356bfc210cc30a` | 51660080 | `0x6acc0473fb6f44cb26477a0456a841c2c7cbd186`, its creator |
+| `0xb200000000000000000000e63ffc3f40bf92a042` | 51692885 | `0xa6cf99d35949c6cb911adb910078f4ca46f0f5d4`, **our fee wallet** |
+| `0xb2000000000000000000005113f47a963ebdc45c` | 51693323 | `0x37eb9b7ce0b51fe12fbf092026e001918128580a`, its creator (our former fee wallet) |
+| `0xb200000000000000000000e7e9db76e8234f8f56` | 51955173 | `0xaf8e0a44496a6b90da03fbadd9daec875fc3e2a6`, its creator |
+| `0xb20000000000000000000005090fb1d9da0e5949` | 51998292 | `0x37eb9b7ce0b51fe12fbf092026e001918128580a`, its creator (our former fee wallet) |
+| `0xb200000000000000000000e0e18f3d8fd5a50164` | 52217444 | `0xcafced36364578a1dfadac08ea59dd78ebf61b2a`, the admin named at its birth (sent through a smart wallet) |
+| `0xb2000000000000000000007afa7ed748b0874f27` | 52694118 | `0x31e0dbc9038c82184b9fa6a90057a3ed500bde3b`, its creator |
+| `0xb2000000000000000000001e784d3883f4a03f35` | 55664552 | `0x31e0dbc9038c82184b9fa6a90057a3ed500bde3b`, its creator |
+| `0xb2000000000000000000000b1e6268211b153f2f` | 55743933 | `0x31e0dbc9038c82184b9fa6a90057a3ed500bde3b`, its creator |
+
+The list: every `createPaid` of our CreateRouter and of its earlier router since its first block
+(`/api/blocks-routeur`, coverage complete), plus the blocks minted to our fee wallet
+(`/api/nos-blocks`). A block created on the older direct pages (`index.html`, `block-0.html`, which
+pass `admin = address(0)`) or by another app is not in it.
+
+Check any block yourself — `hasRole(bytes32,address)` with role `0x00…00` (`DEFAULT_ADMIN_ROLE`) or
+`0x154c00819833dac601ee5ddded6fda79d9d8b506b911b3dbd54cdb95fe6c3686` (`MINT_ROLE`):
+
+```bash
+cast call <block> "hasRole(bytes32,address)(bool)" 0x0000000000000000000000000000000000000000000000000000000000000000 <account> --rpc-url https://mainnet.base.org
+```
+
+or read the `RoleGranted` / `RoleRevoked` logs of the block's creation transaction on a block
+explorer. A block whose creation gave every right away in the same transaction holds no admin
+(TBLOCK `0xb200000000000000000000ba9bf8330307f8830e`, launched on BaseStonk, is one).
+
+</details>
 
 This page holds no key, has no backend that can move funds, and presents transactions for *your*
 wallet to sign. Every state it shows is re-read from the chain: a green result means a receipt with
