@@ -12,6 +12,8 @@
 import { BLOCKSKINS_DEPLOIEMENT } from './blockskins-deploiement.js';
 import { SKINS as SKINS_PACK_ADR, SKINS_DEPLOIEMENT, ROUTER as ROUTEUR_PACK, USDC as USDC_PACK } from './economie-pack.js';
 import { FRAIS_CONTRATS } from './frais-contrats.js';
+import { SKINS_SPIN_DEPLOIEMENT } from './skins-spin-deploiement.js';
+import { deployes as deployesSkinsSpin } from './skins-spin.js';
 
 const ADR = /^0x[0-9a-fA-F]{40}$/;
 
@@ -45,11 +47,32 @@ export function usdcTexte(brut) {
  *   source (its tokenURI carries "image", checked by the test). `precedent` = the earlier records, so the earlier skins stay readable. */
 export const SKINS_PACK = SKINS_PACK_ADR ? Object.freeze({ version: 'pack', adresse: SKINS_PACK_ADR, blocDeploiement: SKINS_DEPLOIEMENT.bloc, routeur: ROUTEUR_PACK,
   mintPriceUsdc: FRAIS_CONTRATS.BlockSkins.MINT_PRICE, imageDansLeWallet: true, constructeur: Object.freeze({ usdc: USDC_PACK }), precedent: BLOCKSKINS_DEPLOIEMENT }) : null;
-export const BLOCKSKINS_ACTIF = contratActif(SKINS_PACK || BLOCKSKINS_DEPLOIEMENT);
+/* 2026-11-12 (Phil): the NEW Skins at 1 USDC (skins-spin-deploiement.js), paid through the same TBLOCK payment router; a mint there is NOT a
+ *   play for the holders vault or the lock rewards (economie-pack.js SKINS_JOUE). Its record is BUILT here, never typed, and ONLY once the noter wrote its
+ *   address (skins-spin.js deployes: the CREATE address of the record's deployer and nonce, with its tx and block); with adresse null it is
+ *   null and nothing changes. Its price and router come from the record (the price read from the source by the preparer). `precedent` =
+ *   the pack's Skins and the earlier records: their skins stay readable and sellable, each on its own contract and market. */
+export function skinsUnDepuis(rec, precedent) {
+  const d = deployesSkinsSpin(rec).skins;
+  if (!d) return null;
+  return Object.freeze({ version: 'un', adresse: d.adresse, blocDeploiement: d.bloc, routeur: String(d.config.router).toLowerCase(), mintPriceUsdc: String(d.config.mintPriceUsdc),
+    imageDansLeWallet: true, constructeur: Object.freeze({ usdc: String(d.config.expectedUsdc).toLowerCase() }), precedent });
+}
+export const SKINS_UN = skinsUnDepuis(SKINS_SPIN_DEPLOIEMENT, SKINS_PACK || BLOCKSKINS_DEPLOIEMENT);
+const RACINE = SKINS_UN || SKINS_PACK || BLOCKSKINS_DEPLOIEMENT;
+export const BLOCKSKINS_ACTIF = contratActif(RACINE);
 export const BLOCKSKINS = String(BLOCKSKINS_ACTIF.adresse).toLowerCase();
 /** every deployed skins contract, OLDEST FIRST (the active one last): the skins of each stay readable, each with its own market */
-export const BLOCKSKINS_LUS = Object.freeze(chaineDeploiements(SKINS_PACK || BLOCKSKINS_DEPLOIEMENT).filter((x) => ADR.test(String(x.adresse || '')))
+export const BLOCKSKINS_LUS = Object.freeze(chaineDeploiements(RACINE).filter((x) => ADR.test(String(x.adresse || '')))
   .map((x) => String(x.adresse).toLowerCase()).reverse());
+/** the XP sources of the server, one per skins contract the app minted on, each with its OWN key and creation block (never another
+ *  contract's cursor). Kept as before the 1 USDC Skins: 'skins' = the last contract before the pack (its cursor is the one already saved),
+ *  'skinsPack' = the pack's Skins; then 'skinsUn' = the 1 USDC Skins once recorded. */
+export function sourcesSkins(pack = SKINS_PACK, un = SKINS_UN, base = BLOCKSKINS_DEPLOIEMENT) {
+  const anc = contratActif(pack ? pack.precedent : base);
+  const s = (cle, x) => Object.freeze({ cle, contrat: String(x.adresse).toLowerCase(), bloc: x.blocDeploiement });
+  return [s('skins', anc), ...(pack ? [s('skinsPack', pack)] : []), ...(un ? [s('skinsUn', un)] : [])];
+}
 
 /** The body of GET /api/skins/prix (2026-11-11): how a skin is bought TODAY, on the active BlockSkins contract.
  *  An exact USDC approve to the contract (only when the allowance is short), then mint(block, packed skin). The contract fixes the

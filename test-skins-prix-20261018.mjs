@@ -138,7 +138,7 @@ vu(/import \{ BLOCKSKINS as BLOCKSKINS_SRV, (BLOCKSKINS_LUS as BLOCKSKINS_LUS_SR
   'C le serveur credite le pass avec SKIN_MINT_USDC_SRV (le prix de l enregistrement) et /api/skins/prix rend skinsPrixCorps() (la meme valeur, lue dans l enregistrement actif)');
 
 /* ── D. la relecture on-chain avant tout achat ── */
-vu(/prixC = BigInt\(await rpc\('eth_call', \[\{ to: BLOCKSKINS, data: '0x' \+ selecteur\('MINT_PRICE\(\)'\) \}, 'latest'\]\)\);/.test(achat) && /if \(prixC !== SKIN_MINT_USDC \|\| fraisC !== beneficiaire \|\| routeurC !== EP\.ROUTER \|\| BLOCKSKINS !== EP\.SKINS \|\| devBps === null\) \{/.test(achat) /* 2026-11-12: + the router read */
+vu(/prixC = BigInt\(await rpc\('eth_call', \[\{ to: BLOCKSKINS, data: '0x' \+ selecteur\('MINT_PRICE\(\)'\) \}, 'latest'\]\)\);/.test(achat) && /if \(prixC !== SKIN_MINT_USDC \|\| fraisC !== beneficiaire \|\| routeurC !== EP\.ROUTER \|\| BLOCKSKINS !== EP\.SKINS_MINT \|\| devBps === null\) \{/.test(achat) /* 2026-11-12: + the router read; then the Skins the app MINTS on (the 1 USDC Skins once recorded) */
   && achat.indexOf("selecteur('MINT_PRICE()')") < achat.indexOf("await bcSigner(m, appels, 'skin_mint')"), 'D MINT_PRICE() est relu sur la chaine et compare a SKIN_MINT_USDC AVANT de signer ; sinon rien n est demande');
 /* la regle de refus, extraite telle qu elle est ecrite : un predicat pur a rejouer sur le mutant E3 */
 const refuse = (prixC, SKIN_MINT_USDC, fraisC, beneficiaire) => (prixC !== SKIN_MINT_USDC || fraisC !== beneficiaire);

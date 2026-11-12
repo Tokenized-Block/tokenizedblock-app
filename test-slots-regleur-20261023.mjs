@@ -362,8 +362,9 @@ await cas('8a panne RPC d eth_estimateGas : pas un echec', async () => {
   /* ⚠️ la garde n est jamais declenchee par un tour (le tour ne construit que des settleMany valides) : son APPEL avant la signature est
    *    donc verifie dans le SOURCE (une lecture, pas une execution — dit) ; ses refus, eux, sont executes ci-dessus */
   const corps = SOURCE.slice(SOURCE.indexOf('async function tour()'));
-  /* 2026-11-05 (keeper Denim) : la garde recoit aussi BlockDuelsV2 et le contrat des rolls joues */
-  const iG = corps.indexOf('verifierEnvoi(tx, { contrat: c, chainId, bornes, duels: cD, rolls: cR || cJ, duelsV2: cV });'), iS = corps.indexOf('signerEip1559(tx, cle)');
+  /* 2026-11-05 (keeper Denim) : la garde recoit aussi BlockDuelsV2 et le contrat des rolls joues ;
+   *   2026-11-12 (the new Spin) : et l ANCIEN Spin (slotsAvant), toujours regle — CHANGEMENT VOULU (test-keeper-spin-avant-20261112) */
+  const iG = corps.indexOf('verifierEnvoi(tx, { contrat: c, chainId, bornes, duels: cD, rolls: cR || cJ, duelsV2: cV, slotsAvant: cAvant });'), iS = corps.indexOf('signerEip1559(tx, cle)');
   vu(iG > 0 && iS > iG && (SOURCE.match(/signerEip1559\(/g) || []).length === 1, 'source : verifierEnvoi(tx) est appele AVANT la seule signature (un seul appel a signerEip1559)');
 }
 

@@ -97,7 +97,9 @@ if (srcAc.includes(ancre)) {
   const urlDep = pathToFileURL(join(ICI, 'blockskins-deploiement.js')).href;
   /* 2026-11-12: blockskins-actif.js imports the pack modules too: the copy points every relative import at the tree */
   const abs = (f) => pathToFileURL(join(ICI, f)).href;
-  writeFileSync(p, srcAc.split(ancre).join("contract: '" + AC.BLOCKSKINS + "',").replace("from './blockskins-deploiement.js'", "from '" + urlDep + "'").replace("from './economie-pack.js'", "from '" + abs('economie-pack.js') + "'").replace("from './frais-contrats.js'", "from '" + abs('frais-contrats.js') + "'"));
+  writeFileSync(p, srcAc.split(ancre).join("contract: '" + AC.BLOCKSKINS + "',").replace("from './blockskins-deploiement.js'", "from '" + urlDep + "'").replace("from './economie-pack.js'", "from '" + abs('economie-pack.js') + "'").replace("from './frais-contrats.js'", "from '" + abs('frais-contrats.js') + "'")
+    /* 2026-11-12: and the 1 USDC Skins record + its module */
+    .replace("from './skins-spin-deploiement.js'", "from '" + abs('skins-spin-deploiement.js') + "'").replace("from './skins-spin.js'", "from '" + abs('skins-spin.js') + "'"));
   try {
     const M = await import(pathToFileURL(p).href);
     mutCharge = typeof M.skinsPrixCorps === 'function' && corpsOk(M.skinsPrixCorps(), actif); /* the mutant loads and passes A: it is alive */

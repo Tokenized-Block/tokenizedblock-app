@@ -246,13 +246,14 @@ function lotCanonique(d, max) {
   if (n > max) throw new Error('keeper: refused, ' + n + ' rolls in one transaction (max ' + max + ')');
   return n;
 }
-export function verifierEnvoi(tx, { contrat, chainId, bornes = BORNES_DEFAUT, duels = null, rolls = null, duelsV2 = null }) {
-  const cS = adresseOk(contrat), cD = adresseOk(duels), cR = adresseOk(rolls), cV = adresseOk(duelsV2);
-  if (!cS && !cD && !cR && !cV) throw new Error('keeper: no keeper contract');
+export function verifierEnvoi(tx, { contrat, chainId, bornes = BORNES_DEFAUT, duels = null, rolls = null, duelsV2 = null, slotsAvant = null }) {
+  const cS = adresseOk(contrat), cD = adresseOk(duels), cR = adresseOk(rolls), cV = adresseOk(duelsV2), cA = adresseOk(slotsAvant);
+  if (!cS && !cD && !cR && !cV && !cA) throw new Error('keeper: no keeper contract');
   if (BigInt(tx.value ?? 0) !== 0n) throw new Error('keeper: refused, a keeper call carries no value');
   if (BigInt(tx.chainId) !== BigInt(chainId)) throw new Error('keeper: refused, wrong chain');
   const to = bas(tx.to), d = bas(tx.data);
-  if (cS && to === cS) {
+  /* 2026-11-12 (Phil: the new Spin): the EARLIER Spin (slotsAvant) is drained by the same rule as the slots contract: settleMany / settle only */
+  if ((cS && to === cS) || (cA && to === cA)) {
     if (d.startsWith(SEL_SETTLE) && d.length === 10 + 64) return 1;
     if (!d.startsWith(SEL_SETTLE_MANY)) throw new Error('keeper: refused, only settleMany / settle are ever sent to the slots contract');
     const m = motsDe('0x' + d.slice(10));
@@ -291,7 +292,10 @@ class Passagere extends Error {}
 export function creerRegleur({ cle = null, contrat = null, chainId = 8453, table = null, blocDeploiement = 0, rpc = null, rpcEnvoi = null,
   maintenant = () => Date.now(), bornes: bornesIn = {}, journal = () => {}, desactive = null, duels = null, rolls = null, msParBloc: msParBlocFixe = null,
   /* DENIM 2026-11-05 : duelsV2 = { contrat, bloc, joints? } (BlockDuelsV2) ; rollsJoues = { contrat, bloc } (BlockRolls : les rolls des joueurs) */
-  duelsV2 = null, rollsJoues = null } = {}) {
+  duelsV2 = null, rollsJoues = null,
+  /* 2026-11-12 (Phil: the new Spin, dev share through the router): slotsAvant = { contrat, table, bloc } — the EARLIER Spin, still settled
+   *   (settleMany only, its own spin ids, its own logs from its own block) while `contrat` is the new one: its last spins are never lost */
+  slotsAvant = null } = {}) {
   const bornes = { ...BORNES_DEFAUT, ...bornesIn };
   const c = adresseOk(contrat);
   const off = (pourquoi) => ({
@@ -304,6 +308,8 @@ export function creerRegleur({ cle = null, contrat = null, chainId = 8453, table
   if (!cle) return off('SLOTS_KEEPER_KEY is not set: the server settles nothing (anyone can still settle; prizes always go to the player)');
   const duelsCfg = duels && duels.contrat ? duels : null, rollsCfg = rolls && rolls.contrat ? rolls : null;
   const v2Cfg = duelsV2 && duelsV2.contrat ? duelsV2 : null, joueCfg = rollsJoues && rollsJoues.contrat ? rollsJoues : null;
+  const cAvant = slotsAvant ? adresseOk(slotsAvant.contrat) : null;
+  if (cAvant && (cAvant === c || !Array.isArray(slotsAvant.table) || slotsAvant.table.length !== Slots.MAX_POINTS + 1)) return off('the earlier Spin given to the keeper is the new one, or has no prize table');
   if (!c && !duelsCfg && !rollsCfg && !v2Cfg && !joueCfg) return off('no contract address in the slots, duels or rolls records');
   if (typeof rpc !== 'function') return off('no RPC reader');
   if (c && (!Array.isArray(table) || table.length !== Slots.MAX_POINTS + 1)) return off('no prize table in slots-deploiement.js');
@@ -329,6 +335,10 @@ export function creerRegleur({ cle = null, contrat = null, chainId = 8453, table
   };
   const suivis = new Map(); /* slots : id -> { t, player } */
   const ecartes = new Map(); /* slots : id -> t — settle seul qui ne se simule pas (paiement refuse) : ecarte jusqu a la fin de sa fenetre */
+  /* the slots contexts: the slots contract (its scan cursor stays st.scanne) and, when given, the earlier Spin with its OWN ids and cursor */
+  const principal = { c, tb, blocDeploiement, suivis, ecartes, scan: st };
+  const avant = cAvant ? { c: cAvant, tb: slotsAvant.table.map((x) => BigInt(x)), blocDeploiement: Number(slotsAvant.bloc) || 0, suivis: new Map(), ecartes: new Map(), scan: { scanne: null } } : null;
+  const slotsDe = (to) => (avant && bas(to) === avant.c ? avant : principal);
   const hashes = new Map(); /* bloc -> hash */
   /* id -> { t, vainqueur (null tant que non classe ; 'createur' | 'rejoignant'), mise, gA, gB (emballes), sansHash, luTour } —
    *   jamais une egalite ni un final : ceux-la vont dans duelsClos (id -> t), jamais relus, jusqu a la fin de leur fenetre */
@@ -448,7 +458,8 @@ export function creerRegleur({ cle = null, contrat = null, chainId = 8453, table
       st.compteurs.spinsRegles += regles.length; act.regles += regles.length;
       st.dernierRegle = { a, hash: v.hash, envoyes: v.ids.length, regles: regles.length, paye: regles.reduce((s, d) => s + d.payout, 0n).toString(), bloc };
       act.dernierInclus = { a, hash: v.hash, ids: v.ids, regles: regles.length, bloc };
-      for (const d of regles) suivis.delete(String(d.spinId));
+      const sx = slotsDe(v.to);
+      for (const d of regles) sx.suivis.delete(String(d.spinId));
     } else if (v.cible === 'duels') {
       const n = (r.logs || []).filter((l) => bas(l.address) === v.to && bas(l.topics && l.topics[0]) === TOPIC_DUEL_SETTLED).length;
       act.regles += n; act.dernierInclus = { a, hash: v.hash, duel: v.ids[0], regles: n, bloc };
@@ -510,7 +521,8 @@ export function creerRegleur({ cle = null, contrat = null, chainId = 8453, table
   }
 
   /* ---------------------------------------------------------------- slots : le lot settleMany du tour (au plus un candidat) */
-  async function candidatsSlots(tete, info) {
+  async function candidatsSlots(tete, info, x = principal) {
+    const { c, tb, suivis, ecartes, blocDeploiement } = x, st = x.scan;
     /* les Spun d une fenetre BORNEE : jamais plus de reculLogs blocs, jamais avant le deploiement ; puis les seuls blocs nouveaux (+ 8) */
     const plancher = Math.max(Number(blocDeploiement) || 0, tete - bornes.reculLogs + 1);
     const de = st.scanne === null ? plancher : Math.max(plancher, st.scanne + 1 - 8);
@@ -938,6 +950,7 @@ export function creerRegleur({ cle = null, contrat = null, chainId = 8453, table
           return null;
         }
         if (ids.length === 1) {
+          const { suivis, ecartes } = slotsDe(k.to);
           const s = suivis.get(ids[0]);
           ecartes.set(ids[0], s ? s.t : tete); st.compteurs.spinsEcartes += 1;
           erreur('spin #' + ids[0] + ': settling it alone reverts (its payout transfer fails?), left out of the batches: ' + msg(e));
@@ -993,6 +1006,7 @@ export function creerRegleur({ cle = null, contrat = null, chainId = 8453, table
       const listes = { slots: [], duels: [], rolls: [], duelsV2: [], rollsJoues: [] };
       const lire = async (nom, f) => { try { listes[nom] = await f(); } catch (e) { info.sain = false; erreur(nom + ' not read: ' + msg(e)); } };
       if (c) await lire('slots', () => candidatsSlots(tete, info));
+      if (avant) { const a = await (async () => { try { return await candidatsSlots(tete, info, avant); } catch (e) { info.sain = false; erreur('earlier Spin not read: ' + msg(e)); return []; } })(); listes.slots = [...listes.slots, ...a].sort((p, q) => p.fin - q.fin); }
       if (cD) await lire('duels', () => candidatsDuels(cD, tete, info));
       if (cR) await lire('rolls', () => candidatsRolls(cR, tete));
       if (cV) await lire('duelsV2', () => candidatsDuelsV2(cV, tete, info));
@@ -1045,7 +1059,7 @@ export function creerRegleur({ cle = null, contrat = null, chainId = 8453, table
       if (gas > bornes.gasMaxParTx) { erreur('gas ' + gas + ' above the per-tx cap'); return { fait: false, pourquoi: 'gas above the per-tx cap' }; }
       const nonce = BigInt(await rpc('eth_getTransactionCount', [adresse, 'pending']));
       const tx = { chainId, nonce, maxPriorityFeePerGas: prio, maxFeePerGas: maxFee, gas, to: k.to, value: 0n, data };
-      verifierEnvoi(tx, { contrat: c, chainId, bornes, duels: cD, rolls: cR || cJ, duelsV2: cV }); /* ⛔ jette AVANT la signature si quoi que ce soit n est pas un appel admis */
+      verifierEnvoi(tx, { contrat: c, chainId, bornes, duels: cD, rolls: cR || cJ, duelsV2: cV, slotsAvant: cAvant }); /* ⛔ jette AVANT la signature si quoi que ce soit n est pas un appel admis */
       const signe = signerEip1559(tx, cle);
       if (bas(signe.de) !== bas(adresse)) throw new Error('keeper: the signature does not recover the keeper address');
       try {
@@ -1101,6 +1115,7 @@ export function creerRegleur({ cle = null, contrat = null, chainId = 8453, table
         /* 2026-10-24 : l activite PAR CONTRAT (/sante) ; revue keeper 2 : son plafond horaire et ses envois de l heure */
         contrats: {
           slots: { contrat: c, suivis: suivis.size, ecartes: [...ecartes.keys()], envoisDerniereHeure: heure('slots'), plafondHeure: plafondHeure(bornes, 'slots'), ...st.parContrat.slots },
+          slotsAvant: avant ? { contrat: avant.c, suivis: avant.suivis.size, ecartes: [...avant.ecartes.keys()] } : null,
           /* revue duels-gate D1 : lu (derniere lecture REUSSIE des duels, ISO) et erreurLecture (la derniere ratee ; null apres un succes) —
            *   duels-plan-app.js regleurCouvre les exige frais et sans erreur ; clos = egalites / finals jamais relus */
           duels: { contrat: cD, configure: !!duelsCfg, suivis: duelsSuivis.size, clos: duelsClos.size, lu: lectureDuels.lu, erreurLecture: lectureDuels.erreur, lecturesRatees: lectureDuels.ratees,

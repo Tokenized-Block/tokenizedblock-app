@@ -29,7 +29,10 @@ ok(servis.has('app.html'), 'temoin : app.html est bien dans la liste lue');
 /* les pages dont on suit les imports */
 const PAGES = ['pot.html', 'reclamer.html', 'app.html', 'deploy-v6.html', 'deploy-pot.html', 'frais-et-risques.html', 'essai-autonome.html',
   /* 2026-11-12: the six-step pack deploy page (imports pack-economie-v2.js -> keccak.js, and the record economie-v2-pack-deploiement.js) */
-  'deployer-economie-v2.html'];
+  'deployer-economie-v2.html',
+  /* 2026-11-12 (Phil): the 1 USDC Skins and the new Spin deploy page (imports skins-spin.js -> keccak.js, pack-economie-v2.js, slots-config.js,
+   * economie-v2-pack-deploye.js, and the record skins-spin-deploiement.js); holders.html imports economie-pack.js -> skins-spin.js too */
+  'deployer-skins-spin.html', 'holders.html', 'contest.html'];
 const vus = new Set();
 const manquants = [];
 let arcs = 0;
