@@ -58,7 +58,7 @@ async function verifier(F) {
     t('1b with the read likePrice: "about 10.8 points a heart at the hearts contract price now"', avec.includes('Hearts: 1 point per 8,600 TBLOCK burned (about 10.8 points a heart at the hearts contract price now).'), avec);
     t('1c without a read price (null, undefined, 0, garbage): the burn rule alone, no number for a heart', typeof PV.regleCourte === 'function' && [null, undefined, '0', 'x'].every((p) => !/about|points a heart/.test(PV.regleCourte(p))) && PV.regleCourte(null) === PV.REGLE_COURTE);
     t('1d one heart = points.js#pointsJeu of its price (the same rule as the board)', typeof PV.pointsParCoeur === 'function' && ['86000000000000000000000', LIVE, '8600000000000000000000'].every((p) => PV.pointsParCoeur(p) === PL.pointsJeu(p)) && PV.pointsParCoeur('8600000000000000000000') === 1);
-    const zero = PV.lignesMesPoints({ ok: true, compte: { total: 0 } }, (x) => x)[0].v;
+    const zero = PV.lignesMesPoints({ ok: true, complet: true, compte: { total: 0 } }, (x) => x)[0].v; /* 2026-11-12: a zero is "none yet" only once the index is complete */
     t('1e zero points: how a heart counts, not "for 10"', !/for 10\b/.test(zero) && zero.includes('1 point per 8,600 TBLOCK it burns'), zero);
   });
   const APP = F['app.html'], H = F['holders.html'];

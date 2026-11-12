@@ -3141,7 +3141,7 @@ details[open] > summary::before{transform:rotate(90deg)}
                AERO : 1 988 034 890 unites contre le milliard fixe, soit ~1,988 par block — LU sur
                la chaine. Un facteur sans son montant est une sur-vente ; `ratioParBlock` le calcule
                desormais pour TOUT jeton source, et cette ligne dit qu il est montre. -->
-          <li><b>The supply is fixed</b> at 1 billion, minted to you at birth. You do not choose it — so one block stands for however much of the source token that billion covers, and the screen shows that ratio before you sign.</li>
+          <li><b>The supply is 1 billion</b>, minted to you at birth. You do not choose it — so one block stands for however much of the source token that billion covers, and the screen shows that ratio before you sign. The cap is set to that billion, and your wallet becomes the block's admin: only an admin can raise the cap later.</li>
           <li><b>Symbols of issued stocks are refused</b> — a block named like a real tokenized stock would back nothing.</li>
           <!-- ⛔⛔ CETTE LIGNE DISAIT « 50 bps » — notre taux d INTERFACE — pour un echange qui,
                sur une pool ouverte ici, coute 3 % : `HOOK_PREVU_FRAIS_BPS = 300`, et le
@@ -3687,7 +3687,7 @@ details[open] > summary::before{transform:rotate(90deg)}
       <!-- ⛔ L EMPREINTE EST AFFICHEE, DONC ELLE EST DE L ANGLAIS. `20261001-pont-dans-lui` a fait
            rougir `test-texte-a-l-ecran.mjs` : le mot « dans » est de la prose francaise partie a
            l ecran anglais. La garde a fait son travail du premier coup. -->
-      <p class="note" data-build="20261109-game379" hidden>Build <code>20261109-game379</code> ·Contract labels say what they do, not our internal names.</p>
+      <p class="note" data-build="20261109-game380" hidden>Build <code>20261109-game380</code> ·Contract labels say what they do, not our internal names.</p>
       <p class="sous">Everything happening to blocks on Base, live.</p>
       <!-- tip 0013: sticky — Hooked chip = Dex fees; unhooked → Launch beside. No fee addr. -->
       <p class="note" id="sfHookedSticky" hidden>Blocks alive on TokenizedBlock pay their creator on every trade. Example:<button type="button" class="puce" id="sfStickyTbgas">Open TBGAS</button>.</p>
@@ -5160,7 +5160,7 @@ import { VALO_PLANCHER_ETH } from './lancement.js';
 /* ⛔ LA LECTURE DE MARCHE VIT DANS UN MODULE, PAS ICI. La recopier depuis l autre ecran aurait
  * donne deux capitalisations differentes pour le meme block sur deux pages. */
 import { vieDuBlock } from './marche.js';
-import { lirePnlSwaps } from './pnl-swaps.js';
+import { lirePnlSwaps, valeurMarche, phraseValeurMarche, usdPhrase } from './pnl-swaps.js';
 /* ⛔ LES FAITS SONT LUS PAR UN MODULE TESTE, pas par une lecture improvisee ici : c est lui qui
  * garantit que « pas lu » ne se dise jamais comme « zero », et que le marqueur B20 reste le CODE
  * et jamais le prefixe d adresse. */
@@ -5481,10 +5481,8 @@ function viePourCerveau(adr, vie, etatVie) {
  *     le cerveau reste `NON_LU` — et l ecran dit alors « our read failed », pas « market unread ». */
 function vieServeurPourCerveau(adr) {
   const mk = adr ? marcheParAdr.get(String(adr).toLowerCase()) : null;
-  if (!mk || !(Number(mk.prixUsd) > 0)) return null;
-  if (Number(mk.fdvUsd) > 0) return Number(mk.fdvUsd);
-  if (Number(mk.liquiditeUsd) > 0) return Number(mk.liquiditeUsd);
-  return null;
+  const l = serverLifeOf(mk);
+  return l ? l.v : null;
 }
 /* ⛔⛔ 2026-10-04 — « NON_TROUVEE » VEUT DIRE « AUCUNE POOL V4 TROUVEE », PAS « AUCUN MARCHE ». Mesure dans le panneau, sur NVDAc :
  *   son marche est une pool AERODROME (1,8 M$ de volume par jour a l index), notre lecteur de chaine ne lit que le V4 — il rendait
@@ -5495,8 +5493,12 @@ function vieServeurPourCerveau(adr) {
 /* game59 2: THE PREVIOUS SERVER-INDEX LIFE of a block, kept when a new /api/trending row replaces the one it had. The fallback
  *   below feeds it as vieAvant — same source, same field (fdvUsd, else liquiditeUsd), so no change of unit is ever invented. */
 const serverLifeBefore = new Map();
+/* ⛔ 2026-11-12 (Phil, CLOUD : « garde que ce qui est live ») : a row the server marks as a pool too thin to trust (`liquiditePapier`,
+ *   trending.js) gives the brain its CASH — never a paper FDV nor its paper liquidity ($7.6B for ~$4). vieServeurPourCerveau reads
+ *   through here, so the two never part. Self-contained on purpose: the tests run this slice of the page on its own. */
 function serverLifeOf(row) {
   if (!row || !(Number(row.prixUsd) > 0)) return null;
+  if (row.liquiditePapier === true) return Number(row.profondeurUsd) > 0 ? { v: Number(row.profondeurUsd), field: 'profondeurUsd' } : null;
   if (Number(row.fdvUsd) > 0) return { v: Number(row.fdvUsd), field: 'fdvUsd' };
   if (Number(row.liquiditeUsd) > 0) return { v: Number(row.liquiditeUsd), field: 'liquiditeUsd' };
   return null;
@@ -9167,7 +9169,7 @@ async function lirePrixEth() {
 /** La jauge d un block, en dollars. Rend le texte a afficher et la largeur de barre. */
 function jaugeDe(vieEth, etatVie) {
   if (!(typeof vieEth === 'number' && vieEth > 0)) {
-    return { pct: 0, texte: etatVie === 'NON_TROUVEE' ? 'No TB-readable pool yet — no tier, nothing locked.' : (etatVie === 'NON_LUE' ? 'Market unread — retry.' : 'Tier not judged: life not read.') };
+    return { pct: 0, texte: etatVie === 'NON_TROUVEE' ? 'No market on TokenizedBlock yet — no tier, nothing locked.' : (etatVie === 'NON_LUE' ? 'Market unread — retry.' : 'Tier not judged: life not read.') };
   }
   if (ethUsd === null) return { pct: 0, texte: 'Tier not judged: the ETH/USD price could not be read.' };
   const usd = vieEth * ethUsd;
@@ -10491,17 +10493,23 @@ $('#map').addEventListener('click', (e) => {
    *   ⛔ ET LA PHRASE DIRA « read on chain », pas « public market » : une lecture qui ne se
    *     distingue pas de celle d un tiers n apporterait rien. */
   if (!lueSurChaine && mkPublic && mkPublic.poolAdr) { try { lireMarcheCL(adr, mkPublic); } catch (_) {} }
+  /* 2026-11-12 : the public value is ALWAYS said with the cash in its pool, and a pool too thin to trust says so (pnl-swaps.js).
+   *   « never traded » is gone: NON_TROUVEE is about OUR reader (no pool it can trade), not a fact about the block's history. */
+  const vmPublic = valeurDeLigneMarche(mkPublic);
+  /* second pass (Phil, 2026-11-12) : a pool too thin to trust shows its CASH only (« Not valued: … only $4.11 to sell into »). */
   $('#fVie').textContent = lueSurChaine
     ? Math.round(h.vie * 100) / 100 + ' ETH of life'
-    : mkPublic && Number(mkPublic.fdvUsd) > 0 ? '≈ ' + usdCourt(mkPublic.fdvUsd) + ' market cap · public market'
-      : h && h.etatVie === 'NON_TROUVEE' ? 'No TB-readable pool yet — never traded, which is not the same as worthless'
+    : (vmPublic.valeurUsd !== null || vmPublic.mince === true) ? phraseValeurMarche(vmPublic) + ' · public market'
+      : h && h.etatVie === 'NON_TROUVEE' ? 'No market on TokenizedBlock yet — which is not the same as worthless'
         : h && h.etatVie === 'NON_LUE' ? 'life unreadable right now — not the same as none'
           : 'life not read yet';
   $('#fAdr').textContent = adr;
   const j = jaugeDe(h ? h.vie : null, h ? h.etatVie : null);
   $('#fBarre').style.width = j.pct > 0 ? Math.max(2, Math.round(j.pct * 100)) + '%' : '0';
-  if (!lueSurChaine && mkPublic && Number(mkPublic.fdvUsd) > 0) {
-    const st = stadesDesBlocks({ ethUsd, blocks: [{ adr, sym: h && h.sym, vie: null, etatVie: 'NON_LUE', capUsdMarche: Number(mkPublic.fdvUsd) }] });
+  if (!lueSurChaine && vmPublic.mince === true) {
+    $('#fPalier').textContent = 'No tier: its price comes from a pool too thin to trust.';
+  } else if (!lueSurChaine && vmPublic.valeurUsd !== null) {
+    const st = stadesDesBlocks({ ethUsd, blocks: [{ adr, sym: h && h.sym, vie: null, etatVie: 'NON_LUE', capUsdMarche: vmPublic.valeurUsd }] });
     const g = st.groupes[0];
     $('#fPalier').textContent = g ? '≈ ' + (EMOJI_STADE[g.cle] || '') + ' ' + g.titre.split(' — ')[0] + ' — from the public market' : j.texte;
   } else $('#fPalier').textContent = j.texte;
@@ -10526,8 +10534,7 @@ $('#map').addEventListener('click', (e) => {
   $('#fChips').innerHTML = mk
     ? chip('Price', usdCourt(mk.prixUsd))
       + (mk.change24h !== null && mk.change24h !== undefined ? chip('24h', pctTxt(mk.change24h), mk.change24h >= 0 ? 'trUp' : 'trDown') : '')
-      + chip('Vol 24h', usdCourt(mk.volume24hUsd)) + chip('Liquidity', usdCourt(mk.liquiditeUsd))
-      + (mk.fdvUsd ? chip('FDV', usdCourt(mk.fdvUsd)) : '')
+      + chip('Vol 24h', usdCourt(mk.volume24hUsd)) + chipsValeurMarche(mk, chip)
     : '';
   $('#fiche').dataset.block = adr;
   $('#fiche').dataset.sym = (h && h.sym) || '';
@@ -11229,16 +11236,43 @@ $('#fOuvrir').addEventListener('click', async () => {
     : f.estB20 ? 'native B20 (code 0xef — unforgeable)' : '⚠️ NOT a native B20, despite the address');
   const sup = supplyLisible(f.supply, f.decimales);
   l.push(sup ? 'supply ' + sup + ' (' + f.decimales + ' decimals)' : 'supply not read');
-  l.push(f.mintFerme === null ? 'cap: not read'
-    /* ⛔ LE JUMEAU de la fiche du profil, et il portait la meme affirmation non mesuree : « more can
-     *   still be minted » conclut qu une emission est possible alors qu on n a lu qu une marge
-     *   entre supply et cap. Corriger un seul des deux aurait laisse l autre mentir — c est
-     *   toujours la copie qu on ne relit pas qui reste fausse. */
-    : f.mintFerme ? 'cap = supply today — more only if its admin raises the cap'
-      : 'supply below cap — mint role not checked');
+  /* ⛔ LE JUMEAU de la fiche du profil : les deux disent la MEME phrase, lue sur la chaine par le serveur (game376 :
+   *   /api/emission, emission-b20.js) — « checking » jusqu au verdict, jamais une marge entre supply et cap presentee comme
+   *   une reponse. Corriger un seul des deux aurait laisse l autre mentir. */
+  const iEmission = l.length;
+  l.push(PHRASE_EMISSION_ATTENTE);
   if (f.manques.length) l.push('not read: ' + f.manques.join(', ') + ' — click “Read its facts” again to retry');
   note.textContent = l.join(' · ');
+  peindreEmission(adr, (t) => { l[iEmission] = t; note.textContent = l.join(' · '); },
+    () => $('#fAdr').textContent.trim().toLowerCase() === adr.toLowerCase());
 });
+
+/* ⛔⛔ 2026-11-12 (Phil, CLOUD : « pourquoi pas vérifier ») — la phrase « We did not check whether anyone can still create them »
+ *   etait honnete et inutile. Le serveur VERIFIE maintenant (emission-b20.js, /api/emission) : les roles tenus a la fin du bloc de
+ *   creation (ses propres logs RoleGranted / RoleRevoked), puis hasRole() aujourd hui. Mesure du jour : CLOUD « Fixed supply:
+ *   nobody can create more » (aucun droit donne a sa creation). La phrase vient du serveur, ecrite a UN endroit ; l ecran
+ *   l affiche. Tant que le verdict n est pas lu : « checking », jamais une erreur, et on redemande. */
+const PHRASE_EMISSION_ATTENTE = 'Checking who can create more…';
+async function peindreEmission(adr, ecrire, encore = () => true) {
+  const a = String(adr || '').toLowerCase();
+  if (!/^0x[0-9a-f]{40}$/.test(a)) return;
+  /* the server reads Base mainnet: on the practice network the question is not asked there */
+  if (CHAINE !== 8453) { ecrire('Who can create more is checked on Base mainnet only'); return; }
+  let dit = false; /* a verdict already on screen (a re-read in progress) is never replaced by « still checking » — review 2026-11-12 */
+  for (let k = 0; k < 8; k++) {
+    let j = null;
+    try { j = await fetch('/api/emission/' + a, { cache: 'no-store', signal: AbortSignal.timeout(8000) }).then((x) => x.json()); } catch (_) { j = null; }
+    if (!encore()) return;
+    if (j && j.ok && j.pasB20) { ecrire('Not a native B20: no supply rule to read'); return; }
+    if (j && j.ok && typeof j.phrase === 'string' && j.phrase) {
+      ecrire(j.phrase); dit = true;
+      if (!j.enCours) return;
+    }
+    await new Promise((ok) => setTimeout(ok, Math.min(30, Math.max(3, Number(j && j.reessayerDansS) || 8)) * 1000));
+    if (!encore()) return;
+  }
+  if (!dit) ecrire('Still checking who can create more — open this block again in a minute');
+}
 
 /**
  * Trouver un block : par adresse, par symbole exact, puis par symbole partiel.
@@ -13567,11 +13601,15 @@ function classementCourant() {
    * ⛔ UNE SEULE UNITE : `vieEnUsd` est le convertisseur deja en place — on l appelle, on ne le
    *    recopie pas. Sans unite commune, `classer()` voit ETH et USDC melanges et refuse, a raison.
    * ⛔ LA SOURCE RESTE ATTACHEE A LA LIGNE : chaine ou agregateur, l ecran doit pouvoir le dire. */
+  /* ⛔⛔ 2026-11-12 (visitor sweep + Phil, CLOUD) : CLOUD etait n°1 a ~9,5 Md$ — une FDV fixee par une pool qui ne tient que
+   *   ~4 $ de cash (0,002 WETH). Un prix que 4 $ fixent ne mesure pas une taille. Une ligne de l index marquee « papier »
+   *   (`liquiditePapier`, la regle de pnl-swaps.js : marque en dollars > 20 x le cote cash) n est PAS classee : elle part en
+   *   non classee AVEC SA RAISON (`mince`), dite a part dans la note — jamais melangee aux « pas de marche lisible ». */
   return classer(habitants.map((h) => {
     const surChaine = vieEnUsd(typeof h.vie === 'number' ? h.vie : null, h.devise);
-    const publique = (marcheParAdr.get(String(h.adr).toLowerCase()) || {}).fdvUsd;
-    const cap = surChaine != null ? surChaine
-      : (typeof publique === 'number' && Number.isFinite(publique) && publique > 0 ? publique : null);
+    const vm = valeurDeLigneMarche(marcheParAdr.get(String(h.adr).toLowerCase()));
+    const cap = surChaine != null ? surChaine : (vm.classable ? vm.valeurUsd : null);
+    const mince = surChaine == null && vm.mince === true; /* valeurMarche gives a thin pool no value at all (2026-11-12) */
     return {
       adr: h.adr, symbole: h.sym,
       capitalisation: cap,
@@ -13580,8 +13618,10 @@ function classementCourant() {
        *   ici a partir du symbole ni du prefixe d adresse. */
       emetteur: (marcheParAdr.get(String(h.adr).toLowerCase()) || {}).emetteur === true,
       source: cap == null ? null : (surChaine != null ? 'CHAINE' : 'AGREGATEUR'),
+      mince,
       pourquoi: cap == null
-        ? (h.pourquoi || (h.vie == null ? 'market not read yet' : 'no USD price for this quote currency'))
+        ? (mince ? 'priced by a pool too thin to trust'
+          : (h.pourquoi || (h.vie == null ? 'market not read yet' : 'no USD price for this quote currency')))
         : null,
     };
   /* ⛔⛔⛔ ET LES BLOCKS QUE L AGREGATEUR CONNAIT SANS QUE LA MAP LES AIT ENCORE POSES. C ETAIT LE
@@ -13602,13 +13642,34 @@ function classementCourant() {
     const enPlus = [];
     for (const [adr, mk] of marcheParAdr) {
       if (dejaLa.has(adr)) continue;
-      const fdv = mk && Number(mk.fdvUsd);
-      if (!(typeof fdv === 'number' && Number.isFinite(fdv) && fdv > 0)) continue;
-      enPlus.push({ adr, symbole: mk.sym || null, capitalisation: fdv, devise: 'USD',
-        emetteur: mk.emetteur === true, source: 'AGREGATEUR', pourquoi: null });
+      const vm = valeurDeLigneMarche(mk);
+      if (vm.valeurUsd === null && !(vm.mince === true && Number(mk && mk.prixUsd) > 0)) continue;
+      /* une ligne trop mince entre quand meme dans la population — non classee, avec sa raison — pour que la note la compte */
+      enPlus.push(vm.classable
+        ? { adr, symbole: mk.sym || null, capitalisation: vm.valeurUsd, devise: 'USD',
+          emetteur: mk.emetteur === true, source: 'AGREGATEUR', mince: false, pourquoi: null }
+        : { adr, symbole: mk.sym || null, capitalisation: null, devise: null,
+          emetteur: mk.emetteur === true, source: null, mince: true, pourquoi: 'priced by a pool too thin to trust' });
     }
     return enPlus;
   })()));
+}
+/** The market value of one /api/trending row, with its cash side (pnl-swaps.js decides what is too thin to trust). */
+function valeurDeLigneMarche(mk) {
+  return valeurMarche({ fdvUsd: mk ? mk.fdvUsd : null, liquiditeUsd: mk ? mk.liquiditeUsd : null,
+    profondeurUsd: mk ? mk.profondeurUsd : null, liquiditePapier: mk ? mk.liquiditePapier : null });
+}
+/** "Liquidity" as a screen may show it: for a pool too thin to trust, the cash a seller can get out — never its paper mark. */
+function texteLiquiditeMarche(mk) {
+  const vm = valeurDeLigneMarche(mk);
+  if (vm.mince === true) return usdPhrase(vm.profondeurUsd) + ' cash';
+  return mk && Number(mk.liquiditeUsd) > 0 ? usdCourt(mk.liquiditeUsd) : '—';
+}
+/** The map card's value chips: a thin pool shows its cash and says its value cannot be trusted, instead of Liquidity/FDV. */
+function chipsValeurMarche(mk, chip) {
+  const vm = valeurDeLigneMarche(mk);
+  if (vm.mince === true) return chip('Cash in pool', usdPhrase(vm.profondeurUsd)) + chip('Value', 'too thin to trust');
+  return chip('Liquidity', usdCourt(mk.liquiditeUsd)) + (vm.valeurUsd !== null ? chip('FDV', usdCourt(vm.valeurUsd)) : '');
 }
 
 /* ⛔ `enTexte` N ECHAPPE PAS LE GUILLEMET : il passe par textContent, qui protege < > &, pas ". Un
@@ -13685,6 +13746,8 @@ function peindreClassement() {
   /* ⛔ QUATRE ETATS, QUATRE PHRASES. Le refus de classer (devises melangees) tombait dans le « pas
    *    fini de lire » : un etat neuf dans le `else` d un autre. Il a sa branche maintenant. */
   const nAgr = cl.classes.filter((b) => b.source === 'AGREGATEUR').length;
+  const nMinces = cl.nonMesures.filter((b) => b.mince === true).length;
+  const nSansMarche = cl.nonMesures.length - nMinces;
   $('#rangNote').textContent = cl.population === 0
     ? (lectureVieEnCours ? 'Reading markets on the chain…' : 'The map has not finished reading the chain yet.')
     : cl.devises.length > 1
@@ -13698,8 +13761,10 @@ function peindreClassement() {
          *     bouge sans le dire fait passer sa propre progression pour un palmares.
          *   ⇒ La phrase dit maintenant « read so far », et qu il en reste. */
         ? cl.classes.length + ' ranked of ' + cl.population + ' read so far'
-          + (cl.nonMesures.length ? ' · ' + cl.nonMesures.length
-            + ' with no readable market — unranked, which is not last' : '') + '.'
+          + (nSansMarche ? ' · ' + nSansMarche
+            + ' with no readable market — unranked, which is not last' : '')
+          /* 2026-11-12 : the thin ones are said apart, with their reason — "no readable market" would be false for them */
+          + (nMinces ? ' · ' + nMinces + ' left out: priced by a pool too thin to trust (its value is set by a few dollars)' : '') + '.'
           /* ⛔ « not read on chain » RETIRE (Phil, 2026-09-30) : le titre ne promet plus la chaine
            *   pour toute la liste, donc la note n a plus a le nier. Elle dit d ou vient le prix. */
           + (nAgr ? ' ' + nAgr + ' of them (~) priced by a public aggregator.' : '')
@@ -13729,7 +13794,8 @@ function peindreStades() {
    * et rend `parMarche`, que la note ci-dessous dit a l ecran. */
   const r = stadesDesBlocks({ ethUsd, blocks: habitants.map((h) => ({ adr: h.adr, sym: h.sym, vie: h.vie, devise: h.devise,
     etatVie: h.etatVie, nourriture: h.nourriture, nous: h.nous === true || estANous(h.adr),
-    capUsdMarche: (marcheParAdr.get(String(h.adr).toLowerCase()) || {}).fdvUsd ?? null })) });
+    /* 2026-11-12 : a pool too thin to trust gives no stage (valeurMarche : no value), never its paper FDV */
+    capUsdMarche: valeurDeLigneMarche(marcheParAdr.get(String(h.adr).toLowerCase())).valeurUsd })) });
   const silencieux = new Set(['NON_LU', 'PRIX_NON_LU']);
   $('#stades').innerHTML = r.groupes.map((g) => {
     const mute = silencieux.has(g.cle);
@@ -14507,6 +14573,19 @@ function peindreMarcheHook(v) {
 
 
 
+/** "Market cap · life" on the profile once the public pair is read (2026-11-12, Phil on CLOUD: « No TB-readable pool yet » next
+ *  to a price). A price exists, so the value is said — ALWAYS with the cash in its pool; a pool too thin to trust gets NO value,
+ *  only its cash (« Not valued: … », pnl-swaps.js, second pass). Our own on-chain life, when it is a number, keeps priority; a failed read changes nothing. */
+function peindreValeurProfil(adr, r) {
+  const el = $('#pVie');
+  if (!el || !r || r.etat !== 'LUE' || !r.market || !r.market.valeur) return;
+  const box = $('#profil');
+  if (box && String(box.dataset.block || '').toLowerCase() !== String(adr || '').toLowerCase()) return;
+  if (typeof vieProfil === 'number' && Number.isFinite(vieProfil)) return;
+  const p = phraseValeurMarche(r.market.valeur);
+  if (p) el.textContent = p;
+}
+
 /** tip 2245: swap-derived market + optional Your PnL — DexScreener / Gecko; measured only. */
 async function peindrePnlSwaps(adr, perime) {
   const box = $('#pPnlSwaps');
@@ -14539,11 +14618,15 @@ async function peindrePnlSwaps(adr, perime) {
   if (!r || r.cardHidden) { box.hidden = true; return; }
   box.hidden = false;
   const pub = (r.lignes || []).map((x) => '<li>' + x + '</li>').join('');
-  const priv = (r.lignesPrivees || []);
+  /* ⛔ 2026-11-12 (Phil: « More (private) » then six EMPTY bullets). Measured on CLOUD in prod at 420 px: the six lines were in the
+   *   page, folded in a CLOSED <details> — a copy of the card takes their bullets without their text. Nothing in it was private
+   *   either. The fold is now « More details », its lines are plain words, and an empty line is never drawn. */
+  const priv = (r.lignesPrivees || []).filter((x) => typeof x === 'string' && x.trim());
   ul.innerHTML = pub + (priv.length
-    ? '<li><details class="bDetail"><summary class="note" style="cursor:pointer">More (private)</summary><ul class="note noteBullets" style="margin:6px 0 0 12px">'
+    ? '<li><details class="bDetail"><summary class="note" style="cursor:pointer">More details</summary><ul class="note noteBullets" style="margin:6px 0 0 12px">'
       + priv.map((x) => '<li>' + x + '</li>').join('') + '</ul></details></li>'
     : '');
+  peindreValeurProfil(adr, r);
   note.textContent = dateMesureLisible(r.note || '');
   const dexUrl = r.dexUrl || (r.pair && r.pair.url) || (r.market && r.market.dexUrl) || null;
   if (dexRow && dexA && dexUrl) {
@@ -14720,8 +14803,8 @@ function peindreTrustFacts(adr, v, origine) {
     lignes.push('Market: <b>outside</b> — trades there pay nothing back to this block.');
   } else if (etat === 'NON_TROUVEE') {
     lignes.push(CHAINE === 8453
-      ? 'Market: <b>No TB-readable pool yet</b>.'
-      : 'Market: <b>No TB-readable pool yet</b> — open one for free (Practice).');
+      ? 'Market: <b>No market on TokenizedBlock yet</b>.'
+      : 'Market: <b>No market on TokenizedBlock yet</b> — open one for free (Practice).');
   } else {
     lignes.push('Market: not read yet.');
   }
@@ -14814,7 +14897,9 @@ function peindreJeu(mcDevise, devise, etat, prixDeviseUsd = null) {
   const mkLu = adrOuverte ? (marcheParAdr.get(String(adrOuverte).toLowerCase()) || null) : null;
   const marcheMesure = !!(mkLu && Number(mkLu.prixUsd) > 0);
   const phraseMarcheMesure = () => 'Its market IS read: ' + (mkLu.dex || 'an on-chain pool')
-    + (Number(mkLu.liquiditeUsd) > 0
+    /* 2026-11-12 : a pool too thin to trust says its cash, never its paper liquidity */
+    + (mkLu.liquiditePapier === true ? ', ' + texteLiquiditeMarche(mkLu) + ' in its pool'
+      : Number(mkLu.liquiditeUsd) > 0
       ? ', ' + Math.round(Number(mkLu.liquiditeUsd)).toLocaleString('en-US') + ' $ of liquidity' : '')
     /* ⛔⛔⛔ CETTE PHRASE DISAIT « — not the market, and NOT THE NETWORK », ET LE GROK BOT M A DONNE
      *   TORT SUR UN TEXTE QUE J AVAIS DEJA DEPLOYE. Sa console, le 2026-10-01 :
@@ -14848,7 +14933,7 @@ function peindreJeu(mcDevise, devise, etat, prixDeviseUsd = null) {
      *   liquidite et le lieu viennent d etre mesures est simplement faux — et ca pousse a cliquer
      *   Retry sur une chose qui n echouera jamais. */
     $('#pPalier').textContent = prixManque ? 'Tier not judged — no USD price for ' + deviseLue
-      : etat === 'NON_TROUVEE' ? 'No TB-readable pool yet'
+      : etat === 'NON_TROUVEE' ? 'No market on TokenizedBlock yet'
       : etat === 'NON_LUE' ? (marcheMesure ? 'Tier not judged — in-app pool reading did not return'
         : 'Market unread — retry')
       : 'Life not read';
@@ -14856,7 +14941,8 @@ function peindreJeu(mcDevise, devise, etat, prixDeviseUsd = null) {
     /* ⛔ ON N ACCUSE LE RESEAU QUE QUAND C EST LE RESEAU. Un prix de devise qu on n a pas su lire est
      *    NOTRE limite, et l ecran doit dire laquelle — la capitalisation, elle, est affichee au-dessus. */
     $('#pProchain').textContent = etat === 'NON_TROUVEE'
-      ? 'No Tokenized Block-readable pool among tried keys yet — Instant Birth opens a hooked market, or Re-scan market.'
+      /* review 2026-11-12 : le jumeau de « No TB-readable pool yet » que le premier passage n avait pas vu (CLOUD, 375 px) */
+      ? 'No market on TokenizedBlock yet — Instant Birth opens one here, or Re-scan market.'
       : prixManque
         ? 'Its market cap is shown above, in ' + deviseLue + '. The tier is measured in dollars, and no USD price for ' + deviseLue + ' could be read.'
         /* ⛔⛔ ON N ACCUSE LE RESEAU QUE SI ON N A RIEN LU. Si le marche a ete mesure ailleurs dans
@@ -15359,21 +15445,17 @@ async function lireProfil(adr, sym, perime, opts) {
     /* ⛔ LE MARQUEUR EST LE CODE, PAS LE PREFIXE D ADRESSE (EIP-3541 : `0xef` est infalsifiable). */
     $('#pB20').textContent = f.estB20 === null ? 'not read' : f.estB20 ? 'yes · code 0xef' : '⚠️ no';
     $('#pSupply').textContent = supplyLisible(f.supply, f.decimales) || 'not read';
-    $('#pScelle').textContent = f.mintFerme === null ? 'not read' : f.mintFerme ? 'cap = supply today — only its admin could raise it'
-      /* ⛔⛔ CETTE PHRASE ACCUSAIT SANS AVOIR MESURE (Phil, capture du 2026-09-25, encadre rouge).
-       *     Elle disait « more can still be minted BY WHOEVER HOLDS THE MINT ROLE ». Or la seule
-       *     chose lue ici est `totalSupply()` face a `supplyCap()` (`faits.js`) : PERSONNE n a lu
-       *     si un detenteur du role d emission existe. Un B20 sans admin n a aucun role attribue —
-       *     la marge entre supply et cap y est inatteignable, et la phrase designait un coupable
-       *     dont on n avait pas verifie l existence.
-       *   ⛔ ON DIT CE QU ON A MESURE, ET ON NOMME CE QU ON N A PAS REGARDE. Une marge dans le
-       *     contrat est un FAIT ; « quelqu un peut s en servir » est une CONCLUSION qui demande une
-       *     lecture de plus, et cette lecture n est pas faite ici. `faits.js` ecrivait deja, pour le
-       *     troisieme etat, qu annoncer une emission possible sans l avoir lue « serait une
-       *     accusation ». C en etait une. */
-      : 'supply is below its cap — we did not check whether anyone still holds the mint role';
+    $('#pScelle').textContent = PHRASE_EMISSION_ATTENTE;
+    peindreEmission(adr, (t) => { $('#pScelle').textContent = t; }, () => !perime());
+    /* ⛔⛔ L HISTOIRE DE CETTE LIGNE (Phil, capture du 2026-09-25, encadre rouge) : elle disait « more can still be minted BY
+     *     WHOEVER HOLDS THE MINT ROLE » sans avoir lu si ce detenteur existait — une accusation. Puis (2026-11-12) une phrase
+     *     honnete mais vide : « we did not check ». Depuis game376 la question est LUE sur la chaine (peindreEmission ci-dessus) :
+     *     on dit qui peut en creer, ou que personne ne le peut — jamais une marge entre supply et cap prise pour une reponse. */
   } else {
-    for (const id of ['#pSupply', '#pScelle', '#pB20']) $(id).textContent = 'not read';
+    for (const id of ['#pSupply', '#pB20']) $(id).textContent = 'not read';
+    /* the supply rule is read by the server, not by the page: a failed page read does not stop it */
+    $('#pScelle').textContent = PHRASE_EMISSION_ATTENTE;
+    peindreEmission(adr, (t) => { $('#pScelle').textContent = t; }, () => !perime());
   }
 
   /* ⛔ L AVATAR DU PROFIL PREND LA FACE GRAVEE des qu elle est lue. */
@@ -15562,7 +15644,7 @@ async function lireProfil(adr, sym, perime, opts) {
    * fait sur notre lecture. Les fondre ferait dire au profil de quelqu un qu il ne vaut rien. */
   /* tip 20260923-wallet-intent-market: NON_LUE ≠ « no market yet »; NON_TROUVEE after enrich = no TB-readable pool. */
   $('#pVie').textContent = !v || v.etat === 'NON_LUE' || v.etat === 'REFUSEE' ? 'Market unread — retry'
-    : v.etat === 'NON_TROUVEE' ? 'No TB-readable pool yet'
+    : v.etat === 'NON_TROUVEE' ? 'No market on TokenizedBlock yet'
       : (v.vie == null || !Number.isFinite(Number(v.vie))
         ? ('market found' + (v.decouvertExterne ? ' · outside market' : ''))
         : (Math.round(v.vie * 100) / 100).toLocaleString('en-US') + ' ' + (v.devise || ''));
@@ -19170,7 +19252,7 @@ async function preparerEchange(sens) {
     const pasLu = etatVieProfil === 'NON_LUE';
     e.textContent = pasLu
       ? 'Market unread — retry.'
-      : 'No TB-readable pool yet — Instant Birth on TB, or Re-scan market.';
+      : 'No market on TokenizedBlock yet — give it birth here, or re-scan its market.';
     try { etape(pasLu ? 'echange_refus_marche_illisible' : 'echange_refus_pas_de_pool'); } catch (_) {}
     return;
   }
@@ -21841,7 +21923,8 @@ $('#plDevise').addEventListener('change', () => {
       const adrOuverte = pEl && !pEl.hidden ? String(pEl.dataset.block || '').toLowerCase() : '';
       const mk = adrOuverte ? marcheParAdr.get(adrOuverte) : null;
       const fdv = mk && Number(mk.fdvUsd);
-      if (Number.isFinite(fdv) && fdv > 0) {
+      /* 2026-11-12 : never a value set by a pool too thin to trust (valeurMarche gives it none) */
+      if (Number.isFinite(fdv) && fdv > 0 && valeurDeLigneMarche(mk).valeurUsd !== null) {
         if (d === 'USDC') valoDuMarche = fdv;
         else if (d === 'ETH' || d === 'TBLOCK') {
           if (typeof ethUsd === 'number' && ethUsd > 0) valoDuMarche = fdv / ethUsd;
@@ -22840,6 +22923,10 @@ function blocksDecouverts() {
   for (const [adr, m] of marcheParAdr) {
     if (!m || dejaAuRegistre.has(adr)) continue;
     if (!(Number(m.liquiditeUsd) >= LIQ_MIN_BUY_USD)) continue;
+    /* ⛔ review 2026-11-12 (scan du navigateur, 1077 px) : « CLOUD — $7.5B liquidity », propose EN TETE comme la paire la plus
+     *   profonde, pour ~4 $ de cash. Une ligne que l index marque papier (trending.js) passe le MEME seuil sur son cash, et son
+     *   libelle dit ce cash — jamais sa marque papier. */
+    if (m.liquiditePapier === true && !(Number(m.profondeurUsd) >= LIQ_MIN_BUY_USD)) continue;
     /* ⛔ LE PRIX DOIT AVOIR ETE LU, jamais suppose — meme porte que pour les actions. Un block sans
      *   prix mene au cul-de-sac de la mise en vie : une valeur de depart non evaluable. */
     if (!(Number(m.prixUsd) > 0)) continue;
@@ -22848,7 +22935,7 @@ function blocksDecouverts() {
      *   verifie par `majPaire()` — ceci n est que le premier tamis, et il le dit. */
     if (!/^0xb2[0-9a-fA-F]{38}$/i.test(adr)) continue;
     out.push({ adr, symbole: String(m.sym || '?').slice(0, 14), nom: String(m.nom || m.sym || '').slice(0, 40),
-      type: 'BLOCK_VIVANT', liq: Number(m.liquiditeUsd) || 0, prixUsd: Number(m.prixUsd) });
+      type: 'BLOCK_VIVANT', liq: (m.liquiditePapier === true ? Number(m.profondeurUsd) : Number(m.liquiditeUsd)) || 0, prixUsd: Number(m.prixUsd) });
   }
   return out.sort((a, b) => b.liq - a.liq).slice(0, PAIRES_DECOUVERTES_MAX);
 }
@@ -24459,7 +24546,7 @@ function peindreTrending() {
   const ul = $('#trListe'), note = $('#trNote'), d = trDonnees;
   if (!ul || !d) return;
   void decouvrirPourTrending();
-  const cle = { h1: (l) => l.volume1hUsd, h24: (l) => l.volume24hUsd, gain: (l) => l.change1h ?? -1e9, liq: (l) => l.liquiditeUsd }[trTri];
+  const cle = { h1: (l) => l.volume1hUsd, h24: (l) => l.volume24hUsd, gain: (l) => l.change1h ?? -1e9, liq: (l) => (l.liquiditePapier === true ? Number(l.profondeurUsd) || 0 : l.liquiditeUsd) }[trTri]; /* review 2026-11-12 : sorted by the cash it shows, never a paper mark */
   /* tip 0039 (Phil « montre tous les blocks qui ont ete chiffres ») : tous, par pages de 50 (« Show more ») */
   /* ⛔ PHIL (2026-09-19, capture « toujours buge ») : mesure — 8 lignes sur 194 ont bouge dans l heure (DexScreener
    *    confirme h1 = 0 tx pour les autres). « vol 1h $0 » sur chaque ligne se lisait comme une lecture ratee, et « Last hour »
@@ -24518,7 +24605,8 @@ function peindreTrending() {
     + '<div class="filArt">' + dessin(l.adr, l.sym) + '</div>'
     + '<div class="trInfo"><p class="filT"><b>' + enTexte(l.sym) + '</b> ' + pct(l.change1h) + '</p>'
     + '<p class="filS">' + usdCourt(l.prixUsd) + ' · 24h ' + pct(l.change24h) + ' · ' + (bouge(l) ? 'vol 1h ' + usdCourt(l.volume1hUsd) : 'no trade in the last hour') + ' · 24h ' + usdCourt(l.volume24hUsd)
-    + '<span class="trPlus"> · liq ' + usdCourt(l.liquiditeUsd) + (l.fdvUsd ? ' · FDV ' + usdCourt(l.fdvUsd) : '') + (l.trades24h ? ' · ' + l.trades24h + ' trades' : '') + '</span></p></div>'
+    /* 2026-11-12 : a row the server marks as paper (trending.js, the rule of pnl-swaps.js) shows its cash, never its paper mark or FDV */
+    + '<span class="trPlus"> · liq ' + (l.liquiditePapier === true ? usdCourt(l.profondeurUsd) + ' cash · value too thin to trust' : usdCourt(l.liquiditeUsd) + (l.fdvUsd ? ' · FDV ' + usdCourt(l.fdvUsd) : '')) + (l.trades24h ? ' · ' + l.trades24h + ' trades' : '') + '</span></p></div>'
     /* tip 20260923-reclaim-volume: Buy · 0.5% only when fee-capturable (TB hook / known live pool we can trade).
      * Thin external / no pool → Trade on TB (IB reclaim) — never fake fee capture. */
     + (function () {
@@ -25976,7 +26064,7 @@ function peindreChoixBrain() {
     if (last) ajouter(last, null);
   } catch (_) { /* private mode */ }
   const r = stadesDesBlocks({ ethUsd, blocks: [...tous.values()].map((x) => ({ ...x,
-    capUsdMarche: (marcheParAdr.get(String(x.adr).toLowerCase()) || {}).fdvUsd ?? null })) });
+    capUsdMarche: valeurDeLigneMarche(marcheParAdr.get(String(x.adr).toLowerCase())).valeurUsd })) }); /* 2026-11-12 : never a paper FDV */
   /* ⛔ PHIL (2026-09-17) : « retire TTB et TBLOCK avec le carre bleu ». Nos deux blocks de genese
    * tenaient la tete de liste alors que personne ne vient ici pour eux, et le carre bleu remplacait
    * l information utile. Ils sortent — SAUF celui qu on regarde en ce moment : retirer la ligne
@@ -26278,7 +26366,7 @@ function battreBrain() {
    * ne l a pas lu, on le dit ici au lieu de laisser « Trunk » et « asleep » se contredire a l ecran. */
   const mk = marcheParAdr.get(String(brainAdr || '').toLowerCase());
   const lueChaine = h && h.etatVie === 'LUE' && typeof h.vie === 'number' && h.vie > 0;
-  $('#bSource').textContent = !lueChaine && mk && Number(mk.fdvUsd) > 0
+  $('#bSource').textContent = !lueChaine && mk && valeurDeLigneMarche(mk).valeurUsd !== null /* 2026-11-12 : no paper FDV */
     /* ⛔⛔ CETTE PHRASE DECRIVAIT UN ECRAN QUI N EXISTE PAS (Phil, capture du 2026-09-25, encadre).
      *     Elle annonçait « so it reads asleep » — or le badge affiche « market unread », pas
      *     « asleep » : `cerveau.js` pose la phase NON_LU, jamais DORMANT, quand le marche n a pas
@@ -26934,7 +27022,9 @@ function peindreListesVision(c, cible) {
   if (m) {
     const usd = (x) => (x === null ? 'not in the index' : '$' + Math.round(x).toLocaleString('en-US'));
     ligneCtx('Pool (server market index)', [m.dex, m.quote].filter(Boolean).join(' · ') || 'listed', { ctx: 'marche' });
-    ligneCtx('Liquidity · valuation', usd(m.liquiditeUsd) + ' · ' + usd(m.fdvUsd), { ctx: 'marche' });
+    ligneCtx(m.mince ? 'Cash in its pool · valuation' : 'Liquidity · valuation', m.mince
+      ? usd(m.liquiditeUsd) + ' · not valued: its pool holds too little cash to price it' /* 2026-11-12 : never a paper value */
+      : usd(m.liquiditeUsd) + ' · ' + usd(m.fdvUsd), { ctx: 'marche' });
     ligneCtx('24 h volume · trades', usd(m.volume24hUsd) + ' · ' + (m.trades24h === null ? 'not in the index' : m.trades24h), { ctx: 'marche' });
     if (m.luParLeCerveau) ligneCtx('Read by its neurons?', 'yes, its size only — our own chain read had failed', { ctx: 'marche' });
   } else ligneCtx('Pool (server market index)', 'not in the index this page loaded', { ctx: 'marche' });
@@ -33234,7 +33324,8 @@ function bcPeindre(snap) {
   $('#bcPhase').textContent = snap.phase ? humeurEtRessenti(snap.phase, adrBrainEq(a, brainAdr) ? brainHisto : null) : (snap.humeur || '—');
   $('#bcTick').textContent = beatText(displayedBeat(pageBrains, a, snap));
   $('#bcPrix').textContent = mk && Number(mk.prixUsd) > 0 ? (Number(mk.prixUsd) >= 1 ? '$' + Number(mk.prixUsd).toLocaleString('en-US', { maximumFractionDigits: 2 }) : '$' + Number(mk.prixUsd).toPrecision(3)) : '—';
-  $('#bcLiq').textContent = mk && Number(mk.liquiditeUsd) > 0 ? usdCourt(mk.liquiditeUsd) : '—';
+  /* 2026-11-12 (CLOUD: « LIQUIDITY $7.6B » for ~$4 of cash) : a pool too thin to trust shows its cash, labeled */
+  $('#bcLiq').textContent = texteLiquiditeMarche(mk);
   /* tant que le cerveau n a pas battu, le raster n a rien a montrer : pas de cadre vide */
   $('#bcRaster').hidden = !(Array.isArray(brainHisto) && brainHisto.length);
   try { dessinerRasterSur($('#bcRaster'), brainHisto); } catch (_) { /* le raster du dessous reste la reference */ }
@@ -33264,7 +33355,8 @@ function bcPeindre(snap) {
     if (mk.change24h !== null && mk.change24h !== undefined) ligne('24 h', ((v) => (!Number.isFinite(Number(v)) || Math.abs(Number(v)) > 1e5) /* QA 2026-10-10 : '+1.28e+29 %' - non fini ou absurde (> 100 000 %) = non lu */ ? '—' : (Number(v) > 0 ? '+' : '') + Number(v).toFixed(2) + ' %')(mk.change24h));
     if (Number(mk.volume24hUsd) > 0) ligne('Volume 24 h', usdCourt(mk.volume24hUsd));
     if (mk.trades24h !== null && mk.trades24h !== undefined) ligne('Trades 24 h', String(mk.trades24h));
-    if (Number(mk.liquiditeUsd) > 0) ligne('Liquidity', usdCourt(mk.liquiditeUsd));
+    if (Number(mk.liquiditeUsd) > 0) ligne('Liquidity', texteLiquiditeMarche(mk));
+    if (valeurDeLigneMarche(mk).mince === true) ligne('Value', 'too thin to trust');
   }
   /* ⛔ 2026-10-09 (post public sur MRVLc ; mesure : il n existe que 6,04 MRVLc, ~1 800 $ au prix de la pool) : pour une action, l offre
    *   TOTALE est dite — quand toute l action vaut moins qu un achat, aucune pool ne peut etre profonde. Lue sur la chaine
@@ -35978,8 +36070,11 @@ async function soleilsSurLaMap(essai = 0) {
       /* ⛔ MESURE (Chrome, 0077) : 229 blocks sur 231 restaient a la taille par defaut — la lecture de marche bloc par bloc,
        *    depuis le navigateur, n avancait pas. Le serveur a deja la FDV de ~200 blocks : elle dimensionne la map tout de
        *    suite. Une vie lue sur la chaine par la map (LUE) garde la priorite. */
-      if (h && h.etatVie !== 'LUE' && typeof l.fdvUsd === 'number' && l.fdvUsd > 0) {
-        const t = Math.round(tailleDeUsd(l.fdvUsd) * (h.nous ? 1.25 : 1));
+      /* 2026-11-12 : a pool too thin to trust (CLOUD: $9.5B « FDV » on ~$4 of cash) sizes its cube by its CASH, not its paper value */
+      const vmTaille = valeurDeLigneMarche(l);
+      const usdTaille = vmTaille.mince === true ? vmTaille.profondeurUsd : l.fdvUsd;
+      if (h && h.etatVie !== 'LUE' && typeof usdTaille === 'number' && usdTaille > 0) {
+        const t = Math.round(tailleDeUsd(usdTaille) * (h.nous ? 1.25 : 1));
         if (t !== h.t) { h.t = t; poserTailleBloc(h.el, t); }
         h.el.classList.remove('sansPrix');
       }

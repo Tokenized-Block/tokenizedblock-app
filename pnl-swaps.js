@@ -57,13 +57,69 @@ export function profondeurQuoteUsd(pair) {
   return null;
 }
 
+/** The same rule on plain numbers: a pool "worth" `marked` dollars that holds only `quoteUsd` on its cash side is paper.
+ *  Used by the server index (trending.js) and the screens, so one rule decides everywhere. null when either number is missing. */
+export function liquiditePapierChiffres(marked, quoteUsd) {
+  if (marked === null || marked === undefined || quoteUsd === null || quoteUsd === undefined) return null;
+  const m = num(marked), q = num(quoteUsd);
+  if (m === null || q === null) return null;
+  if (q <= 0) return m > 100; /* any big mark with ~0 quote = paper */
+  return m > Math.max(50, q * 20);
+}
+
 /** True when Dex liquidity.usd is mostly marked base inventory, not exit depth. */
 export function liquiditeInventairePapier(pair) {
-  const marked = num(pair && pair.liquidity && pair.liquidity.usd);
-  const quoteUsd = profondeurQuoteUsd(pair);
-  if (marked === null || quoteUsd === null) return false;
-  if (quoteUsd <= 0) return marked > 100; /* any big mark with ~0 quote = paper */
-  return marked > Math.max(50, quoteUsd * 20);
+  return liquiditePapierChiffres(num(pair && pair.liquidity && pair.liquidity.usd), profondeurQuoteUsd(pair)) === true;
+}
+
+/* ⛔⛔ 2026-11-12 (Phil, CLOUD panel): "Market cap · life: No TB-readable pool yet" next to a price, and the Blocks ranking put
+ *   CLOUD n°1 at ~$9.5B. Measured the same day on DexScreener: price $0.009494, FDV $9,494,012,163, pool "liquidity" $7.6B of
+ *   which only 0.00201 WETH (~$4.11) is cash. A market value is price x supply; set by a pool holding $4, it is not a value.
+ * ⇒ The value is ALWAYS given with the cash a seller can get out, and a pool too thin to trust (the rule above: the pool's
+ *   dollar mark is more than 20x its cash side) says so in words and is never ranked as a real size.
+ * ⛔⛔ 2026-11-12, second pass (Phil: « ne le rends pas paper only, garde que ce qui est live ») : the first pass still SHOWED the
+ *   $9.5B, labelled « on paper only ». A number set by $4 is not a value with a caveat, it is no value. For a pool too thin to
+ *   trust, `valeurUsd` is now null HERE, so no screen built on this rule can print it: what stays is live and measured — the
+ *   price, the cash in the pool, the volume. */
+/** The market value of a block as a screen may show it. { valeurUsd, profondeurUsd, mince, classable }.
+ *  mince: true = priced by a pool too thin to trust (then valeurUsd is ALWAYS null); false = not thin; null = its cash side
+ *  was not read. */
+export function valeurMarche({ fdvUsd = null, liquiditeUsd = null, profondeurUsd = null, liquiditePapier = null } = {}) {
+  const v = fdvUsd === null || fdvUsd === undefined ? null : num(fdvUsd);
+  const p = profondeurUsd === null || profondeurUsd === undefined ? null : num(profondeurUsd);
+  const profondeur = p !== null && p >= 0 ? p : null;
+  const mince = liquiditePapier === true ? true
+    : liquiditePapier === false ? false
+      : liquiditePapierChiffres(liquiditeUsd, profondeur);
+  const valeurUsd = mince !== true && v !== null && v > 0 ? v : null;
+  return { valeurUsd, profondeurUsd: profondeur, mince, classable: valeurUsd !== null };
+}
+
+/** "$9.5B", "$735k", "$4.11", "$0.06" — short dollars for a phrase. */
+export function usdPhrase(n) {
+  if (n === null || n === undefined) return '—';
+  const x = num(n);
+  if (x === null) return '—';
+  const a = Math.abs(x);
+  if (a >= 1e9) return '$' + (x / 1e9).toLocaleString('en-US', { maximumFractionDigits: 1 }) + 'B';
+  if (a >= 1e6) return '$' + (x / 1e6).toLocaleString('en-US', { maximumFractionDigits: 1 }) + 'M';
+  if (a >= 1e4) return '$' + (x / 1e3).toLocaleString('en-US', { maximumFractionDigits: 0 }) + 'k';
+  if (a >= 1) return '$' + x.toLocaleString('en-US', { maximumFractionDigits: 2 });
+  if (a > 0) return '$' + Number(x.toPrecision(2));
+  return '$0';
+}
+
+/** The words for a market value, always with its cash side. For a pool too thin to trust: the cash only, never a value.
+ *  null when nothing was read. */
+export function phraseValeurMarche(v) {
+  if (!v) return null;
+  if (v.mince === true) {
+    return v.profondeurUsd === null ? 'Not valued: its pool holds too little cash to price it'
+      : 'Not valued: its pool holds only ' + usdPhrase(v.profondeurUsd) + ' to sell into';
+  }
+  if (v.valeurUsd === null) return null;
+  if (v.profondeurUsd === null) return '≈ ' + usdPhrase(v.valeurUsd) + ' (price × supply) · cash in its pool not read';
+  return '≈ ' + usdPhrase(v.valeurUsd) + ' (price × supply) · ' + usdPhrase(v.profondeurUsd) + ' in its pool to sell into';
 }
 
 /** Score for pair pick: prefer real quote depth; demote phantom inventory marks. */
@@ -247,8 +303,9 @@ export async function lirePnlSwaps({ jeton, compte = null, poolId = null, fetchF
   const volH6 = num(pair.volume && pair.volume.h6);
   const txnsH24 = pair.txns && pair.txns.h24 ? pair.txns.h24 : null;
   const txnsH6 = pair.txns && pair.txns.h6 ? pair.txns.h6 : null;
-  const buys = txnsH6 && num(txnsH6.buys) !== null ? num(txnsH6.buys)
-    : (txnsH24 ? num(txnsH24.buys) : null);
+  /* the window of the counts is kept with them, so the line never labels 24 h counts as 6 h */
+  const fenetreH6 = !!(txnsH6 && num(txnsH6.buys) !== null);
+  const buys = fenetreH6 ? num(txnsH6.buys) : (txnsH24 ? num(txnsH24.buys) : null);
   const sells = txnsH6 && num(txnsH6.sells) !== null ? num(txnsH6.sells)
     : (txnsH24 ? num(txnsH24.sells) : null);
   const pc = pair.priceChange || {};
@@ -266,8 +323,9 @@ export async function lirePnlSwaps({ jeton, compte = null, poolId = null, fetchF
     priceUsd, liqUsd, volH24, volH6,
     quoteUsd: quoteUsdPre,
     paperInventoryLiq: paperLiqPre,
-    fdv: num(pair.fdv),
-    marketCap: num(pair.marketCap),
+    /* 2026-11-12 : a value set by a pool too thin to trust is not carried either (valeurMarche, same rule) */
+    fdv: paperLiqPre ? null : num(pair.fdv),
+    marketCap: paperLiqPre ? null : num(pair.marketCap),
     buys, sells,
     priceChangeH6, priceChangeH24,
     pairCreatedAt,
@@ -296,53 +354,70 @@ export async function lirePnlSwaps({ jeton, compte = null, poolId = null, fetchF
   }
 
   const lignes = []; /* public */
-  const lignesPrivees = []; /* folded — operator detail */
+  const lignesPrivees = []; /* folded under "More details" — nothing private in it, the old label "More (private)" said so wrongly */
   const quoteUsd = profondeurQuoteUsd(pair);
   const paperLiq = liquiditeInventairePapier(pair);
   const fdv = num(pair.fdv);
   const mcap = num(pair.marketCap);
   const quoteAmt = num(pair.liquidity && pair.liquidity.quote);
   const qSym = String((pair.quoteToken && pair.quoteToken.symbol) || 'ETH');
+  const valeur = valeurMarche({ fdvUsd: fdv != null ? fdv : mcap, liquiditeUsd: liqUsd, profondeurUsd: quoteUsd,
+    liquiditePapier: quoteUsd == null ? null : paperLiq });
+  market.valeur = valeur;
 
-  /* tip 0013: public = price + exit depth only */
+  /* tip 0013: public = price + the cash to sell into, and the market value ALWAYS next to that cash (2026-11-12).
+   * ⛔ second pass (Phil, 2026-11-12) : what is LIVE only — price, cash (dollars + its own unit), 24 h volume. A pool too thin to
+   *   trust gets no value line at all, only the plain reason; no dollar figure derived from its price is printed. */
   lignes.push('Price: <b>' + fmtPx(priceUsd) + '</b>'
     + (fmtPct(priceChangeH6) ? ' · h6 ' + fmtPct(priceChangeH6) : ''));
   if (quoteUsd != null) {
-    lignes.push('Exit depth: <b>' + fmtUsd(quoteUsd) + '</b>'
-      + (quoteAmt != null ? ' · ' + quoteAmt.toLocaleString('en-US', { maximumFractionDigits: 4 }) + ' ' + qSym : ''));
+    lignes.push('Cash in its pool to sell into: <b>' + fmtUsd(quoteUsd) + '</b>'
+      + (quoteAmt != null ? ' · ' + quoteAmt.toLocaleString('en-US', { maximumFractionDigits: 4 }) + ' ' + enTexteSafe(qSym) : ''));
   } else {
-    lignes.push('Exit depth: <b>unread</b>');
+    lignes.push('Cash in its pool to sell into: <b>not read</b>');
+  }
+  if (volH24 != null) {
+    const n24 = txnsH24 ? (num(txnsH24.buys) || 0) + (num(txnsH24.sells) || 0) : null;
+    lignes.push('Traded in the last 24 hours: <b>' + usdPhrase(volH24) + '</b>'
+      + (n24 ? ' · ' + n24 + (n24 === 1 ? ' trade' : ' trades') : ''));
+  }
+  if (valeur.mince === true) {
+    lignes.push('Not valued: its pool holds too little cash to price the whole supply.');
+  } else if (valeur.valeurUsd !== null) {
+    lignes.push('Market value: <b>' + usdPhrase(valeur.valeurUsd) + '</b> (price × supply)'
+      + (valeur.mince === null ? ' — the cash in its pool was not read.' : '.'));
   }
 
   if (liqUsd != null) {
-    lignesPrivees.push('Dex liquidity mark: <b>' + fmtUsd(liqUsd) + '</b>'
-      + (paperLiq ? ' — paper, not exit cash.' : '.'));
-  }
-  if (fdv != null || mcap != null) {
-    lignesPrivees.push('Paper FDV/MC: <b>' + fmtUsd(fdv != null ? fdv : mcap) + '</b> — vanity vs thin quote.');
+    /* a paper mark is not printed even folded: only the fact that the pool is mostly its own tokens */
+    lignesPrivees.push(paperLiq ? 'Most of its pool is its own tokens, not cash.'
+      : 'Pool size as DexScreener shows it: <b>' + usdPhrase(liqUsd) + '</b>.');
   }
   if (buys != null || sells != null) {
-    lignesPrivees.push('Txns window: ' + (buys != null ? buys : '—') + ' buys / ' + (sells != null ? sells : '—') + ' sells');
+    const volF = fenetreH6 ? volH6 : volH24;
+    lignesPrivees.push((fenetreH6 ? 'Last 6 hours: ' : 'Last 24 hours: ')
+      + (buys != null ? buys + (buys === 1 ? ' buy' : ' buys') : 'buys not read') + ', '
+      + (sells != null ? sells + (sells === 1 ? ' sell' : ' sells') : 'sells not read')
+      + (volF != null ? ' · ' + usdPhrase(volF) + ' traded' : ''));
   }
-  if (volH6 != null) lignesPrivees.push('Vol h6: ' + fmtUsd(volH6));
   if (trades && trades.tradeCount > 0) {
-    lignesPrivees.push('Gecko sample: ' + trades.tradeCount + ' trades · buy ' + fmtUsd(trades.buyUsd) + ' / sell ' + fmtUsd(trades.sellUsd));
+    lignesPrivees.push('Latest ' + trades.tradeCount + ' trades: ' + usdPhrase(trades.buyUsd) + ' bought, ' + usdPhrase(trades.sellUsd) + ' sold');
   } else if (geckoNote) {
-    lignesPrivees.push(enTexteSafe(geckoNote));
+    lignesPrivees.push('Latest trades: could not be read right now.');
   }
   if (pairCreatedAt) {
     try {
-      lignesPrivees.push('Pair: ' + new Date(pairCreatedAt).toISOString().slice(0, 10)
-        + (dexId ? ' · ' + dexId : ''));
+      lignesPrivees.push('Pool opened ' + new Date(pairCreatedAt).toISOString().slice(0, 10)
+        + (dexId ? ' on ' + enTexteSafe(dexId) : ''));
     } catch (_) {}
   }
   if (yourPnL) {
     if (yourPnL.matchedTrades === 0) {
-      lignesPrivees.push('Your PnL: no matches in sample');
+      lignesPrivees.push('Your result: none of the latest trades came from your wallet');
     } else {
-      lignesPrivees.push('Your PnL: ' + fmtUsd(yourPnL.totalPnLUsd)
-        + (yourPnL.paperMark ? ' (paper)' : '')
-        + ' · ' + yourPnL.matchedTrades + ' matched');
+      lignesPrivees.push('Your result in the latest trades: ' + fmtUsd(yourPnL.totalPnLUsd)
+        + (yourPnL.paperMark ? ' (counts what you still hold at today\'s price — not cash)' : '')
+        + ' · ' + yourPnL.matchedTrades + (yourPnL.matchedTrades === 1 ? ' trade' : ' trades'));
     }
   }
 

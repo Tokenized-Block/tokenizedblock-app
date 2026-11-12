@@ -37,7 +37,7 @@ export const ETATS = ['VIF', 'FAIBLE', 'NON_MESURE'];
  */
 export const SIGNES = [
   { cle: 'mintFerme', titre: 'Supply sealed', poids: 3,
-    borne: 'supply == cap read on chain — nothing can ever be minted again' },
+    borne: 'supply == cap read on chain — an admin could still raise the cap (see No admin)' },
   { cle: 'sansAdmin', titre: 'No admin', poids: 3,
     borne: 'the three roles read as absent AT THIS BLOCK HEIGHT — a role granted later would change this' },
   { cle: 'visage', titre: 'Face engraved', poids: 1,
