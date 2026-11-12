@@ -115,12 +115,14 @@ const route = (t) => entre(t, "if (chemin === '/api/slots') {", '/* ══ LES D
 const srvChecks = {
   servi: (t) => { const s = (t.match(/const SERVIS\s*=\s*\[([\s\S]*?)\];/) || [])[1] || ''; return ['deployer-slots.html', 'slots-deploiement.js', 'slots-config.js', 'slots-plan.js'].every((f) => s.includes("'" + f + "'")); },
   ficheImportee: (t) => /^import \{ SLOTS_DEPLOIEMENT \} from '\.\/slots-deploiement\.js';$/m.test(t),
-  pasOuvertSansAdresse: (t) => { const r = route(t); const i = r.indexOf("if (!contratSlots) { rendreS({ ok: false, etat: 'PAS_OUVERT' }); return; }"), j = r.indexOf("etat: 'OUVERT'"); return i > 0 && j > i && /Number\.isSafeInteger\(SLOTS_DEPLOIEMENT\.bloc\)/.test(r); },
+  pasOuvertSansAdresse: (t) => { const r = route(t); const i = r.indexOf("if (!contratSlots) { rendreS({ ok: false, etat: 'PAS_OUVERT' }); return; }"), j = r.indexOf("etat: 'OUVERT'"); return i > 0 && j > i && /const contratSlots = SPIN_ACTIF \? SPIN_ACTIF\.contrat : null;/.test(r)
+    /* 2026-11-12 (the new Spin): the served contract comes from spin-actif.js — the record's address AND block, or the new Spin once recorded */
+    && /Number\.isSafeInteger\(fiche\.bloc\)/.test(lire('spin-actif.js')); },
   aucunPrixTape: (t) => { const r = route(t); return /prixSpin: String\(sc\.spinPrice\)/.test(r) && /prizes: sc\.prizes\.map\(String\)/.test(r) && !/\b(500000|5000|250000)\b/.test(r) && !/eth_|rpc/.test(r); },
   getSeulement: (t) => /if \(req\.method !== 'GET' && req\.method !== 'HEAD'\) \{ res\.writeHead\(405[^\n]*GET only/.test(route(t)),
   /* v4 : le regleur — la cle lue UNE fois, de l environnement seulement, passee au module ; /sante et /api/slots publient son etat() */
   regleurCable: (t) => /^import \{ creerRegleur \} from '\.\/slots-regleur\.js';$/m.test(t) && (t.match(/SLOTS_KEEPER_KEY/g) || []).length >= 1
-    && (t.match(/process\.env\.SLOTS_KEEPER_KEY/g) || []).length === 1 && /cle: process\.env\.SLOTS_KEEPER_KEY \|\| null, contrat: contratSlotsFiche, chainId: SLOTS_DEPLOIEMENT\.chaine, table: SLOTS_DEPLOIEMENT\.constructeur\.prizes/.test(t)
+    && (t.match(/process\.env\.SLOTS_KEEPER_KEY/g) || []).length === 1 && /cle: process\.env\.SLOTS_KEEPER_KEY \|\| null, contrat: contratSlotsFiche, chainId: SLOTS_DEPLOIEMENT\.chaine, table: SPIN_ACTIF \? SPIN_ACTIF\.config\.prizes : SLOTS_DEPLOIEMENT\.constructeur\.prizes/.test(t) /* 2026-11-12: the served Spin's table */
     && /slotsRegleur: regleurSlots\.etat\(\),/.test(t) && /regleur: \(\(\) => \{ const e = regleurSlots\.etat\(\);/.test(route(t)) && /regleurSlots\.demarrer\(\)/.test(t),
   regleurOffEnEssai: (t) => /const regleurSlots = ESSAI_SRV\.actif\n  \? creerRegleur\(\{ desactive:/.test(t),
 };

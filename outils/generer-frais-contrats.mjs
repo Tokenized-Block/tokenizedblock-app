@@ -24,6 +24,10 @@ export const SOURCES = Object.freeze([
   Object.freeze({ contrat: 'TamArtV2', fichier: 'contracts/src/TamArtV2.sol', noms: Object.freeze(['PRICE_USDC', 'DEV_BPS']) }),
   Object.freeze({ contrat: 'TBlockVaultV2', fichier: 'contracts/src/TBlockVaultV2.sol', noms: Object.freeze(['MIN_COMMIT', 'MAX_FACTOR', 'ACCESS_USD', 'TIER1_USD', 'TIER2_USD', 'TIER3_USD', 'TIER1_BONUS', 'TIER2_BONUS', 'TIER3_BONUS', 'TIME_BONUS', 'TIME_FULL', 'RESCUE_DELAY', 'RESCUE_WINDOW', 'FEED_QUIET']) }),
   Object.freeze({ contrat: 'TBlockLockRewards', fichier: 'contracts/src/TBlockLockRewards.sol', noms: Object.freeze(['EPOCH', 'REWARD_BPS', 'CLAIM_WINDOW', 'MAX_CLAIM_EPOCHS', 'RESCUE_DELAY']) }),
+  /* 2026-11-12 (Phil): the new Skins at 1 USDC and the new Spin whose dev share is paid through the TBLOCK payment router; the fees page states
+   *   their rules from the SAME sources skins-spin-deploiement.js hashes (etapes[].sha256Source; the test compares them) */
+  Object.freeze({ contrat: 'BlockSkinsUn', fichier: 'contracts/src/BlockSkins1.sol', noms: Object.freeze(['MINT_PRICE', 'DEV_BPS', 'SALE_FEE_BPS', 'MIN_RAISE_BPS', 'MAX_AUCTION']) }),
+  Object.freeze({ contrat: 'BlockSlotsRouter', fichier: 'contracts/src/BlockSlotsRouter.sol', noms: Object.freeze(['DEV_BPS', 'SETTLE_WINDOW']) }),
 ]);
 
 const UNITES = { days: 86400n, hours: 3600n, minutes: 60n, seconds: 1n };

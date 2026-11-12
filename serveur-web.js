@@ -144,7 +144,7 @@ import { saisonDe, valeurUsd, crediter, tickets, racine, tirer, F_USD_V1, jourDe
 import { volumeVerifie, poolIdDe, passSkinVerifie } from './volume-tirage.js';
 import { BLOCKSKINS as BLOCKSKINS_SRV, BLOCKSKINS_LUS as BLOCKSKINS_LUS_SRV, BLOCKSKINS_ACTIF as BLOCKSKINS_ACTIF_SRV, SKIN_MINT_USDC as SKIN_MINT_USDC_SRV, lireSkins as lireSkinsSrv, DEVISES_SKIN as DEVISES_SKIN_SRV } from './blockskins.js';
 import { skinsPrixCorps } from './blockskins-actif.js';
-import { contratActif as contratSkinsActif } from './blockskins-actif.js'; /* 2026-11-12: the earlier skins contract, for its XP source */
+import { sourcesSkins } from './blockskins-actif.js'; /* 2026-11-12: one XP source per skins contract the app minted on, each with its own key */
 import { lireEvenementsJeu, evenementsPractice, fusionnerJournal, avecBlocks, TOPICS_ROLLS as TOPICS_ROLLS_JOURNAL, TOPICS_SKINS as TOPICS_SKINS_JOURNAL,
   TOPICS_DUELS as TOPICS_DUELS_JOURNAL, TOPICS_MISSIONS as TOPICS_MISSIONS_JOURNAL, JOURNAL_MAX, tempsDeBloc as tempsDeBlocJournal,
   profondeurJournee, premierBlocDuJour, journeeCouverte, garderJournal, completerJournal, ajouterListing } from './journal-jeu.js';
@@ -163,6 +163,9 @@ import { BLOCKROLLS_DEPLOIEMENT } from './blockrolls-deploiement.js';
 /* 2026-10-23 (Phil) : BlockSlots — la machine a sous a trois faces de bloc. La fiche GENEREE (preparer-deploiement-slots.mjs) ; `adresse`
  *   reste null tant que le proprietaire n a pas signe : /api/slots rend alors PAS_OUVERT et l app ne montre AUCUN bouton Slots. */
 import { SLOTS_DEPLOIEMENT } from './slots-deploiement.js';
+/* 2026-11-12 (Phil): WHICH Spin is served and settled — the new Spin (dev share through the TBLOCK payment router) once its address is
+ *   recorded in skins-spin-deploiement.js, with the earlier Spin still settled; until then the live Spin, exactly as before (spin-actif.js) */
+import { SPIN_ACTIF } from './spin-actif.js';
 import { TAMART_DEPLOIEMENT } from './tamart-deploiement.js';
 import { serveurTam } from './tam-serveur.js';
 /* 2026-10-24 (Phil : « miser en USDC ou en tout B20 / action de l app, seul ce qui a une liquidite profonde ») : la regle et les devis
@@ -178,6 +181,8 @@ import { creerRegleur } from './slots-regleur.js';
 /* 2026-11-12 : le keeper du TBLOCK buyback qui paie le holders vault (buyback-keeper.js) — rien tant que la fiche n a pas d adresse ;
  *   sans BUYBACK_KEEPER_KEY (ou si sa cle n est pas le KEEPER de la fiche) il ne fait rien et le dit (/sante). N envoie que buyback(uint256). */
 import { creerKeeperBuyback } from './buyback-keeper.js';
+/* 2026-11-12 : le keeper de la part dev du Spin (spin-dev-keeper.js) : n appelle que payDev, depuis la meme cle gas-only que le buyback */
+import { creerKeeperSpinDev, creerExclusif } from './spin-dev-keeper.js';
 import { BUYBACK_VAULT_DEPLOIEMENT } from './tblock-buyback-vault-deploiement.js';
 /* 2026-10-18 : TicketPot LIVE (0xf986…1df1, bloc 52 776 705) — la fiche notee, et la lecture PURE du jour (lireJour : aucune cle requise) */
 import { TICKETPOT_DEPLOIEMENT } from './ticketpot-deploiement.js';
@@ -5699,7 +5704,8 @@ if (process.env.TB_SONDES !== '0') setInterval(() => { if (duelsV2()) void conso
  *   n est lue QU ICI, passee au module et jamais rendue ; /sante publie l etat (OFF / ON / ARRETE), l ADRESSE du regleur, le dernier
  *   reglement et les erreurs. Bornes et garde : slots-regleur.js (BORNES_DEFAUT, verifierEnvoi). Sans contrat ecrit dans la fiche, ou en
  *   mode essai : OFF, et pourquoi. */
-const contratSlotsFiche = /^0x[0-9a-f]{40}$/i.test(String(SLOTS_DEPLOIEMENT.adresse || '')) && Number.isSafeInteger(SLOTS_DEPLOIEMENT.bloc) ? String(SLOTS_DEPLOIEMENT.adresse).toLowerCase() : null;
+const contratSlotsFiche = SPIN_ACTIF ? SPIN_ACTIF.contrat : null; /* 2026-11-12: the served Spin (spin-actif.js); before the new Spin is recorded, the record's as before */
+if (SPIN_ACTIF && SPIN_ACTIF.refus) console.log('[slots] ' + SPIN_ACTIF.refus);
 /* 2026-10-24 (audit rolls-duels) : la MEME cle regle aussi chaque duel rejoint dans sa fenetre (settle, sinon le joueur qui a rejoint garde
  *   une option gratuite : regler s il gagne, laisser rembourser s il perd) et tire le pot du pass de chaque jour fini (closeDay / drawDay,
  *   sinon un acheteur re-arme jusqu a etre choisi). Les adresses viennent des fiches (duels : import dynamique, relu a chaque tour), sur la
@@ -5720,8 +5726,10 @@ function duelsV2JointsKeeper(c) {
 }
 const regleurSlots = ESSAI_SRV.actif
   ? creerRegleur({ desactive: 'trial mode (ESSAI): the keeper never runs against a trial node' })
-  : creerRegleur({ cle: process.env.SLOTS_KEEPER_KEY || null, contrat: contratSlotsFiche, chainId: SLOTS_DEPLOIEMENT.chaine, table: SLOTS_DEPLOIEMENT.constructeur.prizes,
-    blocDeploiement: SLOTS_DEPLOIEMENT.bloc || 0, rpc: rpcServeur, journal: (t) => console.log(t),
+  : creerRegleur({ cle: process.env.SLOTS_KEEPER_KEY || null, contrat: contratSlotsFiche, chainId: SLOTS_DEPLOIEMENT.chaine, table: SPIN_ACTIF ? SPIN_ACTIF.config.prizes : SLOTS_DEPLOIEMENT.constructeur.prizes,
+    blocDeploiement: (SPIN_ACTIF && SPIN_ACTIF.bloc) || 0, rpc: rpcServeur, journal: (t) => console.log(t),
+    /* 2026-11-12: the earlier Spin, still settled (settleMany only) once the new one is served — its last spins are never lost */
+    slotsAvant: SPIN_ACTIF && SPIN_ACTIF.avant ? { contrat: SPIN_ACTIF.avant.contrat, table: SPIN_ACTIF.avant.table, bloc: SPIN_ACTIF.avant.bloc } : null,
     duels: { contrat: contratDuelsKeeper, bloc: () => (DUELS_DEPLOIEMENT && Number.isSafeInteger(DUELS_DEPLOIEMENT.bloc) ? DUELS_DEPLOIEMENT.bloc : 0),
       /* 2026-10-24 : les duels REJOINTS lus par l ETAT (le cache de lireDuelsSrv) — un Joined dont le log n a pas ete lu n est plus perdu ;
        *   revue fix2 : avec guesses et mise (classes sans lecture), et la liste JETTE si le cache n est pas frais (duelsJointsKeeper) */
@@ -5740,12 +5748,22 @@ else console.log('[slots-keeper] off: ' + regleurSlots.etat().pourquoi);
 /* 2026-11-12 : le keeper des buybacks. La fiche tblock-buyback-vault-deploiement.js (adresse null = OFF, rien ne change) ; ensuite il
  *   appelle le nouveau buyback (il est son KEEPER), et l ancien (economie-deploiement.js adresseBuyback, chemin public apres son delai)
  *   tant qu il tient au moins MIN_SPEND, puis plus jamais. La cle vient de process.env seulement et ne sort jamais de buyback-keeper.js. */
+const verrouCleKeeper = creerExclusif();
 const keeperBuyback = ESSAI_SRV.actif
   ? creerKeeperBuyback({ desactive: 'trial mode (ESSAI): the buyback keeper never runs against a trial node' })
   : creerKeeperBuyback({ cle: process.env.BUYBACK_KEEPER_KEY || null, rec: BUYBACK_VAULT_DEPLOIEMENT, ancien: ECONOMIE_DEPLOIEMENT.adresseBuyback || null,
-    rpc: rpcServeur, journal: (t) => console.log(t) });
+    rpc: rpcServeur, journal: (t) => console.log(t), exclusif: verrouCleKeeper });
 if (keeperBuyback.demarrer()) console.log('[buyback-keeper] on, keeper ' + keeperBuyback.etat().adresse);
 else console.log('[buyback-keeper] off: ' + keeperBuyback.etat().pourquoi);
+/* le keeper de payDev : rien tant que le nouveau Spin n est pas servi (SPIN_ACTIF.devRouteur) ; il ne tourne que si la cle est celle du keeper
+ *   nomme dans la fiche du buyback (la meme adresse gas-only) ; meme verrou que le buyback pour le nonce */
+const keeperSpinDev = ESSAI_SRV.actif
+  ? creerKeeperSpinDev({ desactive: 'trial mode (ESSAI): the Spin dev keeper never runs against a trial node' })
+  : creerKeeperSpinDev({ cle: process.env.BUYBACK_KEEPER_KEY || null, spin: SPIN_ACTIF && SPIN_ACTIF.devRouteur ? SPIN_ACTIF.contrat : null,
+    chaine: BUYBACK_VAULT_DEPLOIEMENT.chaine, keeperAttendu: BUYBACK_VAULT_DEPLOIEMENT.parametres && BUYBACK_VAULT_DEPLOIEMENT.parametres.keeper,
+    rpc: rpcServeur, journal: (t) => console.log(t), exclusif: verrouCleKeeper });
+if (keeperSpinDev.demarrer()) console.log('[spin-dev-keeper] on, keeper ' + keeperSpinDev.etat().adresse);
+else console.log('[spin-dev-keeper] off: ' + keeperSpinDev.etat().pourquoi);
 
 /* ══ LE JOURNAL DU JOUR DU JEU (Phil 2026-10-18 : « les brains sont les occupants de la Map ») — journal-jeu.js, GET /api/jeu/journal.
  * ⛔ LU SUR UN MINUTEUR, JAMAIS PAR REQUETE : un tour toutes les JOURNAL_TOUR_MS, au plus JOURNAL_FENETRES_PAR_TOUR fenetres de
@@ -5961,8 +5979,8 @@ function sourcesXp() {
     { cle: 'rolls', contrat: adr(BLOCKROLLS_DEPLOIEMENT.adresse), bloc: BLOCKROLLS_DEPLOIEMENT.bloc, topics: [TOPICS_XP.rolled, TOPICS_XP.settled, TOPICS_XP.pass] },
     /* 2026-11-12 (the economy pack is live): skins are minted on the pack's Skins now. The earlier contract keeps its key and cursor ('skins');
      *   the pack's Skins gets its OWN key, read from its creation block (never resumed from the earlier contract's cursor) */
-    { cle: 'skins', genre: 'skins', contrat: adr(BLOCKSKINS_ACTIF_SRV.precedent ? contratSkinsActif(BLOCKSKINS_ACTIF_SRV.precedent).adresse : BLOCKSKINS_SRV), bloc: BLOCKSKINS_ACTIF_SRV.precedent ? contratSkinsActif(BLOCKSKINS_ACTIF_SRV.precedent).blocDeploiement : BLOCKSKINS_ACTIF_SRV.blocDeploiement, topics: [TOPICS_XP.skinMinted, TOPICS_XP.skinSold] },
-    ...(BLOCKSKINS_ACTIF_SRV.precedent ? [{ cle: 'skinsPack', genre: 'skins', contrat: adr(BLOCKSKINS_SRV), bloc: BLOCKSKINS_ACTIF_SRV.blocDeploiement, topics: [TOPICS_XP.skinMinted, TOPICS_XP.skinSold] }] : []),
+    /* 2026-11-12 (the 1 USDC Skins): 'skins' and 'skinsPack' exactly as before, then 'skinsUn' from its own creation block (blockskins-actif.js sourcesSkins) */
+    ...sourcesSkins().map((s) => ({ cle: s.cle, genre: 'skins', contrat: adr(s.contrat), bloc: s.bloc, topics: [TOPICS_XP.skinMinted, TOPICS_XP.skinSold] })),
     { cle: 'missions', contrat: adr(MISSIONS_DEPLOIEMENT.adresse), bloc: MISSIONS_DEPLOIEMENT.bloc, topics: [TOPICS_XP.taskClaimed] },
   ].filter((s) => s.contrat && Number.isSafeInteger(s.bloc) && s.bloc > 0);
 }
@@ -6371,6 +6389,10 @@ const SERVIS = [
   'economie.js', 'economie-deploiement.js', 'deployer-economie.html', 'create-vault-tip.js', 'relais-rpc.js', 'etat-naissance.js', 'coffre-paye.js', 'carte-naissance.js', 'coeurs-vue.js', 'coeurs-fil.js', 'lock.js', 'lock-deploiement.js', 'deployer-lock.html', 'deployer-economie-v2.html', 'economie-v2-pack-deploiement.js', 'pack-economie-v2.js', 'points-vue.js', 'points.js',
   /* 2026-11-12: the economy pack is live: its deployment record (generated from the six receipts) and the page module that reads it */
   'economie-v2-pack-deploye.js', 'economie-pack.js',
+  /* 2026-11-12 (Phil): the 1 USDC Skins and the Spin whose dev share goes through the router — the deploy page (noindex, no link), its
+   *   record (generated, adresse null until noted), the pure module (record -> transactions, checks, what the app may follow), and the
+   *   served-Spin choice imported by the fees page. ⛔ absent here = 404 = a dead page */
+  'deployer-skins-spin.html', 'skins-spin-deploiement.js', 'skins-spin.js', 'spin-actif.js',
   /* 2026-11-12: the last step of the pack page, the hook payee moves its creator fee slot to the lock rewards (payee-slot.js) */
   'payee-slot.js',
   /* 2026-11-12: the pack page shows the six deployed steps without a wallet (record judged, code read on Base) */
@@ -9137,11 +9159,13 @@ function traiterRequete(req, res) {
   if (chemin === '/api/slots') {
     const rendreS = (o) => { res.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' }); res.end(JSON.stringify(o)); };
     if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405, { 'content-type': 'application/json; charset=utf-8' }); res.end(JSON.stringify({ ok: false, pourquoi: 'GET only' })); return; }
-    const contratSlots = /^0x[0-9a-f]{40}$/i.test(String(SLOTS_DEPLOIEMENT.adresse || '')) && Number.isSafeInteger(SLOTS_DEPLOIEMENT.bloc) ? String(SLOTS_DEPLOIEMENT.adresse).toLowerCase() : null;
+    /* 2026-11-12: the served Spin (spin-actif.js): the new Spin once recorded (its dev share paid through the router: devRouteur), else the live one */
+    const contratSlots = SPIN_ACTIF ? SPIN_ACTIF.contrat : null;
     if (!contratSlots) { rendreS({ ok: false, etat: 'PAS_OUVERT' }); return; }
-    const sc = SLOTS_DEPLOIEMENT.constructeur;
-    rendreS({ ok: true, etat: 'OUVERT', contrat: contratSlots, bloc: SLOTS_DEPLOIEMENT.bloc, usdc: String(sc.usdc).toLowerCase(), prixSpin: String(sc.spinPrice), potShareBps: Number(sc.potShareBps),
-      prizes: sc.prizes.map(String), esperanceBrut: String(SLOTS_DEPLOIEMENT.esperanceBrut), probGainBps: Number(SLOTS_DEPLOIEMENT.probGainBps), fenetre: 256, delai: 2,
+    const sc = SPIN_ACTIF.config;
+    rendreS({ ok: true, etat: 'OUVERT', contrat: contratSlots, bloc: SPIN_ACTIF.bloc, usdc: String(sc.usdc).toLowerCase(), prixSpin: String(sc.spinPrice), potShareBps: Number(sc.potShareBps),
+      prizes: sc.prizes.map(String), esperanceBrut: String(SPIN_ACTIF.esperanceBrut), probGainBps: Number(SPIN_ACTIF.probGainBps), fenetre: 256, delai: 2,
+      devRouteur: SPIN_ACTIF.devRouteur, contratAvant: SPIN_ACTIF.avant ? SPIN_ACTIF.avant.contrat : null,
       /* v4 : l app dit si le serveur regle les spins tout seul (son regleur) ; le temps de bloc MESURE par le regleur s il tourne */
       regleur: (() => { const e = regleurSlots.etat(); return { etat: e.etat, adresse: e.adresse || null, msParBlocMesure: e.msParBlocMesure ?? null, dernierRegle: e.dernierRegle ? e.dernierRegle.a : null }; })() });
     return;
@@ -9290,6 +9314,7 @@ function traiterRequete(req, res) {
       slotsRegleur: regleurSlots.etat(),
       /* 2026-11-12 : le keeper des buybacks — OFF (et pourquoi) / ON / ARRETE, son adresse, ses compteurs ; jamais la cle */
       buybackKeeper: keeperBuyback.etat(),
+      spinDevKeeper: keeperSpinDev.etat(),
       mcpWidget: widgetHtml !== null, trousCreations: trousCreations.slice(-10), trousRelus: trousRelus.slice(-10), noeuds: etatNoeuds, ...(ok ? {} : { modulesManquants }),
       /* 2026-10-16 : le revenu VERIFIE par recu, par ligne et par devise (unites brutes), externe et interne separes — jamais les hashes.
        *   ⛔ BORNES dites : seules les transactions que le client poste sont vues ; l ETH natif (sans log) n est pas compte. */

@@ -1,0 +1,161 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Deploy Skins and Spin</title>
+<!--
+  Phil 2026-11-12: a new Skins (1 USDC a mint, paid through the live TBLOCK payment router: 10 % USDC to the fee wallet, the rest buys
+  TBLOCK for the live holders vault) and a new Spin (the winners' pot stays USDC; the dev share is paid through the router: 10 % USDC to
+  the dev wallet, the rest buys TBLOCK for the vault). Neither is a play for the vault or the lock rewards (their game lists are fixed).
+  Offers the UNSIGNED deploy of the two contracts to the CONNECTED wallet, one signature each, at consecutive nonces N (Skins), N+1 (Spin).
+  ⛔ The data is EXACTLY skins-spin-deploiement.js (contracts/preparer-deploiement-skins-spin.mjs); every sha256 and the constructor words
+     (re-encoded from the values shown here) are checked before anything is offered. A TEST FIXTURE record is refused.
+  ⛔ Only the record's deployer may sign. Before each signature the page re-reads the chain (earlier receipts and their code, the wallet
+     nonce, no pending transaction, no code at the predicted address) and SIMULATES the exact creation from the deployer (eth_call must
+     answer the frozen runtime; gas is estimated). After each one it reads the receipt: status, tx.from, nonce, the signed data, the address
+     = the CREATE prediction, and the runtime code = the frozen build. Any difference = STOP, nothing more offered.
+  After step 2 the page runs the same read-only checks as verifier-skins-spin.mjs. The record is then written by the noter script
+  (contracts/noter-deploiement-skins-spin.mjs), which reads the receipts on two nodes; until then the app does not change.
+-->
+<style>
+:root{--bg:#050d24;--card:#0f1d3d;--line:#1e2f57;--fg:#e9f0ff;--dim:#8ba0c9;--or:#f7a318;--ok:#3ecf8e;--ko:#ff6b6b}
+*{box-sizing:border-box}html,body{margin:0}
+body{background:var(--bg);color:var(--fg);font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;padding:16px}
+main{max-width:760px;margin:0 auto}h1{font-size:19px}h2{font-size:15px;margin:0 0 6px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:12px}
+.row{display:flex;gap:10px;padding:5px 0;border-bottom:1px solid var(--line)}.row:last-child{border:0}
+.k{color:var(--dim);flex:0 0 170px;font-size:12px}.v{flex:1;font-size:12px;word-break:break-all;min-width:0}
+@media (max-width:560px){.row{flex-direction:column;gap:2px}.k{flex:none}}
+button{width:100%;background:var(--or);color:#20160a;border:0;border-radius:8px;padding:14px;font:inherit;font-weight:700;margin-top:10px;cursor:pointer}
+button:disabled{opacity:.45;cursor:not-allowed}.note{color:var(--dim);font-size:12px}
+a{color:var(--or);word-break:break-all}
+.etape{border-top:1px solid var(--line);padding-top:10px;margin-top:10px}.etape:first-of-type{border:0;margin:0;padding:0}
+.st{font-weight:700}.st.ok{color:var(--ok)}.st.ko{color:var(--ko)}.warn{color:var(--ko);font-weight:700}
+.ln{font-size:12px;padding:2px 0}.ln.ko{color:var(--ko)}.ln.ok{color:var(--ok)}
+</style>
+<main>
+<h1>Deploy Skins and Spin (Base)</h1>
+<p class="note">Two contracts, two signatures, ONE wallet, consecutive nonces. Skins: 1 USDC a mint, paid through the TBLOCK payment
+router (10% USDC to the fee wallet, the rest buys TBLOCK for the holders vault). Spin: the same price, pot share and prize table as today;
+the winners' pot stays USDC; the dev share is paid through the router in batches (10% USDC to the dev wallet, the rest buys TBLOCK for the
+holders vault). Neither counts as play for the holders vault or the lock rewards.</p>
+<div class="card" id="rec"><span class="note">Loading the frozen record…</span></div>
+<div class="card" id="steps"></div>
+<div class="card">
+  <button id="connect" disabled>Connect wallet</button>
+  <button id="go" disabled>Sign the next step</button>
+  <div id="state" class="note" style="margin-top:10px"></div>
+</div>
+<div class="card" id="verif" hidden><h2>After step 2: read-only checks</h2><div id="lines"></div></div>
+</main>
+<script type="module">
+import { predire, integrite, etapeSuivante, controleEtape, codeConforme, verifierPaire, PRODUIT, resoudre } from './skins-spin.js';
+const $ = (s) => document.querySelector(s);
+const esc = (x) => String(x ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const row = (k, v) => '<div class="row"><span class="k">' + esc(k) + '</span><span class="v">' + esc(v) + '</span></div>';
+const lien = (h) => '<a href="https://basescan.org/tx/' + esc(h) + '" target="_blank" rel="noopener">' + esc(h) + '</a>';
+const usdc = (raw) => { const n = BigInt(raw), e = n / 1000000n, c = (n % 1000000n).toString().padStart(6, '0').replace(/0+$/, ''); return e + (c ? '.' + c : '') + ' USDC'; };
+/* plain labels for the record's keys (the record keeps its own keys) */
+const LIBELLE = { router: 'TBLOCK payment router', feeWallet: 'fee wallet (10% of each mint, 10% of each resale)', dest: 'holders vault (gets the TBLOCK)',
+  expectedTblock: 'TBLOCK', expectedUsdc: 'USDC', usdc: 'USDC', mintPriceUsdc: 'mint price', devBps: 'USDC kept by the router split (bps)', owner: 'owner',
+  devWallet: 'dev wallet (10% of each dev batch)', spinPrice: 'spin price', potShareBps: 'pot share (bps)', prizes: 'prizes (0 to 15 points)',
+  minDevBatch: 'smallest dev batch', maxDevBatch: 'largest dev batch', toPot: 'to the pot per spin', devShare: 'dev share per spin' };
+const MONTANTS = new Set(['mintPriceUsdc', 'spinPrice', 'minDevBatch', 'maxDevBatch', 'toPot', 'devShare']);
+const REF = (v) => { try { return resoudre(v) + ' (the live one, read from the economy pack record)'; } catch (_) { return 'NOT READABLE: ' + v; } };
+const val = (k, v) => MONTANTS.has(k) ? usdc(v) + ' (' + v + ')' : k === 'prizes' ? v.map(usdc).join(' · ') : (typeof v === 'string' && v[0] === '@') ? REF(v) : v;
+let D = null;
+try { ({ SKINS_SPIN_DEPLOIEMENT: D } = await import('./skins-spin-deploiement.js')); } catch (_) { D = null; }
+let acct = null, pred = null, etat = { N: null, hashes: [] };
+const rpc = (method, params) => window.ethereum.request({ method, params });
+const cle = () => 'skins-spin:' + (D && D.sha256Paire) + ':' + acct;
+function charger() { try { const j = JSON.parse(localStorage.getItem(cle()) || 'null'); if (j && Array.isArray(j.hashes)) etat = { N: j.N, hashes: j.hashes }; } catch (_) {} }
+function garder() { try { localStorage.setItem(cle(), JSON.stringify(etat)); } catch (_) {} }
+
+function dessinerEtapes() {
+  $('#steps').innerHTML = '<h2>What each signature deploys</h2>' + D.etapes.map((e, k) => {
+    const h = etat.hashes[k];
+    const st = h ? '<span class="st ok">sent · ' + lien(h) + '</span>' : '<span class="st">not signed</span>';
+    return '<div class="etape"><b>' + (k + 1) + '. ' + esc(PRODUIT[e.cle]) + '</b> · nonce ' + esc(e.nonce) + (pred ? ' · at ' + esc(pred[e.cle]) : '') + '<br>' + st
+      + Object.entries(e.config).map(([c, v]) => row(LIBELLE[c] || c, val(c, v))).join('')
+      + row('source sha256', e.sha256Source) + row('creation', e.octetsCreation + ' bytes · sha256 ' + e.sha256Creation) + '</div>';
+  }).join('');
+}
+
+if (!D) {
+  $('#rec').innerHTML = '<span class="warn">No deploy record here: nothing can be signed.</span>';
+} else {
+  const faux = await integrite(D);
+  const deja = D.etapes.some((e) => e.adresse);
+  $('#rec').innerHTML = '<h2>Frozen record</h2>' + (D.fixtureDeTest ? '<p class="warn">TEST FIXTURE: never sign this.</p>' : '')
+    + (deja ? '<p class="st ok">Already deployed and recorded: Skins ' + esc(D.etapes[0].adresse) + ' · Spin ' + esc(D.etapes[1].adresse) + '. Nothing to sign.</p>' : '')
+    + row('integrity', faux.length ? 'MISMATCH: ' + faux.join(', ') : 'OK (sha256 of both creations and the pair; constructor words = the values shown)') + row('pair sha256', D.sha256Paire)
+    + row('deployer (only wallet allowed)', D.deployeur) + row('compiler', D.compilateur + ' · optimizer ' + (D.optimiseur ? D.optimiseur.runs + ' runs' : '?') + ' · ' + D.evm) + row('generated', D.genereLe)
+    + row('TBLOCK payment router (live)', REF(D.existants.router)) + row('holders vault (live)', REF(D.existants.vault)) + row('TBLOCK', D.existants.tblock) + row('USDC', D.existants.usdc)
+    + row('dev batch bounds', usdc(D.parametres.minDevBatch) + ' to ' + usdc(D.parametres.maxDevBatch) + ' a batch · ' + D.parametres.devBatchSource);
+  dessinerEtapes();
+  $('#connect').disabled = !!(faux.length || D.fixtureDeTest || deja);
+}
+
+async function rafraichir() {
+  $('#state').textContent = 'Reading the chain and simulating the next deploy…';
+  const r = await etapeSuivante(D, rpc, acct, etat);
+  if (r.N !== undefined && etat.N === null && etat.hashes.length) etat.N = r.N;
+  pred = etat.N !== null ? predire(acct, BigInt(etat.N)) : (r.pret ? predire(acct, BigInt(r.N)) : null);
+  dessinerEtapes();
+  if (r.pret) {
+    $('#go').disabled = false;
+    $('#go').textContent = (r.k + 1) + '. Deploy ' + PRODUIT[D.etapes[r.k].cle] + ' (sign in the wallet, nonce ' + BigInt(r.nonce) + ')';
+    $('#state').innerHTML = 'Ready: simulated from ' + esc(acct) + ', it answers the frozen code; gas estimate ' + esc(Number(r.gas).toLocaleString('en-US'))
+      + '. Step ' + (r.k + 1) + ' lands at ' + esc(r.attendu) + '. Send nothing else from this wallet until step 2.';
+  } else {
+    $('#go').disabled = true;
+    $('#state').innerHTML = (r.arret ? '<span class="warn">' : '') + esc(r.raison) + (r.arret ? '</span>' : '');
+  }
+  if (r.fini && etat.hashes.length === 2) await verifierFin();
+  return r;
+}
+
+$('#connect').onclick = async () => {
+  if (!window.ethereum) { $('#state').textContent = 'No wallet in this browser.'; return; }
+  try { [acct] = await rpc('eth_requestAccounts', []); acct = String(acct).toLowerCase(); } catch (e) { $('#state').textContent = 'Wallet refused: ' + (e.message || e); return; }
+  const code = await rpc('eth_getCode', [acct, 'latest']).catch(() => null);
+  if (code === null || (code !== '0x' && code !== '0x0')) { $('#state').innerHTML = '<span class="warn">This wallet has contract code (smart wallet or delegated account): it cannot follow the nonce chain. Use the plain wallet named in the record.</span>'; return; }
+  charger();
+  await rafraichir();
+};
+
+async function receipt(h) {
+  for (let i = 0; i < 120; i++) { const r = await rpc('eth_getTransactionReceipt', [h]).catch(() => null); if (r) return r; await new Promise((o) => setTimeout(o, 2000)); }
+  return null;
+}
+
+$('#go').onclick = async () => {
+  $('#go').disabled = true;
+  const [now] = await rpc('eth_accounts', []).catch(() => []);
+  if (String(now || '').toLowerCase() !== acct) { $('#state').innerHTML = '<span class="warn">The wallet account changed: connect again.</span>'; return; }
+  const r = await rafraichir(); /* fresh reads and a fresh simulation right before the wallet opens */
+  if (!r.pret) return;
+  $('#go').disabled = true;
+  let h;
+  try { h = await rpc('eth_sendTransaction', [{ from: acct, data: r.data, nonce: r.nonce, gas: r.gasEnvoi, value: '0x0' }]); }
+  catch (e) { $('#state').textContent = 'Not sent: ' + (e.message || e); $('#go').disabled = false; return; }
+  etat.N = r.N; etat.hashes = [...etat.hashes, String(h).toLowerCase()]; garder();
+  $('#state').innerHTML = PRODUIT[D.etapes[r.k].cle] + ' sent: ' + lien(h) + ' · waiting for the receipt…';
+  const recu = await receipt(h);
+  if (!recu) { $('#state').innerHTML += '<br><span class="warn">No receipt yet: check Basescan, then reload this page (progress is kept).</span>'; return; }
+  const t = await rpc('eth_getTransactionByHash', [h]).catch(() => null);
+  const ko = controleEtape(D, r.k, acct, BigInt(r.N), t, recu);
+  const code = ko.length ? null : await rpc('eth_getCode', [String(recu.contractAddress).toLowerCase(), 'latest']).catch(() => null);
+  if (!ko.length && !(await codeConforme(D.etapes[r.k], code))) ko.push('the code at ' + recu.contractAddress + ' is not the frozen build');
+  if (ko.length) { $('#state').innerHTML = '<span class="warn">STOP at step ' + (r.k + 1) + ': ' + esc(ko.join(' · ')) + '</span>'; dessinerEtapes(); return; }
+  await rafraichir();
+};
+
+async function verifierFin() {
+  $('#verif').hidden = false;
+  const res = await verifierPaire(D, etat.hashes, rpc);
+  $('#lines').innerHTML = res.lignes.map((l) => '<div class="ln ' + (l.ok ? 'ok' : 'ko') + '">' + (l.ok ? 'ok ' : 'KO ') + esc(l.quoi) + (l.ok ? '' : ' · seen ' + esc(l.vu)) + '</div>').join('')
+    + '<p class="st ' + (res.ok ? 'ok' : 'ko') + '">' + (res.ok ? 'ALL CHECKS HOLD. Next: record the two deploys (the noter script reads both receipts on two nodes). The app switches only then.' : 'NOT VERIFIED: do not record it, do not announce it.') + '</p>'
+    + '<p class="note">From a terminal: node contracts/noter-deploiement-skins-spin.mjs ' + esc(etat.hashes.join(' ')) + '</p>';
+}
+</script>

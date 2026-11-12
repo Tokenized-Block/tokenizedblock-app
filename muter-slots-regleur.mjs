@@ -18,7 +18,8 @@ const COPIE = path.join(ICI, '.mutant-slots-regleur-' + process.pid + '.js');
 /* revue fix2 (2026-10-24, round 3) : la copie passe aussi par test-keeper-fix3-20261024.mjs (eviction, budgets, fenetre d un duel deja
  *   SUIVI : le mutant « cible + 256 » n est plus tue par test-slots-regleur seul, la decouverte refusant deja un duel hors fenetre) */
 /* 2026-11-05 (keeper Denim) : + test-keeper-denim-v2-rolls-20261105.mjs (BlockDuelsV2, rolls joues, la garde etendue) */
-const BANCS = ['test-slots-regleur-20261023.mjs', 'test-keeper-fix3-20261024.mjs', 'test-keeper-denim-v2-rolls-20261105.mjs'];
+/* 2026-11-12 (the new Spin): + test-keeper-spin-avant-20261112.mjs (the earlier Spin still settled, its own ids, the guard) */
+const BANCS = ['test-slots-regleur-20261023.mjs', 'test-keeper-fix3-20261024.mjs', 'test-keeper-denim-v2-rolls-20261105.mjs', 'test-keeper-spin-avant-20261112.mjs'];
 const lancer = () => {
   try { for (const b of BANCS) execFileSync(process.execPath, [path.join(ICI, b)], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, REGLEUR_MODULE: COPIE, TOUT_COMPTER: '' } }); return true; }
   catch (_) { return false; }
@@ -49,10 +50,17 @@ const M = [
   ['simulation ignoree (un revert envoye quand meme)', 'if (!estRevert(e)) throw new Passagere(msg(e));', 'return { k: kk, estime: 200000n };'],
   ['gas sans marge', 'const gas = (choix.estime * 12n) / 10n;', 'const gas = choix.estime;'],
   /* 2026-11-05 (keeper Denim) : ancres suivies — la garde recoit aussi duelsV2 et le contrat des rolls joues */
-  ['la garde n est plus appelee', '      verifierEnvoi(tx, { contrat: c, chainId, bornes, duels: cD, rolls: cR || cJ, duelsV2: cV });', '      /* garde retiree */'],
-  ['la garde ne connait plus duels / rolls', '      verifierEnvoi(tx, { contrat: c, chainId, bornes, duels: cD, rolls: cR || cJ, duelsV2: cV });', '      verifierEnvoi(tx, { contrat: c, chainId, bornes });'],
+  ['la garde n est plus appelee', '      verifierEnvoi(tx, { contrat: c, chainId, bornes, duels: cD, rolls: cR || cJ, duelsV2: cV, slotsAvant: cAvant });', '      /* garde retiree */'],
+  ['la garde ne connait plus duels / rolls', '      verifierEnvoi(tx, { contrat: c, chainId, bornes, duels: cD, rolls: cR || cJ, duelsV2: cV, slotsAvant: cAvant });', '      verifierEnvoi(tx, { contrat: c, chainId, bornes });'],
+  /* 2026-11-12 (the new Spin, slotsAvant) — killed by test-keeper-spin-avant-20261112.mjs */
+  ['ancien Spin : la garde ne le connait plus', ', duelsV2: cV, slotsAvant: cAvant });', ', duelsV2: cV });'],
+  ['ancien Spin : la garde l admet meme sans lui', 'if ((cS && to === cS) || (cA && to === cA)) {', 'if ((cS && to === cS) || (to === bas(tx.to) && to !== cD && to !== cR && to !== cV)) {'],
+  ['ancien Spin : jamais lu', "      if (avant) { const a = await (async () => { try { return await candidatsSlots(tete, info, avant); }", "      if (false) { const a = await (async () => { try { return await candidatsSlots(tete, info, avant); }"],
+  ['ancien Spin : son recu efface l id du nouveau', '      const sx = slotsDe(v.to);', '      const sx = principal;'],
+  ['ancien Spin : lu depuis le bloc du nouveau', "blocDeploiement: Number(slotsAvant.bloc) || 0, suivis: new Map()", "blocDeploiement: Number(blocDeploiement) || 0, suivis: new Map()"],
+  ['ancien Spin : egal au nouveau admis', '  if (cAvant && (cAvant === c || !Array.isArray(slotsAvant.table)', '  if (cAvant && (!Array.isArray(slotsAvant.table)'],
   ['garde : n importe quel selecteur aux slots', "if (!d.startsWith(SEL_SETTLE_MANY)) throw new Error('keeper: refused, only settleMany / settle are ever sent to the slots contract');", ''],
-  ['garde : autre adresse admise (traitee en slots)', 'if (cS && to === cS) {', 'if (cS) {'],
+  ['garde : autre adresse admise (traitee en slots)', 'if ((cS && to === cS) || (cA && to === cA)) {', 'if (cS) {'], /* 2026-11-12: the line now names the earlier Spin too */
   ['garde : valeur admise', "if (BigInt(tx.value ?? 0) !== 0n) throw new Error('keeper: refused, a keeper call carries no value');", ''],
   ['garde : autre chaine admise', "if (BigInt(tx.chainId) !== BigInt(chainId)) throw new Error('keeper: refused, wrong chain');", ''],
   ['garde : 11 ids admis', 'if (k < 1 || k > bornes.spinsParTx)', 'if (k < 1)'],

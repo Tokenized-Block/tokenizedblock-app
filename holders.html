@@ -188,7 +188,7 @@ async function lireRegles() {
   try {
     [r.likePrice, r.minHold, r.likeUsd, r.holdUsd] = await Promise.all([lit(EP.VIEW.likePrice()), lit(EP.VIEW.minHold()), lit(EP.VIEW.likeUsd()), lit(EP.VIEW.holdUsd())]);
     [r.prixTam, r.prixSkin] = await Promise.all([lit(EP.VIEW.prixJeu(EP.TAM)), lit(EP.VIEW.mintPriceSkin())]);
-    const [st, ss] = await Promise.all([noeud('eth_call', [EP.VIEW.partJeu(EP.TAM), 'latest']), noeud('eth_call', [EP.VIEW.partJeu(EP.SKINS), 'latest'])]);
+    const [st, ss] = await Promise.all([noeud('eth_call', [EP.VIEW.partJeu(EP.TAM), 'latest']), noeud('eth_call', [EP.VIEW.partJeu(EP.SKINS_MINT), 'latest'])]);
     r.devTam = EP.word(st, 1); r.devSkin = EP.word(ss, 1);
     const v = {}; for (const k of EP.REGLES_VAULT) v[k] = await lit(EP.VIEW.regleVault(k));
     r.vault = EP.texteRegleVault(v);
@@ -237,12 +237,12 @@ function peindrePerks() {
     R ? ['♥', 'Heart a block', 'burns ' + EP.usd(R.likeUsd) + ' of TBLOCK from your wallet (' + tok(R.likePrice) + ' TBLOCK at the contract price) and needs ' + EP.usd(R.holdUsd) + ' of TBLOCK locked; counts as play for the holders vault and the lock rewards',
       besoin(R), l != null && b != null && l >= R.minHold && b >= R.likePrice, l != null && b != null, null]
       : ['♥', 'Heart a block', 'its price and its minimum are read from the hearts contract', '—', null, false, NONLU],
-    R ? ['🎨', 'TAM art and skins', 'a TAM art mint is ' + usdc(R.prixTam) + ', a skin ' + usdc(R.prixSkin) + ', paid through the TBLOCK payment router: ' + (R.devTam === R.devSkin ? pc(R.devTam) : pc(R.devTam) + ' (TAM art) or ' + pc(R.devSkin) + ' (skins)') + ' stays USDC for the dev wallet, the rest buys TBLOCK for the holders vault; each mint counts as play', 'open to all', null, false, '<span class="st ok">OPEN</span>']
+    R ? ['🎨', 'TAM art and skins', 'a TAM art mint is ' + usdc(R.prixTam) + ', a skin ' + usdc(R.prixSkin) + ', paid through the TBLOCK payment router: ' + (R.devTam === R.devSkin ? pc(R.devTam) : pc(R.devTam) + ' (TAM art) or ' + pc(R.devSkin) + ' (skins)') + ' stays USDC for the dev wallet, the rest buys TBLOCK for the holders vault; ' + (EP.SKINS_JOUE ? 'each mint counts as play' : 'a TAM art mint counts as play, a skin mint does not'), 'open to all', null, false, '<span class="st ok">OPEN</span>']
       : ['🎨', 'TAM art and skins', 'paid through the TBLOCK payment router; prices read from their contracts', 'open to all', null, false, NONLU],
-    ['🎰', 'Games (Spin, Roll, Duels)', 'open to everyone; they do not count as play for the holders vault or the lock rewards (hearts, TAM art and skins do)', 'open to all', null, false, '<span class="st ok">OPEN</span>'],
+    ['🎰', 'Games (Spin, Roll, Duels)', 'open to everyone; they do not count as play for the holders vault or the lock rewards (' + (EP.SKINS_JOUE ? 'hearts, TAM art and skins do' : 'hearts and TAM art do') + ')', 'open to all', null, false, '<span class="st ok">OPEN</span>'],
     R ? ['🏦', 'Holders vault, every week', R.vault || 'its rules are read from the vault contract', besoin(R), l != null && l >= R.minHold && etat.unlockAt != null && Number(etat.unlockAt) >= Date.now() / 1000 + 7 * 86400, l != null, null]
       : ['🏦', 'Holders vault, every week', 'its rules are read from the vault contract', '—', null, false, NONLU],
-    R ? ['📅', 'Monthly lock rewards', 'each 30-day month pays the holders whose lock covers the whole month and who played in it (a heart, a TAM art mint or a skin mint): ' + EP.MOIS_MIN_JOURS + ' days minimum to be sure of one. Month ' + R.mois + ' ends ' + jour(R.finMois)
+    R ? ['📅', 'Monthly lock rewards', 'each 30-day month pays the holders whose lock covers the whole month and who played in it (' + (EP.SKINS_JOUE ? 'a heart, a TAM art mint or a skin mint' : 'a heart or a TAM art mint') + '): ' + EP.MOIS_MIN_JOURS + ' days minimum to be sure of one. Month ' + R.mois + ' ends ' + jour(R.finMois)
       + (R.closMois > 0n ? '' : '; no month has closed yet') + '. The rewards are what is deposited in the rewards contract; no amount is promised', 'a lock + play', null, false, lockPret ? '<a class="st ok" href="/#wallet">IN THE APP →</a>' : VENIR()]
       : ['📅', 'Monthly lock rewards', 'read from the lock rewards contract', '—', null, false, NONLU],
   ];

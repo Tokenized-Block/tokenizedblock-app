@@ -8753,7 +8753,10 @@ async function peindreSlotsUneFois(force = false) {
    *   fenetre mesuree, et l etat du regleur ; dans le pli « How the slots work » (#slotsComment) le calcul des points, le pot court et Accept,
    *   les chances et la moyenne, les points et la plage lue. Le pot actuel est dit par #slotsEtat / #slotsMoi. */
   const rg = $('#slotsRegle'), rgPli = $('#slotsComment');
-  if (rg) rg.textContent = 'A spin costs ' + usdcTexte(prix) + ' USDC: ' + (part / 100) + '% goes to the slots pot and ' + ((10000 - part) / 100) + '% (' + Slots.usdcPrecis(ev.toDev) + ' USDC) to TokenizedBlock, when you spin, whatever happens next. The contract pays the prize from the pot, to you: a fixed prize per points, from 0 to ' + usdcTexte(haut) + ' USDC a spin, never more than the pot holds. '
+  if (rg) rg.textContent = 'A spin costs ' + usdcTexte(prix) + ' USDC: ' + (part / 100) + '% goes to the slots pot and ' + ((10000 - part) / 100) + '% (' + Slots.usdcPrecis(ev.toDev) + ' USDC) to TokenizedBlock, when you spin, whatever happens next.'
+    /* 2026-11-12 (Phil): the new Spin pays TokenizedBlock's part through the TBLOCK payment router (/api/slots devRouteur, from the record) */
+    + (j.devRouteur && Number(j.devRouteur.devBps) > 0 ? ' That part is paid out in batches through the TBLOCK payment router: ' + (Number(j.devRouteur.devBps) / 100) + '% of each batch stays USDC, the rest buys TBLOCK for the holders vault.' : '')
+    + ' The contract pays the prize from the pot, to you: a fixed prize per points, from 0 to ' + usdcTexte(haut) + ' USDC a spin, never more than the pot holds. '
     + 'A spin not settled in time is lost: nothing is returned. Settle within ' + Slots.FENETRE + ' blocks of the first face block — ' + fenetreTxt + '. '
     + 'The server settles spins automatically when its keeper is on (it is ' + reg + ' right now); anyone can settle, and the prize always goes to the spin\'s player.';
   /* 2026-10-25 (Phil : « court et ordonne, chaque fait une fois ») : le pli dit 2) les faces (les blocs des faces DERIVES de DELAI_CIBLE
@@ -35748,7 +35751,7 @@ async function bcAcheterSkin() {
       routeurC = '0x' + String(await rpc('eth_call', [{ to: BLOCKSKINS, data: '0x' + selecteur('ROUTER()') }, 'latest'])).slice(-40).toLowerCase();
       devBps = EP.word(await rpc('eth_call', [EP.VIEW.partJeu(BLOCKSKINS), 'latest']), 1);
     } catch (_) { prixC = null; }
-    if (prixC !== SKIN_MINT_USDC || fraisC !== beneficiaire || routeurC !== EP.ROUTER || BLOCKSKINS !== EP.SKINS || devBps === null) {
+    if (prixC !== SKIN_MINT_USDC || fraisC !== beneficiaire || routeurC !== EP.ROUTER || BLOCKSKINS !== EP.SKINS_MINT || devBps === null) {
       bcEtape(m, 'The skin price could not be confirmed on chain — nothing was asked.', 'non'); bcBoutons(m, [['Try again', payer, true], ['Dismiss', refuser, true]]); return;
     }
     let solde = null;
@@ -35764,7 +35767,7 @@ async function bcAcheterSkin() {
     try { const b = await rpc('eth_getBlockByNumber', ['latest', false]); const ts = b && b.timestamp ? Number(BigInt(b.timestamp)) : 0; if (ts > t0) t0 = ts; } catch (_) { /* the device clock */ }
     let appels;
     try {
-      const [ap, pay] = EP.payBatch({ game: EP.SKINS, usdcIn: prixC, minOut: mo.minOut, deadline: t0 + EP.DELAI_PAIEMENT_S, data: EP.dataSkin({ block: a, recipe: packRecette(recette) }) });
+      const [ap, pay] = EP.payBatch({ game: EP.SKINS_MINT, usdcIn: prixC, minOut: mo.minOut, deadline: t0 + EP.DELAI_PAIEMENT_S, data: EP.dataSkin({ block: a, recipe: packRecette(recette) }) });
       appels = [{ ...ap, nom: 'Allow the TBLOCK payment router to take exactly ' + SKIN_MINT_TEXTE }, { ...pay, nom: 'Pay ' + SKIN_MINT_TEXTE + ' through the router: the skin is minted to you' }];
     } catch (e) { bcEtape(m, 'This skin could not be prepared: ' + String((e && e.message) || e).slice(0, 120), 'non'); return; }
     bcEtape(m, SKIN_MINT_TEXTE + ' through the TBLOCK payment router: ' + EP.usdcTexte(dev) + ' USDC to TokenizedBlock, ' + EP.usdcTexte(spend) + ' USDC buys at least ' + EP.fmt(mo.minOut) + ' TBLOCK (a fresh quote less 1%), all of it sent to the holders vault. The skin is minted to your wallet, bound to this block on chain: you wear it, and you can sell it or auction it (10 % of each sale goes to TokenizedBlock). If the pools move more than that before you sign, nothing is paid.'); /* 2026-10-10 regle de Phil : jamais l adresse de frais a l ecran ; le WALLET montre le vrai destinataire */

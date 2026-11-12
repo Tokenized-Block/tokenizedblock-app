@@ -81,7 +81,7 @@ export function verifierEnvoi(tx, { cibles, chainId, bornes = BORNES_DEFAUT, max
  * cle = the key (from process.env only); rpc(method, params) reads; rpcEnvoi sends (default rpc).
  */
 export function creerKeeperBuyback({ cle = null, rec = null, ancien = null, rpc = null, rpcEnvoi = null, journal = () => {}, bornes: bIn = {},
-  maintenant = () => Date.now(), desactive = null } = {}) {
+  maintenant = () => Date.now(), exclusif = (fn) => fn(), desactive = null } = {}) {
   const bornes = { ...BORNES_DEFAUT, ...bIn };
   const off = (pourquoi) => ({ etat: () => ({ etat: 'OFF', pourquoi, adresse: null }), tour: async () => ({ fait: false, pourquoi }), demarrer: () => false, arreter: () => {} });
   if (desactive) return off(String(desactive));
@@ -164,6 +164,8 @@ export function creerKeeperBuyback({ cle = null, rec = null, ancien = null, rpc 
         if (base + prio > BigInt(bornes.maxFeeWei)) return { fait: false, pourquoi: 'gas price above the cap' };
         const maxFee = 2n * base + prio > BigInt(bornes.maxFeeWei) ? BigInt(bornes.maxFeeWei) : 2n * base + prio;
         const gas = (estime * 12n) / 10n;
+        /* one lock with the Spin dev keeper, which runs on the same gas-only key: the two never take the same nonce */
+        return await exclusif(async () => {
         const nonce = BigInt(await rpc('eth_getTransactionCount', [moi, 'pending']));
         const tx = { chainId, nonce, maxPriorityFeePerGas: prio, maxFeePerGas: maxFee, gas, to: c, value: 0n, data };
         verifierEnvoi(tx, { cibles, chainId, bornes, maxParCible: Object.fromEntries(Object.entries(st.fixes).map(([k, v]) => [k, v.maxPerCall])) });
@@ -176,6 +178,7 @@ export function creerKeeperBuyback({ cle = null, rec = null, ancien = null, rpc 
         st.enVol = { hash: signe.hash, to: c, montant: d.montant.toString(), a: maintenant() };
         st.compteurs.envois += 1;
         return { fait: true, hash: signe.hash, to: c, montant: d.montant, comme: d.comme };
+        });
       }
       return { fait: false, pourquoi: raisons.join(' | ') || 'nothing to call' };
     } catch (e) { erreur('round failed: ' + msg(e)); return { fait: false, pourquoi: 'round failed' }; }

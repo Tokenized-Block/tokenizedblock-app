@@ -248,7 +248,7 @@ ok(/const usdc = USDC_BASE\.toLowerCase\(\), beneficiaire = FEE_WALLET\.toLowerC
   'C2 achat : le paiement par le routeur (sa part dev au wallet de frais grave), NOMME TokenizedBlock a l ecran - le wallet montre l adresse');
 ok(/if \(solde < SKIN_MINT_USDC\)/.test(achat) && achat.indexOf('if (solde < SKIN_MINT_USDC)') < achat.indexOf("await bcSigner(m, appels, 'skin_mint')"), 'C2 achat : le solde USDC est relu AVANT de signer');
 /* 2026-11-12: the router batch approves EXACTLY the price read (economie-pack.js payBatch), never unlimited */
-ok(/EP\.payBatch\(\{ game: EP\.SKINS, usdcIn: prixC, minOut: mo\.minOut/.test(achat) && !/MAX_UINT|ffffffffffffffff/.test(achat),
+ok(/EP\.payBatch\(\{ game: EP\.SKINS(?:_MINT)?, usdcIn: prixC, minOut: mo\.minOut/.test(achat) && !/MAX_UINT|ffffffffffffffff/.test(achat),
   'C2 achat : approbation EXACTE du prix relu (au routeur), jamais illimitee');
 /* Phil, 2026-10-11 : « v2 avant tout mint » - la porte est AVANT tout appel au wallet (bcAvecWallet est dans payer) et ne demande rien. */
 const porte = achat.indexOf('if (!SKIN_MINT_OUVERT) {');

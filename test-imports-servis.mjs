@@ -37,7 +37,10 @@ const PAGES = ['pot.html', 'reclamer.html', 'app.html', 'deploy-v6.html', 'deplo
   'claim.html',
   /* game386 task B: the block contest page (block-contest.js, contest-vue.js -> caution-createur.js, hook-7030-descripteur.js, keccak.js; economie-pack.js;
    *   frais-creation.js; groupe-wallet.js) */
-  'contest.html'];
+  'contest.html',
+  /* 2026-11-12 (Phil): the 1 USDC Skins and the new Spin deploy page (imports skins-spin.js -> keccak.js, pack-economie-v2.js, slots-config.js,
+   * economie-v2-pack-deploye.js, and the record skins-spin-deploiement.js); holders.html imports economie-pack.js -> skins-spin.js too */
+  'deployer-skins-spin.html', 'holders.html'];
 const vus = new Set();
 const manquants = [];
 let arcs = 0;

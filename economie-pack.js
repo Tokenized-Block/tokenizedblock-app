@@ -12,6 +12,8 @@ import { ADRESSES_PACK_ECONOMIE_V2 as A, PACK_ECONOMIE_V2_DEPLOYE as REC } from 
 import { TBLOCK } from './economie.js';
 import { USDC_BASE } from './frais-creation.js';
 import { LOCK, lockBatch } from './lock.js';
+import { SKINS_SPIN_DEPLOIEMENT } from './skins-spin-deploiement.js';
+import { deployes as deployesSkinsSpin } from './skins-spin.js';
 
 export { TBLOCK };
 export const USDC = String(USDC_BASE).toLowerCase();
@@ -22,6 +24,12 @@ export const HEARTS = adr(A.L);
 export const ROUTER = adr(A.P);
 export const TAM = adr(A.T);
 export const SKINS = adr(A.S);
+/* 2026-11-12 (Phil): the Skins contract the app MINTS on — the 1 USDC Skins once skins-spin-deploiement.js names it (the CREATE address of
+ *   its deployer, skins-spin.js deployes), else the pack's Skins (S). A mint on the 1 USDC Skins is NOT a play for the vault or the lock
+ *   rewards (they list S, for ever): SKINS_JOUE says whether a skin mint counts as play, for every sentence that says so. */
+const SKINS_UN_DEPLOYE = deployesSkinsSpin(SKINS_SPIN_DEPLOIEMENT).skins;
+export const SKINS_MINT = SKINS_UN_DEPLOYE ? adr(SKINS_UN_DEPLOYE.adresse) : SKINS;
+export const SKINS_JOUE = SKINS_MINT === SKINS;
 export const VAULT = adr(A.V);
 export const REWARDS = adr(A.R);
 /** the block of each creation receipt (the first block an index of that contract must read) */
@@ -112,7 +120,7 @@ export function texteRegleVault(r) {
   const pc = (bps) => '+' + (Number(bps) / 100) + '%', j = (s) => Math.round(Number(s) / 86400);
   const d = (x) => '$' + Number(x).toLocaleString('en-US');
   return 'Each week the vault keeps a budget for the players: ' + (Number(r.REWARD_BPS) / 100) + '% of its free TBLOCK at most, and never more than '
-    + (Number(r.REBATE_BPS) / 100) + '% of what each player put in (hearts, TAM art, skins). To claim a week: ' + d(r.ACCESS_USD) + ' of TBLOCK locked at the contract price, a lock that lasts at least '
+    + (Number(r.REBATE_BPS) / 100) + '% of what each player put in (' + (SKINS_JOUE ? 'hearts, TAM art, skins' : 'hearts, TAM art') + '). To claim a week: ' + d(r.ACCESS_USD) + ' of TBLOCK locked at the contract price, a lock that lasts at least '
     + j(r.MIN_COMMIT) + ' more days, within ' + j(r.CLAIM_WINDOW) + ' days of the close. Your share grows with your lock: ' + pc(r.TIER1_BONUS) + ' from ' + d(r.TIER1_USD) + ' locked, '
     + pc(r.TIER2_BONUS) + ' from ' + d(r.TIER2_USD) + ', ' + pc(r.TIER3_BONUS) + ' from ' + d(r.TIER3_USD) + ', and up to ' + pc(r.TIME_BONUS) + ' more for ' + j(r.TIME_FULL)
     + ' days left on the lock (at most ×' + (Number(r.MAX_FACTOR) / 10000) + '). The top player of the week gets up to ' + (Number(r.TOP_BPS) / 100) + '% of the budget on top. No rate is promised.';
@@ -177,7 +185,7 @@ export function dataSkin({ block, recipe }) {
 /** ONE batch: approve EXACTLY usdcIn USDC to the router, then P.pay(game, usdcIn, minOut, deadline, data). Never an unlimited approval. */
 export function payBatch({ game, usdcIn, minOut, deadline, data }) {
   const g = adr(game);
-  if (g !== TAM && g !== SKINS) throw new Error('the router pays only TAM art and Skins here');
+  if (g !== TAM && g !== SKINS && g !== SKINS_MINT) throw new Error('the router pays only TAM art and Skins here');
   const u = BigInt(usdcIn), m = BigInt(minOut), dl = BigInt(deadline), d = strip(String(data || '')).toLowerCase();
   if (u <= 0n) throw new Error('nothing to pay');
   if (m <= 0n) throw new Error('a payment needs a minimum TBLOCK out');
@@ -227,7 +235,7 @@ export const VIEW = Object.freeze({
   regleVault: (nom) => { if (!REGLES_VAULT.includes(nom)) throw new Error('not a vault rule: ' + nom); return vue(VAULT, S_(nom + '()')); },
   /* P and the games */
   minOutFloor: (spend) => vue(ROUTER, SEL.minOutFloor, wUint(spend)), prixJeu: (g) => vue(adr(g), SEL.PRICE_USDC), partJeu: (g) => vue(adr(g), SEL.USDC_SPLIT),
-  mintPriceSkin: () => vue(SKINS, SEL.MINT_PRICE),
+  mintPriceSkin: () => vue(SKINS_MINT, SEL.MINT_PRICE),
   /* R */
   rewardEpochsFor: (unlockAt) => vue(REWARDS, SEL.rewardEpochsFor, wUint(unlockAt)), rCurrentEpoch: () => vue(REWARDS, SEL.currentEpoch),
   rEpochEnd: (e) => vue(REWARDS, SEL.epochEnd, wUint(e)), hasPlayed: (a, e) => vue(REWARDS, SEL.hasPlayed, wAddr(a) + wUint(e)),
