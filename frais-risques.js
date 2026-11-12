@@ -58,6 +58,10 @@ import { HOLD_THRESHOLD_USD, HOLD_PRICE_LOOKBACK_S } from './tblock-hold-regle.j
 import { CLAIM_MIN_HOLD, VAULT_DEVS } from './economie.js';
 import { ECONOMIE_DEPLOIEMENT } from './economie-deploiement.js';
 import { BUYBACK_DEPLOIEMENT } from './tblock-buyback-deploiement.js';
+/* 2026-11-12: the TBLOCK buyback that pays the holders vault -- its record (adresse null until the deploy is noted from its receipt) and
+ *   the ONE sentence of its exit door (buyback-vault.js). While adresse is null this page says exactly what it said before. */
+import { BUYBACK_VAULT_DEPLOIEMENT } from './tblock-buyback-vault-deploiement.js';
+import { regleDePorte, resoudre as resoudreBuyback } from './buyback-vault.js';
 import { DUREES_JOURS } from './lock.js';
 import { REGLE_COURTE as REGLE_POINTS } from './points-vue.js';
 import { MESURE_ALLER_RETOUR, TAXE_MAX_FRACTION } from './pool-lanceur-taxe.js';
@@ -152,6 +156,10 @@ export const CHIFFRES = Object.freeze({
     v2: { deploye: deploye(DUELS_V2_DEPLOIEMENT.adresse), adresse: DUELS_V2_DEPLOIEMENT.adresse },
     gagnantBps: DUEL_WINNER_BPS, poolBps: DUEL_POOL_BPS, devBps: DUEL_BPS - DUEL_WINNER_BPS - DUEL_POOL_BPS, fenetreBlocs: FENETRE },
   tirage: { seuilUsd: SEUIL_VOLUME_JOUR_USD, joursPassSemaine: JOURS_PASS_SEMAINE, bonusPassSemaine: BONUS_PASS_SEMAINE, joursPassSkin: JOURS_PASS_SKIN },
+  /* 2026-11-12: null while the record has no address (the page then says what it said before) */
+  buybackVault: deploye(BUYBACK_VAULT_DEPLOIEMENT.adresse) ? { adresse: String(BUYBACK_VAULT_DEPLOIEMENT.adresse).toLowerCase(),
+    vault: resoudreBuyback(BUYBACK_VAULT_DEPLOIEMENT).parametres.dest, maxParAppel: BigInt(BUYBACK_VAULT_DEPLOIEMENT.parametres.maxPerCall),
+    pauseS: Number(BUYBACK_VAULT_DEPLOIEMENT.parametres.cooldown), porte: regleDePorte() } : null,
 });
 
 /* ------------------------------------------------------------------ l esperance d un roll, EXACTE (fractions BigInt) */
@@ -229,6 +237,16 @@ export function duelsRisque(du, live) {
 /**
  * Le contenu HTML de la page. `C` = CHIFFRES (ou une copie modifiee par le test) ; `live` = /api/tirage ou null.
  */
+/** 2026-11-12: the buyback bullet once the TBLOCK buyback that pays the holders vault is recorded (C.buybackVault, from its record).
+ *   The earlier contracts keep their dated measurement; their TBLOCK goes to THEIR own vault, not to the holders vault. */
+export function buybackVaultLi(bv, mb, nbRachats) {
+  return '<li><b>The TBLOCK buyback pays the holders vault.</b> ETH sent to the buyback ' + lienBase(bv.adresse) + ' buys TBLOCK, at most ' + eth(bv.maxParAppel) + ' ETH per call and '
+    + (bv.pauseS === 3600 ? 'once an hour' : 'once every ' + heures(BigInt(bv.pauseS))) + ', and every TBLOCK bought goes to the holders vault ' + lienBase(bv.vault) + '. It has no owner and no withdraw. Exit door: ' + esc(bv.porte)
+    + ' Earlier buybacks: ' + nbRachats + ' earlier TBLOCK buyback contracts are deployed with no owner. Read on chain on ' + mb.date + ': neither had received ETH or made a buy'
+    + (mb.tblock.some((x) => x > 0n) ? '; ' + mb.tblock.map((x, i) => (x > 0n ? 'the ' + (['first', 'second', 'third'][i] || String(i + 1) + 'th') + ' one held ' + fmtTb(x) + ' TBLOCK sent to it by a project wallet, which anyone can move to its own earlier vault with sweepToDest(), not to the holders vault' : null)).filter(Boolean).join('; ') : '')
+    + '.</li>';
+}
+
 export function rendre(C, live) {
   const h = C.hook, nb = C.naissance, sk = C.skins, mi = C.missions, ti = C.tirage, bq = C.banque || null, pk = C.pack || null;
   const usdE18 = (x) => EPK.usd(x);
@@ -452,9 +470,9 @@ export function rendre(C, live) {
     + '<li><b>The holder 0% fee is a server decision, not an on-chain right.</b> It stops if your TBLOCK falls below $' + ho.seuilUsd + ' or if our price read fails.</li>'
     + '<li><b>Locked TBLOCK cannot leave at once.</b> Requesting the withdrawal stops your points at once; you take it back ' + jours(C.lock.retraitS) + ' after the request, or at the lock date if that is later. Cancelling the request keeps the lock.</li>'
     + '<li><b>Contest votes are burned.</b> Anyone willing to burn enough votes can move a small contest.</li>'
-    + '<li><b>Buybacks are not running.</b> ' + nbRachats + ' TBLOCK buyback contracts are deployed with no owner. Read on chain on ' + mb.date + ': neither had received ETH or made a buy'
+    + (C.buybackVault ? buybackVaultLi(C.buybackVault, mb, nbRachats) : '<li><b>Buybacks are not running.</b> ' + nbRachats + ' TBLOCK buyback contracts are deployed with no owner. Read on chain on ' + mb.date + ': neither had received ETH or made a buy'
       + (mb.tblock.some((x) => x > 0n) ? '; ' + mb.tblock.map((x, i) => (x > 0n ? 'the ' + (['first', 'second', 'third'][i] || String(i + 1) + 'th') + ' one held ' + fmtTb(x) + ' TBLOCK sent to it by a project wallet, which anyone can move to the holders vault with sweepToDest()' : null)).filter(Boolean).join('; ') : '')
-      + '.</li>'
+      + '.</li>')
     + '<li><b>Two tokens are named TBLOCK.</b> The real one is ' + lienBase(TBLOCK_REEL) + '. Check the address before you buy or lock: the app hides the old test token that used the same name, but another token can copy the name too.</li>'
     + (bq ? '<li><b>Bank: you can be liquidated.</b> ' + PHRASE_PANIER_SEPARE + ' The app lets you borrow at most ' + pctBps(bq.margeBps)
       + ' of what Morpho allows before liquidation. Morpho is a third-party protocol: its contracts, oracles and liquidations are not ours.</li>' : '')
