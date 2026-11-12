@@ -50,6 +50,7 @@ holders vault). Neither counts as play for the holders vault or the lock rewards
 </main>
 <script type="module">
 import { predire, integrite, etapeSuivante, controleEtape, codeConforme, verifierPaire, PRODUIT, resoudre } from './skins-spin.js';
+import { displayShort } from './frais-creation.js';
 const $ = (s) => document.querySelector(s);
 const esc = (x) => String(x ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const row = (k, v) => '<div class="row"><span class="k">' + esc(k) + '</span><span class="v">' + esc(v) + '</span></div>';
@@ -62,7 +63,9 @@ const LIBELLE = { router: 'TBLOCK payment router', feeWallet: 'fee wallet (10% o
   minDevBatch: 'smallest dev batch', maxDevBatch: 'largest dev batch', toPot: 'to the pot per spin', devShare: 'dev share per spin' };
 const MONTANTS = new Set(['mintPriceUsdc', 'spinPrice', 'minDevBatch', 'maxDevBatch', 'toPot', 'devShare']);
 const REF = (v) => { try { return resoudre(v) + ' (the live one, read from the economy pack record)'; } catch (_) { return 'NOT READABLE: ' + v; } };
-const val = (k, v) => MONTANTS.has(k) ? usdc(v) + ' (' + v + ')' : k === 'prizes' ? v.map(usdc).join(' · ') : (typeof v === 'string' && v[0] === '@') ? REF(v) : v;
+/* the fee wallet is never shown whole (test-no-fee-address-shown): its name, from frais-creation.js */
+/* the fee wallet is never shown whole (test-no-fee-address-shown): its name, from frais-creation.js */
+const val = (k, v) => (k === 'feeWallet' || k === 'devWallet') ? displayShort(v) : MONTANTS.has(k) ? usdc(v) + ' (' + v + ')' : k === 'prizes' ? v.map(usdc).join(' · ') : (typeof v === 'string' && v[0] === '@') ? REF(v) : v;
 let D = null;
 try { ({ SKINS_SPIN_DEPLOIEMENT: D } = await import('./skins-spin-deploiement.js')); } catch (_) { D = null; }
 let acct = null, pred = null, etat = { N: null, hashes: [] };

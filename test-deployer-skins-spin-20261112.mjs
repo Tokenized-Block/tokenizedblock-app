@@ -133,7 +133,9 @@ console.log('— E. the page source');
 const P = readFileSync(join(ICI, 'deployer-skins-spin.html'), 'utf8');
 const scripts = [...P.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g)].map((m) => m[1]).join('\n');
 const imports = [...scripts.matchAll(/(?:from\s*|import\()\s*['"](\.\/[^'"]+)['"]/g)].map((m) => m[1]).sort();
-t('E the page imports only skins-spin.js and the record', imports.join() === './skins-spin-deploiement.js,./skins-spin.js');
+/* game387: + frais-creation.js, for displayShort only: the fee wallet is never shown whole on the page */
+t('E the page imports only skins-spin.js, the record and frais-creation.js', imports.join() === './frais-creation.js,./skins-spin-deploiement.js,./skins-spin.js');
+t('E the fee and dev wallets are shown through displayShort', scripts.includes("(k === 'feeWallet' || k === 'devWallet') ? displayShort(v)") && scripts.includes("import { displayShort } from './frais-creation.js';"));
 t('E ONE eth_sendTransaction, with the offered data, nonce and gas, from the connected deployer', (scripts.match(/eth_sendTransaction/g) || []).length === 1 && /eth_sendTransaction', \[\{ from: acct, data: r\.data, nonce: r\.nonce, gas: r\.gasEnvoi, value: '0x0' \}\]/.test(scripts));
 t('E a fresh etapeSuivante (reads + simulation) right before the wallet opens', /const r = await rafraichir\(\); \/\* fresh reads and a fresh simulation right before the wallet opens \*\//.test(scripts));
 t('E Connect stays off when the integrity fails, on a fixture, or once noted', /\$\('#connect'\)\.disabled = !!\(faux\.length \|\| D\.fixtureDeTest \|\| deja\)/.test(scripts));
