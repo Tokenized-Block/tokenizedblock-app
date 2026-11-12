@@ -32,7 +32,12 @@ const PAGES = ['pot.html', 'reclamer.html', 'app.html', 'deploy-v6.html', 'deplo
   'deployer-economie-v2.html',
   /* 2026-11-12: the ONE-signature deploy page of the TBLOCK buyback that pays the holders vault (buyback-vault.js -> pack-economie-v2.js,
    *   keccak.js, the two pack records; and its record tblock-buyback-vault-deploiement.js) */
-  'deployer-tblock-buyback-vault.html'];
+  'deployer-tblock-buyback-vault.html',
+  /* game386: the claim page (claim-vue.js -> economie-pack.js, lock.js, create-vault-tip.js, frais-creation.js; envoi.js; holders-vue.js) */
+  'claim.html',
+  /* game386 task B: the block contest page (block-contest.js, contest-vue.js -> caution-createur.js, hook-7030-descripteur.js, keccak.js; economie-pack.js;
+   *   frais-creation.js; groupe-wallet.js) */
+  'contest.html'];
 const vus = new Set();
 const manquants = [];
 let arcs = 0;

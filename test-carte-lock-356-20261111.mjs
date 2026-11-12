@@ -10,7 +10,7 @@ const APP = lire('app.html'), SRV = lire('serveur-web.js');
 let ok = 0, ko = 0;
 const t = (m, c) => { if (c) ok++; else { ko++; console.log('KO', m); } };
 const L = APP.slice(APP.indexOf('async function peindreLock('), APP.indexOf('async function peindreTipApercu('));
-t('chips: 1,000 / holder stage / Max', L.includes("puce('1,000', 1000n * 10n ** 18n);") && !L.includes('Holder stage') /* game357: no holder-stage chip while v1 reads the wallet balance */ && L.includes("puce('Max', bal);"));
+t('chips: 1,000 / holder stage / Max', L.includes("puce('1,000', 1000n * 10n ** 18n, 'Lock 1,000 TBLOCK');") /* game386: each chip has an accessible name */ && !L.includes('Holder stage') /* game357: no holder-stage chip while v1 reads the wallet balance */ && L.includes("puce('Max', bal, 'Lock all ' + LK.fmt(bal) + ' TBLOCK in your wallet');"));
 /* 2026-11-12: the lock.js durations, plus 60 days while the monthly lock rewards are live (the shortest lock sure to cover a whole month) */
 t('pills from lock.js durations (+ 60 days with the lock rewards)', /const durees = EP\.REWARDS \? \[\.\.\.new Set\(\[\.\.\.LK\.DUREES_JOURS, EP\.MOIS_MIN_JOURS\]\)\]\.sort\(\(x, y\) => x - y\) : LK\.DUREES_JOURS;/.test(L) && /for \(const j of durees\) \{\n\s+const b = el\('button', 'lkPuce', ''\)/.test(L));
 t('the button names the amount AND the days — or the LATER date a top-up keeps (review 356)', L.includes("(garde ? 'Add ' + LK.fmt(m) + ' TBLOCK to your lock (until '") && L.includes(": 'Lock ' + LK.fmt(m) + ' TBLOCK for ' + jours + ' days')"));

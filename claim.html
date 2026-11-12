@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>TokenizedBlock · Claim</title>
+<link rel="icon" href="icon.png" type="image/png">
+<!-- game386 (Phil 2026-11-12: "a page that sticks to claim and details"). Wallet → Holders → "Claim and details" opened the block contest;
+     it opens this page now. For the connected wallet: each CLOSED week of the holders vault (owed, claimed or not, the window end) and each
+     closed month of the monthly lock rewards, each with its Claim button; then the details (rules in words, this wallet's play, factor, next
+     close). Every figure is read on Base by claim-vue.js; a value not read says "not read", never 0. A claim is simulated FROM the wallet
+     before the wallet opens and its receipt is checked after (signer, status, the token Transfer from the contract to the wallet). -->
+<!-- the colours chosen in the app (localStorage tb.teinte, the same key as app.html) before the first paint -->
+<script>(() => { let c = 'a'; try { c = localStorage.getItem('tb.teinte') || 'a'; } catch (_) {} if (/^[bcd]$/.test(c)) document.documentElement.setAttribute('data-teinte', c); })();</script>
+<style>
+/* the app's design tokens, copied from app.html :root and its three colour variants (test-claim-386 checks they stay equal) */
+:root{
+  --h:255;
+  --fond:#0f0a17; --fond2:#1a1228;
+  --carte:hsl(var(--h) 37% 12%); --ligne:#2f2545;
+  --texte:#f3effb; --doux:#b9a9dd;
+  --accent:#a78bfa; --accent2:hsl(var(--h) 100% 87%);
+  --accentRgb:167 139 250; --fondRgb:15 10 23; --fond2Rgb:26 18 40; --boutonRgb:139 92 246;
+  --creux:hsl(var(--h) 33% 8%);
+  --vif:#3ddc97; --tiede:#f0c674; --dur:#ff6b6b; --r:18px; --rs:12px;
+  --pas:14px;
+}
+:root[data-teinte="b"]{--h:222;--fond:#060a18;--fond2:#0e1830;--carte:hsl(222 46% 11%);--ligne:#1d2b4d;--texte:#eef3ff;--doux:#a9bce6;
+  --accent:#7ea6ff;--accent2:hsl(222 100% 87%);--accentRgb:126 166 255;--fondRgb:6 10 24;--fond2Rgb:14 24 48;--boutonRgb:59 130 246;
+  --etoileRgb:220 232 255;--carteHautRgb:26 40 78;--carteBasRgb:12 18 40;--g1:#3b82f6;--g2:#7ea6ff}
+:root[data-teinte="c"]{--h:250;--fond:#070616;--fond2:#15123a;--carte:hsl(248 46% 12%);--ligne:#2a2460;--texte:#f1efff;--doux:#b8b3ee;
+  --accent:#9d8cff;--accent2:hsl(300 100% 88%);--accentRgb:157 140 255;--fondRgb:7 6 22;--fond2Rgb:21 18 58;--boutonRgb:168 85 247;
+  --etoileRgb:236 226 255;--carteHautRgb:44 30 92;--carteBasRgb:16 12 44;--g1:#7c5cff;--g2:#c084fc}
+:root[data-teinte="d"]{--h:200;--fond:#04090c;--fond2:#0a1b22;--carte:hsl(198 48% 8%);--ligne:#16323c;--texte:#f2fbff;--doux:#9cc3cf;
+  --accent:#35d3f0;--accent2:hsl(168 85% 76%);--accentRgb:53 211 240;--fondRgb:4 9 12;--fond2Rgb:10 27 34;--boutonRgb:31 91 255;
+  --etoileRgb:214 244 255;--carteHautRgb:12 44 56;--carteBasRgb:6 18 24;--g1:#1f5bff;--g2:#2fe0c8}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+body{background:var(--fond);color:var(--texte);font:15px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased;padding-bottom:64px;overflow-x:hidden}
+[hidden]{display:none!important}
+a{color:var(--accent)}
+.enveloppe{max-width:560px;margin:0 auto;padding:0 16px}
+.tete{display:flex;align-items:center;gap:10px;padding:16px 0 12px}
+.marque{font-weight:700;font-size:16px;letter-spacing:-.2px;color:var(--texte);text-decoration:none}
+.marque span{color:var(--accent2)}
+.tete .droite{margin-left:auto;display:flex;gap:8px;min-width:0}
+.puce{font:inherit;font-size:11.5px;font-weight:600;padding:6px 11px;border-radius:99px;border:1px solid var(--ligne);background:var(--fond2);color:var(--doux);cursor:pointer;white-space:nowrap}
+.puce:hover{border-color:var(--accent);color:var(--texte)}
+h1{font-size:24px;letter-spacing:-.3px;margin:6px 0 4px}
+.titre{font-weight:700;font-size:16px;letter-spacing:-.2px;margin:0 0 5px}
+.sous{color:var(--doux);font-size:13px;margin:0 0 14px;line-height:1.5}
+.note{color:var(--doux);font-size:12.5px;line-height:1.55;margin:10px 0 0}
+.carte{background:var(--carte);border:1px solid var(--ligne);border-radius:var(--r);padding:18px;margin:0 0 var(--pas)}
+.bouton{appearance:none;border:0;border-radius:var(--rs);padding:11px 16px;font:inherit;font-weight:600;letter-spacing:-.1px;cursor:pointer;background:var(--accent);
+  color:hsl(var(--h) 60% 10%);min-height:42px;margin:10px 8px 0 0;transition:transform .12s ease,opacity .12s ease}
+.bouton:active{transform:scale(.985)}
+.bouton:disabled{opacity:.45;cursor:default}
+.bouton.sec{background:var(--fond2);color:var(--texte);border:1px solid var(--ligne)}
+.bouton.sec:hover{border-color:var(--accent)}
+.bouton:focus-visible,.puce:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.ligne{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-top:1px solid var(--ligne);font-size:13.5px}
+.ligne:first-child{border-top:0}
+.ligne>span:first-child{color:var(--doux);flex:0 0 auto;max-width:48%}
+.ligne>span:last-child{text-align:right;overflow-wrap:anywhere;min-width:0}
+.pastille{display:inline-block;font-size:11.5px;font-weight:700;padding:1px 8px;border-radius:999px;border:1px solid var(--ligne);color:var(--doux);white-space:nowrap}
+.pastille.ok{color:var(--vif);border-color:rgb(61 220 151 / .5)}
+.pastille.att{color:var(--tiede);border-color:rgb(240 198 116 / .5)}
+.pastille.ko{color:var(--dur);border-color:rgb(255 107 107 / .5)}
+.periode{margin:10px 0 0;padding:12px 14px;border:1px solid var(--ligne);border-radius:var(--rs);background:rgb(var(--accentRgb) / .04)}
+.periode .haut{display:flex;justify-content:space-between;gap:8px;align-items:baseline;flex-wrap:wrap}
+.periode p{margin:4px 0 0;font-size:13.5px;overflow-wrap:anywhere}
+.ouvre{margin:8px 0 0;padding:10px 12px;border-left:3px solid var(--accent);background:rgb(var(--accentRgb) / .08);border-radius:0 var(--rs) var(--rs) 0;font-size:13.5px}
+details.pli{margin-top:12px}
+details.pli summary{cursor:pointer;font-weight:700;font-size:14px}
+details.pli p{font-size:13px;color:var(--doux);line-height:1.55}
+#etat{min-height:1.5em;overflow-wrap:anywhere}
+#etat.ok{color:var(--vif)} #etat.ko{color:var(--dur)}
+/* the visual parts of the Holders cards (holders-vue.js), copied from app.html */
+.hvBloc{margin:10px 0;padding:12px 14px;border:1px solid var(--ligne);border-radius:var(--rs);background:rgb(var(--accentRgb) / .04)}
+.hvK{color:var(--doux);font-size:12.5px;font-weight:600}
+.hvTete{margin:0 0 6px;display:flex;flex-wrap:wrap;gap:2px 8px;align-items:baseline}
+.hvTitreBloc{font-weight:700;margin:0 0 8px}
+.hvDetail{color:var(--doux);font-size:12.5px;margin:2px 0 0;line-height:1.45}
+.hvPiste{position:relative;height:10px;border-radius:999px;background:var(--creux);border:1px solid var(--ligne);overflow:hidden}
+.hvRempli{height:100%;border-radius:999px;background:var(--accent)}
+.hvEtapes{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px}
+.hvEtape{display:flex;gap:10px;align-items:flex-start;padding:10px;border-radius:var(--rs);border:1px solid var(--ligne);background:var(--fond2);min-width:0}
+.hvEtape[data-etat="fait"]{border-color:rgb(61 220 151 / .5)}
+.hvMarque{flex:0 0 26px;height:26px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:13px;border:1px solid var(--ligne);color:var(--doux)}
+.hvEtape[data-etat="fait"] .hvMarque{background:var(--vif);border-color:var(--vif);color:var(--fond)}
+.hvEtape[data-etat="afaire"] .hvMarque{border-color:var(--tiede);color:var(--tiede)}
+.hvEtapeCorps{min-width:0}
+.hvEtapeTitre{margin:0;line-height:1.35}
+.hvEtat{display:inline-block;font-size:11.5px;font-weight:700;padding:0 7px;border-radius:999px;border:1px solid var(--ligne);color:var(--doux);white-space:nowrap}
+.hvEtape[data-etat="fait"] .hvEtat{color:var(--vif);border-color:rgb(61 220 151 / .5)}
+.hvEtape[data-etat="afaire"] .hvEtat{color:var(--tiede);border-color:rgb(240 198 116 / .5)}
+.hvJauge{margin:8px 0 0}
+.hvJauge .hvPiste{overflow:visible}
+.hvTic{position:absolute;top:-4px;bottom:-4px;width:2px;margin-left:-1px;background:var(--doux)}
+.hvReperes{position:relative;height:32px;margin:5px 0 0;font-size:11.5px;color:var(--doux)}
+.hvRep{position:absolute;top:0;transform:translateX(-50%);text-align:center;line-height:1.25;white-space:nowrap}
+.hvRep b,.hvRep span{display:block}
+.hvRep b{color:var(--texte);font-weight:600}
+.hvRepDeb{left:0;transform:none;text-align:left}
+.hvRepFin{right:0;transform:none;text-align:right}
+@media (max-width:420px){ .ligne{flex-direction:column;gap:0} .ligne>span:first-child{max-width:none} .ligne>span:last-child{text-align:left} .bouton{width:100%;margin-right:0} }
+</style>
+</head>
+<body>
+<main class="enveloppe">
+  <div class="tete">
+    <a class="marque" href="/">Tokenized<span>Block</span></a>
+    <div class="droite"><button class="puce" id="bWallet" type="button">Connect wallet</button></div>
+  </div>
+  <h1>Claim</h1>
+  <p class="sous">What the holders vault and the monthly lock rewards owe your wallet, read on Base. You claim from your own wallet; nothing is held here.</p>
+
+  <div class="carte" id="cWallet"><p class="note" id="walletTexte" style="margin:0">Reading Base…</p></div>
+
+  <div class="carte" id="cSemaines">
+    <p class="titre">Holders vault · every week</p>
+    <p class="sous" style="margin-bottom:4px">Paid in TBLOCK to the players of each closed week, claimed within the window after the close.</p>
+    <div id="semaines"></div>
+  </div>
+
+  <div class="carte" id="cMois">
+    <p class="titre">Monthly lock rewards</p>
+    <p class="sous" style="margin-bottom:4px">Paid in wtCOIN and TBLOCK to the lockers who played, for each whole month their lock covers.</p>
+    <div id="mois"></div>
+  </div>
+
+  <div class="carte" id="cDetails">
+    <p class="titre">Details</p>
+    <div id="moi"></div>
+    <div id="etapes"></div>
+    <div id="facteur"></div>
+    <details class="pli" open><summary>Rules · holders vault</summary><p id="regleV"></p></details>
+    <details class="pli"><summary>Rules · monthly lock rewards</summary><p id="regleR"></p></details>
+    <p class="note" id="contrats"></p>
+  </div>
+
+  <p class="note" id="etat" role="status" aria-live="polite"></p>
+  <p class="note"><a href="/">← Back to the app</a></p>
+</main>
+
+<script type="module">
+import * as CV from './claim-vue.js';
+import * as EP from './economie-pack.js';
+import * as HV from './holders-vue.js';
+import { displayShort } from './frais-creation.js';
+import { envoyerDepuisWallet, messageEnvoi } from './envoi.js';
+
+/* reads: Base public nodes, straight from the browser; a revert keeps its data (claim-vue.js says it in words) */
+const NODES = ['https://base-rpc.publicnode.com', 'https://mainnet.base.org'];
+let nodeAt = 0, reqId = 0;
+async function rpc(method, params) {
+  let last = new Error('no node answered');
+  for (let k = 0; k < NODES.length; k++) {
+    const at = (nodeAt + k) % NODES.length;
+    try {
+      const r = await fetch(NODES[at], { method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ jsonrpc: '2.0', id: ++reqId, method, params }), signal: AbortSignal.timeout(12000) });
+      const j = await r.json();
+      if (j && j.result !== undefined && j.result !== null) { nodeAt = at; return j.result; }
+      const msg = (j && j.error && j.error.message) || 'empty answer';
+      if (/revert/i.test(msg) || (j && j.error && j.error.data)) { const e = new Error(msg); e.reverted = true; e.data = j.error.data; throw e; }
+      last = new Error(msg);
+    } catch (e) { if (e && e.reverted) throw e; last = e; }
+  }
+  throw last;
+}
+
+const $ = (id) => document.getElementById(id);
+const mk = (tag, cls, txt) => { const x = document.createElement(tag); if (cls) x.className = cls; if (txt !== undefined && txt !== null) x.textContent = txt; return x; };
+const ligne = (k, v) => { const d = mk('div', 'ligne'); d.append(mk('span', null, k), mk('span', null, v)); return d; };
+const lienScan = (quoi, a) => { const x = mk('a', null, displayShort(a)); x.href = 'https://basescan.org/' + quoi + '/' + a; x.target = '_blank'; x.rel = 'noopener'; return x; };
+let wallet = null, L = null, lecture = 0, occupe = false, branche = false;
+
+function dire(texte, cls = '', hash = null) {
+  const e = $('etat'); e.className = 'note' + (cls ? ' ' + cls : ''); e.textContent = texte;
+  if (hash && /^0x[0-9a-fA-F]{64}$/.test(hash)) { e.append(' '); const a = mk('a', null, 'View on Basescan'); a.href = 'https://basescan.org/tx/' + hash; a.target = '_blank'; a.rel = 'noopener'; e.append(a); }
+}
+
+/* one read for one wallet: a read still running for a previous wallet paints nothing */
+async function lire() {
+  const pour = wallet, n = ++lecture;
+  let maintenant = Math.floor(Date.now() / 1000);
+  try { const h = await rpc('eth_getBlockByNumber', ['latest', false]); maintenant = Number(BigInt(h.timestamp)); } catch (_) { /* the clock of this device */ }
+  let x = null;
+  try { x = await CV.lireTout(rpc, pour, maintenant); } catch (_) { x = null; }
+  if (n !== lecture || pour !== wallet) return;
+  L = x; peindre();
+}
+
+function bouton(texte, action, sec = false) {
+  const b = mk('button', 'bouton' + (sec ? ' sec' : ''), texte); b.type = 'button';
+  b.addEventListener('click', () => { void agir(action(), b); });
+  b.disabled = occupe;
+  return b;
+}
+function pastille(cle) {
+  const m = { A_RECLAMER: ['to claim', 'ok'], RECLAMEE: ['claimed', 'ok'], A_FERMER: ['to close', 'att'], EN_COURS: ['running', 'att'], LOCK_REQUIS: ['lock needed', 'att'],
+    FENETRE_FINIE: ['window over', 'ko'], PAS_JOUE: ['not played', ''], PAS_COUVERT: ['not covered', ''], RIEN: ['nothing owed', ''], NON_LU: ['not read', 'ko'] }[cle] || [cle, ''];
+  return mk('span', 'pastille ' + m[1], m[0]);
+}
+
+function peindre() {
+  /* the wallet */
+  const wt = $('walletTexte'); wt.textContent = '';
+  $('bWallet').textContent = wallet ? displayShort(wallet) : 'Connect wallet';
+  if (!wallet) wt.append('No wallet connected. Connect the wallet you play and lock with to see what it can claim. ', (() => { const b = mk('button', 'bouton', 'Connect wallet'); b.type = 'button'; b.addEventListener('click', connecter); return b; })());
+  else { wt.append('Wallet ', lienScan('address', wallet), ' · '); const b = mk('button', 'bouton sec', 'Read again'); b.type = 'button'; b.addEventListener('click', () => { dire(''); void lire(); }); wt.append(b); }
+  const hs = $('semaines'), hm = $('mois'), moi = $('moi'), et = $('etapes'), fa = $('facteur');
+  if (!L) { for (const h of [hs, hm, moi]) h.replaceChildren(mk('p', 'note', 'Reading Base…')); et.textContent = ''; fa.textContent = ''; return; }
+  const ouvre = CV.premiereOuverture(L);
+
+  /* the weeks of the holders vault */
+  const sem = [];
+  let semAClaim = 0;
+  if (!L.v.likesOk) sem.push(mk('p', 'note', 'The week clock of the holders vault was not read just now. Read again in a moment.'));
+  else if (!L.wallet) sem.push(mk('p', 'note', 'Connect a wallet to see the weeks it can claim.'));
+  else {
+    for (const s of L.v.semaines) {
+      const st = CV.etatSemaine(s, L);
+      const box = mk('div', 'periode'); box.dataset.semaine = String(s.e);
+      const haut = mk('div', 'haut'); haut.append(mk('b', null, 'Week ' + s.e), pastille(st.cle)); box.append(haut);
+      box.append(mk('p', null, st.texte));
+      if (s.epoque && s.epoque.closed) box.append(mk('p', 'note', 'Closed ' + CV.minute(s.epoque.closedAt) + ' · claim window ends ' + (st.finFenetre === undefined || st.finFenetre === null ? CV.NON_LU : CV.minute(st.finFenetre))
+        + ' · played ' + CV.montant(s.jeu) + (s.owed ? ' · owed ' + CV.montant(s.owed.share + s.owed.bonus) : '')));
+      if (st.cle === 'A_RECLAMER') { semAClaim++; box.append(bouton('Claim ' + CV.montant(st.attendu), () => CV.planClaimSemaine(L, s.e, wallet))); }
+      if (st.cle === 'A_FERMER') box.append(bouton('Close week ' + s.e, () => CV.planCloseSemaine(L, s.e, wallet), true));
+      sem.push(box);
+    }
+    if (!L.v.semaines.length) sem.push(mk('p', 'note', 'No week of the holders vault has closed yet.'));
+  }
+  if (!semAClaim && ouvre[0]) sem.push(mk('p', 'ouvre', ouvre[0]));
+  hs.replaceChildren(...sem);
+
+  /* the months of the lock rewards */
+  const mo = [];
+  if (!L.r.tokensOk) mo.push(mk('p', 'note', 'The reward tokens of the lock rewards were not read just now. Read again in a moment.'));
+  else if (!L.wallet) mo.push(mk('p', 'note', 'Connect a wallet to see the months it can claim.'));
+  else {
+    for (const m of L.r.mois) {
+      const st = CV.etatMois(m, L);
+      const box = mk('div', 'periode'); box.dataset.mois = String(m.k);
+      const haut = mk('div', 'haut'); haut.append(mk('b', null, 'Month ' + m.k), pastille(st.cle)); box.append(haut);
+      box.append(mk('p', null, st.texte));
+      box.append(mk('p', 'note', 'Closed ' + CV.minute(m.closedAt) + ' · claim before ' + (st.finFenetre === null ? CV.NON_LU : CV.minute(st.finFenetre))));
+      mo.push(box);
+    }
+    if (!L.r.mois.length) mo.push(mk('p', 'note', 'No month of the lock rewards has closed yet.'));
+    const p = CV.planClaimMois(L, wallet);
+    if (p.ok) mo.push(bouton('Claim ' + CV.montant(p.attendu.tblock) + ' + ' + CV.montant(p.attendu.wtcoin, 'wtCOIN', 6) + ' (' + p.mois.length + (p.mois.length === 1 ? ' month)' : ' months)'), () => CV.planClaimMois(L, wallet)));
+    const f = CV.planCloseMois(L, wallet);
+    if (f.ok) mo.push(mk('p', 'note', 'Month ' + f.k + ' has ended and is not closed yet: anyone can close it, then each locker who played claims.'), bouton('Close month ' + f.k, () => CV.planCloseMois(L, wallet), true));
+    if (!p.ok && ouvre[1]) mo.push(mk('p', 'ouvre', ouvre[1]));
+  }
+  if (!L.wallet && ouvre[1]) mo.push(mk('p', 'ouvre', ouvre[1]));
+  hm.replaceChildren(...mo);
+
+  /* details: this wallet now, the three steps, the factor gauge, the rules in words (all READ) */
+  moi.replaceChildren(...CV.lignesMoi(L).map(([k, v]) => ligne(k, v)));
+  const a = CV.argsEtapes(L);
+  et.replaceChildren(...(a ? [mk('p', 'hvTitreBloc', a.complet ? 'How a week pays: this wallet' : 'How a week pays'), HV.etapes(document, HV.etapesPaiement(a), 'How a week pays')] : [mk('p', 'note', 'The steps of a weekly payment: not read.')]));
+  fa.textContent = '';
+  const rg = L.v.regles, fac = L.moi ? L.moi.facteur : undefined;
+  if (L.wallet && rg && typeof fac === 'bigint' && rg.MAX_FACTOR > 10000n) {
+    const max = Number(rg.MAX_FACTOR) / 10000;
+    const bloc = mk('div', 'hvBloc'); const t = mk('p', 'hvTete'); t.append(mk('span', 'hvK', 'Lock factor now'), ' ', mk('b', null, EP.texteFacteur(fac)));
+    bloc.append(t, HV.jauge(document, { valeur: fac > 0n ? Number(fac) / 10000 : 1, min: 1, max, reperes: HV.reperesFacteur(rg), etiquette: 'Lock factor', texte: fac > 0n ? EP.texteFacteur(fac) + ' of at most ×' + max.toFixed(2) : 'not eligible now' }),
+      mk('p', 'hvDetail', 'Your share of a week grows with the dollar value you lock and up to +' + (Number(rg.TIME_BONUS) / 100) + '% more for ' + Math.round(Number(rg.TIME_FULL) / 86400) + ' days left on the lock.'));
+    fa.append(bloc);
+  }
+  $('regleV').textContent = EP.texteRegleVault(rg) || 'The rules of the holders vault were not read just now.';
+  $('regleR').textContent = CV.texteRegleMois(L.r) || 'The rules of the monthly lock rewards were not read just now.';
+  const c = $('contrats'); c.textContent = 'Contracts on Base: holders vault '; c.append(lienScan('address', CV.V), ' · lock rewards ', lienScan('address', CV.R));
+}
+
+/* one action: claim-vue.js re-reads the account, simulates FROM the wallet, then the wallet opens (envoi.js), then the receipt is judged */
+async function agir(plan, b) {
+  if (occupe) return;
+  if (!plan || !plan.ok) { dire('Not sent: ' + ((plan && plan.why) || 'nothing to send'), 'ko'); if (wallet && L && L.wallet !== wallet) void lire(); return; }
+  occupe = true; for (const x of document.querySelectorAll('button.bouton')) x.disabled = true;
+  dire('Checking your wallet and simulating the call from it on Base…');
+  const res = await CV.executerClaim({ rpc, eth: window.ethereum, plan, envoyer: (a) => {
+    dire('Simulated from your wallet: it succeeds. Waiting for your wallet…');
+    return envoyerDepuisWallet({ eth: window.ethereum, rpc, chaineAttendue: CV.CHAINE, compte: plan.wallet, to: a.to, data: a.data, value: a.value });
+  } });
+  if (res.ok) dire(CV.texteVerdict(plan, res), 'ok', res.hash);
+  else if (res.etape === 'ENVOI') dire(messageEnvoi(res.envoi), 'ko', res.hash);
+  else if (res.etape === 'RECU') dire('Sent, but the receipt does not match what was offered: ' + res.why + '. Do not sign again; check it on Basescan.', 'ko', res.hash);
+  else dire('Not sent: ' + res.why, 'ko');
+  occupe = false;
+  await lire();
+}
+
+function poserWallet(a) {
+  const next = a && a[0] ? String(a[0]).toLowerCase() : null;
+  if (next === wallet && L) return;
+  wallet = next; L = null; peindre(); void lire();
+}
+function brancher() {
+  if (branche || !window.ethereum || typeof window.ethereum.on !== 'function') return;
+  window.ethereum.on('accountsChanged', poserWallet); branche = true;
+}
+async function connecter() {
+  if (!window.ethereum) { dire('No wallet found in this browser.', 'ko'); return; }
+  try { poserWallet(await window.ethereum.request({ method: 'eth_requestAccounts' })); brancher(); dire(''); }
+  catch (e) { dire('Wallet not connected: ' + String((e && e.message) || e).slice(0, 120), 'ko'); }
+}
+$('bWallet').addEventListener('click', connecter);
+
+/* a wallet already connected to this site is picked up without a prompt (eth_accounts) */
+(async () => {
+  let a = null;
+  if (window.ethereum) { try { a = await window.ethereum.request({ method: 'eth_accounts' }); } catch (_) { a = null; } brancher(); }
+  if (a && a[0]) poserWallet(a); else { peindre(); void lire(); }
+})();
+</script>
+</body>
+</html>

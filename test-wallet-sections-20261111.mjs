@@ -46,7 +46,9 @@ t('lock card: never says the perks count the LOCK', !/count what you LOCK|holder
 t('lock card: says what it earns today and what still reads the wallet', lock.includes('Locking earns community points') && lock.includes('Hearts ♥ and holders vault claims count your lock; the holders’ channel counts your wallet balance.') /* 2026-11-12: the live hearts and vault read the lock */ && !lock.includes('not deployed'));
 t('lock.js: points, not perks', !/perks/.test(LKJ.split('\n').filter((l) => /texte:/.test(l)).join('\n')));
 t('holders.html: no "holder stage = $15 LOCKED" as a live perk', !HOL.includes("'The holder stage: $' + prix.seuil + ' of TBLOCK LOCKED") && !HOL.includes('lock at least $15 of it to reach the holder stage'));
-const intro = APP.slice(APP.indexOf('<p class="titre">Holders vault</p>'), APP.indexOf('<div id="wVaultRows">'));
+/* game386: the intro moved from a fold at the top of the card into the Rules panel (#wVaultHow), once */
+const intro = APP.slice(APP.indexOf('<div class="wCoeurs" id="wVaultHow">'), APP.indexOf('<div class="note" id="wVaultComment">'));
+t('game386: the holders intro is written once (Rules panel), not a second time at the top of the card', APP.split('TBLOCK set aside for the players.').length === 2 && APP.indexOf('<div class="wCoeurs" id="wVaultHow">') > APP.indexOf('<div id="wVaultRows">'));
 t('holders intro: no typed threshold, says whose payments fill it', !/\d{2},\d{3},\d{3}/.test(intro) && intro.includes('Every TAM art and skin mint sends the TBLOCK it buys here.') /* 2026-11-12: what fills the live vault */ && !intro.includes('Fed by buybacks and fees') && !intro.includes('Filled by TBLOCK buybacks'));
 t('Create: a lock line under the button, hidden until TBlockLock is deployed, opening Wallet → Holders → Lock', /<button class="bouton creaGo" id="cCreer"[^\n]*\n(?:[^\n]*\n){0,3}\s*<p class="note" id="cLockLien" hidden/.test(APP)
   && APP.includes("$('#cLockLien').hidden = false; $('#cLockOuvrir').hidden = false;") /* game368: the real lock form opens in Create */);

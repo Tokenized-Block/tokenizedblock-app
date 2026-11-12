@@ -12,8 +12,8 @@ import { readFileSync } from 'node:fs';
 
 const lire = (f) => readFileSync(new URL('./' + f, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const PAGES = ['app.html', 'holders.html', 'index.html', 'frais.html', 'frais-et-risques.html', 'pot.html', 'contest.html', 'fly-brain.html',
-  'human-brain.html', 'panel.html', 'terms.html', 'privacy.html', 'reclamer.html', 'block-0.html', 'lien-x.html', 'essai-autonome.html', 'mcp-widget-panneau.html'];
-const MODULES = ['duels-v2-plan.js'];
+  'human-brain.html', 'panel.html', 'terms.html', 'privacy.html', 'reclamer.html', 'block-0.html', 'lien-x.html', 'essai-autonome.html', 'mcp-widget-panneau.html', 'claim.html'];
+const MODULES = ['duels-v2-plan.js', 'claim-vue.js', 'contest-vue.js'];
 
 const VER = /(^|[^A-Za-z0-9_.\/-])([Vv][1-9][0-9]?)(?![A-Za-z0-9_])/;
 const PERMIS = [/Uniswap v[34]/gi, /hemibrain v1\.2/g, /d="[^"]*"/g, /a token quoted on v2, v3, another/g /* index.html: Uniswap's own v2/v3 */];

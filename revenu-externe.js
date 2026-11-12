@@ -9,6 +9,7 @@
  *   STATUT 0x1 du recu et un log Transfer DU CONTRAT DE LA DEVISE, ou un delta de solde ETH (verifie par l appelant, hors module).
  * ⛔ AUCUNE ECRITURE, AUCUNE SIGNATURE : pur, teste a sec. */
 import { keccak256 } from './keccak.js';
+import { ENTRY_POINTS as ENTRY_POINTS_LISTE } from './entry-points.js';
 import { FEE_WALLET, FEE_WALLET_LEGACY_37EB, USDC_BASE } from './frais-creation.js';
 import { WETH_BASE } from './plan-eth-block.js';
 
@@ -35,7 +36,7 @@ export const TOPICS_SWAP = new Set([
 /* ⛔ 2026-10-17 soir (chasse missions, MED, confirme) : EntryPoint v0.8 MANQUAIT. Sur un lot v0.8, aucun sender n etait trouve et le payeur
  *   retombait sur tx.from = le BUNDLER (frais, tickets de saison et preuves de mission credites au mauvais). Adresse VERIFIEE sur Base le
  *   2026-10-17 : 21 738 octets de code, et la tx 0xc18dc17c… (status 1) lui est envoyee et l emet (sender 0xdd3d…49e1 != tx.from). */
-const ENTRY_POINTS = new Set(['0x0000000071727de22e5e9d8baf0edac6f37da032', '0x5ff137d4b0fdcd49dca30c7cf57e578a026d2789', '0x4337084d9e255ff0702461cf8895ce9e3b5ff108']);
+const ENTRY_POINTS = new Set(ENTRY_POINTS_LISTE); /* 2026-11-12: the list lives in entry-points.js, shared with claim-vue.js */
 const ADR = /^0x[0-9a-f]{40}$/;
 const bas = (x) => String(x || '').toLowerCase();
 

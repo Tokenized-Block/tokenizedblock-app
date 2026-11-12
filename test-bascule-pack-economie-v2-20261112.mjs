@@ -165,12 +165,19 @@ const coeur = fn(app, 'async function bcCoeur(', 3200);
 t('F the heart reads the price, the minimum and the LOCK, checks with EP.likeCheck and sends EP.likeBatch at the price read', /EP\.VIEW\.likePrice\(\)/.test(coeur) && /EP\.VIEW\.minHold\(\)/.test(coeur) && /LK\.VIEW\.activeLockedOf\(moi\)/.test(coeur)
   && /EP\.likeCheck\(/.test(coeur) && /EP\.likeBatch\(\{ block: a, n: 1, likePrice: prix \}\)/.test(coeur) && !/ECO\.likeBatch|ECO\.likeCheckUsd/.test(coeur));
 t('F a block\'s hearts = the live ones + the first contract\'s (history kept)', /const n = n1 \+ n2;/.test(fn(app, 'function bcPeindreLike(', 2400)));
-const vault = fn(app, 'async function peindreVaultWallet()', 12000); /* lot 378 task 6: the card is drawn, its function is longer */
+const vault = fn(app, 'async function peindreVaultWallet()', 14000); /* lot 378 task 6: the card is drawn, its function is longer; game386: + reading line, claim link */
+const CLAIM_VUE = lire('claim-vue.js');
+/* game386 (Phil: "claimable -> Claim -> claim.html"): a claimable week of the live vault links to claim.html, whose module sends EP.claimCall(e) */
 t('F the vault card reads the live vault (play of the week, lock factor) and claims there; the first vault\'s owed weeks stay claimable',
-  /EP\.VIEW\.totalPlayIn\(ep\)/.test(vault) && /EP\.VIEW\.lockFactor\(moi\)/.test(vault) && /EP\.claimCall\(e\)/.test(vault) && /EP\.claimCheck\(/.test(vault) && /ECO\.claimCall\(e\)/.test(vault) && /ECO\.VIEW\.owed\(e, moi\)/.test(vault));
+  /EP\.VIEW\.totalPlayIn\(ep\)/.test(vault) && /EP\.VIEW\.lockFactor\(moi\)/.test(vault) && /if \(chk\.ok\) lienClaim\(d, 'wVaultClaim', /.test(vault) && /a\.href = '\/claim\.html';/.test(vault)
+  && /export const claimSemaineCall = \(e\) => EP\.claimCall\(BigInt\(e\)\);/.test(CLAIM_VUE) && /EP\.claimCheck\(/.test(vault) && /ECO\.claimCall\(e\)/.test(vault) && /ECO\.VIEW\.owed\(e, moi\)/.test(vault));
 const rec = fn(app, 'async function peindreRecompensesLock(', 7000);
 t('F the lock card: rewards read on chain (month, played, enrolled, months earned, claimable, last closed month labelled as past)',
-  /EP\.VIEW\.hasPlayed\(moi, c\)/.test(rec) && /EP\.VIEW\.rewardEpochsFor\(unlockAt\)/.test(rec) && /EP\.VIEW\.claimable\(moi, \[k\]\)/.test(rec) && /EP\.aprPasse\(/.test(rec) && /past, not a promise/.test(rec) && /EP\.enrollCall\(moi\)/.test(rec) && /EP\.claimRewardsCall\(aPayer\)/.test(rec));
+  /EP\.VIEW\.hasPlayed\(moi, c\)/.test(rec) && /EP\.VIEW\.rewardEpochsFor\(unlockAt\)/.test(rec) && /EP\.VIEW\.claimable\(moi, \[k\]\)/.test(rec) && /EP\.aprPasse\(/.test(rec) && /past, not a promise/.test(rec)
+  /* game386: the lock card turns "not enrolled" into its primary Join monthly rewards (EP.enrollCall) and "something to claim" into a Claim
+   *   link to claim.html, whose module sends EP.claimRewardsCall for the months */
+  && /R\.inscrit = inscrit;/.test(rec) && /R\.aPayer = aPayer;/.test(rec) && /EP\.enrollCall\(moi\)/.test(fn(app, 'async function peindreLock(', 30000))
+  && /a\.href = '\/claim\.html';/.test(fn(app, 'async function peindreLock(', 30000)) && /export const claimMoisCall = \(mois\) => EP\.claimRewardsCall\(mois\);/.test(CLAIM_VUE));
 t('F the lock button locks AND enrolls in one batch; 60 days offered; each duration says its months', /EP\.lockEtInscrire\(\{ amount: montant, jours, maintenantSec: Math\.floor\(Date\.now\(\) \/ 1000\), holder: moi \}\)/.test(app) && /EP\.MOIS_MIN_JOURS/.test(app) && /moisPour\.set\(j, EP\.decoderMois/.test(app));
 t('F TAM: paid through the router (genre tam-routeur, contract = ROUTER, fresh quote), the optional buy removed, both galleries', /genre: 'tam-routeur', contrat: EP\.ROUTER/.test(tam) && /\/api\/tblock\/devis-routeur\?montant=/.test(tam) && !/AT\.|acheterTblock\(|tamAchatTblock/.test(tam)
   && /adresseTam\(EP\.TAM_DEPLOIEMENT\)/.test(tam) && /adresseTam\(TAMART_DEPLOIEMENT\)/.test(tam));
@@ -181,7 +188,12 @@ t('F server: one hearts index over the first contract and Hearts (from the recor
 t('F server: TAM works from TAM art and the first TamArt; the router quote route; the new modules served', /serveurTam\(\{ rpc: rpcServeur, deploiement: EP_PACK\.TAM_DEPLOIEMENT, autres: \[TAMART_DEPLOIEMENT\]/.test(srv)
   && /if \(chemin === '\/api\/tblock\/devis-routeur'\)/.test(srv) && /'economie-v2-pack-deploye\.js', 'economie-pack\.js',/.test(srv));
 t('F holders page reads the live contracts on Base (no fixed thresholds of the first contracts)', /import \* as EP from '\.\/economie-pack\.js';/.test(hol) && !/LIKE_PRICE|CLAIM_MIN_HOLD|LIKE_MIN_HOLD/.test(hol) && /EP\.texteRegleVault/.test(hol));
-t('F contest page: the live vault claim (checked) + the first vault\'s owed weeks', /EP\.claimCheck\(/.test(con) && /EP\.claimCall\(BigInt\(d\.claimweek\)\)/.test(con) && /ECO\.claimCall\(BigInt\(d\.claimweek1\)\)/.test(con));
+/* game386 task B: the holders vault left the contest page; its two claims live where the wallet is: the live vault on claim.html
+ *   (claim-vue.js, checked with EP.claimCheck, the call EP.claimCall) and the first vault's owed weeks in the app Wallet (ECO.claimCall) */
+const cvue = lire('claim-vue.js'), cpage = lire('claim.html');
+t('F the live vault claim (checked) on claim.html + the first vault\'s owed weeks in the app; the contest page links there and claims nothing',
+  /EP\.claimCheck\(/.test(cvue) && /claimSemaineCall = \(e\) => EP\.claimCall\(BigInt\(e\)\)/.test(cvue) && /CV\.planClaimSemaine\(/.test(cpage)
+  && /ECO\.claimCall\(e\)/.test(app) && /href="\/claim\.html"/.test(con) && !/claimCall|claimweek/.test(con));
 const six = Object.values(A);
 const edites = ['app.html', 'serveur-web.js', 'tam-onglet.js', 'tam-plan.js', 'tam-serveur.js', 'holders.html', 'contest.html', 'frais-risques.js', 'blockskins.js', 'blockskins-actif.js', 'misables.js', 'coeurs-index.js', 'tblock-route.js', 'brain-jeu.js', 'economie-pack.js'];
 t('F none of the six addresses is typed in an edited file', edites.every((f) => { const s = lire(f).toLowerCase(); return six.every((a) => !s.includes(a)); }));

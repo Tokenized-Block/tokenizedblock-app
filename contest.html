@@ -2,77 +2,127 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Block contest — TokenizedBlock</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>TokenizedBlock · Block contest</title>
+<link rel="icon" href="icon.png" type="image/png">
+<!-- game386 task B (Phil 2026-11-12, on Grok's wallet): the page never finished "Looking for the blocks this wallet created…", showed the
+     pot twice, put the $ of the cap next to the pot, said "0 of the 2 needed round will not pay as it stands", and embedded the holders
+     vault. Rewritten in the app's look: what the contest is → the round's timeline → this round (one pot) → what this wallet can do
+     (each gesture simulated from the wallet before the wallet opens) → the rules, folded. Every number is read on Base from the
+     BlockContest contract (block-contest.js); the vault and its claims live on claim.html. contest-vue.js holds the pure logic. -->
+<!-- the colours chosen in the app (localStorage tb.teinte, the same key as app.html) before the first paint -->
+<script>(() => { let c = 'a'; try { c = localStorage.getItem('tb.teinte') || 'a'; } catch (_) {} if (/^[bcd]$/.test(c)) document.documentElement.setAttribute('data-teinte', c); })();</script>
 <style>
-  :root { --bg:#07080d; --card:rgba(20,24,35,.78); --line:#232a38; --txt:#eef1f7; --mut:#93a0b5; --ok:#3ddc97; --ko:#ff6b6b; --acc:#8fb0ff; --acc2:#c18cff; --gold:#ffd166; --warn:#ffc857; }
-  * { box-sizing: border-box; }
-  body { margin:0; color:var(--txt); font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; min-height:100vh;
-    background: radial-gradient(900px 500px at 15% -10%, rgba(143,176,255,.18), transparent 60%), radial-gradient(800px 500px at 100% 0%, rgba(193,140,255,.16), transparent 60%), var(--bg); background-attachment: fixed; }
-  main { max-width:760px; margin:0 auto; padding:18px 16px 70px; }
-  .brand { display:flex; align-items:center; justify-content:space-between; gap:10px; font-size:13px; color:var(--mut); }
-  .brand a { text-decoration:none; }
-  h1 { font-size:30px; line-height:1.15; margin:14px 0 6px; letter-spacing:-.02em;
-    background: linear-gradient(90deg, #fff, var(--acc) 55%, var(--acc2)); -webkit-background-clip:text; background-clip:text; color:transparent; }
-  h2 { font-size:16px; margin:0 0 10px; letter-spacing:.01em; }
-  p { margin:8px 0; }
-  .mut { color:var(--mut); }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:18px; margin:14px 0; backdrop-filter: blur(6px); box-shadow: 0 10px 30px rgba(0,0,0,.25); }
-  .hero { border-color: rgba(143,176,255,.35); box-shadow: 0 0 0 1px rgba(143,176,255,.08), 0 0 50px rgba(143,176,255,.12), 0 10px 30px rgba(0,0,0,.3); }
-  .phase { display:flex; gap:6px; margin:4px 0 12px; }
-  .phase span { flex:1; text-align:center; font-size:12px; padding:6px 4px; border-radius:99px; border:1px solid var(--line); color:var(--mut); }
-  .phase span.on { color:#08101f; background: linear-gradient(90deg, var(--acc), var(--acc2)); border-color:transparent; font-weight:650; }
-  .potline { display:flex; align-items:baseline; justify-content:space-between; gap:10px; flex-wrap:wrap; }
-  .pot { font-size:34px; font-weight:750; font-variant-numeric:tabular-nums; color:var(--gold); text-shadow: 0 0 24px rgba(255,209,102,.35); }
-  .bar { height:10px; border-radius:99px; background:#0e121a; border:1px solid var(--line); overflow:hidden; margin:10px 0 4px; }
-  .bar i { display:block; height:100%; background: linear-gradient(90deg, var(--gold), #ff9f43); box-shadow: 0 0 14px rgba(255,209,102,.6); }
-  .fund { border-color: rgba(255,209,102,.4); box-shadow: 0 0 40px rgba(255,209,102,.08), 0 10px 30px rgba(0,0,0,.3); }
-  .fund button:not(.ghost) { background: linear-gradient(90deg, var(--gold), #ff9f43); }
-  details summary { cursor:pointer; font-weight:650; list-style:none; } details summary::-webkit-details-marker { display:none; }
-  details summary::after { content:' ▾'; color:var(--mut); } details[open] summary::after { content:' ▴'; }
-  .row { display:flex; justify-content:space-between; gap:12px; padding:7px 0; border-bottom:1px solid var(--line); }
-  .row:last-child { border-bottom:0; }
-  .row span:first-child { color:var(--mut); }
-  .row span:last-child { text-align:right; overflow-wrap:anywhere; }
-  .big { font-size:26px; font-weight:650; font-variant-numeric:tabular-nums; margin:6px 0; }
-  .pill { display:inline-block; padding:2px 9px; border-radius:99px; font-size:12px; border:1px solid var(--line); }
-  .pill.ok { color:var(--ok); border-color:var(--ok); } .pill.ko { color:var(--ko); border-color:var(--ko); } .pill.warn { color:var(--warn); border-color:var(--warn); }
-  .note { font-size:13px; color:var(--mut); }
-  .warnbox { border:1px solid var(--warn); border-radius:10px; padding:10px 12px; margin:10px 0; font-size:14px; }
-  .entry { border:1px solid var(--line); border-radius:10px; padding:12px; margin:10px 0; }
-  .entry .top { display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:baseline; }
-  .act { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:10px; }
-  button { background:var(--acc); color:#08101f; border:0; border-radius:9px; padding:9px 14px; font:inherit; font-weight:600; cursor:pointer; }
-  button.ghost { background:transparent; color:var(--acc); border:1px solid var(--acc); }
-  input { background:#0e121a; color:var(--txt); border:1px solid var(--line); border-radius:9px; padding:8px 10px; font:inherit; }
-  input.n { width:84px; } input.a { flex:1; min-width:220px; }
-  a { color:var(--acc); }
-  ol { padding-left:20px; margin:6px 0; } li { margin:7px 0; }
-  code { font-size:13px; overflow-wrap:anywhere; }
+/* the app's design tokens, copied from app.html :root and its three colour variants (test-contest-truth-378 checks they stay equal) */
+:root{
+  --h:255;
+  --fond:#0f0a17; --fond2:#1a1228;
+  --carte:hsl(var(--h) 37% 12%); --ligne:#2f2545;
+  --texte:#f3effb; --doux:#b9a9dd;
+  --accent:#a78bfa; --accent2:hsl(var(--h) 100% 87%);
+  --accentRgb:167 139 250; --fondRgb:15 10 23; --fond2Rgb:26 18 40; --boutonRgb:139 92 246;
+  --creux:hsl(var(--h) 33% 8%);
+  --vif:#3ddc97; --tiede:#f0c674; --dur:#ff6b6b; --r:18px; --rs:12px;
+  --pas:14px;
+}
+:root[data-teinte="b"]{--h:222;--fond:#060a18;--fond2:#0e1830;--carte:hsl(222 46% 11%);--ligne:#1d2b4d;--texte:#eef3ff;--doux:#a9bce6;
+  --accent:#7ea6ff;--accent2:hsl(222 100% 87%);--accentRgb:126 166 255;--fondRgb:6 10 24;--fond2Rgb:14 24 48;--boutonRgb:59 130 246;
+  --etoileRgb:220 232 255;--carteHautRgb:26 40 78;--carteBasRgb:12 18 40;--g1:#3b82f6;--g2:#7ea6ff}
+:root[data-teinte="c"]{--h:250;--fond:#070616;--fond2:#15123a;--carte:hsl(248 46% 12%);--ligne:#2a2460;--texte:#f1efff;--doux:#b8b3ee;
+  --accent:#9d8cff;--accent2:hsl(300 100% 88%);--accentRgb:157 140 255;--fondRgb:7 6 22;--fond2Rgb:21 18 58;--boutonRgb:168 85 247;
+  --etoileRgb:236 226 255;--carteHautRgb:44 30 92;--carteBasRgb:16 12 44;--g1:#7c5cff;--g2:#c084fc}
+:root[data-teinte="d"]{--h:200;--fond:#04090c;--fond2:#0a1b22;--carte:hsl(198 48% 8%);--ligne:#16323c;--texte:#f2fbff;--doux:#9cc3cf;
+  --accent:#35d3f0;--accent2:hsl(168 85% 76%);--accentRgb:53 211 240;--fondRgb:4 9 12;--fond2Rgb:10 27 34;--boutonRgb:31 91 255;
+  --etoileRgb:214 244 255;--carteHautRgb:12 44 56;--carteBasRgb:6 18 24;--g1:#1f5bff;--g2:#2fe0c8}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+body{background:var(--fond);color:var(--texte);font:15px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased;padding-bottom:64px;overflow-x:hidden}
+[hidden]{display:none!important}
+a{color:var(--accent)}
+.enveloppe{max-width:560px;margin:0 auto;padding:0 16px}
+.tete{display:flex;align-items:center;gap:10px;padding:16px 0 12px}
+.marque{font-weight:700;font-size:16px;letter-spacing:-.2px;color:var(--texte);text-decoration:none}
+.marque span{color:var(--accent2)}
+.tete .droite{margin-left:auto;display:flex;gap:8px;min-width:0}
+.puce{font:inherit;font-size:11.5px;font-weight:600;padding:6px 11px;border-radius:99px;border:1px solid var(--ligne);background:var(--fond2);color:var(--doux);cursor:pointer;white-space:nowrap}
+.puce:hover{border-color:var(--accent);color:var(--texte)}
+h1{font-size:24px;letter-spacing:-.3px;margin:6px 0 4px}
+.titre{font-weight:700;font-size:16px;letter-spacing:-.2px;margin:0 0 5px}
+.sous{color:var(--doux);font-size:13px;margin:0 0 14px;line-height:1.5}
+.note{color:var(--doux);font-size:12.5px;line-height:1.55;margin:10px 0 0}
+.carte{background:var(--carte);border:1px solid var(--ligne);border-radius:var(--r);padding:18px;margin:0 0 var(--pas)}
+.bouton{appearance:none;border:0;border-radius:var(--rs);padding:11px 16px;font:inherit;font-weight:600;letter-spacing:-.1px;cursor:pointer;background:var(--accent);
+  color:hsl(var(--h) 60% 10%);min-height:42px;margin:10px 8px 0 0;transition:transform .12s ease,opacity .12s ease}
+.bouton:active{transform:scale(.985)}
+.bouton.sec{background:var(--fond2);color:var(--texte);border:1px solid var(--ligne)}
+.bouton.sec:hover{border-color:var(--accent)}
+.bouton:focus-visible,.puce:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.ligne{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-top:1px solid var(--ligne);font-size:13.5px}
+.ligne:first-child{border-top:0}
+.ligne>span:first-child{color:var(--doux);flex:0 0 auto;max-width:48%}
+.ligne>span:last-child{text-align:right;overflow-wrap:anywhere;min-width:0}
+.pastille{display:inline-block;font-size:11.5px;font-weight:700;padding:1px 8px;border-radius:999px;border:1px solid var(--ligne);color:var(--doux);white-space:nowrap}
+.pastille.ok{color:var(--vif);border-color:rgb(61 220 151 / .5)}
+.pastille.att{color:var(--tiede);border-color:rgb(240 198 116 / .5)}
+.pastille.ko{color:var(--dur);border-color:rgb(255 107 107 / .5)}
+.periode{margin:10px 0 0;padding:12px 14px;border:1px solid var(--ligne);border-radius:var(--rs);background:rgb(var(--accentRgb) / .04)}
+.periode .haut{display:flex;justify-content:space-between;gap:8px;align-items:baseline;flex-wrap:wrap}
+.periode p{margin:4px 0 0;font-size:13.5px;overflow-wrap:anywhere}
+.ouvre{margin:8px 0 0;padding:10px 12px;border-left:3px solid var(--accent);background:rgb(var(--accentRgb) / .08);border-radius:0 var(--rs) var(--rs) 0;font-size:13.5px}
+details.pli summary{cursor:pointer;font-weight:700;font-size:16px;letter-spacing:-.2px}
+details.pli ol{padding-left:20px;margin:10px 0 0}
+details.pli li{font-size:13px;color:var(--doux);line-height:1.55;margin:6px 0}
+details.pli li b{color:var(--texte)}
+#etat{min-height:1.5em;overflow-wrap:anywhere}
+#etat.ok{color:var(--vif)} #etat.ko{color:var(--dur)}
+/* the contest's own parts, drawn with the tokens above only */
+.etapes{list-style:none;margin:10px 0 0;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.etape{padding:10px;border-radius:var(--rs);border:1px solid var(--ligne);background:var(--fond2);min-width:0}
+.etape b{display:block;font-size:13.5px}
+.etape span{display:block;color:var(--doux);font-size:11.5px;line-height:1.4;overflow-wrap:anywhere}
+.etape[data-etat="on"]{border-color:var(--accent);background:rgb(var(--accentRgb) / .12)}
+.etape[data-etat="on"] b{color:var(--accent2)}
+.etape[data-etat="fait"]{border-color:rgb(61 220 151 / .5)}
+.compte{font-size:26px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.4px;margin:2px 0 0}
+.pot{font-size:30px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.4px;margin:2px 0 0;color:var(--accent2)}
+.piste{height:10px;border-radius:999px;background:var(--creux);border:1px solid var(--ligne);overflow:hidden;margin:10px 0 0}
+.rempli{height:100%;border-radius:999px;background:var(--accent)}
+.champ{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.champ input{flex:1;min-width:0;background:var(--creux);color:var(--texte);border:1px solid var(--ligne);border-radius:var(--rs);padding:10px 12px;font:inherit;margin-top:10px}
+.champ input.n{flex:0 0 84px}
+.champ input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.geste{margin:12px 0 0;padding:12px 14px;border:1px solid var(--ligne);border-radius:var(--rs)}
+.geste>b{display:block;font-size:14px}
+@media (max-width:420px){ .ligne{flex-direction:column;gap:0} .ligne>span:first-child{max-width:none} .ligne>span:last-child{text-align:left} .bouton{width:100%;margin-right:0}
+  .etapes{grid-template-columns:1fr} .champ input,.champ input.n{flex:1 1 100%} }
 </style>
 </head>
 <body>
-<main>
-  <div class="brand"><a href="/">← TokenizedBlock</a><span>Base mainnet · paid in TBLOCK</span></div>
+<main class="enveloppe">
+  <div class="tete">
+    <a class="marque" href="/">Tokenized<span>Block</span></a>
+    <div class="droite"><button class="puce" id="bWallet" type="button" data-connect="1">Connect wallet</button></div>
+  </div>
   <h1>Block contest</h1>
-  <p class="mut">Creators enter their block. Anyone pays TBLOCK to vote. The contract pays by fixed rules; nobody decides by hand. Every number on this page is read from the contract on Base.</p>
+  <p class="sous" id="intro">Creators enter a block they made, and anyone buys votes with TBLOCK. When a round ends, the contract pays its pot by fixed rules that nobody can change.</p>
 
-  <div class="card hero" id="status"><p class="mut">Reading the contract on Base…</p></div>
-  <div class="card fund" id="fund" hidden></div>
-  <div class="card fund" id="vault" hidden></div>
-  <div class="card" id="round" hidden></div>
-  <div class="card" id="me" hidden></div>
-  <div class="card" id="rules" hidden></div>
-  <div class="card" id="past" hidden></div>
+  <div class="carte" id="timeline"><p class="note" style="margin:0">Reading the contest on Base…</p></div>
+  <div class="carte" id="round" hidden></div>
+  <div class="carte" id="me" hidden></div>
+  <div class="carte" id="past" hidden></div>
+  <div class="carte" id="rules" hidden></div>
+  <p class="note" id="etat" role="status" aria-live="polite"></p>
   <p class="note" id="foot"></p>
+  <p class="note"><a href="/">← Back to the app</a></p>
 </main>
 
 <script type="module">
 import * as C from './block-contest.js';
+import * as CV from './contest-vue.js';
+import * as EP from './economie-pack.js';
 import { displayShort, isFeeAddress } from './frais-creation.js';
-import * as ECO from './economie.js'; /* the FIRST holders vault: its past weeks stay claimable here */
-import * as EP from './economie-pack.js'; /* 2026-11-12: the live holders vault (lock factor, claim needs the hearts' minimum locked) */
-import * as LK from './lock.js';
+import { envoyerGroupe } from './groupe-wallet.js';
 
 /* ---------------------------------------------------------------- reads: Base public nodes, straight from the browser */
 const NODES = ['https://base-rpc.publicnode.com', 'https://mainnet.base.org'];
@@ -87,33 +137,46 @@ async function node(method, params) {
       const j = await r.json();
       if (j && j.result !== undefined && j.result !== null) { nodeAt = at; return j.result; }
       const msg = (j && j.error && j.error.message) || 'empty answer';
-      if (/revert/i.test(msg)) { const e = new Error(msg); e.reverted = true; throw e; }
+      if (/revert/i.test(msg)) { const e = new Error(msg); e.reverted = true; e.data = j.error.data; throw e; }
       last = new Error(msg);
     } catch (e) { if (e && e.reverted) throw e; last = e; }
   }
   throw last;
 }
 const call = (to, data) => node('eth_call', [{ to, data }, 'latest']);
+const callFrom = (from, to, data) => node('eth_call', [{ from, to, data }, 'latest']);
 const rd = (v) => call(v.to, v.data);
 
-/* ---------------------------------------------------------------- state */
+/* ---------------------------------------------------------------- words */
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const row = (k, v) => '<div class="row"><span>' + esc(k) + '</span><span>' + v + '</span></div>';
-const pill = (t, c) => '<span class="pill ' + c + '">' + esc(t) + '</span>';
+const row = (k, v) => '<div class="ligne"><span>' + esc(k) + '</span><span>' + v + '</span></div>';
+const pill = (t, c) => '<span class="pastille ' + c + '">' + esc(t) + '</span>';
 /* a fee wallet is shown by its name only: no address, no link (frais-creation.js holds that rule) */
 const scan = (a) => isFeeAddress(a) ? esc(displayShort(a)) : '<a href="https://basescan.org/address/' + esc(a) + '" target="_blank" rel="noopener" title="' + esc(a) + '">' + esc(displayShort(a)) + '</a>';
 const tok = (raw) => esc(C.formatUnits18(raw)) + ' TBLOCK';
 const utc = (ts) => new Date(Number(ts) * 1000).toISOString().replace('T', ' ').slice(0, 16) + ' UTC';
+const day = (ts) => { const d = new Date(Number(ts) * 1000); return d.toLocaleString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' }) + ', ' + d.toISOString().slice(11, 16) + ' UTC'; };
 const pct = (bps) => (Number(bps) / 100).toString() + '%';
 const span = (sec) => { const d = Number(sec) / 86400; return Number.isInteger(d) ? d + (d === 1 ? ' day' : ' days') : C.formatDuration(sec); };
+/* the $ of an amount, at the pool price the app uses (/api/tblock/hold priceNow); nothing when that price was not read */
+const dollars = (raw) => { const u = CV.usdOf(raw, usd); return u ? ' <span class="note">(about ' + esc(u) + ' at the pool price read just now)</span>' : ''; };
 
-let P = null, S = null, dead = null, skew = 0, usd = null, wallet = null, my = null, busy = false, message = '';
+let P = null, S = null, dead = null, skew = 0, usd = null, feed = null, wallet = null, my = null, busy = false;
 const symbols = new Map(), mine = { list: null, why: '' };
+let mineRun = 0;
 const chainNow = () => Math.floor(Date.now() / 1000) + skew;
-const dollars = (raw) => (usd ? ' <span class="mut">(about $' + esc((Number(raw) / 1e18 * usd).toFixed(2)) + ' at the pool price read just now)</span>' : '');
+/** the one status line under the cards: what is happening, a refusal, a confirmation */
+let said = { text: '', cls: '', hash: null };
+function say(text, cls = '', hash = null) { said = { text, cls, hash }; paintSaid(); }
+function paintSaid() {
+  const e = $('etat');
+  e.className = 'note' + (said.cls ? ' ' + said.cls : '');
+  e.innerHTML = esc(said.text) + (said.hash && /^0x[0-9a-fA-F]{64}$/.test(said.hash) ? ' <a href="https://basescan.org/tx/' + esc(said.hash) + '" target="_blank" rel="noopener">View on Basescan</a>' : '');
+}
 
-async function symbolOf(token) {
+async function symbolOf(token, known) {
+  if (known) symbols.set(token, known);
   if (symbols.has(token)) return symbols.get(token);
   let s = '';
   try { s = C.decodeString(await rd(C.VIEW.symbol(token))); } catch (_) { s = ''; }
@@ -135,12 +198,13 @@ async function refresh() {
       const h = await fetch('/api/tblock/hold', { cache: 'no-store', signal: AbortSignal.timeout(8000) }).then((x) => x.json());
       usd = h && h.ok && Number(h.priceNow) > 0 ? Number(h.priceNow) : null;
     } catch (_) { usd = null; }
+    /* the holders vault names the contest it feeds (CONTEST()): the line about it is shown only when that is THIS contest */
+    feed = EP.VAULT ? await CV.readFeed(call, { vault: EP.VAULT, freeView: EP.VIEW.free() }) : null;
     if (wallet) await readWallet();
-    await readVault();
     S.readError = '';
   } catch (e) {
-    S = S || null;
-    if (S) S.readError = String((e && e.message) || e); else { $('status').innerHTML = '<h2>Contract not read</h2><p>The Base nodes did not answer (' + esc(String((e && e.message) || e).slice(0, 120)) + '). Nothing is shown until the contract is read. This page retries on its own.</p>'; return; }
+    if (S) S.readError = String((e && e.message) || e);
+    else { $('timeline').innerHTML = '<p class="titre">Contest not read</p><p class="note">The Base nodes did not answer (' + esc(String((e && e.message) || e).slice(0, 120)) + '). Nothing is shown until the contract is read. This page retries on its own.</p>'; return; }
   }
   render();
 }
@@ -149,259 +213,246 @@ async function readWallet() {
   const r = S.chainRound, w = wallet;
   if (!w) return;
   const out = { wallet: w, balance: C.decodeUint(await rd(C.VIEW.balanceOf(w))), claimable: C.decodeUint(await rd(C.VIEW.claimable(w))),
-    enteredBy: C.decodeBool(await rd(C.VIEW.enteredBy(r, w))), room: C.decodeUint(await rd(C.VIEW.fundRoom(r))), voted: new Map() };
+    enteredBy: C.decodeBool(await rd(C.VIEW.enteredBy(r, w))), room: C.decodeUint(await rd(C.VIEW.fundRoom(r))), allowance: C.decodeUint(await rd(C.VIEW.allowance(w))), voted: new Map() };
   for (const e of S.current.entries) out.voted.set(e.id, C.decodeBool(await rd(C.VIEW.hasVoted(r, e.id, w))));
   if (w === wallet) my = out; /* task 3 (lot 378): a late answer for a wallet that is no longer connected is dropped, never shown under another */
 }
 
-/* ---------------------------------------------------------------- the holders vault — 2026-11-12: the live one (EP.VAULT). Its claim needs
- *   the hearts' minimum LOCKED and a lock that lasts 7 more days, both read here before the wallet opens. The FIRST vault's weeks this
- *   wallet is still owed stay listed and claimable below it (its own rule: TBLOCK held in the wallet). */
-let V = null;
-async function readVault() {
-  if (!EP.VAULT || !EP.HEARTS) { V = null; return; }
-  const who = wallet;
-  try {
-    const w = (v) => rd(v).then((h) => EP.word(h));
-    const v = { balance: await w(EP.VIEW.vaultBalance()), reserved: await w(EP.VIEW.reserved()), rescueAmount: await w(EP.VIEW.rescueAmount()),
-      rescueAt: await w(EP.VIEW.rescueAt()), renounced: EP.word(await call(EP.VAULT, '0x' + ECO.SEL.rescueRenounced)) !== 0n, epoch: await w(EP.VIEW.currentEpoch()),
-      need: await w(EP.VIEW.minHold()), minCommit: await w(EP.VIEW.minCommit()), mine: [], first: [], wallet: who };
-    if (who) {
-      v.locked = await w(LK.VIEW.activeLockedOf(who)); v.unlockAt = await w(LK.VIEW.unlockAtOf(who)); v.factor = await w(EP.VIEW.lockFactor(who));
-      for (const e of [v.epoch - 1n, v.epoch - 2n].filter((x) => x >= 0n)) {
-        const ep = EP.decoderEpoque(await rd(EP.VIEW.epochs(e)));
-        const o = await rd(EP.VIEW.owed(e, who));
-        v.mine.push({ e, closed: ep.closed, budget: ep.budget, share: EP.word(o, 0), bonus: EP.word(o, 1), need: await w(EP.VIEW.needFor(e)),
-          claimed: (await w(EP.VIEW.claimed(e, who))) !== 0n, played: await w(EP.VIEW.playOf(e, who)) });
-      }
-      if (ECO.VAULT) for (const e of [v.epoch - 1n, v.epoch - 2n].filter((x) => x >= 0n)) {
-        const o = await rd(ECO.VIEW.owed(e, who));
-        const s = ECO.word(o, 0), b = ECO.word(o, 1);
-        if (s + b > 0n) v.first.push({ e, share: s, bonus: b });
-      }
-    }
-    if (who !== wallet) return; /* the wallet changed during the read: this one is dropped, the next read paints the right wallet */
-    V = v;
-  } catch (e) { if (who === wallet) V = { error: String((e && e.message) || e).slice(0, 100) }; }
-}
-function renderVault() {
-  if (!V) { $('vault').hidden = true; return; }
-  let h = '<h2>Holders vault</h2>';
-  if (V.error) { $('vault').innerHTML = h + '<p class="note">Not read just now (' + esc(V.error) + ').</p>'; $('vault').hidden = false; return; }
-  h += '<p>It pays the players of each week first (a share of what they put in with hearts, TAM art and skins, never more than they put in), then fills the contest pot. Claiming needs ' + tok(V.need) + ' locked and a lock that lasts at least ' + Math.round(Number(V.minCommit) / 86400) + ' more days.</p>';
-  h += row('In the vault', tok(V.balance) + dollars(V.balance)) + row('Reserved for players', tok(V.reserved)) + row('This week', 'week ' + V.epoch);
-  if (wallet && V.locked !== undefined) h += row('Your lock', tok(V.locked) + ' · factor ' + esc(EP.texteFacteur(V.factor)));
-  if (V.renounced) h += row('Dev rescue', pill('renounced for good', 'ok'));
-  else if (V.rescueAmount > 0n) h += '<div class="warnbox">The dev announced taking up to ' + tok(V.rescueAmount) + ' of the free part, not before ' + esc(utc(V.rescueAt)) + '. Player budgets are never touched.</div>';
-  else h += row('Dev rescue', 'none announced (it would show here 7 days before)');
-  if (!wallet) h += '<div class="act"><button class="ghost" data-connect="1">Connect wallet to see your rewards</button></div>';
-  for (const m of V.mine) {
-    const sum = m.share + m.bonus;
-    const short = V.locked < m.need || V.unlockAt < BigInt(chainNow()) + V.minCommit;
-    const st = !m.closed ? pill('not closed yet', 'warn') : m.claimed ? pill('claimed', 'ok') : sum > 0n ? pill('to claim', 'ok')
-      : m.played === 0n ? pill('nothing for this wallet', 'warn') : short ? pill('lock needed', 'warn') : pill('nothing to pay', 'warn');
-    h += '<div class="entry"><div class="top"><span><b>Week ' + m.e + '</b></span><span>' + st + '</span></div>';
-    if (m.closed && m.claimed) h += '<p class="note">This wallet already claimed this week.</p>';
-    else if (m.closed && sum > 0n) h += row('Your share', tok(m.share)) + (m.bonus > 0n ? row('Top contributor bonus', tok(m.bonus)) : '') + '<div class="act"><button data-claimweek="' + m.e + '">Claim ' + tok(sum) + '</button></div>';
-    else if (m.closed && m.played === 0n) h += '<p class="note">This wallet did not play this week.</p>';
-    else if (m.closed && short) h += '<p class="note">This wallet played ' + tok(m.played) + ' this week. Claiming needs ' + tok(m.need) + ' locked and a lock that lasts at least ' + Math.round(Number(V.minCommit) / 86400) + ' more days; it has ' + tok(V.locked) + ' locked.</p>';
-    else if (m.closed) h += '<p class="note">This wallet played ' + tok(m.played) + ' this week; the week closed with a budget of ' + tok(m.budget) + '.</p>';
-    if (!m.closed) h += '<p class="note">Anyone can close a finished week; then each player claims.</p><div class="act"><button class="ghost" data-closeweek="' + m.e + '">Close week ' + m.e + '</button></div>';
-    h += '</div>';
-  }
-  for (const m of V.first) {
-    const sum = m.share + m.bonus;
-    h += '<div class="entry"><div class="top"><span><b>First vault, week ' + m.e + '</b></span><span>' + pill('to claim', 'ok') + '</span></div>'
-      + row('Your share', tok(sum)) + '<p class="note">This vault asks for ' + tok(ECO.CLAIM_MIN_HOLD) + ' held in the wallet.</p><div class="act"><button data-claimweek1="' + m.e + '">Claim ' + tok(sum) + '</button></div></div>';
-  }
-  $('vault').innerHTML = h; $('vault').hidden = false;
-}
-
-/* ---------------------------------------------------------------- the connected wallet's own blocks */
+/* ---------------------------------------------------------------- the connected wallet's own blocks
+ * game386: the server index (/api/blocks-de) lists them in half a second; the POOL of each is then found on the contest contract itself
+ *   (contest-vue.js findBlockKey: the key a block born by this app has, creatorOf answers or reverts). /api/cle is asked only when no such
+ *   key exists (a pool born another way), with its own short bound. The whole search has ONE time budget: past it, the page says so and
+ *   points to the address field, it never spins. */
+const MINE_BUDGET_MS = 30000, INDEX_MS = 8000, CLE_MS = 8000;
 async function readMine(extra) {
-  const who = wallet;
+  const who = wallet, run = ++mineRun;
   if (!who) return;
+  const alive = () => run === mineRun && who === wallet;
   mine.list = null; mine.why = 'Looking for the blocks this wallet created…'; render();
-  let blocks = [];
+  const deadline = Date.now() + MINE_BUDGET_MS;
+  let blocks = [], indexRead = false;
+  const known = {};
   try {
-    const j = await fetch('/api/blocks-de?' + new URLSearchParams({ adr: who }), { cache: 'no-store', signal: AbortSignal.timeout(15000) }).then((x) => x.json());
-    if (j && j.ok && Array.isArray(j.blocks)) blocks = j.blocks.map((b) => String(b).toLowerCase()).filter((b) => /^0x[0-9a-f]{40}$/.test(b));
+    const j = await CV.withTimeout(fetch('/api/blocks-de?' + new URLSearchParams({ adr: who }), { cache: 'no-store' }).then((x) => x.json()), INDEX_MS, 'the block index');
+    if (j && j.ok && Array.isArray(j.blocks)) {
+      indexRead = true;
+      blocks = j.blocks.map((b) => String(b).toLowerCase()).filter((b) => /^0x[0-9a-f]{40}$/.test(b));
+      for (const b of blocks) { const f = j.faits && j.faits[b]; if (f && typeof f.symbole === 'string' && f.symbole) known[b] = f.symbole.slice(0, 16); }
+    }
   } catch (_) { /* the index is a shortcut only: the address field below still works */ }
-  if (extra && !blocks.includes(extra)) blocks.unshift(extra);
-  const list = [];
-  for (const b of blocks.slice(0, 12)) {
+  if (!alive()) return;
+  if (extra) { blocks = blocks.filter((b) => b !== extra); blocks.unshift(extra); }
+  const list = [], todo = blocks.slice(0, 12);
+  let late = 0;
+  for (let i = 0; i < todo.length; i++) {
+    const b = todo[i];
     const item = { block: b, ok: false, why: '', key: null, entered: false };
-    await symbolOf(b);
+    if (todo.length > 1) { mine.why = 'Checking block ' + (i + 1) + ' of ' + todo.length + ' on the contest contract…'; mine.list = list.slice(); render(); }
+    const left = deadline - Date.now();
+    if (left <= 0) { item.why = 'not checked: the time for this page ran out'; late++; list.push(item); continue; }
     try {
-      const k = await fetch('/api/cle/' + b, { cache: 'no-store', signal: AbortSignal.timeout(20000) }).then((x) => x.json());
-      const keys = k && k.ok && Array.isArray(k.cles) ? k.cles.filter((c) => String(c.hooks).toLowerCase() === C.HOOK) : null;
-      /* /api/cle: ok:false with a window (balaye) and no NON_LU = the server READ that window and found no pool (it keeps that answer):
-       *   trying again cannot find an older one. Only NON_LU, or no answer at all, is a read that failed. */
-      if (!keys) item.why = k && k.ok === false && k.etat !== 'NON_LU' && Number(k.balaye) > 0
-        ? 'no pool of this block was found in the last ' + Number(k.balaye).toLocaleString('en-US') + ' Base blocks the server reads, so the contest cannot be given its pool from this page; trying again will not find an older one'
-        : 'its pool was not read just now; try again in a minute';
-      else if (!keys.length) item.why = 'this block has no pool on the creator registry the contest reads';
-      for (const c of keys || []) {
-        const key = { currency0: String(c.currency0).toLowerCase(), currency1: String(c.currency1).toLowerCase(), fee: Number(c.fee), tickSpacing: Number(c.tickSpacing), hooks: String(c.hooks).toLowerCase() };
-        const chk = await C.readCreatorCheck(call, { blockToken: b, key, wallet: who });
-        if (chk.ok) { item.ok = true; item.key = key; item.why = ''; break; }
-        item.why = chk.why;
-      }
-      if (item.ok) item.entered = C.decodeBool(await rd(C.VIEW.entered(S.chainRound, b)));
-    } catch (e) { item.why = 'not read just now (' + String((e && e.message) || e).slice(0, 80) + ')'; }
+      await CV.withTimeout(symbolOf(b, known[b]), Math.min(left, 12000), 'the name of the block').catch(() => null);
+      const f = await CV.withTimeout(CV.findBlockKey(call, { blockToken: b, wallet: who, deadline }), Math.max(500, deadline - Date.now()), 'the check of this block');
+      if (f.etat === 'OK') { item.ok = true; item.key = f.key; item.entered = C.decodeBool(await rd(C.VIEW.entered(S.chainRound, b))); }
+      else if (f.etat === 'NONE') await poolFromServer(item, who, deadline);
+      else { item.why = f.etat === 'NOT_READ' ? 'not read just now (' + f.why + ')' : f.why; if (f.etat === 'NOT_READ') late++; }
+    } catch (e) { item.why = e && e.timeout ? 'not read in time (' + e.message + ')' : 'not read just now (' + String((e && e.message) || e).slice(0, 80) + ')'; late++; }
+    if (!alive()) return;
     list.push(item);
-    if (who !== wallet) return;
   }
-  if (who !== wallet) return;
+  if (!alive()) return;
   mine.list = list;
-  mine.why = blocks.length ? '' : 'No block created by this wallet is in the index yet. An empty list means the index has not seen one, not that there is none: paste the block address below to check it on the contract.';
-  if (blocks.length > 12) mine.why = 'Only the first 12 blocks are checked here. Paste an address below to check another one.';
+  mine.why = !indexRead && !extra ? 'Could not read the blocks of this wallet just now. Paste a block address below to check it on the contest contract.'
+    : late ? 'Could not read every block of this wallet in time. Paste a block address below to check it on the contest contract.'
+    : blocks.length > 12 ? 'Only the first 12 blocks are checked here. Paste an address below to check another one.'
+    : !blocks.length ? 'No block created by this wallet is in the index yet. An empty list means the index has not seen one, not that there is none: paste the block address below to check it on the contract.'
+    : '';
   render();
 }
-
-/* ---------------------------------------------------------------- sending: ONE batch, signed by the user in their own wallet */
-async function send(calls, what) {
-  if (busy) return;
-  busy = true; message = 'Waiting for your wallet: ' + what + '…'; render();
-  try {
-    const chain = await window.ethereum.request({ method: 'eth_chainId' });
-    if (String(chain).toLowerCase() !== C.CHAIN_ID_HEX) throw new Error('your wallet is not on Base; switch it to Base and try again');
-    const id = await window.ethereum.request({ method: 'wallet_sendCalls', params: [{ version: '2.0.0', chainId: C.CHAIN_ID_HEX, from: wallet, atomicRequired: true,
-      calls: calls.map((c) => ({ to: c.to, data: c.data, value: c.value || '0x0' })) }] });
-    const bid = id && (id.id || id);
-    message = 'Sent. Waiting for Base to confirm…'; render();
-    let done = '';
-    for (let i = 0; i < 60 && !done; i++) {
-      await new Promise((r) => setTimeout(r, 3000));
-      let s = null;
-      try { s = await window.ethereum.request({ method: 'wallet_getCallsStatus', params: [bid] }); } catch (_) { s = null; }
-      if (s && (s.status === 200 || s.status === 'CONFIRMED' || s.status === 'success')) done = 'ok';
-      else if (s && (s.status >= 400 || s.status === 'FAILED')) done = 'ko';
-    }
-    message = done === 'ok' ? 'Confirmed: ' + what + '.' : done === 'ko' ? 'Refused by the chain: ' + what + '. Nothing was taken beyond network fees.' : 'Not confirmed after 3 minutes. Check your wallet history before trying again.';
-  } catch (e) {
-    message = 'Not sent: ' + String((e && e.message) || e).slice(0, 160);
+/** a block with no pool of the shape this app creates: the server is asked for the pools it has seen (bounded), then each is checked */
+async function poolFromServer(item, who, deadline) {
+  const b = item.block;
+  let k = null;
+  try { k = await CV.withTimeout(fetch('/api/cle/' + b, { cache: 'no-store' }).then((x) => x.json()), Math.max(500, Math.min(CLE_MS, deadline - Date.now())), 'the pool index'); } catch (_) { k = null; }
+  const keys = k && k.ok && Array.isArray(k.cles) ? k.cles.filter((c) => String(c.hooks).toLowerCase() === C.HOOK) : null;
+  /* /api/cle: ok:false with a window (balaye) and no NON_LU = the server READ that window and found no pool (it keeps that answer):
+   *   trying again cannot find an older one. Only NON_LU, or no answer at all, is a read that failed. */
+  if (!keys) item.why = k && k.ok === false && k.etat !== 'NON_LU' && Number(k.balaye) > 0
+    ? 'no pool of this block is recorded on the hook the contest reads, and no pool of it was found in the last ' + Number(k.balaye).toLocaleString('en-US') + ' Base blocks the server reads; trying again will not find an older one'
+    : 'no pool of the shape this app creates, and the other pools of this block were not read just now; try again in a minute';
+  else if (!keys.length) item.why = 'this block has no pool on the creator registry the contest reads';
+  for (const c of keys || []) {
+    const key = { currency0: String(c.currency0).toLowerCase(), currency1: String(c.currency1).toLowerCase(), fee: Number(c.fee), tickSpacing: Number(c.tickSpacing), hooks: String(c.hooks).toLowerCase() };
+    const chk = await C.readCreatorCheck(call, { blockToken: b, key, wallet: who });
+    if (chk.ok) { item.ok = true; item.key = key; item.why = ''; item.entered = C.decodeBool(await rd(C.VIEW.entered(S.chainRound, b))); break; }
+    item.why = chk.why;
   }
-  busy = false;
+}
+
+/* ---------------------------------------------------------------- sending: simulated FROM the wallet, then ONE batch the user signs */
+async function gesture({ calls, sim, what }) {
+  if (busy || !wallet) return;
+  busy = true; render();
+  const who = wallet;
+  try {
+    say('Checking your wallet and simulating ' + what + ' from it on Base…');
+    let accs = null;
+    try { accs = await window.ethereum.request({ method: 'eth_accounts' }); } catch (_) { accs = null; }
+    if (!accs || !accs[0] || String(accs[0]).toLowerCase() !== who) { say('Not sent: your wallet account is not the one this page read. Nothing was sent.', 'ko'); return; }
+    const chain = await window.ethereum.request({ method: 'eth_chainId' });
+    if (String(chain).toLowerCase() !== C.CHAIN_ID_HEX) { say('Not sent: your wallet is not on Base. Switch it to Base and try again.', 'ko'); return; }
+    /* fresh reads for the simulation: the balance and the allowance the batch starts from */
+    let balance = null, allowance = null;
+    try { balance = C.decodeUint(await rd(C.VIEW.balanceOf(who))); allowance = C.decodeUint(await rd(C.VIEW.allowance(who))); } catch (_) { /* said by the simulation as not read */ }
+    const s = await CV.simulateGesture(callFrom, { from: who, to: sim.to, data: sim.data, need: sim.need || 0n, allowance, balance });
+    if (!s.ok) { say('Not sent: ' + s.why + '. Your wallet was not opened.', 'ko'); return; }
+    say(s.why[0].toUpperCase() + s.why.slice(1) + '. Waiting for your wallet…');
+    const res = await envoyerGroupe({ eth: window.ethereum, compte: who, chaineHex: C.CHAIN_ID_HEX, calls });
+    if (res.etat === 'CONFIRME') say('Confirmed on Base: ' + what + '. The figures above are read again from the contract.', 'ok', res.hash);
+    else if (res.etat === 'REFUSE') say('Not sent: you declined in your wallet. Nothing was sent.', 'ko');
+    else if (res.etat === 'PARTIEL') say('Only part of it went through: ' + res.pourquoi + '.', 'ko');
+    else if (res.etat === 'EN_ATTENTE') say('Sent, not confirmed after 4 minutes. Check your wallet history before trying again.', 'ko');
+    else say('Not done: ' + String(res.pourquoi || res.etat).slice(0, 160) + '.', 'ko');
+  } catch (e) {
+    say('Not sent: ' + String((e && e.message) || e).slice(0, 160), 'ko');
+  } finally {
+    busy = false;
+  }
   await refresh();
   if (wallet && mine.list) readMine();
 }
 
 let listening = false;
+function listen() {
+  if (listening || !window.ethereum || typeof window.ethereum.on !== 'function') return;
+  window.ethereum.on('accountsChanged', onAccounts); listening = true;
+}
 function onAccounts(a) {
   const next = a && a[0] ? String(a[0]).toLowerCase() : null;
   if (next === wallet) return;
-  wallet = next; my = null; mine.list = null; mine.why = ''; message = '';
-  if (V && !V.error) V = { ...V, wallet: null, locked: undefined, unlockAt: undefined, factor: undefined, mine: [], first: [] };
+  wallet = next; my = null; mine.list = null; mine.why = ''; mineRun++; say('');
   render();
   refresh().then(() => { if (wallet) readMine(); });
 }
 async function connect() {
-  if (!window.ethereum) { message = 'No wallet found in this browser.'; render(); return; }
+  if (!window.ethereum) { say('No wallet found in this browser.', 'ko'); return; }
   try {
     const a = await window.ethereum.request({ method: 'eth_requestAccounts' });
     wallet = a && a[0] ? String(a[0]).toLowerCase() : null;
-    if (!listening && typeof window.ethereum.on === 'function') { window.ethereum.on('accountsChanged', onAccounts); listening = true; }
-  } catch (e) { message = 'Wallet not connected: ' + String((e && e.message) || e).slice(0, 120); }
+    listen();
+  } catch (e) { say('Wallet not connected: ' + String((e && e.message) || e).slice(0, 120), 'ko'); }
   if (wallet) { await refresh(); readMine(); } else render();
 }
 
 /* ---------------------------------------------------------------- render */
-function countdownText() {
-  if (!S) return '';
-  const w = C.phaseAt(P, chainNow());
-  return C.formatDuration(w.secondsLeft);
-}
 function render() {
   if (!S) return;
-  const p = P, w = C.phaseAt(p, chainNow()), cur = S.current;
-  /* status */
-  let h = '';
-  if (w.phase === 'BEFORE_START') {
-    h += '<h2>Not started yet</h2><p>The contest has not started. Nothing can be entered and no vote can be bought until it does.</p>'
-      + '<p class="mut">Entries open in</p><div class="big" id="cd">' + esc(countdownText()) + '</div><p class="note">Start: ' + esc(utc(p.genesis)) + ', read from the contract.</p>';
-  } else if (w.phase === 'ENTRY') {
-    h += '<h2>Round ' + w.round + ' — entries are open</h2><p>Creators can enter their block now. No vote can be bought yet.</p>'
-      + '<p class="mut">Voting opens in</p><div class="big" id="cd">' + esc(countdownText()) + '</div><p class="note">Voting: ' + esc(utc(w.endsAt)) + ' to ' + esc(utc(w.roundEndsAt)) + '.</p>';
-  } else {
-    h += '<h2>Round ' + w.round + ' — voting is open</h2><p>Entries for this round are closed.</p>'
-      + '<p class="mut">The round ends in</p><div class="big" id="cd">' + esc(countdownText()) + '</div><p class="note">End: ' + esc(utc(w.endsAt)) + '. Votes sent after that second are refused by the contract.</p>';
-  }
-  const fill = p.maxPot > 0n ? Number(cur.pot * 1000n / p.maxPot) / 10 : 0;
-  h = '<div class="phase"><span' + (w.phase === 'BEFORE_START' ? ' class="on"' : '') + '>Starts</span><span' + (w.phase === 'ENTRY' ? ' class="on"' : '') + '>Entries</span><span' + (w.phase === 'VOTE' ? ' class="on"' : '') + '>Voting</span><span>Paid</span></div>' + h
-    + '<div class="potline"><span class="mut">Pot of ' + (w.phase === 'BEFORE_START' ? 'the first round' : 'round ' + S.chainRound) + '</span><span class="pot">' + tok(cur.pot) + '</span></div>'
-    + '<div class="bar" role="img" aria-label="pot ' + fill + '% of its cap"><i style="width:' + Math.min(100, fill) + '%"></i></div>'
-    + '<p class="note">' + fill + '% of the cap of ' + tok(p.maxPot) + dollars(p.maxPot) + '.</p>';
-  if (S.readError) h += '<div class="warnbox">The last refresh failed (' + esc(S.readError.slice(0, 100)) + '). The figures below are from the previous read.</div>';
-  if (message) h += '<div class="warnbox">' + esc(message) + '</div>';
-  $('status').innerHTML = h;
+  const p = P, now = chainNow(), cur = S.current, T = CV.timeline(p, now), w = C.phaseAt(p, now);
+  $('bWallet').textContent = wallet ? displayShort(wallet) : 'Connect wallet';
+  const places = [p.split1, p.split2, p.split3].filter((x) => x > 0n).length;
+  $('intro').innerHTML = 'Creators enter a block they made, and anyone buys votes with TBLOCK. When a round ends, the contract pays its pot to '
+    + (places === 1 ? 'the creator of the most-voted block that qualifies' : 'the creators of the ' + places + ' most-voted blocks that qualify') + ', by fixed rules that nobody can change.';
 
-  /* this round */
-  let r = '<h2>' + (w.phase === 'BEFORE_START' ? 'First round (round 0)' : 'Round ' + S.chainRound) + '</h2>';
-  r += row('Pot', tok(cur.pot) + dollars(cur.pot));
-  if (cur.pot === 0n) r += '<div class="warnbox">The pot of this round holds 0 TBLOCK. If it still holds 0 when the round ends, the winner receives 0.</div>';
-  /* anyone can add to the pot: fund() is public. Always shown; the field appears once the room under the cap was read for this wallet. */
-  let f = '<h2>Add TBLOCK to the pot</h2><p>Anyone can add to the pot of this round. The contract pays it to the winners by the rules below; nobody can take it back, you included.</p>';
-  if (!wallet) f += '<div class="act"><button data-connect="1">Connect wallet to add</button></div>';
-  else if (!my) f += '<p class="note">Reading this wallet…</p>';
-  else if (S.clockMismatch) f += '<p class="note">The clock of this device and the chain disagree on the round; the field comes back when they agree.</p>';
-  else {
-    f += '<div id="fundBox">' + row('TBLOCK in this wallet', tok(my.balance)) + row('Room left under the cap', tok(my.room));
-    if (my.room > 0n) {
-      const most = my.balance < my.room ? my.balance : my.room;
-      f += '<div class="act"><input class="a" id="fundAmt" inputmode="decimal" placeholder="TBLOCK amount" aria-label="TBLOCK amount to add">'
-        + (most > 0n ? '<button class="ghost" data-max="' + esc(C.formatUnits18(most, 18).replace(/,/g, '')) + '">Max</button>' : '') + '<button data-fund="1">Add to the pot</button></div>';
-    }
-    f += '</div>';
-  }
-  f += '<p class="note">If the round does not pay, the pot is carried to later rounds, and what does not fit under their cap goes to the dead address.</p>';
-  const typed = ($('fundAmt') || {}).value || ''; /* a refresh redraws the card: keep what the person was typing */
-  $('fund').innerHTML = f; $('fund').hidden = false;
-  renderVault();
-  if (typed && $('fundAmt')) $('fundAmt').value = typed;
+  /* 1. the timeline of the round */
+  let t = '<p class="titre">' + (T.phase === 'BEFORE_START' ? 'First round (round 0)' : 'Round ' + T.round) + '</p>';
+  t += '<ol class="etapes">' + T.steps.map((s) => '<li class="etape" data-etat="' + (s.on ? 'on' : s.done ? 'fait' : '') + '"' + (s.on ? ' aria-current="step"' : '') + '><b>' + esc(s.label) + (s.on ? ' · now' : '') + '</b><span>'
+    + (s.to === null ? 'from ' + esc(day(s.from)) + ', when anyone settles it' : esc(day(s.from)) + ' → ' + esc(day(s.to))) + '</span></li>').join('') + '</ol>';
+  t += '<p class="note">' + esc(T.next.what) + '</p><div class="compte" id="cd">' + esc(C.formatDuration(T.next.secondsLeft)) + '</div>';
+  t += '<p class="note">' + (T.phase === 'ENTRY' ? 'Creators can enter their block now. Votes open when entries close.' : T.phase === 'VOTE' ? 'Entries are closed. Anyone can buy votes until the round ends; a vote sent after that second is refused.' : 'Nothing can be entered or voted before the start.')
+    + ' Times are read from the contract, in UTC.</p>';
+  if (S.readError) t += '<p class="ouvre">The last refresh failed (' + esc(S.readError.slice(0, 100)) + '). The figures are from the previous read.</p>';
+  $('timeline').innerHTML = t;
+
+  /* 2. this round: ONE pot, the cap apart, the counts, whether it pays */
+  const q = CV.quorumWords(cur, p);
+  const fill = p.maxPot > 0n ? Number(cur.pot * 1000n / p.maxPot) / 10 : 0;
+  let r = '<p class="titre">This round</p>';
+  r += '<p class="note" style="margin:0">Pot of ' + (w.phase === 'BEFORE_START' ? 'the first round' : 'round ' + S.chainRound) + '</p><div class="pot" data-pot="1">' + tok(cur.pot) + (cur.pot > 0n ? dollars(cur.pot) : '') + '</div>';
+  r += '<div class="piste" role="img" aria-label="pot at ' + fill + '% of the cap of one round"><div class="rempli" style="width:' + Math.min(100, fill) + '%"></div></div>';
+  r += row('Cap per round', tok(p.maxPot) + dollars(p.maxPot));
+  r += row('Filled', fill + '% of the cap');
   r += row('Blocks entered', String(cur.entryCount));
   r += row('Votes bought', String(cur.totalVotes));
-  r += row('Entries that qualify', String(cur.qualifiedCount) + ' of the ' + p.minQualifiedEntries + ' needed ' + (S.qualified ? pill('round will pay', 'ok') : pill('round will not pay as it stands', 'warn')));
-  if (!cur.entryCount) r += '<p class="mut">No block is entered in this round.</p>';
+  r += row('Entries that qualify', String(cur.qualifiedCount) + ' of ' + p.minQualifiedEntries + ' needed ' + (q.pays ? pill('pays', 'ok') : pill('not paying yet', 'att')));
+  r += '<p class="ouvre">' + esc(q.head) + ' ' + esc(q.rule[0].toUpperCase() + q.rule.slice(1)) + '.' + (q.pays ? '' : ' ' + esc(q.ifNot)) + '</p>';
   for (const e of cur.entries) {
-    r += '<div class="entry"><div class="top"><span>' + nameOf(e.blockToken) + '</span><span>' + (e.qualified ? pill('qualifies', 'ok') : pill('does not qualify yet', 'warn')) + '</span></div>'
+    r += '<div class="periode"><div class="haut"><span>' + nameOf(e.blockToken) + '</span>' + (e.qualified ? pill('qualifies', 'ok') : pill('does not qualify yet', 'att')) + '</div>'
       + row('Votes', String(e.votes) + ' (needs ' + p.minVotes + ')') + row('Different voting addresses', String(e.voters) + ' (needs ' + p.minVoters + ')') + row('Paid to, if it wins', scan(e.payee));
     if (w.phase === 'VOTE' && !S.clockMismatch) {
-      if (wallet) r += '<div class="act"><input class="n" type="number" min="1" step="1" value="1" id="v' + e.id + '" aria-label="Number of votes"><button data-vote="' + e.id + '">Vote</button><span class="note">' + tok(p.votePrice) + ' per vote, not refundable'
-        + (my && my.voted.get(e.id) ? ' · this wallet already voted here' : '') + '</span></div>';
-      else r += '<div class="act"><button class="ghost" data-connect="1">Connect a wallet to vote</button></div>';
+      if (wallet) r += '<div class="champ"><input class="n" type="number" min="1" step="1" value="1" id="v' + e.id + '" aria-label="Number of votes"><button class="bouton" type="button" data-vote="' + e.id + '">Vote</button></div><p class="note">' + tok(p.votePrice) + dollars(p.votePrice) + ' per vote, not refundable'
+        + (my && my.voted.get(e.id) ? ' · this wallet already voted here' : '') + '</p>';
+      else r += '<button class="bouton sec" type="button" data-connect="1">Connect a wallet to vote</button>';
     }
     r += '</div>';
   }
   if (cur.entriesNotRead > 0) r += '<p class="note">' + cur.entriesNotRead + ' more entries exist and are not listed here.</p>';
+  const fw = CV.feedWords(feed);
+  r += '<p class="note">' + (fw ? esc(fw) + ' ' : '') + '<a href="/claim.html">Holders vault &amp; claims →</a></p>';
   $('round').innerHTML = r; $('round').hidden = false;
 
-  /* my wallet */
-  let m = '<h2>Enter my block</h2>';
+  /* 3. what this wallet can do: enter, vote, add to the pot — each simulated from the wallet before the wallet opens */
+  const typed = ($('fundAmt') || {}).value || ''; /* a refresh redraws the card: keep what the person was typing */
+  const typedBlock = ($('manual') || {}).value || '';
+  let m = '<p class="titre">For your wallet</p>';
   if (!wallet) {
-    m += '<p>Only the wallet recorded as the creator of a block can enter it. Connect that wallet to see which of its blocks the contract accepts.</p><div class="act"><button data-connect="1">Connect wallet</button></div>';
+    m += '<p class="sous" style="margin:0">Connect the wallet that created your block to enter it, or any wallet holding TBLOCK to vote or add to the pot. Each gesture is simulated from your wallet on Base before your wallet opens.</p><button class="bouton" type="button" data-connect="1">Connect wallet</button>';
   } else {
-    m += row('Wallet', scan(wallet)) + (my ? row('TBLOCK in this wallet', tok(my.balance)) : '');
-    if (my && my.claimable > 0n) m += '<div class="warnbox">The contract holds ' + tok(my.claimable) + ' for this wallet (a payment that did not go through).<div class="act"><button data-claim="1">Claim it to this wallet</button></div></div>';
-    if (w.phase === 'BEFORE_START') m += '<p>Entries are not open yet. The blocks below are checked now so you know where you stand.</p>';
-    if (w.phase === 'VOTE') m += '<p>Entries for this round are closed. The next entry window opens at ' + esc(utc(w.roundEndsAt)) + '.</p>';
-    if (w.phase === 'ENTRY') m += '<p>Entering costs ' + tok(p.entryFee) + dollars(p.entryFee) + '. It goes into the pot of the round and is not refundable.</p>' + (my && my.enteredBy ? '<p>' + pill('this wallet already has an entry in this round', 'ok') + ' One entry per wallet in each round.</p>' : '');
+    m += row('Wallet', scan(wallet)) + (my ? row('TBLOCK in this wallet', tok(my.balance)) : row('TBLOCK in this wallet', 'reading…'));
+    if (my && my.claimable > 0n) m += '<div class="geste"><b>A payment waiting for you</b><p class="note">The contract holds ' + tok(my.claimable) + ' for this wallet (a prize whose payment did not go through).</p><button class="bouton" type="button" data-claim="1">Claim it to this wallet</button></div>';
+    /* enter my block */
+    m += '<div class="geste"><b>Enter my block</b>';
+    if (w.phase === 'ENTRY') m += '<p class="note">Entering costs ' + tok(p.entryFee) + dollars(p.entryFee) + '. It goes into the pot and is not refundable. One entry per wallet and per block in each round.</p>' + (my && my.enteredBy ? '<p class="note">' + pill('this wallet already has an entry in this round', 'ok') + '</p>' : '');
+    else if (w.phase === 'VOTE') m += '<p class="note">Entries for this round are closed. The next ones open ' + esc(day(w.roundEndsAt)) + '.</p>';
+    else m += '<p class="note">Entries open ' + esc(day(p.genesis)) + '. The blocks below are checked now so you know where you stand.</p>';
     if (mine.why) m += '<p class="note">' + esc(mine.why) + '</p>';
     for (const b of mine.list || []) {
-      m += '<div class="entry"><div class="top"><span>' + nameOf(b.block) + '</span><span>' + (b.ok ? pill('you are its recorded creator', 'ok') : pill('cannot be entered', 'ko')) + '</span></div>';
+      m += '<div class="periode"><div class="haut"><span>' + nameOf(b.block) + '</span>' + (b.ok ? pill('you are its recorded creator', 'ok') : pill('cannot be entered', 'ko')) + '</div>';
       if (!b.ok) m += '<p class="note">' + esc(b.why) + '</p>';
       else if (b.entered) m += '<p class="note">Already entered in this round.</p>';
-      else if (w.phase === 'ENTRY' && !S.clockMismatch && !(my && my.enteredBy)) m += '<div class="act"><button data-enter="' + esc(b.block) + '">Enter this block</button><span class="note">' + tok(p.entryFee) + ', not refundable</span></div>';
+      else if (w.phase === 'ENTRY' && !S.clockMismatch && !(my && my.enteredBy)) m += '<button class="bouton" type="button" data-enter="' + esc(b.block) + '">Enter this block for ' + tok(p.entryFee) + '</button>';
       m += '</div>';
     }
-    m += '<div class="act"><input class="a" id="manual" placeholder="Block address (0x…)" aria-label="Block address"><button class="ghost" data-check="1">Check this block</button></div>';
+    m += '<div class="champ"><input id="manual" placeholder="Block address (0x…)" aria-label="Block address" autocomplete="off"><button class="bouton sec" type="button" data-check="1">Check this block</button></div></div>';
+    /* vote */
+    m += '<div class="geste"><b>Vote</b><p class="note">' + (w.phase === 'VOTE' ? 'Pick a block in the round above. One vote costs ' + tok(p.votePrice) + dollars(p.votePrice) + ' and is not refundable.'
+      : 'Voting opens ' + esc(day(w.phase === 'BEFORE_START' ? p.genesis + p.entryPeriod : w.endsAt)) + '. One vote will cost ' + tok(p.votePrice) + dollars(p.votePrice) + ', not refundable; the blocks entered will each have a Vote button above.') + '</p></div>';
+    /* add to the pot */
+    m += '<div class="geste"><b>Add TBLOCK to the pot</b><p class="note">Anyone can add to the pot of this round. Nobody can take it back, you included; the contract pays it by the rules below.</p>';
+    if (!my) m += '<p class="note">Reading this wallet…</p>';
+    else if (S.clockMismatch) m += '<p class="note">The clock of this device and the chain disagree on the round; the field comes back when they agree.</p>';
+    else {
+      m += row('Room left under the cap', tok(my.room));
+      if (my.room > 0n) {
+        const most = my.balance < my.room ? my.balance : my.room;
+        m += '<div class="champ"><input id="fundAmt" inputmode="decimal" placeholder="TBLOCK amount" aria-label="TBLOCK amount to add">'
+          + (most > 0n ? '<button class="bouton sec" type="button" data-max="' + esc(C.formatUnits18(most, 18).replace(/,/g, '')) + '">Max</button>' : '') + '<button class="bouton" type="button" data-fund="1">Add to the pot</button></div>';
+      }
+    }
+    m += '</div>';
   }
   $('me').innerHTML = m; $('me').hidden = false;
+  if (typed && $('fundAmt')) $('fundAmt').value = typed;
+  if (typedBlock && $('manual')) $('manual').value = typedBlock;
 
-  /* rules, written from the values read */
-  const toPot = C.BPS - p.burnBps, places = [['First', p.split1], ['second', p.split2], ['third', p.split3]].filter((x) => x[1] > 0n);
+  /* 4. past rounds */
+  if (S.past.length) {
+    let h = '<p class="titre">Past rounds</p>';
+    for (const pr of S.past) {
+      const o = pr.outcome, win = o.winner && !o.winner.notRead ? nameOf(o.winner.blockToken) + ' (paid to ' + scan(o.winner.payee) + ')' : 'entry ' + (o.winner ? o.winner.id : '');
+      const txt = o.state === 'PAID' ? 'Settled. Winner: ' + win : o.state === 'TO_PAY' ? 'Ended, not settled yet. Leading: ' + win + '. Pot: ' + tok(pr.pot)
+        : o.state === 'NO_WINNER' ? 'Settled with no winner: ' + pr.qualifiedCount + ' of the ' + p.minQualifiedEntries + ' qualifying entries needed. Its pot was carried forward.'
+        : 'Ended, not settled yet: ' + pr.qualifiedCount + ' of the ' + p.minQualifiedEntries + ' qualifying entries needed, so nobody will be paid and its pot (' + tok(pr.pot) + ') is carried forward.';
+      h += '<div class="periode"><div class="haut"><b>Round ' + pr.round + '</b><span class="note" style="margin:0">' + pr.entryCount + ' entries · ' + pr.totalVotes + ' votes</span></div><p>' + txt + '</p>';
+      if (!pr.settled) h += wallet ? '<button class="bouton sec" type="button" data-settle="' + pr.round + '">Settle round ' + pr.round + '</button><p class="note">Anyone can do this. It costs network fees only.</p>' : '<button class="bouton sec" type="button" data-connect="1">Connect a wallet to settle it</button>';
+      h += '</div>';
+    }
+    $('past').innerHTML = h; $('past').hidden = false;
+  } else $('past').hidden = true;
+
+  /* 5. the rules, written from the values read, folded */
+  const toPot = C.BPS - p.burnBps, placesTxt = [['First', p.split1], ['second', p.split2], ['third', p.split3]].filter((x) => x[1] > 0n);
   const wasOpen = !!document.querySelector('#rules details[open]');
-  let u = '<details' + (wasOpen ? ' open' : '') + '><summary>Rules, as the contract applies them</summary><ol>';
+  let u = '<details class="pli"' + (wasOpen ? ' open' : '') + '><summary>Rules, as the contract applies them</summary><ol>';
   u += '<li><b>Who can enter.</b> Only the wallet recorded as the creator of a block in the TokenizedBlock creator registry. One entry per block and one entry per wallet in each round.</li>';
   u += '<li><b>Entering.</b> ' + (p.entryFee > 0n ? 'Costs ' + tok(p.entryFee) + ', added to the pot of that round. Not refundable.' : 'Free.') + '</li>';
   u += '<li><b>Rounds.</b> A round lasts ' + esc(span(C.roundLength(p))) + ': ' + esc(span(p.entryPeriod)) + ' to enter, then ' + esc(span(p.votePeriod)) + ' to vote. The next round starts the second the previous one ends.</li>';
@@ -409,29 +460,15 @@ function render() {
     + (toPot > 0n ? '; the other ' + pct(toPot) + ' goes to the pot' : '; none of it goes to the pot') + '. <b>Votes are not refundable</b>, whether the block wins or not.</li>';
   u += '<li><b>Rank.</b> More votes means a higher rank, so a first place can be bought. On equal votes, the block entered first is ahead.</li>';
   u += '<li><b>Qualifying.</b> An entry qualifies with at least ' + p.minVotes + ' votes coming from at least ' + p.minVoters + ' different addresses. The contract counts addresses, not people.</li>';
-  u += '<li><b>When a round pays.</b> Only if at least ' + p.minQualifiedEntries + ' entries qualify. If not, nobody is paid: the pot is carried to later rounds, and what does not fit under their cap is sent to the dead address.</li>';
-  u += '<li><b>What is paid.</b> ' + places.map((x) => x[0] + ' place: ' + pct(x[1]) + ' of the pot').join(', ') + '. A pot never exceeds ' + tok(p.maxPot) + dollars(p.maxPot) + '. The pot is what was deposited into the round plus its entry fees. Nobody is obliged to deposit; a pot can hold 0.</li>';
+  u += '<li><b>When a round pays.</b> Only if at least ' + p.minQualifiedEntries + ' entries qualify. If not, nobody is paid: the pot is carried to the rounds that follow, each filled up to its cap, and what fits in none of the next ' + p.maxFundAhead + ' rounds is sent to the dead address.</li>';
+  u += '<li><b>What is paid.</b> ' + placesTxt.map((x) => x[0] + ' place: ' + pct(x[1]) + ' of the pot').join(', ') + '. A pot never exceeds ' + tok(p.maxPot) + '. The pot is what was added to the round plus its entry fees. Nobody is obliged to add; a pot can hold 0.</li>';
   u += '<li><b>Paying.</b> After a round ends, anyone can ask the contract to settle it. The contract then pays the recorded creator wallet by the rules above. No account can withdraw a pot or change these numbers.</li>';
-  u += '</ol><p class="note">TBLOCK spent on votes or on an entry is gone. This page promises no gain. Contract: ' + scan(C.CONTEST) + '.</p>';
-  $('rules').innerHTML = u + '</details>'; $('rules').hidden = false;
-
-  /* past rounds */
-  if (S.past.length) {
-    let q = '<h2>Past rounds</h2>';
-    for (const pr of S.past) {
-      const o = pr.outcome, win = o.winner && !o.winner.notRead ? nameOf(o.winner.blockToken) + ' (paid to ' + scan(o.winner.payee) + ')' : 'entry ' + (o.winner ? o.winner.id : '');
-      const txt = o.state === 'PAID' ? 'Settled. Winner: ' + win : o.state === 'TO_PAY' ? 'Ended, not settled yet. Leading: ' + win + '. Pot: ' + tok(pr.pot)
-        : o.state === 'NO_WINNER' ? 'Settled with no winner: only ' + pr.qualifiedCount + ' of the ' + p.minQualifiedEntries + ' needed entries qualified. Its pot was carried forward.'
-        : 'Ended, not settled yet. Only ' + pr.qualifiedCount + ' of the ' + p.minQualifiedEntries + ' needed entries qualified: nobody will be paid. Pot: ' + tok(pr.pot);
-      q += '<div class="entry"><div class="top"><span><b>Round ' + pr.round + '</b></span><span class="note">' + pr.entryCount + ' entries · ' + pr.totalVotes + ' votes</span></div><p>' + txt + '</p>';
-      if (!pr.settled) q += '<div class="act">' + (wallet ? '<button data-settle="' + pr.round + '">Settle round ' + pr.round + '</button>' : '<button class="ghost" data-connect="1">Connect a wallet to settle it</button>') + '<span class="note">Anyone can do this. It costs network fees only.</span></div>';
-      q += '</div>';
-    }
-    $('past').innerHTML = q; $('past').hidden = false;
-  } else $('past').hidden = true;
+  u += '</ol><p class="note">TBLOCK spent on votes or on an entry is gone. This page promises no gain. Contract: ' + scan(C.CONTEST) + '.</p></details>';
+  $('rules').innerHTML = u; $('rules').hidden = false;
 
   $('foot').innerHTML = 'Read at ' + esc(utc(chainNow())) + ' (Base clock). Reserved by the contract for pots and unpaid amounts: ' + tok(S.liabilities) + '.'
     + (S.clockMismatch ? ' The clock of this device and the chain disagree on the current round; buttons are hidden until they agree.' : '');
+  paintSaid();
 }
 
 /* ---------------------------------------------------------------- clicks */
@@ -443,43 +480,32 @@ document.addEventListener('click', async (ev) => {
   if (!S || !wallet) return;
   if (d.vote !== undefined) {
     const id = Number(d.vote), n = Number(($('v' + id) || {}).value);
-    if (!Number.isInteger(n) || n < 1 || n > 1000000) { message = 'Enter a whole number of votes, 1 or more.'; return render(); }
+    if (!Number.isInteger(n) || n < 1 || n > 1000000) return say('Enter a whole number of votes, 1 or more.', 'ko');
     const cost = C.voteCost(BigInt(n), P.votePrice);
-    if (my && my.balance < cost) { message = n + ' vote(s) cost ' + C.formatUnits18(cost) + ' TBLOCK; this wallet holds ' + C.formatUnits18(my.balance) + '.'; return render(); }
-    return send(C.voteBatch({ round: S.chainRound, entryId: BigInt(id), votes: BigInt(n), votePrice: P.votePrice }), n + ' vote(s) for ' + C.formatUnits18(cost) + ' TBLOCK, not refundable');
+    const calls = C.voteBatch({ round: S.chainRound, entryId: BigInt(id), votes: BigInt(n), votePrice: P.votePrice });
+    return gesture({ calls, sim: { ...calls[1], need: cost }, what: n + ' vote(s) for ' + C.formatUnits18(cost) + ' TBLOCK, not refundable' });
   }
   if (d.enter) {
     const b = (mine.list || []).find((x) => x.block === d.enter && x.ok);
     if (!b) return;
-    if (my && my.balance < P.entryFee) { message = 'Entering costs ' + C.formatUnits18(P.entryFee) + ' TBLOCK; this wallet holds ' + C.formatUnits18(my.balance) + '.'; return render(); }
-    return send(C.enterBatch({ blockToken: b.block, key: b.key, entryFee: P.entryFee }), 'entry of your block for ' + C.formatUnits18(P.entryFee) + ' TBLOCK, not refundable');
+    const calls = C.enterBatch({ blockToken: b.block, key: b.key, entryFee: P.entryFee });
+    return gesture({ calls, sim: { ...calls[calls.length - 1], need: P.entryFee }, what: 'the entry of your block for ' + C.formatUnits18(P.entryFee) + ' TBLOCK, not refundable' });
   }
   if (d.max) { const i = $('fundAmt'); if (i) i.value = d.max; return; }
-  if (d.claimweek !== undefined) {
-    const m = V && V.mine ? V.mine.find((x) => String(x.e) === String(d.claimweek)) : null;
-    if (!m) return;
-    const chk = EP.claimCheck({ locked: V.locked, need: m.need, unlockAt: V.unlockAt, minCommit: V.minCommit, maintenantSec: chainNow(), owed: m.share + m.bonus });
-    if (!chk.ok) { message = 'Not sent: ' + chk.why + '.'; return render(); }
-    return send([EP.claimCall(BigInt(d.claimweek))], 'claim of week ' + d.claimweek + ' rewards');
-  }
-  if (d.claimweek1 !== undefined) {
-    if (my && my.balance < ECO.CLAIM_MIN_HOLD) { message = 'The first vault needs ' + C.formatUnits18(ECO.CLAIM_MIN_HOLD) + ' TBLOCK in this wallet; it holds ' + C.formatUnits18(my.balance) + '.'; return render(); }
-    return send([ECO.claimCall(BigInt(d.claimweek1))], 'claim of week ' + d.claimweek1 + ' rewards from the first vault');
-  }
-  if (d.closeweek !== undefined) return send([EP.closeEpochCall(BigInt(d.closeweek))], 'closing week ' + d.closeweek);
   if (d.fund) {
     if (!my) return;
     const plan = C.fundPlan({ text: ($('fundAmt') || {}).value, room: my.room, balance: my.balance });
-    if (!plan.ok) { message = plan.why; return render(); }
-    return send(C.fundBatch({ round: S.chainRound, amount: plan.amount, room: my.room }), 'adding ' + C.formatUnits18(plan.amount) + ' TBLOCK to the pot of round ' + S.chainRound
-      + (plan.clipped ? ' (cut to the room left under the cap)' : '') + ', not refundable');
+    if (!plan.ok) return say(plan.why, 'ko');
+    const calls = C.fundBatch({ round: S.chainRound, amount: plan.amount, room: my.room });
+    return gesture({ calls, sim: { ...calls[1], need: plan.amount }, what: 'adding ' + C.formatUnits18(plan.amount) + ' TBLOCK to the pot of round ' + S.chainRound
+      + (plan.clipped ? ' (cut to the room left under the cap)' : '') + ', not refundable' });
   }
-  if (d.settle !== undefined) return send([C.buildSettle(BigInt(d.settle))], 'settling round ' + d.settle);
-  if (d.claim) return send([C.buildClaim(wallet)], 'claim to this wallet');
+  if (d.settle !== undefined) { const c = C.buildSettle(BigInt(d.settle)); return gesture({ calls: [c], sim: c, what: 'settling round ' + d.settle }); }
+  if (d.claim) { const c = C.buildClaim(wallet); return gesture({ calls: [c], sim: c, what: 'the claim to this wallet' }); }
   if (d.check) {
     const a = String(($('manual') || {}).value || '').trim().toLowerCase();
-    if (!/^0x[0-9a-f]{40}$/.test(a)) { message = 'That is not a full block address.'; return render(); }
-    message = ''; return readMine(a);
+    if (!/^0x[0-9a-f]{40}$/.test(a)) return say('That is not a full block address.', 'ko');
+    say(''); return readMine(a);
   }
 });
 
@@ -488,10 +514,17 @@ setInterval(() => {
   const el = $('cd');
   const w = C.phaseAt(P, chainNow());
   if (w.phase !== S.when.phase || w.round !== S.when.round) { S.when = w; refresh(); return; }
-  if (el) el.textContent = C.formatDuration(w.secondsLeft);
+  if (el) el.textContent = C.formatDuration(CV.timeline(P, chainNow()).next.secondsLeft);
 }, 1000);
 setInterval(() => { if (!busy && !document.hidden) refresh(); }, 45000);
-refresh();
+/* a wallet already connected to this site is picked up without a prompt (eth_accounts); otherwise the page reads without one */
+(async () => {
+  let a = null;
+  if (window.ethereum) { try { a = await window.ethereum.request({ method: 'eth_accounts' }); } catch (_) { a = null; } listen(); }
+  wallet = a && a[0] ? String(a[0]).toLowerCase() : null;
+  await refresh();
+  if (wallet) readMine();
+})();
 </script>
 </body>
 </html>

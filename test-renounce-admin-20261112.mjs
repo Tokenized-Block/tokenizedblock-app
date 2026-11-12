@@ -9,8 +9,11 @@
  * E  EXECUTED  simulate on a scripted chain: eth_simulateV1 path, and the eth_call fallback (named as such).
  * F  SOURCE    the page: imports the module, re-checks then simulates before the wallet opens, shows the wallet through displayShort, never the
  *              fee wallet raw, carries the measured sentences, no forbidden copy; served by serveur-web.js.
- * G  ON CHAIN  (eth_call / eth_simulateV1 on the two public nodes; HORS_LIGNE=1 skips it and says so) Grok's wallet is offered exactly its
- *              three blocks of the served index, the simulation holds; a random wallet is admin of none.
+ * G  ON CHAIN  (eth_call / eth_simulateV1 on the two public nodes; HORS_LIGNE=1 skips it and says so) Grok's three blocks of the served index:
+ *              EITHER still his (offered exactly those three, the simulation holds) OR already given up on chain (game386, read 2026-11-12:
+ *              Grok not admin and dEaD admin on all three) — then nothing is offered and the page says "Nothing to sign.". A wallet still
+ *              admin is offered its blocks: the fee wallet's two (read live, eth_call only, shown through displayShort); a random wallet
+ *              is admin of none.
  * M  MUTANTS   five mutants of renounce-admin.js, each must turn this test red by an ASSERTION (a mutant that fails to import is not a kill):
  *              batch order reversed, dEaD replaced by the wallet, tx.from check removed, offered to a non-admin, block not re-checked.
  * The test counts itself and prints n/n. */
@@ -189,19 +192,40 @@ if (!MUTANT && process.env.HORS_LIGNE !== '1') {
   console.log('G  on chain (eth_call / eth_simulateV1, public nodes)');
   const rpc = RA.publicReader();
   let routerIndex = null, ourBlocks = null;
-  try { routerIndex = await (await fetch('https://tokenizedblock.space/api/blocks-routeur', { cache: 'no-store' })).json(); } catch (_) { routerIndex = null; }
-  try { ourBlocks = await (await fetch('https://tokenizedblock.space/api/nos-blocks', { cache: 'no-store' })).json(); } catch (_) { ourBlocks = null; }
+  /* game386: prod is read as a monitor (x-ms-monitor: 1), never counted as a visitor */
+  const PROD = { cache: 'no-store', headers: { 'x-ms-monitor': '1' } };
+  try { routerIndex = await (await fetch('https://tokenizedblock.space/api/blocks-routeur', PROD)).json(); } catch (_) { routerIndex = null; }
+  try { ourBlocks = await (await fetch('https://tokenizedblock.space/api/nos-blocks', PROD)).json(); } catch (_) { ourBlocks = null; }
   const cand = RA.candidateBlocks({ routerIndex, ourBlocks });
   console.log('     served index: ' + cand.blocks.length + ' blocks, complete ' + cand.complete + ', rejected ' + cand.rejected);
   t('the served index lists Grok\'s three blocks', GROK_BLOCKS.every((b) => cand.blocks.some((c) => c.block === b)));
   const lu = await RA.readWallet({ rpc, wallet: GROK, candidates: cand.blocks, parallel: 2 });
   const unread = lu.rows.filter((r) => r.state === 'UNREAD');
   console.log('     Grok: admin ' + lu.admin.length + ', offered ' + lu.offered.map((r) => r.symbol + ' ' + r.block).join(', ') + (unread.length ? ' · UNREAD ' + unread.length : ''));
-  t('Grok\'s wallet is offered EXACTLY its three blocks (hasRole live, every row read)', unread.length === 0 && lu.offered.length === 3 && GROK_BLOCKS.every((b) => lu.offered.some((r) => r.block === b)) && lu.admin.length === 3);
-  t('each of them: supply = cap, no mint/burn role, dEaD not admin yet', lu.offered.every((r) => r.totalSupply === r.supplyCap && !r.walletMint && !r.walletBurn && r.deadIsAdmin === false));
-  const sim = await RA.simulate({ rpc, wallet: GROK, rows: lu.offered });
-  console.log('     simulation: ' + sim.method + ' ' + (sim.ok ? 'holds' : 'FAILS') + (sim.why ? ' (' + String(sim.why).slice(0, 80) + ')' : ''));
-  t('the batch for the three, simulated from Grok\'s wallet on Base, holds (' + sim.method + ')', sim.ok === true);
+  /* game386: Grok gave up the admin role of his three blocks on chain (read 2026-11-12: hasRole(admin, Grok) false, hasRole(admin, dEaD)
+   *   true on each). That is the page doing its job, not a failure: the test accepts it as true, and then checks that nothing is offered */
+  const apres = await Promise.all(GROK_BLOCKS.map((b) => RA.readAfter({ rpc, block: b, wallet: GROK })));
+  const renonce = apres.every((a) => a.done === true);
+  console.log('     Grok on chain: ' + (renonce ? 'already gave up the admin role of his three blocks (dEaD holds it)' : 'admin of ' + lu.admin.length + ' (' + apres.map((a) => (a.you === null ? 'unread' : a.you ? 'admin' : 'not admin')).join(', ') + ')'));
+  t('Grok\'s three blocks are in ONE of the two true states, read live: all still his, or all given up to dEaD', unread.length === 0 && (renonce || (lu.admin.length === 3 && apres.every((a) => a.you === true))));
+  if (renonce) {
+    t('given up: nothing is offered to Grok (every row read, every row NOT_ADMIN)', lu.admin.length === 0 && lu.offered.length === 0 && lu.rows.every((r) => r.state === 'NOT_ADMIN'));
+    t('given up: the page offers nothing and says so ("Nothing to sign.", no sign card)', /if \(!lu\.admin\.length\) \{\s*\$\('#blocks'\)\.innerHTML = ''; \$\('#signCard'\)\.hidden = true;/.test(page) && /holds the admin role of none of the blocks born in the app\. Nothing to sign\./.test(page));
+  } else {
+    t('Grok\'s wallet is offered EXACTLY its three blocks (hasRole live, every row read)', unread.length === 0 && lu.offered.length === 3 && GROK_BLOCKS.every((b) => lu.offered.some((r) => r.block === b)) && lu.admin.length === 3);
+    t('each of them: supply = cap, no mint/burn role, dEaD not admin yet', lu.offered.every((r) => r.totalSupply === r.supplyCap && !r.walletMint && !r.walletBurn && r.deadIsAdmin === false));
+    const sim = await RA.simulate({ rpc, wallet: GROK, rows: lu.offered });
+    console.log('     simulation: ' + sim.method + ' ' + (sim.ok ? 'holds' : 'FAILS') + (sim.why ? ' (' + String(sim.why).slice(0, 80) + ')' : ''));
+    t('the batch for the three, simulated from Grok\'s wallet on Base, holds (' + sim.method + ')', sim.ok === true);
+  }
+  /* a wallet still admin is still offered its blocks: the fee wallet's two (read live 2026-11-12, eth_call; 0xb2…ae3f is the block of
+   *   renounce-admin-calls.md). When the fee wallet gives them up too, this check names another still-admin creator. Not simulated here. */
+  const FEE_BLOCKS = ['0xb200000000000000000000e63ffc3f40bf92a042', '0xb200000000000000000000ab549fa65ad4edae3f'];
+  const lf = await RA.readWallet({ rpc, wallet: F.FEE_WALLET, candidates: cand.blocks, parallel: 2 });
+  console.log('     ' + F.displayShort(F.FEE_WALLET) + ': admin ' + lf.admin.length + ', offered ' + lf.offered.map((r) => r.symbol + ' ' + r.block).join(', '));
+  t('a wallet still admin (' + F.displayShort(F.FEE_WALLET) + ') is offered exactly its two blocks, every row read', lf.rows.every((r) => r.state !== 'UNREAD') && lf.admin.length === 2 && lf.offered.length === 2 && FEE_BLOCKS.every((b) => lf.offered.some((r) => r.block === b)));
+  t('its two: supply = cap, no mint/burn role, dEaD not admin yet; the batch is grant-then-renounce per block, for that wallet', lf.offered.every((r) => r.totalSupply === r.supplyCap && !r.walletMint && !r.walletBurn && r.deadIsAdmin === false)
+    && (() => { const c = RA.batchFor(lf.offered, F.FEE_WALLET); return c.length === 4 && c[0].data === MD_GRANT && c[1].data === RA.encodeRenounce(F.FEE_WALLET) && c[2].data === MD_GRANT && c[3].data === RA.encodeRenounce(F.FEE_WALLET); })());
   const r2 = await RA.readWallet({ rpc, wallet: OTHER, candidates: GROK_BLOCKS, parallel: 2 });
   t('a random wallet: admin of none, nothing offered', r2.admin.length === 0 && r2.offered.length === 0 && r2.rows.every((r) => r.state === 'NOT_ADMIN'));
 } else if (!MUTANT) console.log('G  SKIPPED (HORS_LIGNE=1): nothing read on chain');

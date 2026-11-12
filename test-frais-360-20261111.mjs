@@ -22,7 +22,7 @@ for (const k of ['TBLOCK holders: TBLOCK and USDC ↔ stock trades 0% app fee', 
   t('row: ' + k, txt.includes(k));
 t('0.5% said as the v4 single-market fee, 0.1% as Aerodrome/v3', txt.includes('0.5% on a single Uniswap v4 market; 0.1% on an Aerodrome or Uniswap v3 pool'));
 for (const k of ['Slots lose on average.', 'Holders vault.', 'Anyone can also call feedContest()', 'Who controls the week\'s reward pot.', 'is a server decision, not an on-chain right.',
-  'or at the lock date if that is later', 'Contest votes are burned.', 'Buybacks are not running.', 'Two tokens are named TBLOCK.'])
+  'or at the lock date if that is later', 'Contest votes are burned.', /* game383: the buyback that pays the holders vault is recorded live */ 'The TBLOCK buyback pays the holders vault.', 'Two tokens are named TBLOCK.'])
   t('risk: ' + k, txt.includes(k));
 t('the real TBLOCK is linked', r.includes('0xb200000000000000000000ba9bf8330307f8830e'));
 /* nothing typed: swap the new figures, the page follows */

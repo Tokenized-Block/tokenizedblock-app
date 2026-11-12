@@ -26,7 +26,7 @@ t('views: epochEnd + totalSpentIn on BlockLikes, free / REWARD_BPS / REBATE_BPS 
 const j = joueursParSemaine([{ epoch: 0, liker: 'a', burned: 5n }, { epoch: 0, liker: 'a', burned: 5n }, { epoch: 0, liker: 'b', burned: 1n }, { epoch: 1, liker: 'a', burned: 2n }]);
 t('players per week: distinct givers and burned', j[0].joueurs === 2 && j[0].burned === 11n && j[1].joueurs === 1 && j[1].burned === 2n);
 t('server serves the weeks', SRV.includes('semaines: joueursParSemaine(tous),'));
-const f = APP.slice(APP.indexOf('async function peindreVaultWallet('), APP.indexOf('async function peindreVaultWallet(') + 9000); /* lot 378 task 6: the card is drawn, its function is longer */
+const f = APP.slice(APP.indexOf('async function peindreVaultWallet('), APP.indexOf('async function peindreVaultWallet(') + 11000); /* lot 378 task 6: the card is drawn, its function is longer; game386: + the reading line and the claim link */
 /* 2026-11-12 (the economy pack is live): the same card on the live vault (EP): the week's play = hearts + TAM art + skins (totalPlayIn), the
  *   heart givers of Hearts only (/api/coeurs semainesParContrat), the close budget from the live vault's caps */
 /* lot 378 task 6: the vault figure is drawn big (hvHero) — still ONE block, with the $ and the reserved part inside it */

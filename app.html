@@ -1752,6 +1752,17 @@ button.mienTuile:hover{border-color:var(--accent)}
 .hvPtsNote{color:var(--texte)}
 .hvStat{margin:10px 2px 0}
 .hvPli{margin-top:12px}.hvPli>summary{color:var(--doux)}
+/* game386 (Phil 2026-11-12: Wallet -> Holders UX pass): the next step right under the figures, one primary button; tap targets of 44 px;
+   row buttons sized to their row (a full-width .bouton with a margin was wider than the row); the same spacing between every block */
+.hvSuite{margin:12px 0 0}.hvSuite:empty{display:none}.hvSuite .bouton{margin:0}.hvSuiteNote{margin:6px 0 0}
+#v-wallet .lkPuce,.lockOffre .lkPuce,#cLockCarte .lkPuce{min-height:44px}
+.hvPli>summary{min-height:44px;padding:12px 0;box-sizing:border-box}
+.bouton.hvLigneAction{width:auto;min-height:44px;padding:8px 16px;margin:6px 0 0;font-size:14px}
+a.bouton.hvLigneAction{display:inline-flex}
+#wLock>.hvBloc,#cLockCarte>.hvBloc,.lockOffre>.hvBloc{margin:12px 0 0}
+#wLock>.bouton,#cLockCarte>.bouton,.lockOffre>.bouton{margin-top:12px}
+.hvRecomp .stadeLigne{margin:6px 0 0;align-items:baseline;gap:2px 8px}.hvRecomp .stadeLigne>span{color:var(--doux);font-size:12.5px;font-weight:600}
+.wCoeurs button.lien{min-height:44px;padding:0 4px}
 /* game356: the "?" guide as a sheet over the map — centred window on a computer, bottom sheet on a phone */
 section#v-learn.feuille{display:block;position:fixed;inset:0;z-index:9000;max-width:none;margin:0;padding:24px 16px;overflow-y:auto;
   background:rgba(2,6,18,.62);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
@@ -3432,12 +3443,12 @@ details[open] > summary::before{transform:rotate(90deg)}
     </div>
 
     <!-- COMMUNITY VAULT (Phil 2026-11-10): what the holders economy holds and what this wallet can claim. 2026-11-12: the live vault
-         (economie-pack.js VAULT), with its Claim button; contest.html has the same card for every week. -->
+         (economie-pack.js VAULT), with its Claim button; claim.html lists every week and month this wallet can claim. -->
     <div class="carte" id="wVault" hidden data-v="lock">
       <p class="titre">Holders vault</p>
       <!-- game357: the threshold is no longer typed here (it is READ in "How it works"); "fees" said who: creators' TBLOCK at birth -->
       <!-- lot 378 task 6: the long words folded (Phil: "visually easy to understand, better than plain text") -->
-      <details class="wPli hvPli"><summary class="note">How it works</summary><p class="sous">TBLOCK set aside for the players. Each week it pays them back part of what they put in — hearts ♥, TAM art and skins — never more than they put in. Every TAM art and skin mint sends the TBLOCK it buys here.</p></details>
+      <!-- game386 (Phil 2026-11-12: "remove duplicated explanations"): the vault intro lives once, in the Rules panel, with the rules read on chain -->
       <div id="wVaultRows"></div>
       <div class="lkPuces wSeg" id="wVaultSeg" role="group" aria-label="Holders sections">
         <button type="button" class="lkPuce on" data-v="lock" aria-pressed="true">Lock</button>
@@ -3462,8 +3473,10 @@ details[open] > summary::before{transform:rotate(90deg)}
         <p class="sousTitre">Most active holders — live</p><div id="wCoeursBoard"></div>
       </div>
       <!-- game356 (Grok's Wallet card plan): how the vault works, folded; the hold amounts are READ from the frozen deploy data -->
-      <div class="wCoeurs" id="wVaultHow"><div class="note" id="wVaultComment"></div></div>
-      <a class="bouton sec" href="/contest.html" style="display:inline-block;margin-top:8px">Claim and details</a>
+      <div class="wCoeurs" id="wVaultHow"><p class="sous">TBLOCK set aside for the players. Each week it pays them back part of what they put in — hearts ♥, TAM art and skins — never more than they put in. Every TAM art and skin mint sends the TBLOCK it buys here.</p><div class="note" id="wVaultComment"></div></div>
+      <!-- game386 (Phil 2026-11-12: "a page that sticks to claim and details"): the claims of this wallet, week by week and month by month, and
+           the rules in words, on claim.html; the block contest keeps its own link (Create, fees and why TBLOCK) -->
+      <a class="bouton sec" href="/claim.html" style="display:inline-block;margin-top:8px">Claim and details</a>
     </div>
 
     <div class="carte" id="wReceive" hidden>
@@ -9103,6 +9116,8 @@ document.querySelector('.navIn').addEventListener('click', (e) => {
   if (nom === 'map') void peindreJournalMap();
   if (nom === 'missions') void lireJournal();
   if (nom === 'brain') peindreChoixBrain();
+  /* game386: opening the Wallet tab reads its holders card and the lock card at once, not at the next 5 s tick */
+  if (nom === 'wallet') setTimeout(() => { try { wLockSuitCompte(); } catch (_) { /* the 5 s tick */ } void peindreVaultWallet().catch(() => {}); }, 0);
   /* 2026-10-31 (TAM phase C) : l onglet TAM charge son module A L OUVERTURE (rien de plus au chargement de la page) */
   if (nom === 'tam') void ouvrirTam();
   /* ⛔ LE FEED SE LIT A L OUVERTURE DE L ONGLET (Phil : « fais le feed automatiquement »). Declencheur
@@ -32822,15 +32837,36 @@ async function peindreCarteCreate(box) {
 /* ── game349: THE LOCK (TBlockLock), one painter for the Create success card and the Wallet tab. Reads activeLockedOf / lockedOf /
  *   unlockAtOf; offers ONE batch (approve exactly + lock N days) and, once the date passed, the way back (withdraw) — a fund the app holds
  *   without a visible way back is the bug of 2026-11-05, never again. ⛔ Never send TBLOCK to the lock directly: only lock() counts. */
-const lockEtat = { enVol: false };
+/* game386 (Phil 2026-11-12, Wallet -> Holders: "Connect your wallet to see your TBLOCK lock." with a wallet connected). Measured in the
+ *   browser on this tree: connect, the lock card painted in 3 s, then the vault painter emptied it for the new wallet while that same read
+ *   was still finishing; the read only re-added its monthly rewards box, and the card stayed WITHOUT the lock (dataset.compte said Grok, so
+ *   wLockSuitCompte saw nothing to do) until the 30 s throttle and the 60 s vault pace met again. Three causes, fixed here:
+ *   - the throttle trusted dataset.pour (the last account READ), not what the card SHOWS: a card emptied or saying "Connect your wallet"
+ *     was skipped for 30 s; it now holds only while the card shows this account (dataset.compte), or right after a read of it failed;
+ *   - one global "read in flight" flag for every lock card: a read for the Create tab, or for the previous wallet, made the Wallet card
+ *     wait; it is now per card and per account (lockEtat.lecture), and the latest read of a card is the only one that paints (jeton);
+ *   - while the first read runs (seconds on a busy node) or after it failed, the card kept "Connect your wallet…" under a connected wallet:
+ *     it now says it is reading, then "not read just now" and tries again — never the connect message for a connected wallet. */
+const lockEtat = { lecture: new WeakMap(), jeton: new WeakMap() };
 async function peindreLock(hote, { offre = false } = {}) {
   if (!hote || !LK.LOCK) { if (hote) hote.hidden = true; return; }
   hote.hidden = false;
-  if (!compte) { hote.textContent = ''; hote.dataset.compte = ''; const p = document.createElement('p'); p.className = 'note'; p.textContent = 'Connect your wallet to see your TBLOCK lock.'; hote.append(p); return; }
-  if (lockEtat.enVol || (hote.dataset.lu && hote.dataset.pour === String(compte).toLowerCase() && Date.now() - Number(hote.dataset.lu) < 30000)) return;
-  lockEtat.enVol = true;
+  if (!compte) { hote.textContent = ''; hote.dataset.compte = ''; hote.dataset.pour = ''; hote.dataset.lu = ''; hote.dataset.nonLu = ''; lockEtat.lecture.delete(hote); lockEtat.jeton.delete(hote); const p = document.createElement('p'); p.className = 'note'; p.textContent = 'Connect your wallet to see your TBLOCK lock.'; hote.append(p); return; }
+  const moi = String(compte).toLowerCase();
+  if (lockEtat.lecture.get(hote) === moi) return; /* this card is already reading this wallet */
+  const recent = hote.dataset.pour === moi && hote.dataset.lu && Date.now() - Number(hote.dataset.lu) < 30000;
+  if (recent && (hote.dataset.compte === moi || hote.dataset.nonLu === moi)) return;
+  const titreCarte = offre ? 'Lock your TBLOCK — earn points and monthly rewards' : 'Your TBLOCK lock';
+  const attente = (txt) => { hote.textContent = ''; const t = document.createElement('p'); t.className = 'titre'; t.textContent = titreCarte; const p = document.createElement('p'); p.className = 'note'; p.setAttribute('role', 'status'); p.textContent = txt; hote.append(t, p); };
+  /* the card shows another wallet, nothing, or the connect message: it says at once that this wallet's lock is being read */
+  if (hote.dataset.compte !== moi && hote.dataset.nonLu !== moi) { hote.dataset.compte = ''; attente('Reading your TBLOCK lock…'); }
+  const jeton = {};
+  lockEtat.lecture.set(hote, moi); lockEtat.jeton.set(hote, jeton);
+  /* lot 378 (Phil 2026-11-12: "bien attribué pour chaque user"): this card is FOR one wallet — a read that finishes after a switch paints
+   *   nothing; game386: nor does a read a newer read of the same card replaced */
+  const autreCompte = () => String(compte || '').toLowerCase() !== moi;
+  const autreWallet = () => autreCompte() || lockEtat.jeton.get(hote) !== jeton;
   try {
-    const moi = String(compte).toLowerCase();
     const lit = async (v) => ECO.word(await rpc('eth_call', [{ to: v.to, data: v.data }, 'latest']));
     /* lot 378 task 6: the points a day of this lock, the same server number as the Points panel (/api/points), read alongside */
     const ptsP = fetch('/api/points?compte=' + moi, { cache: 'no-store', signal: AbortSignal.timeout(15000) }).then((x) => x.json()).catch(() => null);
@@ -32838,42 +32874,50 @@ async function peindreLock(hote, { offre = false } = {}) {
       lit(LK.VIEW.unlockAtOf(moi)), lit(LK.VIEW.requestedAtOf(moi)), lit(LK.VIEW.withdrawableAtOf(moi)), lit(ECO.VIEW.balanceOf(moi))]);
     const e = LK.etatLock({ locked, active, unlockAt, requestedAt, withdrawableAt, maintenantSec: Math.floor(Date.now() / 1000) });
     const ptsLu = await ptsP;
-    /* lot 378 (Phil 2026-11-12: "bien attribué pour chaque user"): this card is FOR one wallet — a read that finishes after a switch paints nothing */
-    const autreWallet = () => String(compte || '').toLowerCase() !== moi;
     if (autreWallet()) return;
-    hote.dataset.lu = String(Date.now()); hote.dataset.compte = moi; hote.dataset.pour = moi; /* game377: the account this card shows (wLockSuitCompte) */
-    hote.textContent = '';
     const el = (tag, cls, txt) => { const x = document.createElement(tag); if (cls) x.className = cls; if (txt != null) x.textContent = txt; return x; };
-    hote.append(el('p', 'titre', offre ? 'Lock your TBLOCK — earn points and monthly rewards' : 'Your TBLOCK lock'));
+    /* game386 (Phil 2026-11-12: "make the primary action obvious per state"): the card is built in two passes, each put in place in one go —
+     *   first the lock itself (the figures a holder looks for), then the monthly rewards and the form once THEIR reads are back. A read that
+     *   a switch or a newer read replaced paints neither pass. ONE primary button per card, chosen by the state:
+     *   period over -> Take back · something to claim -> Claim (claim.html) · locked, not enrolled -> Join monthly rewards · else -> Lock. */
+    const vue = [el('p', 'titre', offre ? 'Lock your TBLOCK — earn points and monthly rewards' : 'Your TBLOCK lock')];
     /* lot 378 task 6 (Phil 2026-11-12: "better than plain text"): the long explanations go in a folded How it works, put at the end of the card */
     const pli = el('details', 'wPli hvPli', null); pli.append(el('summary', 'note', 'How it works'));
     /* 2026-11-12: the live Hearts and holders vault read the LOCK (activeLockedOf); the holders' channel still reads the wallet balance
      *   (/api/tblock/hold). The monthly lock rewards (EP.REWARDS) pay the whole months a lock covers, for the months its holder played. */
     pli.append(el('p', 'sous', 'Locking earns community points, and monthly lock rewards for each whole month your lock covers and you play in. Hearts ♥ and holders vault claims count your lock; the holders’ channel counts your wallet balance. To leave: request the withdrawal (points and rewards stop at once); you take it all back ' + LK.RETRAIT_JOURS + ' days after the request, or at the lock date if that is later.'));
+    pli.append(el('p', 'note', 'Locked TBLOCK cannot be sold until the date, then the ' + LK.RETRAIT_JOURS + '-day withdrawal period.'),
+      el('p', 'note', 'Community points: 1 a day per 100,000 TBLOCK, ×1.25 from 30 days, ×1.5 from 90, ×2 from 1 year. Points decide your share of the community drop, a separate distribution coming soon; the weekly player budget follows what you put in.'
+        + (EP.REWARDS ? ' Monthly lock rewards are paid for the months you play in (a heart, a TAM art mint or a skin mint).' : '') + ' No rate is promised.'));
     const t0c = Math.floor(Date.now() / 1000), R7 = LK.RETRAIT_JOURS * 86400;
     if (locked > 0n) {
       const hero = el('div', 'hvBloc hvHero', null); hero.dataset.l = 'lock';
       hero.append(el('span', 'hvK', e.cle === 'actif' ? 'Locked' : (e.cle === 'expire' ? 'Lock date passed' : 'Leaving the lock')), ' ', el('b', 'hvGros', LK.fmt(locked) + ' TBLOCK'),
         el('span', 'hvSous', e.cle === 'actif' ? ' until ' + HV.jour(unlockAt) + ' · ' + HV.duree(Number(unlockAt) - t0c) + ' left' : (e.cle === 'sortie' ? ' · yours again on ' + HV.jour(withdrawableAt) : '')));
-      hote.append(hero);
+      vue.push(hero);
       /* the timeline: today -> the lock date, then the withdrawal period (it starts when you ask, and never ends before the lock date) */
-      if (e.cle === 'actif') hote.append(HV.chronologie(document, { segments: [{ part: Number(unlockAt) - t0c, cls: 'hvSegLock' }, { part: R7, cls: 'hvSegSortie' }],
+      if (e.cle === 'actif') vue.push(HV.chronologie(document, { segments: [{ part: Number(unlockAt) - t0c, cls: 'hvSegLock' }, { part: R7, cls: 'hvSegSortie' }],
         reperes: [{ pos: 0, haut: 'Today', bas: HV.jour(t0c) }, { pos: 100, haut: HV.jour(unlockAt), bas: 'lock date, then ' + LK.RETRAIT_JOURS + ' days to leave' }],
         etiquette: 'Locked from today to ' + HV.jour(unlockAt) + ' (' + HV.duree(Number(unlockAt) - t0c) + ' left), then a ' + LK.RETRAIT_JOURS + '-day withdrawal period once you ask, never ending before that date' }));
-      else if (e.cle === 'sortie') hote.append(HV.chronologie(document, { segments: [{ part: Math.max(0, Number(withdrawableAt) - t0c), cls: 'hvSegSortie' }],
+      else if (e.cle === 'sortie') vue.push(HV.chronologie(document, { segments: [{ part: Math.max(0, Number(withdrawableAt) - t0c), cls: 'hvSegSortie' }],
         reperes: [{ pos: 0, haut: 'Today', bas: HV.jour(t0c) }, { pos: 100, haut: HV.jour(withdrawableAt), bas: 'yours to take back' }],
         etiquette: 'Withdrawal requested: yours to take back on ' + HV.jour(withdrawableAt) + ' (' + HV.duree(Number(withdrawableAt) - t0c) + ' left)' }));
       if (e.cle === 'actif') {
         const leg = el('p', 'hvLegende', null); leg.append(el('span', 'hvCle hvSegLock', null), ' locked, earning points ', el('span', 'hvCle hvSegSortie', null), ' ' + LK.RETRAIT_JOURS + '-day withdrawal period: it starts when you ask, never ending before the lock date');
-        hote.append(leg);
+        vue.push(leg);
       }
       /* only a COMPLETE count is drawn: on 2026-11-12 prod's index was still reading (complet false) and gave Grok +0.01 a day (his 1,000 TBLOCK lock
        *   only, not the 3,000,000) — a partial figure is left out here, never shown as his rate */
       const c = ptsLu && ptsLu.ok && ptsLu.complet !== false && ptsLu.compte && String(ptsLu.compte.holder || '').toLowerCase() === moi ? ptsLu.compte : null;
-      if (e.cle === 'actif' && c && Number(c.parJour) > 0 && c.mult) { const d = el('p', 'hvTete', null); d.dataset.l = 'lock-pts'; d.append(el('span', 'hvK', 'Points'), ' ', el('b', null, '+' + PV.fmtPts(c.parJour) + ' a day'), ' (' + PV.multTexte(c.mult) + ' commitment)'); hote.append(d); }
+      if (e.cle === 'actif' && c && Number(c.parJour) > 0 && c.mult) { const d = el('p', 'hvTete', null); d.dataset.l = 'lock-pts'; d.append(el('span', 'hvK', 'Points'), ' ', el('b', null, '+' + PV.fmtPts(c.parJour) + ' a day'), ' (' + PV.multTexte(c.mult) + ' commitment)'); vue.push(d); }
     }
-    const etat = el('p', 'note' + (e.cle === 'actif' ? ' wOk' : ''), e.texte); hote.append(etat);
+    /* game386: an active lock's sentence repeated the big figure, its date and the timeline's legend — the line stays (it carries the
+     *   wallet's answers), empty until there is something new to say; every other state keeps etatLock's sentence */
+    const etat = el('p', 'note' + (e.cle === 'actif' ? ' wOk' : ''), e.cle === 'actif' && locked > 0n ? '' : e.texte); etat.setAttribute('role', 'status'); vue.push(etat);
     const dire = (t, k = '') => { etat.className = 'note' + (k ? ' ' + k : ''); etat.textContent = t; };
+    const relire = () => { hote.dataset.lu = '0'; wVaultLu = 0; setTimeout(() => { void peindreLock(hote, { offre }); }, 1500); };
+    /* the next step: the ONE primary action of this card, right under the figures */
+    const suite = el('div', 'hvSuite', null); suite.dataset.l = 'next'; vue.push(suite);
     /* the ONE exit action etatLock chooses: request (perks stop, 7-day period starts), cancel (perks back), or take back (period over) */
     const SORTIES = {
       demander: { label: 'Request the withdrawal (' + LK.RETRAIT_JOURS + '-day period)', call: () => LK.requestWithdrawCall(), attente: 'request the withdrawal', fait: 'Withdrawal requested: the ' + LK.RETRAIT_JOURS + '-day period started, your points stopped.' },
@@ -32881,22 +32925,63 @@ async function peindreLock(hote, { offre = false } = {}) {
       retirer: { label: 'Take back ' + LK.fmt(locked) + ' TBLOCK', call: () => LK.withdrawCall(), attente: 'take back ' + LK.fmt(locked) + ' TBLOCK', fait: 'Done: your TBLOCK is back in your wallet.' },
     };
     const s = e.action ? SORTIES[e.action] : null;
+    let principal = s && e.action === 'retirer' ? 'retirer' : null;
+    let sortie = null;
     if (s) {
-      const w = el('button', 'bouton sec', s.label);
+      const w = el('button', principal ? 'bouton' : 'bouton sec', s.label);
       w.type = 'button';
       w.addEventListener('click', async () => {
         w.disabled = true; dire('Waiting for your wallet: ' + s.attente + '…');
         try {
           const c = s.call();
           const r = await envoyerAppels([{ to: c.to, data: c.data, value: c.value }], compte);
-          if (r && r.etat === 'CONFIRME') { dire(s.fait, 'wOk'); hote.dataset.lu = '0'; w.hidden = true; wVaultLu = 0; }
+          if (r && r.etat === 'CONFIRME') { dire(s.fait, 'wOk'); w.hidden = true; relire(); }
           else { dire('Not done: ' + String((r && (r.pourquoi || r.etat)) || 'no answer').slice(0, 160), 'wKo'); w.disabled = false; }
         } catch (err) { dire('Not sent: ' + String((err && err.message) || err).slice(0, 160), 'wKo'); w.disabled = false; }
       });
-      hote.append(w);
+      if (principal) suite.append(w); else sortie = w;
     }
-    if (EP.REWARDS) await peindreRecompensesLock(hote, { moi, locked, active, unlockAt, requestedAt, el, dire, pli });
+    const attenteR = EP.REWARDS ? el('p', 'note', 'Reading your monthly lock rewards…') : null;
     if (autreWallet()) return;
+    hote.dataset.lu = String(Date.now()); hote.dataset.compte = moi; hote.dataset.pour = moi; hote.dataset.nonLu = ''; /* game377: the account this card shows (wLockSuitCompte) */
+    hote.textContent = '';
+    hote.append(...vue);
+    if (attenteR) hote.append(attenteR);
+    /* second pass: the monthly rewards and the months each duration earns, read before anything more is drawn */
+    const R = EP.REWARDS ? await peindreRecompensesLock(hote, { moi, locked, active, unlockAt, requestedAt, el, dire, pli, perime: autreWallet }) : null;
+    if (autreWallet()) return;
+    const durees = EP.REWARDS ? [...new Set([...LK.DUREES_JOURS, EP.MOIS_MIN_JOURS])].sort((x, y) => x - y) : LK.DUREES_JOURS;
+    /* the whole months each duration earns, READ from the rewards contract (rewardEpochsFor) for the date the lock would have */
+    const moisPour = new Map();
+    const finPour = (j, t0) => Math.max(t0 + j * 86400 + LK.MARGE_SECONDES, Number(unlockAt) > t0 && locked > 0n && requestedAt === 0n ? Number(unlockAt) : 0);
+    if (EP.REWARDS && bal > 0n) {
+      const t0m = Math.floor(Date.now() / 1000);
+      await Promise.all(durees.map(async (j) => { try { moisPour.set(j, EP.decoderMois(await rpc('eth_call', [EP.VIEW.rewardEpochsFor(finPour(j, t0m)), 'latest'])).n); } catch (_) { /* not read: no month count */ } }));
+    }
+    if (autreWallet()) return;
+    /* the primary action, in the order a holder needs it: claim what is owed, then join the monthly rewards, then lock */
+    if (!principal && R && R.aPayer.length) {
+      principal = 'claim';
+      /* claim.html lists every closed month and week this wallet can claim and sends the claim; the card no longer has a second way */
+      const a = el('a', 'bouton', 'Claim'); a.id = 'wLockClaim'; a.href = '/claim.html';
+      a.setAttribute('aria-label', 'Claim ' + R.texte + ' — opens the claim page');
+      suite.append(a);
+    }
+    if (!principal && R && R.inscrit === false) {
+      principal = 'enroll';
+      const b = el('button', 'bouton', 'Join monthly rewards'); b.type = 'button'; b.id = 'wLockEnroll';
+      b.addEventListener('click', async () => {
+        if (autreCompte()) { dire('Your wallet changed: this card is being read again for it.', 'wKo'); return; }
+        b.disabled = true; dire('Waiting for your wallet: enroll your lock in the monthly lock rewards…');
+        try {
+          const r = await envoyerAppels([EP.enrollCall(moi)].map((x) => ({ to: x.to, data: x.data, value: x.value })), compte);
+          if (r && r.etat === 'CONFIRME') { dire('Enrolled: your lock counts for the monthly lock rewards from next month.', 'wOk'); b.hidden = true; relire(); }
+          else { dire('Not done: ' + String((r && (r.pourquoi || r.etat)) || 'no answer').slice(0, 160), 'wKo'); b.disabled = false; }
+        } catch (err) { dire('Not sent: ' + String((err && err.message) || err).slice(0, 160), 'wKo'); b.disabled = false; }
+      });
+      suite.append(b, el('p', 'note hvSuiteNote', 'Your lock earns monthly rewards only once it is enrolled. One signature.'));
+    }
+    let form = null;
     if (bal > 0n) {
       /* game357: no 'holder stage' amount while the v1 contracts read the wallet balance — the offer is 1,000 TBLOCK, or all you hold if less */
       const MILLE = 1000n * 10n ** 18n;
@@ -32905,42 +32990,34 @@ async function peindreLock(hote, { offre = false } = {}) {
        *   exactly what it sends. The points come from points.js — the SAME function the server's board uses (no copy of the rule). */
       /* review 356: '1.5' was read as 15 — whole TBLOCK only (digits, with optional thousands commas/spaces); anything else = 0 = refused */
       const brut = (v) => { const s = String(v || '').trim(); if (!/^\d[\d,\s]*$/.test(s)) return 0n; try { return BigInt(s.replace(/[,\s]/g, '')) * 10n ** 18n; } catch (_) { return 0n; } };
-      const form = el('div', 'hvBloc hvForm', null); form.dataset.l = 'form'; hote.append(form);
+      form = el('div', 'hvBloc hvForm', null); form.dataset.l = 'form';
       form.append(el('p', 'hvTitreBloc', locked > 0n ? 'Lock more TBLOCK' : 'Lock TBLOCK'));
-      const champ = el('label', 'champ', 'TBLOCK to lock'); const inp = document.createElement('input'); inp.inputMode = 'numeric'; inp.value = LK.fmt(propose).replace(/,/g, ''); champ.append(inp);
+      const dispo = el('p', 'hvTete', null); dispo.append(el('span', 'hvK', 'In your wallet'), ' ', el('b', null, LK.fmt(bal) + ' TBLOCK')); form.append(dispo);
+      const champ = el('label', 'champ', 'TBLOCK to lock'); const inp = document.createElement('input'); inp.inputMode = 'numeric'; inp.autocomplete = 'off'; inp.value = LK.fmt(propose).replace(/,/g, ''); champ.append(inp);
       form.append(champ);
       const puces = el('div', 'lkPuces');
-      const puce = (txt, raw) => { const b = el('button', 'lkPuce', txt); b.type = 'button'; b.addEventListener('click', () => { inp.value = LK.fmt(raw).replace(/,/g, ''); majLock(); }); puces.append(b); };
-      if (bal >= 1000n * 10n ** 18n) puce('1,000', 1000n * 10n ** 18n);
-      puce('Max', bal);
+      const puce = (txt, raw, nom) => { const b = el('button', 'lkPuce', txt); b.type = 'button'; b.setAttribute('aria-label', nom); b.addEventListener('click', () => { inp.value = LK.fmt(raw).replace(/,/g, ''); majLock(); }); puces.append(b); };
+      if (bal >= 1000n * 10n ** 18n) puce('1,000', 1000n * 10n ** 18n, 'Lock 1,000 TBLOCK');
+      puce('Max', bal, 'Lock all ' + LK.fmt(bal) + ' TBLOCK in your wallet');
+      puces.setAttribute('aria-label', 'Amount'); puces.setAttribute('role', 'group');
       form.append(puces);
       /* 2026-11-12: with the monthly lock rewards live, 60 days (the shortest lock that always covers one whole month) is offered too */
-      const durees = EP.REWARDS ? [...new Set([...LK.DUREES_JOURS, EP.MOIS_MIN_JOURS])].sort((x, y) => x - y) : LK.DUREES_JOURS;
       let jours = durees[0];
       const pills = el('div', 'lkPuces');
       const pillsB = [];
-      /* the whole months each duration earns, READ from the rewards contract (rewardEpochsFor) for the date the lock would have */
-      const moisPour = new Map();
-      const finPour = (j, t0) => Math.max(t0 + j * 86400 + LK.MARGE_SECONDES, Number(unlockAt) > t0 && locked > 0n && requestedAt === 0n ? Number(unlockAt) : 0);
-      if (EP.REWARDS) {
-        const t0m = Math.floor(Date.now() / 1000);
-        await Promise.all(durees.map(async (j) => { try { moisPour.set(j, EP.decoderMois(await rpc('eth_call', [EP.VIEW.rewardEpochsFor(finPour(j, t0m)), 'latest'])).n); } catch (_) { /* not read: no month count */ } }));
-      }
-      if (autreWallet()) return;
       for (const j of durees) {
         const b = el('button', 'lkPuce', ''); b.type = 'button'; b.dataset.jours = String(j);
         b.classList.add('hvDuree'); b.addEventListener('click', () => { jours = j; majLock(); }); pills.append(b); pillsB.push(b);
       }
-      pills.setAttribute('aria-label', 'Lock duration'); form.append(pills);
+      pills.setAttribute('aria-label', 'Lock duration'); pills.setAttribute('role', 'group'); form.append(pills);
       const ptsNote = el('p', 'note hvPtsNote', '');
       form.append(ptsNote);
-      const tient = el('p', 'note', 'You hold ' + LK.fmt(bal) + ' TBLOCK. Adding to a lock keeps its later date. Never send TBLOCK to the lock address yourself: only this button locks, a plain transfer is lost.');
+      const tient = el('p', 'note', 'Adding to a lock keeps its later date. Never send TBLOCK to the lock address yourself: only this button locks, a plain transfer is lost.');
       /* game354 (Grok live test): a wallet without batched calls (Rabby) asks twice — the label says so, never "one batch" */
-      const go = el('button', 'bouton', ''); go.type = 'button';
+      /* game386: the lock button is the primary action only when nothing above comes first (take back, claim, join the rewards) */
+      const go = el('button', principal ? 'bouton sec' : 'bouton', ''); go.type = 'button';
+      if (!principal) principal = 'lock';
       const demande = el('p', 'note', EP.REWARDS ? 'Approve, lock, then join the monthly lock rewards: your wallet may ask up to three times.' : 'Approve, then lock: your wallet may ask twice.');
-      pli.append(el('p', 'note', 'Locked TBLOCK cannot be sold until the date, then the ' + LK.RETRAIT_JOURS + '-day withdrawal period.'),
-        el('p', 'note', 'Community points: 1 a day per 100,000 TBLOCK, ×1.25 from 30 days, ×1.5 from 90, ×2 from 1 year. Points decide your share of the community drop, a separate distribution coming soon; the weekly player budget follows what you put in.'
-          + (EP.REWARDS ? ' Monthly lock rewards are paid for the months you play in (a heart, a TAM art mint or a skin mint).' : '') + ' No rate is promised.'));
       /* the live words: the button names the amount and the days; each pill the points THAT amount earns over THAT lock (points.js) */
       function majLock() {
         const m = brut(inp.value);
@@ -32963,7 +33040,7 @@ async function peindreLock(hote, { offre = false } = {}) {
       inp.addEventListener('input', majLock);
       majLock();
       go.addEventListener('click', async () => {
-        if (autreWallet()) { dire('Your wallet changed: this card is being read again for it.', 'wKo'); return; }
+        if (autreCompte()) { dire('Your wallet changed: this card is being read again for it.', 'wKo'); return; }
         const montant = brut(inp.value);
         const chk = LK.lockCheck({ balance: bal, amount: montant });
         if (!chk.ok) { dire('Not sent: ' + chk.why + '.', 'wKo'); return; }
@@ -32973,30 +33050,46 @@ async function peindreLock(hote, { offre = false } = {}) {
           const appels = EP.REWARDS ? EP.lockEtInscrire({ amount: montant, jours, maintenantSec: Math.floor(Date.now() / 1000), holder: moi })
             : LK.lockBatch({ amount: montant, jours, maintenantSec: Math.floor(Date.now() / 1000) });
           const r = await envoyerAppels(appels.map((c) => ({ to: c.to, data: c.data, value: c.value })), compte);
-          if (r && r.etat === 'CONFIRME') { dire('🔒 Locked' + (EP.REWARDS ? ' and enrolled in the monthly lock rewards' : '') + '. Your community points count from now on.', 'wOk'); hote.dataset.lu = '0'; wVaultLu = 0; }
+          if (r && r.etat === 'CONFIRME') { dire('🔒 Locked' + (EP.REWARDS ? ' and enrolled in the monthly lock rewards' : '') + '. Your community points count from now on.', 'wOk'); relire(); }
           else { dire('Not done: ' + String((r && (r.pourquoi || r.etat)) || 'no answer').slice(0, 160), 'wKo'); go.disabled = false; }
         } catch (err) { dire('Not sent: ' + String((err && err.message) || err).slice(0, 160), 'wKo'); go.disabled = false; }
       });
       form.append(go, demande, tient);
+    } else if (locked === 0n) {
+      suite.append(el('p', 'note', 'This wallet holds no TBLOCK to lock.'));
     }
-    hote.append(pli);
-  } catch (_) { hote.dataset.lu = String(Date.now() - 20000); }
-  finally { lockEtat.enVol = false; }
+    /* no lock yet: the form is the next step, so it comes first; a holder with a lock sees the rewards first, the form under them */
+    const reste = locked > 0n ? [R && R.box, form, sortie] : [form, R && R.box, sortie];
+    hote.textContent = '';
+    hote.append(...vue, ...reste.filter(Boolean), pli);
+  } catch (_) {
+    /* game386: a failed read never leaves "Connect your wallet" (nor another wallet's lock) under this wallet: it says it was not read,
+     *   and the card is read again in 10 s (wLockSuitCompte's tick); figures already shown for THIS wallet stay */
+    if (!autreWallet()) {
+      hote.dataset.pour = moi; hote.dataset.lu = String(Date.now() - 20000);
+      if (hote.dataset.compte !== moi) { hote.dataset.nonLu = moi; attente('Your TBLOCK lock: not read just now. Trying again in a few seconds.'); }
+    }
+  } finally { if (lockEtat.lecture.get(hote) === moi && lockEtat.jeton.get(hote) === jeton) lockEtat.lecture.delete(hote); }
 }
 /* ── 2026-11-12: the MONTHLY LOCK REWARDS (TBlockLockRewards, EP.REWARDS) inside the lock card. Everything is read on chain: the month, the
  *   enrollment, the whole months this lock earns (rewardEpochsFor), whether this wallet played this month (hasPlayed), what it can claim per
- *   closed month (claimable), and the rate the LAST CLOSED month paid (pot / played weight, labelled as past — never a promise). */
-async function peindreRecompensesLock(hote, { moi, locked, active, unlockAt, requestedAt, el, dire, pli = null }) {
+ *   closed month (claimable), and the rate the LAST CLOSED month paid (pot / played weight, labelled as past — never a promise).
+ *   game386: it reads and BUILDS the box; the lock card puts it in place and turns "not enrolled" and "something to claim" into its one
+ *   primary action (Join monthly rewards / Claim -> claim.html). Returns null when the read is for a wallet no longer shown. */
+async function peindreRecompensesLock(hote, { moi, locked, active, unlockAt, requestedAt, el, dire, pli = null, perime = null }) {
   const lit = async (v) => EP.word(await rpc('eth_call', [{ to: v.to, data: v.data }, 'latest']));
   const quand = (s) => new Date(Number(s) * 1000).toISOString().slice(0, 10);
-  const box = el('div', 'wCoeurs', null); box.id = 'wLockRewards';
-  box.append(el('p', 'sousTitre', 'Monthly lock rewards'));
+  /* game386: a block like the others of the card (hvBloc), the labels small and the values bold */
+  const box = el('div', 'hvBloc hvRecomp', null); box.id = 'wLockRewards'; box.dataset.l = 'rewards';
+  box.append(el('p', 'hvTitreBloc', 'Monthly lock rewards'));
   const ligne = (k, v) => { const d = el('div', 'stadeLigne', null); d.append(el('span', null, k), ' ', el('b', null, v)); box.append(d); return d; };
+  const R = { box, inscrit: null, aPayer: [], texte: '' };
   try {
     const c = await lit(EP.VIEW.rCurrentEpoch());
-    const [finMois, joue, prochain, aRelacher, enr] = await Promise.all([lit(EP.VIEW.rEpochEnd(c)), lit(EP.VIEW.hasPlayed(moi, c)), lit(EP.VIEW.nextEpochToClose()), lit(EP.VIEW.nextEpochToRelease()),
-      rpc('eth_call', [EP.VIEW.enrollmentOf(moi), 'latest'])]);
-    ligne('This month', 'month ' + c + ', ends ' + quand(finMois) + ' · ' + (joue === 1n ? 'you played this month' : 'play this month (a heart, a TAM art mint or a skin mint) to be paid for it'));
+    const [finMois, joue, prochain, aRelacher, enr, poidsMois] = await Promise.all([lit(EP.VIEW.rEpochEnd(c)), lit(EP.VIEW.hasPlayed(moi, c)), lit(EP.VIEW.nextEpochToClose()), lit(EP.VIEW.nextEpochToRelease()),
+      rpc('eth_call', [EP.VIEW.enrollmentOf(moi), 'latest']), lit(EP.VIEW.weightOf(moi, c)).catch(() => null)]);
+    /* game386: the figure on the line, the how-to under the month chips (the chip already says played / not played yet) */
+    ligne('This month', 'month ' + c + ', ends ' + quand(finMois) + (joue === 1n ? ' · you played' : ''));
     const enrUnlock = EP.word(enr, 0), enrAmount = EP.word(enr, 2);
     const actif = active > 0n && requestedAt === 0n;
     let moisLu = null;
@@ -33004,19 +33097,15 @@ async function peindreRecompensesLock(hote, { moi, locked, active, unlockAt, req
       const mois = EP.decoderMois(await rpc('eth_call', [EP.VIEW.rewardEpochsFor(unlockAt), 'latest']));
       moisLu = mois;
       const inscrit = enrUnlock === unlockAt && enrAmount === locked;
-      const d = ligne('Your lock', EP.texteMois(mois.n) + (mois.n > 0 ? ' (months ' + mois.premier + ' to ' + mois.dernier + ')' : '') + (inscrit ? ' · enrolled' : ' · not enrolled yet'));
-      if (!inscrit) {
-        const b = el('button', 'bouton sec', 'Enroll my lock'); b.type = 'button'; b.id = 'wLockEnroll'; b.style.marginLeft = '6px';
-        b.addEventListener('click', async () => {
-          b.disabled = true; dire('Waiting for your wallet: enroll your lock in the monthly lock rewards…');
-          const r = await envoyerAppels([EP.enrollCall(moi)].map((x) => ({ to: x.to, data: x.data, value: x.value })), compte);
-          if (r && r.etat === 'CONFIRME') { dire('Enrolled: your lock counts for the monthly lock rewards from next month.', 'wOk'); hote.dataset.lu = '0'; } else { dire('Not done: ' + String((r && (r.pourquoi || r.etat)) || 'no answer').slice(0, 160), 'wKo'); b.disabled = false; }
-        });
-        d.append(b);
-      }
+      R.inscrit = inscrit;
+      ligne('Your lock', EP.texteMois(mois.n) + (mois.n > 0 ? ' (months ' + mois.premier + ' to ' + mois.dernier + ')' : '') + (inscrit ? ' · enrolled' : ' · not enrolled yet'));
     }
     /* lot 378 task 6: the months as chips — this month (played or not, read), then each month this lock earns (rewardEpochsFor, read) */
     box.append(HV.puces(document, HV.moisPuces({ courant: c, premier: moisLu ? moisLu.premier : 0, dernier: moisLu ? moisLu.dernier : 0, n: moisLu ? moisLu.n : 0, joue: joue === 1n }), 'Months of the lock rewards'));
+    /* review 2026-11-12: "play this month to be paid for it" only when the rewards contract counts this lock for THIS month (weightOf > 0):
+     *   enroll writes the weight from the NEXT month on, so a lock enrolled this month (Grok, month 0) cannot be paid for it, played or not */
+    if (joue !== 1n && typeof poidsMois === 'bigint' && poidsMois > 0n) box.append(el('p', 'hvDetail', 'Play this month (a heart, a TAM art mint or a skin mint) to be paid for it.'));
+    else if (joue !== 1n && poidsMois === 0n && moisLu && moisLu.n > 0 && R.inscrit) box.append(el('p', 'hvDetail', 'Your lock counts from month ' + moisLu.premier + ': play in it (a heart, a TAM art mint or a skin mint) to be paid for it.'));
     if (prochain === 0n) ligne('Last closed month', 'none yet: month 0 closes after ' + quand(await lit(EP.VIEW.rEpochEnd(0n))));
     else {
       const e = prochain - 1n;
@@ -33030,22 +33119,15 @@ async function peindreRecompensesLock(hote, { moi, locked, active, unlockAt, req
       const aPayer = [];
       let sw = 0n, st = 0n;
       for (const k of ouverts) { const q = await rpc('eth_call', [EP.VIEW.claimable(moi, [k]), 'latest']); const w = EP.word(q, 0), t = EP.word(q, 1); if (w > 0n || t > 0n) { aPayer.push(k); sw += w; st += t; } }
-      const d = ligne('Yours to claim', aPayer.length ? EP.fmt(st) + ' TBLOCK + ' + EP.fmt(sw, 4) + ' wtCOIN (' + aPayer.length + (aPayer.length === 1 ? ' month' : ' months') + ')' : 'nothing for this wallet');
-      if (aPayer.length) {
-        const b = el('button', 'bouton sec', 'Claim'); b.type = 'button'; b.id = 'wLockClaim'; b.style.marginLeft = '6px';
-        b.addEventListener('click', async () => {
-          b.disabled = true; dire('Waiting for your wallet: claim your monthly lock rewards…');
-          const x = EP.claimRewardsCall(aPayer);
-          const r = await envoyerAppels([{ to: x.to, data: x.data, value: x.value }], compte);
-          if (r && r.etat === 'CONFIRME') { dire('Claimed: the rewards are in your wallet.', 'wOk'); hote.dataset.lu = '0'; } else { dire('Not done: ' + String((r && (r.pourquoi || r.etat)) || 'no answer').slice(0, 160), 'wKo'); b.disabled = false; }
-        });
-        d.append(b);
-      }
+      const texte = EP.fmt(st) + ' TBLOCK + ' + EP.fmt(sw, 4) + ' wtCOIN';
+      ligne('Yours to claim', aPayer.length ? texte + ' (' + aPayer.length + (aPayer.length === 1 ? ' month' : ' months') + ')' : 'nothing for this wallet');
+      /* game386: the Claim itself is the card's primary action, on claim.html (it sends the same claim, month by month) */
+      if (aPayer.length) { R.aPayer = aPayer; R.texte = texte; }
     }
     (pli || box).append(el('p', 'note', 'Each month pays the whole months a lock covers, ' + EP.MOIS_MIN_JOURS + ' days minimum to be sure of one, and only to the holders who played in it. The rewards are what is deposited in the rewards contract (anyone can add wtCOIN or TBLOCK); an amount is never promised.'));
   } catch (_) { ligne('Monthly lock rewards', 'not read just now'); }
-  if (String(compte || '').toLowerCase() !== moi) return; /* lot 378: read for the previous wallet */
-  hote.append(box);
+  if (String(compte || '').toLowerCase() !== moi || (perime && perime())) return null; /* lot 378: read for the previous wallet */
+  return R;
 }
 /* game357: Wallet sections and Holders panels — a click sets data-w / data-v; CSS shows the matching card. */
 function brancherSeg(seg, hote, cle) {
@@ -33276,10 +33358,11 @@ let wVaultLu = 0, wVaultRegle = null, wVaultPour = null, wVaultJeton = 0, wVault
  *   keeps its own throttle when that read fails). Tab closed or card not shown yet: nothing read, the next 5 s tick checks again. */
 function wLockSuitCompte() {
   const h = $('#wLock'), carte = $('#wVault'), vol = $('#v-wallet');
-  if (!h || !LK.LOCK || !carte || carte.hidden || h.hidden || lockEtat.enVol) return;
+  if (!h || !LK.LOCK || !carte || carte.hidden || h.hidden) return;
   if (document.hidden || (vol && vol.offsetParent === null)) return;
   const c = compte ? String(compte).toLowerCase() : '';
   if ((h.dataset.compte || '') === c) return;
+  if (c && lockEtat.lecture.get(h) === c) return; /* game386: this card is reading this wallet now (per card, per wallet) */
   if (h.dataset.demande !== c) { h.dataset.demande = c; h.dataset.lu = '0'; void peindrePointsWallet(); }
   void peindreLock(h);
 }
@@ -33296,7 +33379,8 @@ async function peindreVaultWallet() {
   const autre = pour !== wVaultPour; /* another wallet: its hearts and points lines at once, not after the vault reads */
   wVaultLu = Date.now(); wVaultPour = pour;
   if (autre) {
-    for (const k of ['#wCoeursMoi', '#wPointsMoi', '#wCoeursBoard', '#wPointsBoard', '#wLock']) { const x = $(k); if (x) x.textContent = ''; }
+    /* game386: not the lock card — emptied here while its own read was finishing, it stayed without the lock; peindreLock replaces it at once */
+    for (const k of ['#wCoeursMoi', '#wPointsMoi', '#wCoeursBoard', '#wPointsBoard']) { const x = $(k); if (x) x.textContent = ''; }
     const g = $('#wPointsGros'); if (g) g.hidden = true;
     void peindreCoeursWallet(); void peindrePointsWallet(); void peindreLock($('#wLock'));
   }
@@ -33312,7 +33396,13 @@ async function peindreVaultWallet() {
   const ligne = (k, v) => { const d = document.createElement('div'); d.className = 'stadeLigne'; const a = document.createElement('span'); a.textContent = k; const b = document.createElement('b'); b.textContent = v; d.append(a, ' ', b); neuf.push(d); return d; };
   const bloc = (cls, cle) => { const d = mk('div', 'hvBloc ' + cls); d.dataset.l = cle; neuf.push(d); return d; };
   const tete = (k, v) => { const p = mk('p', 'hvTete'); p.append(mk('span', 'hvK', k), ' ', mk('b', null, v)); return p; };
-  const bouton = (d, texte, id, action) => { const k = document.createElement('button'); k.type = 'button'; k.className = 'bouton sec'; k.id = id; k.textContent = texte; k.style.marginLeft = '6px'; k.addEventListener('click', action); d.append(k); return k; };
+  /* game386: the card shows at once, with a reading line, instead of staying hidden until every vault read is back (measured on this tree with
+   *   the public nodes answering 429: about 40 s) — the lock card inside it appears as soon as ITS read is back */
+  if (!rows.textContent) { const p = mk('p', 'note', 'Reading the holders vault…'); p.setAttribute('role', 'status'); rows.append(p); } carte.hidden = false; /* shown while its reads run */
+  /* game386: the row buttons fit their row (hvLigneAction: auto width, 44 px tall) — a full-width .bouton with a 6 px left margin was wider than its row */
+  const bouton = (d, texte, id, action) => { const k = document.createElement('button'); k.type = 'button'; k.className = 'bouton sec hvLigneAction'; k.id = id; k.textContent = texte; k.addEventListener('click', action); d.append(k); return k; };
+  /* game386 (Phil: "claimable -> Claim -> claim.html"): a week of the live vault this wallet can claim is claimed on claim.html (same claimCall) */
+  const lienClaim = (d, id, nom) => { const a = document.createElement('a'); a.className = 'bouton hvLigneAction'; a.id = id; a.href = '/claim.html'; a.textContent = 'Claim'; a.setAttribute('aria-label', nom + ' — opens the claim page'); d.append(a); return a; };
   try {
     const [bal, res, ep] = await Promise.all([lit(EP.VIEW.vaultBalance()), lit(EP.VIEW.reserved()), lit(EP.VIEW.currentEpoch())]);
     /* game359 (Phil: "valeur en $, date de fin de semaine, montant réservé attendu, combien de joueurs") — on the live vault: the play of
@@ -33380,7 +33470,7 @@ async function peindreVaultWallet() {
         if (s > 0n) {
           const [needE, mc] = await Promise.all([lit(EP.VIEW.needFor(e)), lit(EP.VIEW.minCommit())]);
           const chk = EP.claimCheck({ locked, need: needE, unlockAt, minCommit: mc, maintenantSec: Date.now() / 1000, owed: s });
-          if (chk.ok) bouton(d, 'Claim ' + EP.fmt(s) + ' TBLOCK', 'wVaultClaim', async () => { const r = await envoyerAppels([EP.claimCall(e)], compte); wVaultLu = 0; d.lastChild.textContent = r && r.etat === 'CONFIRME' ? 'Claimed' : 'Not claimed: ' + String((r && (r.pourquoi || r.etat)) || 'no answer').slice(0, 80); });
+          if (chk.ok) lienClaim(d, 'wVaultClaim', 'Claim ' + EP.fmt(s) + ' TBLOCK from week ' + e);
           else ligne('Not claimable yet', chk.why);
         }
       }

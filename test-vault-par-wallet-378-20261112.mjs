@@ -38,7 +38,7 @@ const CODE = APP.slice(a, b);
 /* the lock card of the same tab (peindreLock + the monthly lock rewards inside it), cut the same way */
 /* the end of peindreRecompensesLock: a `}` alone on its line, LF or CRLF (test-tests-portables) */
 const finFn = /\r?\n\}\r?\n/g;
-const la = APP.indexOf('const lockEtat = { enVol: false };'), lb0 = APP.indexOf('async function peindreRecompensesLock(');
+const la = APP.indexOf('const lockEtat = {') /* game386: per card and per wallet (lecture / jeton) */, lb0 = APP.indexOf('async function peindreRecompensesLock(');
 finFn.lastIndex = Math.max(lb0, 0);
 const mFin = finFn.exec(APP), lb = mFin ? mFin.index + mFin[0].length : 0;
 t('the lock card code is found in the file', la > 0 && lb0 > la && lb > lb0);
@@ -291,7 +291,7 @@ t('after the reads: the hearts box is the new wallet\'s', (lignes('#wCoeursMoi')
  *     2027-01-11" with Grok's "Request the withdrawal" and lock buttons under the new wallet — its own 30 s pace, not keyed by wallet) */
 const lockTxt = () => dom['#wLock'].textContent;
 C.setCompte(GROK); delete dom['#wLock'].dataset.lu; await C.peindreLock(dom['#wLock']);
-t('setup: the lock card shows Grok\'s lock', /3,000,000 TBLOCK locked until/.test(lockTxt()), lockTxt().slice(0, 300));
+t('setup: the lock card shows Grok\'s lock', /Locked 3,000,000 TBLOCK until 2027-01-11/.test(lockTxt()) /* game386: the big figure (the sentence repeating it is gone) */, lockTxt().slice(0, 300));
 {
   const tous = dom['#wLock'].tous(), parL = (k) => tous.find((x) => x.dataset && x.dataset.l === k) || null;
   t('lock card: the amount big with its date ("Locked 3,000,000 TBLOCK until 2027-01-11 · … left")', /^Locked 3,000,000 TBLOCK until 2027-01-11 · \d+ d \d+ h left$/.test(parL('lock') ? parL('lock').textContent : ''), parL('lock') && parL('lock').textContent);
@@ -309,16 +309,16 @@ t('setup: the lock card shows Grok\'s lock', /3,000,000 TBLOCK locked until/.tes
     && pli.textContent.includes('1 a day per 100,000 TBLOCK') && pli.textContent.includes('Each month pays the whole months a lock covers'), pli && pli.textContent.slice(0, 200));
 }
 C.setCompte(NEUF); await C.peindreVaultWallet(); await attendre(); await C.peindreLock(dom['#wLock']); await attendre();
-t('switch: the lock card is the new wallet\'s at once (no lock of Grok, no withdrawal button)', !/3,000,000 TBLOCK locked/.test(lockTxt()) && !/Request the withdrawal/.test(lockTxt()), lockTxt().slice(0, 300));
+t('switch: the lock card is the new wallet\'s at once (no lock of Grok, no withdrawal button)', !/3,000,000 TBLOCK/.test(lockTxt()) && !/Request the withdrawal/.test(lockTxt()) && /No TBLOCK locked yet/.test(lockTxt()), lockTxt().slice(0, 300));
 /* a lock read still running for Grok when the wallet changes paints nothing (the tab was showing Grok: its vault card too) */
 C.setCompte(GROK); C.raz(); await peindreTout(); delete dom['#wLock'].dataset.lu; await C.peindreLock(dom['#wLock']);
-t('setup: the lock card of Grok is on screen before the late read', /3,000,000 TBLOCK locked until/.test(lockTxt()), lockTxt().slice(0, 200));
+t('setup: the lock card of Grok is on screen before the late read', /Locked 3,000,000 TBLOCK until 2027-01-11/.test(lockTxt()) /* game386: the big figure (the sentence repeating it is gone) */, lockTxt().slice(0, 200));
 let lacherL; const tenuL = new Promise((r) => { lacherL = r; });
 /* held: only the lock card's own first read (lockedOf), never a read the vault card also makes */
 freins = async (c) => { if (String(c.to).toLowerCase() === LK.LOCK && c.data.startsWith('0x' + LK.SEL.lockedOf) && argAdr(c.data, 0) === GROK) await tenuL; };
 delete dom['#wLock'].dataset.lu; const lEnCours = C.peindreLock(dom['#wLock']);
 await attendre(); C.setCompte(NEUF); await C.peindreVaultWallet(); lacherL(); await lEnCours; await attendre(); freins = null;
-t('late lock read for the previous wallet: it does not land under the new wallet', !/3,000,000 TBLOCK locked/.test(lockTxt()), lockTxt().slice(0, 300));
+t('late lock read for the previous wallet: it does not land under the new wallet', !/3,000,000 TBLOCK/.test(lockTxt()), lockTxt().slice(0, 300));
 /* the same while the MONTHLY REWARDS part of Grok's card is still reading: its box must not land under the new wallet */
 C.setCompte(GROK); C.raz(); await peindreTout(); delete dom['#wLock'].dataset.lu; await C.peindreLock(dom['#wLock']);
 let lacherR; const tenuR = new Promise((r) => { lacherR = r; });
@@ -326,7 +326,9 @@ freins = async (c) => { if (EP.REWARDS && String(c.to).toLowerCase() === EP.REWA
 delete dom['#wLock'].dataset.lu; const rEnCours = C.peindreLock(dom['#wLock']);
 await attendre(); C.setCompte(NEUF); await C.peindreVaultWallet(); await attendre();
 lacherR(); await rEnCours; await attendre(); freins = null;
-t('late monthly-rewards read for the previous wallet: its box does not land under the new wallet', !!EP.REWARDS && !/Monthly lock rewards/.test(lockTxt()), lockTxt().slice(0, 300));
+/* game386: the new wallet's card is now read for it at once (one global in-flight flag used to leave it unpainted), so it has ITS rewards
+ *   box; Grok's late box would add a second one, with his enrolled lock line */
+t('late monthly-rewards read for the previous wallet: its box does not land under the new wallet', !!EP.REWARDS && dom['#wLock'].tous().filter((x) => x.id === 'wLockRewards').length === 1 && !/Your lock 1 full month/.test(lockTxt()) && /No TBLOCK locked yet/.test(lockTxt()), lockTxt().slice(0, 300));
 /* a card still on screen for Grok (painted before the switch reached it): its Lock button must not send for the new wallet with Grok as holder */
 C.setCompte(GROK); delete dom['#wLock'].dataset.lu; await C.peindreLock(dom['#wLock']);
 const go = dom['#wLock'].tous().find((x) => x.tag === 'button' && /^(Lock|Add) /.test(x.t));
@@ -339,11 +341,11 @@ t('stale card: its Lock button sends nothing once the wallet changed (it would e
   const pv = API.points;
   API.points = (q) => { const r = pv(GROK); r.compte = { ...r.compte, holder: NEUF }; return r; };
   C.setCompte(GROK); delete dom['#wLock'].dataset.lu; await C.peindreLock(dom['#wLock']);
-  t('lock card: a points answer about another holder draws no points a day', /3,000,000 TBLOCK locked until/.test(lockTxt()) && !dom['#wLock'].tous().some((x) => x.dataset && x.dataset.l === 'lock-pts'), lockTxt().slice(0, 200));
+  t('lock card: a points answer about another holder draws no points a day', /Locked 3,000,000 TBLOCK until 2027-01-11/.test(lockTxt()) /* game386: the big figure (the sentence repeating it is gone) */ && !dom['#wLock'].tous().some((x) => x.dataset && x.dataset.l === 'lock-pts'), lockTxt().slice(0, 200));
   /* prod 2026-11-12 (x-ms-monitor read): complet false, Grok counted with his 1,000 TBLOCK lock only — parJour 0.01, mult 1 */
   API.points = (q) => ({ ok: true, complet: false, compte: { holder: q, lock: 0.016017245370370373, jeu: 10.813489, total: 10.829506245370371, parJour: 0.01, mult: 1, rang: 1, part: 1 }, board: [] });
   delete dom['#wLock'].dataset.lu; await C.peindreLock(dom['#wLock']);
-  t('lock card: a count still being read (prod answered +0.01 a day for the 3,000,000 lock) draws no points a day', /3,000,000 TBLOCK locked until/.test(lockTxt()) && !dom['#wLock'].tous().some((x) => x.dataset && x.dataset.l === 'lock-pts'), lockTxt().slice(0, 200));
+  t('lock card: a count still being read (prod answered +0.01 a day for the 3,000,000 lock) draws no points a day', /Locked 3,000,000 TBLOCK until 2027-01-11/.test(lockTxt()) /* game386: the big figure (the sentence repeating it is gone) */ && !dom['#wLock'].tous().some((x) => x.dataset && x.dataset.l === 'lock-pts'), lockTxt().slice(0, 200));
   API.points = pv;
 }
 

@@ -6363,6 +6363,8 @@ const SERVIS = [
   'deployer-block-contest.html', 'block-contest-deploiement.js',
   /* the block contest page for users (reads Base, builds unsigned calls for the wallet of the user) and its pure module */
   'contest.html', 'block-contest.js',
+  /* game386 task B: the pure side of the contest page (the pool key of a block read on the contest contract, the simulation from the wallet, the words) */
+  'contest-vue.js',
   /* holders economy: the +1 burn and the holders vault, their page module, the unsigned deployment (generated) and its page.
    * 2026-11-12: deployer-economie-v2.html is the six-step pack (economie-v2-pack-deploiement.js + pack-economie-v2.js); the stale
    * two-signature record economie-v2-deploiement.js is deliberately NOT served any more, so no page can offer it. */
@@ -6384,6 +6386,10 @@ const SERVIS = [
   'holders-wallet.js',
   /* lot 378 task 6: the Holders cards drawn (bars, steps, gauge, timeline), imported by app.html */
   'holders-vue.js',
+  /* game386: the claim page of a wallet (weeks of the holders vault, months of the lock rewards, the rules in words) and its pure module */
+  'claim.html', 'claim-vue.js',
+  /* review of game386: the ERC-4337 EntryPoints (one list for revenu-externe.js and claim-vue.js), imported by claim-vue.js */
+  'entry-points.js',
   /* game120 : ondes, lumiere et son */
   'tam-ondes.js',
   /* game122 : electricite */

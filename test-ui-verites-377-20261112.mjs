@@ -88,7 +88,7 @@ async function verifier(F) {
     const src = fonction(APP, 'function wLockSuitCompte(');
     t('3a wLockSuitCompte exists', !!src);
     const h = { dataset: { compte: '' }, hidden: false }, carte = { hidden: false }, vol = { offsetParent: {} };
-    const S = { compte: null, document: { hidden: false }, LK: { LOCK: '0x' + '11'.repeat(20) }, lockEtat: { enVol: false }, appels: [], points: 0 };
+    const S = { compte: null, document: { hidden: false }, LK: { LOCK: '0x' + '11'.repeat(20) }, lockEtat: { lecture: new WeakMap(), jeton: new WeakMap() }, appels: [], points: 0 }; /* game386: in-flight reads are per card and per wallet */
     S.$ = (q) => ({ '#wLock': h, '#wVault': carte, '#v-wallet': vol })[q] || null;
     S.peindreLock = async (x) => { S.appels.push({ x, lu: x.dataset.lu }); };
     S.peindrePointsWallet = async () => { S.points++; };
@@ -105,10 +105,11 @@ async function verifier(F) {
     h.dataset.compte = S.compte.toLowerCase();
     vol.offsetParent = null; S.compte = '0x' + 'EF'.repeat(20); f();
     t('3g Wallet tab closed: nothing read', S.appels.length === 3);
-    vol.offsetParent = {}; S.lockEtat.enVol = true; f();
-    t('3h a lock read in flight: wait for the next tick', S.appels.length === 3);
-    S.lockEtat.enVol = false; f();
-    t('3i tab open again: read for the wallet connected now', S.appels.length === 4 && S.appels[3].lu === '0');
+    vol.offsetParent = {}; S.lockEtat.lecture.set(h, S.compte.toLowerCase()); f();
+    t('3h a lock read in flight on this card for this wallet: wait for the next tick', S.appels.length === 3);
+    S.lockEtat.lecture.set(h, '0x' + '99'.repeat(20)); f();
+    t('3i tab open again: read for the wallet connected now — a read still running for ANOTHER wallet does not hold it (game386)', S.appels.length === 4 && S.appels[3].lu === '0');
+    S.lockEtat.lecture.delete(h);
     h.dataset.compte = S.compte.toLowerCase(); S.compte = null; f();
     t('3j disconnect: repainted (to "Connect your wallet")', S.appels.length === 5);
     h.hidden = true; h.dataset.compte = ''; S.compte = '0x' + '12'.repeat(20); f();
