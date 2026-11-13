@@ -61,9 +61,10 @@ let refus = false; try { M.montantOffre(ench, 2_099_999n); } catch (_) { refus =
 vu(refus, 'A15 une offre sous le minimum (+5 %) est REFUSEE');
 vu(M.montantOffre(ench, 5_000_000n) === 5_000_000n, 'A16 une offre au-dessus du minimum est gardee');
 const o1 = M.offresChangees(null, tout);
-vu(o1.changees.size === 0 && o1.apres.get('5') === 2_000_000n && !o1.apres.has('3'), 'A17 premiere lecture : aucun « new bid » ; seules les encheres sont suivies');
+/* game399: keyed contract:token (a fixture with no contract is ':5') */
+vu(o1.changees.size === 0 && o1.apres.get(':5') === 2_000_000n && !o1.apres.has(':3'), 'A17 premiere lecture : aucun « new bid » ; seules les encheres sont suivies');
 const o2 = M.offresChangees(o1.apres, tout.map((s) => (s.tokenId === 5n ? { ...s, offre: 2_100_000n } : s)));
-vu(o2.changees.size === 1 && o2.changees.has('5'), 'A18 l offre de #5 change : « new bid » sur #5 seulement');
+vu(o2.changees.size === 1 && o2.changees.has(':5'), 'A18 l offre de #5 change : « new bid » sur #5 seulement');
 const o3 = M.offresChangees(o2.apres, tout.map((s) => (s.tokenId === 5n ? { ...s, offre: 2_100_000n } : s)));
 vu(o3.changees.size === 0, 'A19 offre inchangee : pas de pouls');
 const o4 = M.offresChangees(o1.apres, [...tout, sk({ tokenId: 8n, enVente: true, enchere: true, fin: T + 99, offre: 7n })]);

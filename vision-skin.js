@@ -16,13 +16,18 @@ export const AA_TEXTE = 4.5;
 /** The skin a block wears FOR THIS VIEWER, from the on-chain list: the viewer's own skin for this block (blockskins.js#skinPortee rule;
  *  the newest one if they hold several). ⛔ Owner (Phil, 2026-10-27): "a skin belongs to the user who owns it" — another account's
  *  skin is NEVER shown (same doctrine as the Map's poserMesSkins). No wallet, or no skin of theirs for this block -> null (default palette). */
-export function skinDuBlock(skins, block, moi) {
+/* game399: the NEWEST skin, across the skins contracts in their deploy order (`contrats`, oldest first, blockskins-actif BLOCKSKINS_SUITE):
+ *   a later contract's token 1 is newer than an older contract's token 9. Without `contrats`, the token id alone, as before. */
+export function skinDuBlock(skins, block, moi, contrats = null) {
   const b = bas(block), m = bas(moi);
   if (!ADR.test(b) || !ADR.test(m) || !Array.isArray(skins)) return null;
   const miennes = skins.filter((s) => s && bas(s.block) === b && s.recette && bas(s.detenteur) === m);
   if (!miennes.length) return null;
+  const ordre = Array.isArray(contrats) ? contrats.map(bas) : null;
+  const rang = (s) => (ordre ? ordre.indexOf(bas(s.contrat)) : 0);
   const id = (s) => { try { return BigInt(s.tokenId); } catch (_) { return -1n; } };
-  return miennes.reduce((a, s) => (id(s) > id(a) ? s : a));
+  const plusNeuve = (a, s) => (rang(s) !== rang(a) ? rang(s) > rang(a) : id(s) > id(a));
+  return miennes.reduce((a, s) => (plusNeuve(a, s) ? s : a));
 }
 
 /** The contract's own colours for a recipe ({ angle, h:[h1,h2,h3], cube, noyau, fond }), as [h, s, l]. Null on any hue outside 0..359. */

@@ -299,10 +299,11 @@ export function actionsSkin(s, moi, maintenant) {
 export function propositionSkin({ skins, moi, block, maintenant, achat, devise, parTrade, reste, dejaProposes = new Set(), dejaRegles = null }) {
   const m = bas(moi), b = bas(block), dv = bas(devise), t = Number(maintenant);
   if (!ADR.test(m) || !ADR.test(b) || !Array.isArray(skins) || !Number.isFinite(t)) return null;
-  const libre = (s) => !dejaProposes.has(String(s.tokenId));
+  /* game399: keyed by contract AND token id (cleSkin): two skins contracts both have a token 1, one proposed must not hide the other */
+  const libre = (s) => !dejaProposes.has(cleSkin(s));
   /* 2026-10-18 (revue adverse) : le REGLEMENT a son propre filtre (`dejaRegles`) — sinon une enchere sur laquelle on a mise n est jamais
    *   proposee au reglement (meme cle). Sans `dejaRegles` : le comportement d avant (un seul filtre). */
-  const libreRegler = dejaRegles ? (s) => !dejaRegles.has(String(s.tokenId)) : libre;
+  const libreRegler = dejaRegles ? (s) => !dejaRegles.has(cleSkin(s)) : libre;
   const fin = skins.find((s) => libreRegler(s) && s.enVente && s.enchere && t >= Number(s.fin) && (s.encherisseur === m || s.detenteur === m));
   if (fin) return { genre: 'REGLER', skin: fin, montant: 0n };
   if (!achat || !ADR.test(dv)) return null;

@@ -134,7 +134,8 @@ export function offresChangees(avant, skins) {
   const apres = new Map(), changees = new Set();
   for (const s of Array.isArray(skins) ? skins : []) {
     if (!s || !s.enVente || !s.enchere) continue;
-    const id = String(s.tokenId), o = BigInt(s.offre || 0);
+    /* game399: keyed by contract AND token id (blockskins.js cleSkin): two skins contracts both have a token 1 */
+    const id = bas(s.contrat) + ':' + String(s.tokenId), o = BigInt(s.offre || 0);
     apres.set(id, o);
     if (avant instanceof Map && avant.has(id) && avant.get(id) !== o && o > 0n) changees.add(id);
   }

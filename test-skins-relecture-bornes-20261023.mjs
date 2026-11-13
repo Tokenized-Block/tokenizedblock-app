@@ -108,7 +108,7 @@ const NOMS = ['bcOuvrirPop', 'bcMessage', 'bcVue', 'CHAINE', 'bcEtape', 'bcAvecW
   'bcMontantSkin', 'bcBoutons', 'peindreSkinsMarche', 'deviseAdmise', 'bcLireDevisesSkin', 'bcDevisesSkin', 'court', 'ETH_SKIN', 'bcSolde', 'appelApprouver', 'appelAcheter',
   'appelEncherir', 'appelRegler', 'appelRetirer', 'appelMettreEnVente', 'appelOuvrirEnchere', 'appelRetirerCredit', 'partage', 'bcSigner', 'bcDureeSkin', 'montantOffre', 'actionsSkin',
   'SKM_STATUTS', 'statutSkin', 'offreMinimale', 'bc', 'RESEAUX', 'mesSkins', 'lireMesSkins', 'poserMesSkins', 'bcPeindreSkinEtat', 'bcPeindreMarche', 'bcEl',
-  'bcAifiSkins', 'lireSkins', 'propositionSkin', 'BC_AIFI_ETH', 'bcAifiSauver', 'bcAifiPeindre', 'texteSkin'];
+  'bcAifiSkins', 'lireSkins', 'propositionSkin', 'BC_AIFI_ETH', 'bcAifiSauver', 'bcAifiPeindre', 'texteSkin', 'cleSkin'];
 /** Un monde : la chaine (skin relue, solde, autorisation, devises admises) et un wallet qui n envoie RIEN. */
 function monde({ frais, solde = 10n ** 30n, autorise = 0n, admises = [ETH, USDC, NV.adr], vitrine = null, aifi = null }) {
   const j = { etapes: [], boutons: [], signes: [] };
@@ -132,6 +132,7 @@ function monde({ frais, solde = 10n ** 30n, autorise = 0n, admises = [ETH, USDC,
     bcAifiSkins: { derniere: 0, proposes: new Set(), enVol: false }, lireSkins: async () => ({ etat: 'LU', total: 1, skins: [vitrine || frais] }), propositionSkin: S.propositionSkin,
     BC_AIFI_ETH: () => ({ adr: ETH, sym: 'ETH', dec: 18 }), bcAifiSauver() {}, bcAifiPeindre() {},
     texteSkin: S.texteSkin, /* game390: the card title names the skin by its app-wide name */
+    cleSkin: S.cleSkin, /* game399: the proposals already made are keyed contract:token */
   };
   // eslint-disable-next-line no-new-func
   const f = new Function(...NOMS, srcAction + '\n' + srcAifi + '\nreturn { bcActionMarche, bcAifiProposerSkin };')(...NOMS.map((k) => env[k]));

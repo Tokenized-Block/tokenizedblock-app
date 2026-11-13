@@ -105,7 +105,9 @@ vu(P({ skins: [fixeEth(5, 10n ** 15n)], achat: false }) === null, 'regle « buy 
 vu(P({ skins: [fixeEth(5, 10n ** 15n, MOI)] }) === null, 'jamais sa propre annonce');
 vu(P({ skins: [{ ...fixeEth(5, 10n ** 15n), block: AUTRE }] }) === null, 'une skin d un AUTRE block : rien');
 vu(P({ skins: [{ ...fixeEth(5, 1000000n), devise: USDC }] }) === null, 'une skin en USDC quand S.I paie en ETH : rien');
-vu(P({ skins: [fixeEth(6, 10n ** 15n)], dejaProposes: new Set(['6']) }) === null, 'jamais deux fois la meme skin dans la session');
+/* game399: the proposals made are keyed contract:token (cleSkin): a fixture with no contract is ':6' */
+vu(P({ skins: [fixeEth(6, 10n ** 15n)], dejaProposes: new Set([':6']) }) === null, 'jamais deux fois la meme skin dans la session');
+vu(P({ skins: [{ ...fixeEth(6, 10n ** 15n), contrat: '0x' + 'b'.repeat(40) }], dejaProposes: new Set(['0x' + 'a'.repeat(40) + ':6']) }) !== null, 'game399: token 6 of ANOTHER skins contract is not hidden by the one proposed');
 pr = P({ skins: [encEth] });
 vu(pr && pr.genre === 'ENCHERIR' && pr.montant === 1050000000000000n, 'sans prix fixe : encherir au MINIMUM (+5 %)');
 pr = P({ skins: [fixeEth(6, 10n ** 15n), { ...encEth, encherisseur: MOI }], maintenant: T + 1 });

@@ -26,7 +26,7 @@ vu(/if \(autorise < montant\) appels\.push\(appelApprouver\(s\.devise, montant,/
 vu(/if \(r\.diffusee\) \{ bcEtape\(m, 'Sent, not confirmed yet/.test(action), 'un envoi diffuse sans confirmation ne doit pas etre relance');
 vu(/\/\^0x\[0-9a-f\]\{64\}\$\/i\.test\(brut\) \? BigInt\(brut\) : null/.test(marche), 'un credit n est un montant que si la reponse est UN mot de 32 octets');
 /* S.I PROPOSE, LA PERSONNE SIGNE (choix de Phil, 2026-10-11) : bcAifiProposerSkin EXECUTE avec la vraie propositionSkin et des bouchons */
-const { propositionSkin, ETH } = await import('./blockskins.js');
+const { propositionSkin, ETH, cleSkin } = await import('./blockskins.js');
 const iP = html.indexOf('async function bcAifiProposerSkin(');
 vu(iP > 0 && /setInterval\(\(\) => \{ if \(bc\.aifi && !document\.hidden\) void bcAifiProposerSkin\(\); \}, 30000\);/.test(html), 'S.I ne lit pas le marche des skins (bcAifiProposerSkin + minuterie)');
 const mP = /\r?\n\}\r?\n/.exec(html.slice(iP)), srcP = html.slice(iP, iP + mP.index + mP[0].length);
@@ -36,10 +36,10 @@ const vitrine = [{ tokenId: 6n, detenteur: AUTRE, block: BLK, recette: rec, enVe
 const lancer = async ({ aifi, compte, skins = vitrine, etat = 'LU', etatSI }) => {
   const cartes = [], st = etatSI || { derniere: 0, proposes: new Set(), enVol: false };
   const bc = { aifi };
-  const fn = new Function('bc', 'compte', 'CHAINE', 'bcAifiSkins', 'lireSkins', 'rpc', 'BC_AIFI_ETH', 'propositionSkin', 'bcAifiSauver', 'bcAifiPeindre', 'bcOuvrirPop', 'bcActionMarche',
+  const fn = new Function('bc', 'compte', 'CHAINE', 'bcAifiSkins', 'lireSkins', 'rpc', 'BC_AIFI_ETH', 'propositionSkin', 'bcAifiSauver', 'bcAifiPeindre', 'bcOuvrirPop', 'bcActionMarche', 'cleSkin',
     srcP + '\nreturn bcAifiProposerSkin();');
   await fn(bc, compte, 8453, st, async () => (etat === 'LU' ? { etat, total: skins.length, skins } : { etat }), null, () => ({ adr: ETH, sym: 'ETH', dec: 18 }), propositionSkin,
-    () => {}, () => {}, () => {}, async (g, s, x, qui) => { cartes.push({ g, id: s.tokenId, qui }); });
+    () => {}, () => {}, () => {}, async (g, s, x, qui) => { cartes.push({ g, id: s.tokenId, qui }); }, cleSkin);
   return { cartes, aifi: bc.aifi, st };
 };
 /* 2026-10-11 (Phil : « t as pas ajoute le mode autonome suggestion au S.I ») : les propositions de skins suivent la regle VISIBLE
