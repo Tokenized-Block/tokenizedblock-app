@@ -143,6 +143,8 @@ import { ligneRegistre, totauxParCreateur } from './ref-vitrine.js';
 import { saisonDe, valeurUsd, crediter, tickets, racine, tirer, F_USD_V1, jourDe, moisDe, joursEntre, entreesPeriode, SEUIL_VOLUME_JOUR_USD, JOUR_MS, ticketsJour, joursPass, crediterPassSemaine } from './tirage-saison.js';
 import { volumeVerifie, poolIdDe, passSkinVerifie } from './volume-tirage.js';
 import { BLOCKSKINS as BLOCKSKINS_SRV, BLOCKSKINS_LUS as BLOCKSKINS_LUS_SRV, BLOCKSKINS_ACTIF as BLOCKSKINS_ACTIF_SRV, SKIN_MINT_USDC as SKIN_MINT_USDC_SRV, lireSkins as lireSkinsSrv, DEVISES_SKIN as DEVISES_SKIN_SRV } from './blockskins.js';
+/* game390: the skins' ONE app-wide number (blockskins.js nomPublicSkin) for the game journal */
+import { nomPublicSkin as nomPublicSkinSrv, lireComptesSkins as lireComptesSkinsSrv, comptesSkinsLus as comptesSkinsLusSrv } from './blockskins.js';
 import { skinsPrixCorps } from './blockskins-actif.js';
 import { sourcesSkins } from './blockskins-actif.js'; /* 2026-11-12: one XP source per skins contract the app minted on, each with its own key */
 import { lireEvenementsJeu, evenementsPractice, fusionnerJournal, avecBlocks, TOPICS_ROLLS as TOPICS_ROLLS_JOURNAL, TOPICS_SKINS as TOPICS_SKINS_JOURNAL,
@@ -5889,7 +5891,11 @@ async function lireFenetreJournal(de, a, c) {
   /* le jeton de chaque duel deja LU par le lecteur des duels (par l etat, 2026-10-24) : un Settled du jour dont le Created est plus vieux dit son montant */
   const jetons = new Map(journalEtat.jetons);
   if (c.duels && duelsSrv.contrat === c.duels) { try { for (const [id, e] of duelsSrv.cache) if (!jetons.has('d:' + id)) jetons.set('d:' + id, e.duel.token); } catch (_) { /* sans graine : sans montant */ } }
-  const r = lireEvenementsJeu(logs, c, { horodatage: (b) => (heures.has(b) ? heures.get(b) : null), cibles: journalEtat.cibles, devisesListees: journalEtat.devisesListees, jetons, devises: DEVISES_SKIN_SRV });
+  /* game390: a skin in the journal says its ONE app-wide name (blockskins.js nomPublicSkin) — the counts of the older skins contracts are
+   *   read once (kept once read) before a window that holds a skins log is written ; not read = the skin named by its contract and token id */
+  if (c.skins && logs.some((l) => String(l && l.address || '').toLowerCase() === c.skins)) { try { await lireComptesSkinsSrv({ rpc: rpcServeur }); } catch (_) { /* named by contract + token id */ } }
+  const r = lireEvenementsJeu(logs, c, { horodatage: (b) => (heures.has(b) ? heures.get(b) : null), cibles: journalEtat.cibles, devisesListees: journalEtat.devisesListees, jetons, devises: DEVISES_SKIN_SRV,
+    nomSkin: (contrat, sk) => nomPublicSkinSrv(contrat, sk, comptesSkinsLusSrv()).texte });
   if (r.sansHeure) return false;
   for (const [k, v] of r.cibles) journalEtat.cibles.set(k, v);
   /* ⛔ 2e verdict 2026-10-23 (defaut 2) : `set(k, v)` laissait un Listed PLUS VIEUX (le rattrapage lit a rebours) ecraser la devise d un

@@ -84,11 +84,11 @@ const render = (src, s, moi, label) => {
   check(found, label + ': skmLigne (' + body.length + ' chars) and const court extracted from app.html');
   if (!found) return null;
   const params = ['document', 'bcEl', 'apercuSkinFormes', 'statutSkin', 'detenteurCourt', 'gestesSkin', 'tempsRestant', 'offreMinimale', 'montantOffre', 'brutVersTexteSkin',
-    'bcMontantSkin', 'bcResoudre', 'bcDevisesSkin', 'bcActionMarche', 'bcFormVendreSkin', 'montantVersBrut', 'UNIT_APP', 'displayShort', 'isFeeAddress', 'feeAddressLabel'];
+    'bcMontantSkin', 'bcResoudre', 'bcDevisesSkin', 'bcActionMarche', 'bcFormVendreSkin', 'montantVersBrut', 'UNIT_APP', 'displayShort', 'isFeeAddress', 'feeAddressLabel', 'nomSkin', 'detailSkin'];
   const make = new Function(...params, court + '\n' + body + '\nreturn skmLigne;');
   const skmLigne = make(fakeDocument, bcEl, SM.apercuSkinFormes, SM.statutSkin, SM.detenteurCourt, SM.gestesSkin, SM.tempsRestant, BS.offreMinimale, SM.montantOffre, SM.brutVersTexte,
     (raw) => String(raw) + ' USDC', () => ({ sym: null }), () => ({}), () => {}, () => new El('form'), (x) => BigInt(x), '0xb2000000000000000000007afa7ed748b0874f27',
-    FC.displayShort, FC.isFeeAddress, FC.feeAddressLabel);
+    FC.displayShort, FC.isFeeAddress, FC.feeAddressLabel, BS.nomSkin, BS.detailSkin); /* game390: the skin's app-wide name */
   try { return visible(skmLigne(s, moi, 1000)); } catch (e) { check(false, label + ': skmLigne threw ' + e.message); return null; }
 };
 const UNIT = '0xb2000000000000000000007afa7ed748b0874f27';

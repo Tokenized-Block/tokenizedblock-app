@@ -21,7 +21,7 @@
  *   3c. DUEL_CREATE : sinon en ouvrir UN (mise = maxDuelStakeUsdc), au plus un par heure glissante et jamais tant qu un des siens attend. */
 import { planRoll, planRollAvecPass, planSettle, planSettleMany, etatReglement, refusGuess } from './blockrolls-plan.js';
 import { planPoster, planReclamer, budgetMission } from './missions-plan.js';
-import { propositionSkin, appelApprouver, appelAcheter, appelEncherir, appelRegler } from './blockskins.js';
+import { propositionSkin, appelApprouver, appelAcheter, appelEncherir, appelRegler, texteSkin } from './blockskins.js';
 import { planCreate, planJoin, planSettle as planSettleDuel, planRefund as planRefundDuel, etatDuel, partage as partageDuel, MISE_MIN as MISE_MIN_DUEL,
   MARGE_JOIN_S, EXPIRATION_MIN_S, EXPIRATION_MAX_S, duelsFermesParContrat } from './duels-plan-app.js';
 /* 2026-10-24 (Phil) : BlockDuelsV2 — quand /api/duels sert v2 (duels.version === 2) : un duel rejoint non regle dans sa fenetre est GAGNE PAR
@@ -322,7 +322,7 @@ export function prochaineProposition(etat = {}) {
     catch (_) { ps = null; }
   }
   if (ps && ps.genre === 'REGLER') {
-    return proposition('SETTLE', [appelRegler(ps.skin.tokenId, ps.skin.contrat || null)], 'The auction of skin #' + ps.skin.tokenId + ' has ended and you are in it — settling hands the skin (or the money) over. No USDC.', 0n, 'SKINREG:' + ps.skin.tokenId);
+    return proposition('SETTLE', [appelRegler(ps.skin.tokenId, ps.skin.contrat || null)], 'The auction of ' + texteSkin(ps.skin) + ' has ended and you are in it — settling hands the skin (or the money) over. No USDC.', 0n, 'SKINREG:' + ps.skin.tokenId);
   }
 
   /* 2. TAKE_MISSION — une reclamation dont l attestation du verifier est en main */
@@ -424,7 +424,7 @@ export function prochaineProposition(etat = {}) {
       /* 2026-11-12: approved for and sent to the skin's OWN contract (skins live on several, blockskins.js BLOCKSKINS_LUS) */
       const k = ps.skin.contrat || null;
       const appels = [appelApprouver(S.usdc, m, 'Allow the skins market to take exactly ' + usdcTxt(m), k), ps.genre === 'ACHETER' ? appelAcheter(id, S.usdc, m, k) : appelEncherir(id, S.usdc, m, k)];
-      return proposition(ps.genre === 'ACHETER' ? 'BUY_SKIN' : 'BID_SKIN', appels, (ps.genre === 'ACHETER' ? 'Buy skin #' + id + ' for ' : 'Bid the minimum on skin #' + id + ': ')
+      return proposition(ps.genre === 'ACHETER' ? 'BUY_SKIN' : 'BID_SKIN', appels, (ps.genre === 'ACHETER' ? 'Buy ' + texteSkin(ps.skin) + ' for ' : 'Bid the minimum on ' + texteSkin(ps.skin) + ': ')
         + usdcTxt(m) + ' (your limit ' + usdcTxt(regles.maxSkinBidUsdc) + '). 10 % of a sale goes to TokenizedBlock; an outbid offer is credited back to you.', m, 'SKIN:' + id);
     }
   } else if (regles.skins && !S) pourquoiPas.push('skins: the market was not read');

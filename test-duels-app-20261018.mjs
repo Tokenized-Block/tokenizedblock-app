@@ -17,7 +17,7 @@ const entre = (t, a, b) => { const i = t.indexOf(a), j = t.indexOf(b, i + 1); re
 
 const checks = {
   carteCachee: (t) => /<div class="carte" id="duelsCarte" hidden>/.test(t) && /id="jbDuelsTuile"[^>]*\bhidden>/.test(t) && t.split('id="duelsCarte"').length === 2,
-  regleSansContrat: (t) => /<b>06 · DUELS<\/b><p>[^<]*Winner|<b>06 · DUELS<\/b><p>[\s\S]{0,700}90% of the pot, 7% goes to the community reward pool, 3% to TokenizedBlock[\s\S]{0,200}<span id="regleDuelsEtat">Opens with its contract\.<\/span>/.test(t),
+  regleSansContrat: (t) => /<b>06 · DUELS<\/b><p>[^<]*Winner|<b>06 · DUELS<\/b><p>[\s\S]{0,700}90% of the pot, 7% goes to the community reward pool, 3% to TokenizedBlock[\s\S]{0,200}<span id="regleDuelsEtat">Coming soon\.<\/span>/.test(t),
   aucunBoutonMort: (t) => { const c = entre(t, 'id="duelsCarte"', '<!-- EARN'); return c.length > 500 && !/<button[^>]*\bdisabled\b/.test(c); },
   horsDraws: (t) => { const c0 = t.indexOf('id="tirCarte"'), c1 = t.indexOf('id="missionsCarte"'), d = t.indexOf('id="duelsCarte"'); return d > c1 && c1 > c0 && d < t.indexOf('id="regleCarte"'); },
   pasDeBalayage: (t) => { const b = entre(t, '/* ══ LES DUELS (Phil 2026-10-18', '/* ══ LET THE BRAIN PLAY'); return b.length > 8000 && /fetch\((frais \? '\/api\/duels\?frais=1' : )?'\/api\/duels'/.test(b) && !/eth_getLogs/.test(b); },
@@ -56,7 +56,7 @@ for (const [k, f] of Object.entries(checks)) vu(f(APP) === true, 'app.html : ' +
 /* mutants EN MEMOIRE : chaque verification doit rougir sur la copie mutee */
 const mutants = [
   ['carteCachee', '<div class="carte" id="duelsCarte" hidden>', '<div class="carte" id="duelsCarte">'],
-  ['regleSansContrat', '<span id="regleDuelsEtat">Opens with its contract.</span>', '<span id="regleDuelsEtat"></span>'],
+  ['regleSansContrat', '<span id="regleDuelsEtat">Coming soon.</span>', '<span id="regleDuelsEtat"></span>'],
   ['aucunBoutonMort', '<button type="button" class="bouton" id="duelDefier">', '<button type="button" class="bouton" id="duelDefier" disabled>'],
   /* 2026-10-25 (R2 Grok) : /api/duels?frais=1 apres un recu — ancre suivie */
   ['pasDeBalayage', "try { const j = await fetch(frais ? '/api/duels?frais=1' : '/api/duels'", "try { await rpc('eth_getLogs', []); const j = await fetch(frais ? '/api/duels?frais=1' : '/api/duels'"],

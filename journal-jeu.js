@@ -186,6 +186,9 @@ export function lireEvenementsJeu(logs, contrats, ctx) {
   const regleesParTx = new Set(); /* 'tx:id' d un Settled de duel : le Refunded d une egalite (meme tx) n ajoute pas une 2e ligne */
   let illisibles = 0, sansHeure = 0;
   const montantDe = (brut, jeton) => { const d = jeton ? devises[bas(jeton)] : null; return d ? montantTexte(brut, d.dec) + ' ' + d.sym : null; };
+  /* game390: a skin is named by its ONE app-wide name (ctx.nomSkin(contract, tokenId), blockskins.js nomPublicSkin on the server) — two
+   *   skins contracts both have a token 1 ; without ctx.nomSkin, the token id as before */
+  const nomSk = (sk) => { let n = null; try { n = ctx && typeof ctx.nomSkin === 'function' ? ctx.nomSkin(skins, sk) : null; } catch (_) { n = null; } return typeof n === 'string' && n ? n : 'skin #' + sk; };
   /* l ordre de la chaine (bloc, logIndex) : un Listed ou un Rolled d une fenetre sert aux Bid / Settled qui le suivent */
   const tries = (Array.isArray(logs) ? logs : []).map((l) => ({ l, b: entier(l && l.blockNumber), i: entier(l && l.logIndex) }))
     .filter((x) => x.b !== null && x.i !== null).sort((x, y) => x.b - y.b || x.i - y.i);
@@ -274,7 +277,7 @@ export function lireEvenementsJeu(logs, contrats, ctx) {
     } else if (t0 === T_MINTED) {
       const w = adresseDuTopic(l.topics[2]), bloc = adresseDuTopic(l.topics[3]), sk = idTopic(l.topics[1]);
       if (!w || sk === null || m.length !== 1) { illisibles++; continue; }
-      e = { kind: 'skin_minted', wallet: w, skin: sk, skinBlock: bloc, text: court(w) + ' minted skin #' + sk };
+      e = { kind: 'skin_minted', wallet: w, skin: sk, skinTexte: nomSk(sk), skinBlock: bloc, text: court(w) + ' minted ' + nomSk(sk) };
     } else if (t0 === T_LISTED) {
       /* un Listed n est pas montre : il dit la DEVISE d une enchere, que Bid ne porte pas */
       const sk = idTopic(l.topics[1]);
@@ -288,13 +291,13 @@ export function lireEvenementsJeu(logs, contrats, ctx) {
       /* la devise du listing EN VIGUEUR au bloc du Bid, jamais la derniere lue (un relisting posterieur, ou un Listed plus vieux du rattrapage) */
       const dev = deviseEnVigueur(devisesL, sk, b, i), d = dev ? devises[dev] : null;
       /* `montant` brut garde : un Listed lu PLUS TARD (le rattrapage remonte le temps) complete le texte (completerJournal) */
-      e = { kind: 'skin_bid', wallet: w, skin: sk, montant: m[0].toString(), devise: d ? dev : null,
-        text: court(w) + ' bid on skin #' + sk + (d ? ' · ' + montantTexte(m[0], d.dec) + ' ' + d.sym : '') };
+      e = { kind: 'skin_bid', wallet: w, skin: sk, skinTexte: nomSk(sk), montant: m[0].toString(), devise: d ? dev : null,
+        text: court(w) + ' bid on ' + nomSk(sk) + (d ? ' · ' + montantTexte(m[0], d.dec) + ' ' + d.sym : '') };
     } else if (t0 === T_SOLD) {
       const vendeur = adresseDuTopic(l.topics[2]), w = adresseDuTopic(l.topics[3]), sk = idTopic(l.topics[1]);
       if (!w || !vendeur || sk === null || m.length !== 3) { illisibles++; continue; }
       const d = devises[motVersAdresse(m[0])] || null;
-      e = { kind: 'skin_sold', wallet: w, seller: vendeur, skin: sk, text: court(w) + ' bought skin #' + sk + (d ? ' · ' + montantTexte(m[1], d.dec) + ' ' + d.sym : '') };
+      e = { kind: 'skin_sold', wallet: w, seller: vendeur, skin: sk, skinTexte: nomSk(sk), text: court(w) + ' bought ' + nomSk(sk) + (d ? ' · ' + montantTexte(m[1], d.dec) + ' ' + d.sym : '') };
     }
     if (!e) continue;
     const s = horo(b);
@@ -353,7 +356,7 @@ export function completerJournal(evenements, { cibles, devisesListees, devises }
     if (devB !== null && dv[devB] && ADR.test(bas(e.wallet))) {
       const dev = devB, d = dv[dev];
       let brut = null; try { brut = BigInt(e.montant); } catch (_) { return e; }
-      return { ...e, devise: dev, text: court(e.wallet) + ' bid on skin #' + e.skin + ' · ' + montantTexte(brut, d.dec) + ' ' + d.sym };
+      return { ...e, devise: dev, text: court(e.wallet) + ' bid on ' + (typeof e.skinTexte === 'string' && e.skinTexte ? e.skinTexte : 'skin #' + e.skin) + ' · ' + montantTexte(brut, d.dec) + ' ' + d.sym };
     }
     return e;
   });

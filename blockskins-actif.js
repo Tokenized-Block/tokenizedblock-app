@@ -65,6 +65,10 @@ export const BLOCKSKINS = String(BLOCKSKINS_ACTIF.adresse).toLowerCase();
 /** every deployed skins contract, OLDEST FIRST (the active one last): the skins of each stay readable, each with its own market */
 export const BLOCKSKINS_LUS = Object.freeze(chaineDeploiements(RACINE).filter((x) => ADR.test(String(x.adresse || '')))
   .map((x) => String(x.adresse).toLowerCase()).reverse());
+/** game390: the same contracts, OLDEST FIRST, each with the block of its creation receipt as its record carries it (never typed here):
+ *  the app-wide skin number counts every contract's skins in this order (blockskins.js nomPublicSkin) */
+export const BLOCKSKINS_SUITE = Object.freeze(chaineDeploiements(RACINE).filter((x) => ADR.test(String(x.adresse || '')))
+  .map((x) => Object.freeze({ contrat: String(x.adresse).toLowerCase(), bloc: Number.isSafeInteger(x.blocDeploiement) && x.blocDeploiement > 0 ? x.blocDeploiement : null })).reverse());
 /** the XP sources of the server, one per skins contract the app minted on, each with its OWN key and creation block (never another
  *  contract's cursor). Kept as before the 1 USDC Skins: 'skins' = the last contract before the pack (its cursor is the one already saved),
  *  'skinsPack' = the pack's Skins; then 'skinsUn' = the 1 USDC Skins once recorded. */

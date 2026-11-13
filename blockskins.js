@@ -8,15 +8,16 @@
 // ⛔ CE MODULE NE SIGNE RIEN ET N ENVOIE RIEN : il encode des appels NON SIGNES et decode des lectures. Le wallet de la personne signe.
 // ⛔ La skin appartient a qui DETIENT le NFT (ownerOf / skinsPage.holder) - jamais a un index de serveur.
 import { BLOCKSKINS_DEPLOIEMENT } from './blockskins-deploiement.js';
-import { BLOCKSKINS_ACTIF, BLOCKSKINS, BLOCKSKINS_VERSION, SKIN_MINT_USDC, SKIN_MINT_TEXTE, SKIN_MINT_OUVERT, BLOCKSKINS_LUS } from './blockskins-actif.js';
+import { BLOCKSKINS_ACTIF, BLOCKSKINS, BLOCKSKINS_VERSION, SKIN_MINT_USDC, SKIN_MINT_TEXTE, SKIN_MINT_OUVERT, BLOCKSKINS_LUS, BLOCKSKINS_SUITE } from './blockskins-actif.js';
 import { selecteur } from './encodeur.js';
 import { ACTIONS_COINBASE } from './paires.js';
+import { displayShort } from './frais-creation.js';
 
 /* ══ 2026-10-18 (Phil 08:40 : « tous les skins a 10 dollars ») : l ADRESSE et le PRIX DE MINT viennent de blockskins-actif.js — le premier
  *   contrat DEPLOYE de l enregistrement genere (v3 des que son adresse est notee par noter-deploiement-blockskins.mjs ; v2, 1 USDC, avant),
  *   avec le prix RELU sur la chaine quand l adresse a ete notee. Plus aucune constante de prix tapee ici : l app relit MINT_PRICE() avant
  *   d acheter et refuse si la chaine dit autre chose que l enregistrement. */
-export { BLOCKSKINS_ACTIF, BLOCKSKINS, BLOCKSKINS_VERSION, SKIN_MINT_USDC, SKIN_MINT_TEXTE, SKIN_MINT_OUVERT, BLOCKSKINS_LUS };
+export { BLOCKSKINS_ACTIF, BLOCKSKINS, BLOCKSKINS_VERSION, SKIN_MINT_USDC, SKIN_MINT_TEXTE, SKIN_MINT_OUVERT, BLOCKSKINS_LUS, BLOCKSKINS_SUITE };
 /* 2026-11-12 (the economy pack is live): skins live on SEVERAL contracts — the pack's Skins (minted on now, through the TBLOCK payment
  *   router) and the earlier ones. Every skin read carries its `contrat`; every market call takes the skin's own contract as its last
  *   argument (default: the active one), so an earlier skin is still sold, bought or settled where it lives. */
@@ -121,9 +122,67 @@ export function decoderPage(hex) {
   }
   return out;
 }
+/* ══ game390 (Phil, 2026-11-13: two different skins both read "Skin #1 dresses UNIT" — skins live on several contracts and each one
+ *   numbers its tokens from 1 ; « fix la numérotation avec leur propre numérotation pour que ça soit plus simple »). ONE app-wide number
+ *   per skin, in mint order, the same rule as the TAM fix (game378, tam-onglet.js nomPublicTam): the contracts OLDEST FIRST
+ *   (BLOCKSKINS_SUITE, from the records) ; N_i = the totalSupply of contract i READ ON CHAIN at the creation block of contract i+1 (the
+ *   skins it minted before the next one went live ; tokenId = ++totalSupply, no burn) ; the skin k of contract i is #(N_0 + … + N_(i-1) + k).
+ *   Nothing is guessed: a count not read, or a token of an older contract above its N (minted there after the next one went live), and
+ *   the skin is named by its contract and token id instead. ONLY THE LABEL CHANGES: every read and every call keeps the skin's own
+ *   contract and tokenId. Pure. */
+const adrCourte = (a) => displayShort(bas(a));
+export function nomPublicSkin(contrat, tokenId, comptes, suite = BLOCKSKINS_SUITE) {
+  let k = null;
+  try { const b = BigInt(tokenId); if (b >= 1n && b <= BigInt(Number.MAX_SAFE_INTEGER)) k = Number(b); } catch (_) { k = null; }
+  const c = bas(contrat), L = Array.isArray(suite) ? suite : [], i = L.findIndex((x) => x && x.contrat === c);
+  const lu = (n) => Number.isSafeInteger(n) && n >= 0;
+  let numero = null;
+  if (k !== null && i >= 0 && Array.isArray(comptes) && comptes.length >= i && comptes.slice(0, i).every(lu)) {
+    const decalage = comptes.slice(0, i).reduce((a, n) => a + n, 0);
+    if (i === L.length - 1 || (lu(comptes[i]) && k <= comptes[i])) numero = decalage + k;
+  }
+  const jeton = 'token ' + (k === null ? String(tokenId) : k) + ' of ' + adrCourte(c);
+  return { numero, nom: numero === null ? 'Skin ' + jeton : 'Skin #' + numero, texte: numero === null ? 'skin ' + jeton : 'skin #' + numero,
+    detail: 'Token ' + (k === null ? String(tokenId) : k) + ' on the skins contract ' + adrCourte(c) };
+}
+/* N_i read once per page or process: a past block's totalSupply never changes, so a READ count is kept (never a failed one: it is read
+ *   again next time). Key = contract @ block. */
+const comptesSkinsCache = new Map();
+/** [N_0 … N_(m-1)] for the m+1 contracts of `suite` (null = not read: an answer that is not one whole word — '0x' before the contract
+ *  existed — is never read as 0) */
+export async function lireComptesSkins({ rpc, suite = BLOCKSKINS_SUITE }) {
+  const out = [];
+  for (let i = 0; i + 1 < suite.length; i += 1) {
+    const c = bas(suite[i].contrat), b = suite[i + 1].bloc, cle = c + '@' + b;
+    if (comptesSkinsCache.has(cle)) { out.push(comptesSkinsCache.get(cle)); continue; }
+    let n = null;
+    if (Number.isSafeInteger(b) && b > 0) {
+      try {
+        const brut = String(await rpc('eth_call', [{ to: c, data: '0x' + selecteur('totalSupply()') }, '0x' + b.toString(16)]));
+        if (/^0x[0-9a-f]{64}$/i.test(brut)) { const v = BigInt(brut); if (v <= BigInt(Number.MAX_SAFE_INTEGER)) n = Number(v); }
+      } catch (_) { n = null; }
+    }
+    if (n !== null) comptesSkinsCache.set(cle, n);
+    out.push(n);
+  }
+  return out;
+}
+/** the counts already read (no network): for a reader that names a skin outside lireSkins (the server's game journal) */
+export function comptesSkinsLus(suite = BLOCKSKINS_SUITE) {
+  const out = [];
+  for (let i = 0; i + 1 < suite.length; i += 1) { const cle = bas(suite[i].contrat) + '@' + suite[i + 1].bloc; out.push(comptesSkinsCache.has(cle) ? comptesSkinsCache.get(cle) : null); }
+  return out;
+}
+/** the name every screen shows for a skin read (lireSkins put it on the skin) ; a skin object without it is named here from the counts
+ *  already read — never by its bare token id. `nomSkin` starts a line ("Skin #2"), `texteSkin` sits in a sentence ("skin #2"),
+ *  `cleSkin` identifies it (contract + token id: two contracts both have a token 1). */
+export const nomSkin = (s) => (s && typeof s.nom === 'string' && s.nom ? s.nom : nomPublicSkin(s && s.contrat, s && s.tokenId, comptesSkinsLus()).nom);
+export const texteSkin = (s) => (s && typeof s.texte === 'string' && s.texte ? s.texte : nomPublicSkin(s && s.contrat, s && s.tokenId, comptesSkinsLus()).texte);
+export const detailSkin = (s) => (s && typeof s.detail === 'string' && s.detail ? s.detail : nomPublicSkin(s && s.contrat, s && s.tokenId, comptesSkinsLus()).detail);
+export const cleSkin = (s) => bas(s && s.contrat) + ':' + String(s && s.tokenId);
 /** Toutes les skins, par pages de `pas` (lecture seule). Rend { etat:'LU', skins } ou { etat:'NON_LU', pourquoi } - jamais une liste vide
- *  a la place d une lecture ratee. */
-export async function lireSkins({ rpc, pas = 100, max = 2000, contrats = BLOCKSKINS_LUS }) {
+ *  a la place d une lecture ratee. game390: each skin also carries its app-wide name (nomPublicSkin: numero, nom, texte, detail). */
+export async function lireSkins({ rpc, pas = 100, max = 2000, contrats = BLOCKSKINS_LUS, suite = BLOCKSKINS_SUITE }) {
   /* 2026-11-12 : every skins contract, oldest first (the active one last: skinPortee keeps the LAST skin held for a block); each skin
    *   carries its contract. One contract unread = NON_LU for all (never a list with a silent hole). */
   try {
@@ -137,7 +196,10 @@ export async function lireSkins({ rpc, pas = 100, max = 2000, contrats = BLOCKSK
         for (const s of decoderPage(await rpc('eth_call', [{ to: k, data: appelPage(depuis, pas) }, 'latest']))) skins.push({ ...s, contrat: k });
       }
     }
-    return { etat: 'LU', total, skins, tronque };
+    /* game390: the counts are read only when there is a skin to name ; a count not read names the skin by its contract, never NON_LU */
+    let comptes = [];
+    if (skins.length) { try { comptes = await lireComptesSkins({ rpc, suite }); } catch (_) { comptes = []; } }
+    return { etat: 'LU', total, skins: skins.map((s) => ({ ...s, ...nomPublicSkin(s.contrat, s.tokenId, comptes, suite) })), tronque, comptes };
   } catch (e) { return { etat: 'NON_LU', pourquoi: String((e && e.message) || e).slice(0, 120) }; }
 }
 /** Les skins d un compte (detenues, ou mises en vente par lui), et celle qu il PORTE sur un block : la derniere qu il detient pour ce block. */

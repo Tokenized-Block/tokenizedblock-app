@@ -3224,7 +3224,7 @@ details[open] > summary::before{transform:rotate(90deg)}
                laisse la phrase STATIQUE dire la meme chose en d autres mots. Deux copies d une
                affirmation, une seule corrigee — le motif « le jumeau diverge », deja paye ici.
                Toute correction de copie doit donc grep la formulation, pas seulement le fichier. -->
-          <li><b>Cost</b>: the same 0.001 ETH Birth fee as any block, when you sign in Create. Trading it then costs what its market charges — <b>3%</b> on a market opened here; the market screen shows the exact rate of the pool you trade in.</li>
+          <li><b>Cost</b>: the same 0.001 ETH Birth fee as any block, when you sign in Create. Trading it then costs what its market charges — <b>0.1%</b> on a market opened here; the market screen shows the exact rate of the pool you trade in.</li>
         </ul>
         </details>
       </div>
@@ -3473,7 +3473,7 @@ details[open] > summary::before{transform:rotate(90deg)}
         <p class="sousTitre">Most active holders — live</p><div id="wCoeursBoard"></div>
       </div>
       <!-- game356 (Grok's Wallet card plan): how the vault works, folded; the hold amounts are READ from the frozen deploy data -->
-      <div class="wCoeurs" id="wVaultHow"><p class="sous">TBLOCK set aside for the players. Each week it pays them back part of what they put in — hearts ♥, TAM art and skins — never more than they put in. Every TAM art and skin mint sends the TBLOCK it buys here.</p><div class="note" id="wVaultComment"></div></div>
+      <div class="wCoeurs" id="wVaultHow"><p class="sous">TBLOCK set aside for the players. Each week it pays them back part of what they put in — hearts ♥ and TAM art — never more than they put in. Every TAM art and skin mint, and the Spin's dev share, send the TBLOCK they buy here.</p><div class="note" id="wVaultComment"></div></div>
       <!-- game386 (Phil 2026-11-12: "a page that sticks to claim and details"): the claims of this wallet, week by week and month by month, and
            the rules in words, on claim.html; the block contest keeps its own link (Create, fees and why TBLOCK) -->
       <a class="bouton sec" href="/claim.html" style="display:inline-block;margin-top:8px">Claim and details</a>
@@ -3757,7 +3757,7 @@ details[open] > summary::before{transform:rotate(90deg)}
       <!-- ⛔ L EMPREINTE EST AFFICHEE, DONC ELLE EST DE L ANGLAIS. `20261001-pont-dans-lui` a fait
            rougir `test-texte-a-l-ecran.mjs` : le mot « dans » est de la prose francaise partie a
            l ecran anglais. La garde a fait son travail du premier coup. -->
-      <p class="note" data-build="20261109-game389" hidden>Build <code>20261109-game389</code> ·Contract labels say what they do, not our internal names.</p>
+      <p class="note" data-build="20261109-game390" hidden>Build <code>20261109-game390</code> ·Contract labels say what they do, not our internal names.</p>
       <p class="sous">Everything happening to blocks on Base, live.</p>
       <!-- tip 0013: sticky — Hooked chip = Dex fees; unhooked → Launch beside. No fee addr. -->
       <p class="note" id="sfHookedSticky" hidden>Blocks alive on TokenizedBlock pay their creator on every trade. Example:<button type="button" class="puce" id="sfStickyTbgas">Open TBGAS</button>.</p>
@@ -4668,7 +4668,7 @@ details[open] > summary::before{transform:rotate(90deg)}
           <div class="jeuTuile"><b>04 · MISSIONS</b><p>Anyone posts a task and locks its reward. A ticket holder who holds the block does it — a person or an AI agent — and the chain proves it. Doer 90%, community earn pool 7%, TokenizedBlock 3%.</p></div>
           <div class="jeuTuile"><b>05 · SKINS</b><p>Mint a skin for your block, wear it, resell it at a fixed price or in an auction (bids +5%, 7 days max). A minted skin is also that day's ticket.</p></div>
           <!-- DUELS : la regle, et « opens with its contract » tant que le contrat n est pas servi (peindreDuels remplace la derniere phrase) -->
-          <div class="jeuTuile"><b>06 · DUELS</b><p>Two wallets — a person, or a block's brain proposing to its owner — stake the same in USDC or an admitted tokenized stock. Each plays a new random block face; the block 2 blocks after the join draws its face; the most traits in common out of 5 wins 90% of the pot, 7% goes to the community reward pool, 3% to TokenizedBlock. A tie refunds both, no fee. <span id="regleDuelsFenetre">Not accepted in time, or not settled within 256 blocks: refunded in full.</span> <span id="regleDuelsEtat">Opens with its contract.</span></p></div>
+          <div class="jeuTuile"><b>06 · DUELS</b><p>Two wallets — a person, or a block's brain proposing to its owner — stake the same in USDC or an admitted tokenized stock. Each plays a new random block face; the block 2 blocks after the join draws its face; the most traits in common out of 5 wins 90% of the pot, 7% goes to the community reward pool, 3% to TokenizedBlock. A tie refunds both, no fee. <span id="regleDuelsFenetre">Not accepted in time, or not settled within 256 blocks: refunded in full.</span> <span id="regleDuelsEtat">Coming soon.</span></p></div>
         </div>
         <p class="note" style="margin:10px 0 0">What each game costs, what it pays back on average, and which pieces still wait for their contract: <a class="lienLearn" href="frais-et-risques.html">Fees &amp; risks →</a></p>
       </details>
@@ -5368,7 +5368,7 @@ import * as PanneauCmd from './panneau-commandes.js';
 /* 2026-10-18 : la palette Ctrl+K du panneau (filtre et classement purs ; la liste vient de COMMANDES, de la barre d onglets et des tuiles du Game) */
 import { entreesCommandes, entreesOnglets, entreesJeu, filtrerPalette, noterUsage, lireUsages, ecrireUsages, deplacer } from './palette.js';
 import { BLOCKSKINS, SKIN_MINT_USDC, SKIN_MINT_TEXTE, SKIN_MINT_OUVERT, appelMint, packRecette, appelApprouver, lireSkins, skinsDe, skinPortee, DEVISES_SKIN, montantVersBrut, actionsSkin, appelCredit,
-  offreMinimale, partage, appelAcheter, appelEncherir, appelRegler, appelRetirer, appelMettreEnVente, appelOuvrirEnchere, appelRetirerCredit, ETH as ETH_SKIN, propositionSkin, lireDevisesSkin, deviseAdmise, decoderPage, appelPage } from './blockskins.js';
+  offreMinimale, partage, appelAcheter, appelEncherir, appelRegler, appelRetirer, appelMettreEnVente, appelOuvrirEnchere, appelRetirerCredit, ETH as ETH_SKIN, propositionSkin, lireDevisesSkin, deviseAdmise, decoderPage, appelPage, nomSkin, texteSkin, detailSkin, cleSkin } from './blockskins.js';
 import { SKM_RAFRAICHIR_MS, SKM_POULS_MS, SKM_FILTRES, SKM_STATUTS, filtrerSkins, ordonnerSkins, compterSkins, gestesSkin, montantOffre, relectureAvantSigner, cleLigneSkin, offresChangees, tempsRestant, apercuSkinFormes, detenteurCourt, statutSkin, brutVersTexte as brutVersTexteSkin, texteMarcheSkins } from './skins-marche.js';
 import { annonce as annonceSalle } from './salle-encheres.js';
 import { pensee as penseeVision, lecture as lectureCerveau } from './pensee-cerveau.js';
@@ -7344,7 +7344,8 @@ function nomBlockSalle(adr) { return String(adr).toLowerCase() === UNIT_APP.toLo
 function salleLignes(zone, skins, moi, t) {
   const offertesCle = Object.keys(bcDevisesOffertes()).join(','), enfants = [];
   for (const s of skins) {
-    const id = String(s.tokenId), cle = cleLigneSkin(s, moi, t) + '|' + offertesCle, ancien = salle.lignes.get(zone.id + id);
+    /* game390: a row is kept by its skin's contract AND token id (two contracts both have a token 1) */
+    const id = cleSkin(s), cle = cleLigneSkin(s, moi, t) + '|' + offertesCle, ancien = salle.lignes.get(zone.id + id);
     const occupe = !!ancien && (ancien.el.contains(document.activeElement) || [...ancien.el.querySelectorAll('input')].some((i) => i.value && i.value !== i.defaultValue));
     const garder = !!ancien && (occupe || ancien.cle === cle);
     const el = garder ? ancien.el : skmLigne(s, moi, t);
@@ -7370,9 +7371,10 @@ function peindreSalle() {
     const NS = 'http://www.w3.org/2000/svg', svg = document.createElementNS(NS, 'svg');
     for (const [k, v] of [['viewBox', '0 0 48 48'], ['aria-hidden', 'true'], ['focusable', 'false']]) svg.setAttribute(k, v);
     for (const [tag, at] of apercuSkinFormes(p.recette)) { const e = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(at)) e.setAttribute(k, v); svg.append(e); }
-    podium.append(svg, bcEl('span', {}, [bcEl('b', { text: 'Skin #' + p.tokenId }), document.createTextNode(' — the face it gives ' + nomBlockSalle(p.block) + ' (its colours, read on chain)')]));
+    /* game390: the skin's ONE app-wide name (blockskins.js nomPublicSkin), its contract and token id in the tooltip */
+    podium.append(svg, bcEl('span', {}, [bcEl('b', { text: nomSkin(p), title: detailSkin(p) }), document.createTextNode(' — the face it gives ' + nomBlockSalle(p.block) + ' (its colours, read on chain)')]));
     /* the gavel taps when the highest bid read on chain changes (never on the first read) */
-    const o = String(p.tokenId) + ':' + String(p.offre);
+    const o = cleSkin(p) + ':' + String(p.offre);
     if (salle.offrePodium && salle.offrePodium !== o) { const c = $('#skCrieur'); c.classList.remove('tape'); void c.getBoundingClientRect(); c.classList.add('tape'); }
     salle.offrePodium = o;
   }
@@ -7381,8 +7383,8 @@ function peindreSalle() {
   const g = p ? gestesSkin(p, moi, t).map((x) => x.genre) : [];
   signe.hidden = !p;
   if (p) signe.textContent = !moi ? 'Connect a wallet to bid or settle — nothing can be signed without one.'
-    : g.includes('ENCHERIR') ? 'If you bid, your wallet signs a bid on skin #' + p.tokenId + ' of at least ' + bcMontantSkin(offreMinimale(p), p.devise) + ' (the amount you type, never less), on the BlockSkins contract' + (String(p.devise).toLowerCase() === ETH_SKIN ? '.' : ', after an approval of exactly that amount if needed.') + ' It is read again on chain first.'
-      : g.includes('REGLER') ? 'Settling skin #' + p.tokenId + ' signs one call on the BlockSkins contract: no payment from you.'
+    : g.includes('ENCHERIR') ? 'If you bid, your wallet signs a bid on ' + texteSkin(p) + ' of at least ' + bcMontantSkin(offreMinimale(p), p.devise) + ' (the amount you type, never less), on the BlockSkins contract' + (String(p.devise).toLowerCase() === ETH_SKIN ? '.' : ', after an approval of exactly that amount if needed.') + ' It is read again on chain first.'
+      : g.includes('REGLER') ? 'Settling ' + texteSkin(p) + ' signs one call on the BlockSkins contract: no payment from you.'
         : 'This lot is yours — you cannot bid on it.';
   const shelf = a.etagere || [];
   salleLignes($('#skEtagere'), shelf, moi, t);
@@ -7648,7 +7650,7 @@ async function peindreDuels() {
   /* UN JEU A LA FOIS : la tuile vient d apparaitre ou de partir — le choix est repose (retombe sur tirCarte sans elle) */
   try { peindreChoixJeu(); } catch (_) { /* hors de la page (banc) */ }
   for (const id of ['#bjDuelsLab', '#bjMaxDuelLab']) { const x = $(id); if (x) x.hidden = !on; }
-  if (regle) regle.textContent = on ? (Duels.duelsOuverts(j) ? 'Open on Base.' : 'On Base; new duels are closed.') : 'Opens with its contract.';
+  if (regle) regle.textContent = on ? (Duels.duelsOuverts(j) ? 'Open on Base.' : 'On Base; new duels are closed.') : 'Coming soon.';
   /* v2 : la regle de la fenetre DITE la ou elle est lue (How it works, la carte) : un duel rejoint non regle a temps va au createur */
   if (on && Duels.PHRASE_EGALITE) {
     const fen = 'Accepted but not settled within ' + texteBlocs(FENETRE_ROLLS, sParBlocApp) + ' of its result block: the creator wins by default';
@@ -28838,7 +28840,7 @@ const ETAPES = [
   { t: 'Market — what is moving', ic: 6,
     d: 'Every block with a live market, and the stocks Coinbase tokenized on Base, ranked by what is moving right now. Tap one to open it and buy or sell — your own wallet shows each step and you sign it.' },
   { t: 'Create — make your own', ic: 0,
-    d: 'Pick a name and a symbol; its face and its brain are ready. For 0.001 ETH it is born on Base, its tokens are minted to you, and its market opens.' },
+    d: 'Pick a name and a symbol; its face and its brain are ready. For $5 in all (the 0.001 ETH birth fee, the rest in TBLOCK for the holders vault) it is born on Base, its tokens are minted to you, and its market opens.' },
   { t: 'Game — missions, rolls and the weekly pot', ic: 3,
     d: 'Blocks post missions here: hold the block, do the job, keep holding through the window, and the reward is yours. Trade $10 in a day — the UNIT block or tokenized stocks — and that day\'s ticket is 1 entry in this week\'s reward pot, shared by entries after the week closes (UTC). Rolls are paid on their own contract.' },
   { t: 'Brain — what a block feels', ic: 9,
@@ -28852,7 +28854,7 @@ const ETAPES = [
   { t: 'Tokenized — stocks, lending, your own tokens', ic: 5,
     d: 'Borrow USDC against a Coinbase tokenized stock you hold, or lend USDC: it runs on Morpho, a lending protocol already live on Base, and your wallet signs each step. Or mint a new block named after a token that already exists — the original is never touched. Coinbase issues the tokenized stocks; they are not offered to US persons.' },
   { t: 'TAM — math art drawn by the brain', ic: 9,
-    d: 'The brain combines known mathematical systems (strange attractors, fractals, the golden angle) into a checked drawing you can explore for free, and mint on Base for 5 USDC once its contract is live.' },
+    d: 'The brain combines known mathematical systems (strange attractors, fractals, the golden angle) into a checked drawing you can explore for free, and mint on Base for 5 USDC.' },
   { t: 'Skins — dress your block', ic: 7,
     d: 'In the control panel, tap + to try skins on. Buy one for ' + SKIN_MINT_TEXTE + ' and it is yours on chain, bound to that block: its brain wears it, your wallet can show it, and you can sell it or auction it on the skins market.' },
 ];
@@ -32157,7 +32159,7 @@ async function bcPeindreMarche() {
 }
 function bcLigneSkin(s, moi, t) {
   const li = bcEl('div', { cls: 'bcLigneSkin' });
-  const nom = 'Skin #' + s.tokenId + ' · ' + bcResoudre(s.block).sym;
+  const nom = nomSkin(s) + ' · ' + bcResoudre(s.block).sym;
   const detail = !s.enVente ? 'in your wallet'
     : !s.enchere ? 'for ' + bcMontantSkin(s.prix, s.devise)
     : t >= s.fin ? 'auction ended · ' + (s.offre > 0n ? 'winning bid ' + bcMontantSkin(s.offre, s.devise) : 'no bid')
@@ -32256,12 +32258,13 @@ function skmPeindreListe() {
   const vues = ordonnerSkins(filtrerSkins(skm.liste, skm.filtre, moi, t), t).slice(0, 60);
   const lignes = new Map(), enfants = [];
   for (const s of vues) {
-    const id = String(s.tokenId), cle = cleLigneSkin(s, moi, t) + '|' + offertesCle, ancien = skm.lignes.get(id);
+    /* game390: a row is kept by its skin's contract AND token id (cleSkin: two contracts both have a token 1) */
+    const id = String(s.tokenId), k = cleSkin(s), cle = cleLigneSkin(s, moi, t) + '|' + offertesCle, ancien = skm.lignes.get(k);
     /* une ligne ou l on tape (focus, ou un prix / une offre ecrits) n est pas repeinte : sa cle reste l ancienne, elle le sera ensuite */
     const occupe = !!ancien && (ancien.el.contains(document.activeElement) || [...ancien.el.querySelectorAll('input')].some((i) => i.value && i.value !== i.defaultValue));
     const garder = !!ancien && (ancien.cle === cle || occupe);
     const el = garder ? ancien.el : skmLigne(s, moi, t);
-    lignes.set(id, { cle: garder ? ancien.cle : cle, el });
+    lignes.set(k, { cle: garder ? ancien.cle : cle, el });
     for (const e of el.querySelectorAll('.skmTemps')) e.textContent = tempsRestant(e.dataset.fin, t);
     skmPouls(el, id);
     enfants.push(el);
@@ -32289,7 +32292,9 @@ function skmPouls(el, id) {
 function skmLigne(s, moi, t) {
   const id = String(s.tokenId), li = bcEl('div', { cls: 'skmLigne' });
   li.dataset.skin = id;
-  const face = bcEl('span', { cls: 'skmFace', title: 'Skin #' + id });
+  /* game390 (Phil: two different skins both read "Skin #1 dresses UNIT"): the skin's ONE app-wide name (blockskins.js nomPublicSkin,
+   *   put on the skin by lireSkins) ; its own contract and token id are in the tooltip, and every gesture still uses them */
+  const face = bcEl('span', { cls: 'skmFace', title: nomSkin(s) });
   /* la face : des noeuds SVG construits un par un (apercuSkinFormes : seulement des entiers 0..359 de la recette lue sur la chaine) —
    *   jamais d innerHTML dans le panneau (garde de test-commandes-panel) */
   const NS = 'http://www.w3.org/2000/svg', svg = document.createElementNS(NS, 'svg');
@@ -32307,7 +32312,7 @@ function skmLigne(s, moi, t) {
     statut.append(tr, document.createTextNode(qui ? ' · seller ' + qui : ''));
   } else if (st === 'ENCHERE_FINIE') statut.textContent = 'Auction ended · ' + (BigInt(s.offre) > 0n ? 'winning bid ' + bcMontantSkin(s.offre, s.devise) : 'no bid — it goes back to its seller') + ' · anyone can settle it';
   else statut.textContent = 'Not listed' + (qui ? ' · held by ' + qui : '');
-  li.append(face, bcEl('span', { cls: 'skmInfo' }, [bcEl('b', { text: 'Skin #' + id }), document.createTextNode(' dresses ' + sym), statut]));
+  li.append(face, bcEl('span', { cls: 'skmInfo' }, [bcEl('b', { text: nomSkin(s), title: detailSkin(s) }), document.createTextNode(' dresses ' + sym), statut]));
   const gestes = bcEl('div', { cls: 'skmGestes' });
   const bouton = (texte, genre, x) => { const b = bcEl('button', { type: 'button', cls: 'bouton sec', text: texte }); b.addEventListener('click', () => void bcActionMarche(genre, s, x)); gestes.append(b); return b; };
   for (const g of gestesSkin(s, moi, t)) {
@@ -32342,9 +32347,10 @@ setInterval(() => {
   if (Date.now() - skm.lu >= SKM_RAFRAICHIR_MS && Date.now() - skm.rate >= SKM_RAFRAICHIR_MS) void peindreSkinsMarche(true); else skmPeindreListe();
 }, 5000);
 async function bcActionMarche(genre, s, x = {}, qui = 'Skins') {
-  const id = s ? s.tokenId : null;
-  const titre = { ACHETER: 'Buy skin #' + id, ENCHERIR: 'Bid on skin #' + id, REGLER: 'Settle skin #' + id, RETIRER: 'Take back skin #' + id,
-    VENDRE: 'Sell skin #' + id, ENCHERE: 'Auction skin #' + id, CREDIT: 'Withdraw from the skins market' }[genre];
+  /* game390: the card names the skin as every list does (its app-wide name) ; the calls below keep s.tokenId and its contract */
+  const laSkin = s ? texteSkin(s) : null;
+  const titre = { ACHETER: 'Buy ' + laSkin, ENCHERIR: 'Bid on ' + laSkin, REGLER: 'Settle ' + laSkin, RETIRER: 'Take back ' + laSkin,
+    VENDRE: 'Sell ' + laSkin, ENCHERE: 'Auction ' + laSkin, CREDIT: 'Withdraw from the skins market' }[genre];
   /* 2026-10-23 : un geste venu de l onglet Market ou du Game ouvre le panneau (sa carte a signer y vit) — sans lui, la carte s ecrivait
    *   dans un panneau ferme et le bouton semblait mort */
   try { bcOuvrirPop({ vue: 'chat', sansBasculer: true, deplier: true }); } catch (_) { /* la carte est quand meme dans le fil */ }
@@ -33445,7 +33451,7 @@ async function peindreVaultWallet() {
     bp.append(HV.etapes(document, HV.etapesPaiement({ wallet: pour, locked: w ? w.locked : 0n, need, unlockAt: w ? w.unlockAt : 0n, minCommit: regle ? regle.MIN_COMMIT : null,
       maintenant, mien: w ? w.mien : 0n, finSemaine: fin, semaineNo: ep, accesUsd: regle ? regle.ACCESS_USD : null, fmt: EP.fmt, fenetreJours: regle ? Math.round(Number(regle.CLAIM_WINDOW) / 86400) : null }), 'How you get paid'));
     const bj = bloc('hvJeu', 'play');
-    bj.append(mk('p', 'hvTitreBloc', 'Play this week'), mk('p', 'hvDetail', 'from hearts, TAM art and skins'));
+    bj.append(mk('p', 'hvTitreBloc', 'Play this week'), mk('p', 'hvDetail', 'from hearts and TAM art'));
     const rang = (cle, k, v, p, txt) => { const d = mk('div', 'hvRang'); d.dataset.l = cle; d.append(tete(k, v), HV.barre(document, { pct: p, role: 'meter', etiquette: k, texte: txt })); bj.append(d); };
     if (w) rang('play-mine', 'You', EP.fmt(w.mien) + ' TBLOCK', HV.pct(w.mien, jeu), EP.fmt(w.mien) + ' TBLOCK, ' + HV.pct(w.mien, jeu) + '% of this week’s play');
     rang('play-all', 'All players', EP.fmt(jeu) + ' TBLOCK' + (joueurs === null ? '' : ' · ' + joueurs + (joueurs === 1 ? ' wallet' : ' wallets') + ' gave a heart'), jeu > 0n ? 100 : 0, EP.fmt(jeu) + ' TBLOCK in all this week');

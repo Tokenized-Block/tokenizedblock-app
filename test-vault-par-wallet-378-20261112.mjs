@@ -162,7 +162,7 @@ const aria = (x, k) => (x && x.attrs ? x.attrs['aria-' + k] : null);
 /* 1. Grok's wallet: the week line and the wallet line, each from its own view */
 C.setCompte(GROK); await peindreTout();
 t('Grok: In the vault = TBLOCK.balanceOf(V) 847,983 (the big figure)', (txtL('vault') || '').startsWith('In the vault 847,983 TBLOCK'), txtL('vault'));
-t('Grok: Play this week = V.totalPlayIn(0) 940,979 (all players), 1 wallet gave a heart', txtL('play-all') === 'All players 940,979 TBLOCK · 1 wallet gave a heart' && /^Play this weekfrom hearts, TAM art and skins/.test(txtL('play') || '') /* the fake DOM joins blocks without a space */, txtL('play'));
+t('Grok: Play this week = V.totalPlayIn(0) 940,979 (all players), 1 wallet gave a heart', txtL('play-all') === 'All players 940,979 TBLOCK · 1 wallet gave a heart' && /^Play this weekfrom hearts and TAM art/.test(txtL('play') || '') /* the fake DOM joins blocks without a space */, txtL('play'));
 t('Grok: For the players at the close = the close rule on V (423,991)', (ligneDe('For the players at the close') || '').startsWith('For the players at the close 423,991 TBLOCK'), ligneDe('For the players at the close'));
 t('Grok: Your play = V.playOf(0, Grok) 940,979, factor V.lockFactor 11,667 -> ×1.17, lock activeLockedOf 3,000,000',
   txtL('play-mine') === 'You 940,979 TBLOCK' && (txtL('factor') || '').startsWith('Lock factor ×1.17 (3,000,000 TBLOCK locked)'), JSON.stringify([txtL('play-mine'), txtL('factor')]));

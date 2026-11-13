@@ -70,7 +70,8 @@ const USDC = '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913', ME = '0x' + 'a'.repea
 const fmt = (b, d) => (BigInt(b) / 10000n).toString() + '.' + (BigInt(b) % 10000n).toString().padStart(4, '0').slice(0, 2) + (d === USDC ? ' USDC' : ' ETH');
 const nom = (a) => (a === '0x' + 'c'.repeat(40) ? 'UNIT' : 'AAPLc');
 const T = 1_800_000_000, rec = { angle: 1, h: [1, 2, 3], cube: 4, noyau: 5, fond: 6 };
-const sk = (o) => ({ tokenId: 1n, detenteur: BOB, block: '0x' + 'c'.repeat(40), recette: rec, enVente: false, enchere: false, devise: USDC, prix: 0n, fin: 0, encherisseur: ZERO, offre: 0n, ...o });
+/* game390: a skin read by lireSkins carries its app-wide name (texte) ; here one contract, so that name is its token id */
+const sk = (o) => { const x = { tokenId: 1n, detenteur: BOB, block: '0x' + 'c'.repeat(40), recette: rec, enVente: false, enchere: false, devise: USDC, prix: 0n, fin: 0, encherisseur: ZERO, offre: 0n, ...o }; return { ...x, texte: 'skin #' + x.tokenId }; };
 const live = sk({ tokenId: 3n, enVente: true, enchere: true, prix: 20000n, fin: T + 7200, offre: 30000n, encherisseur: ME });
 const open = sk({ tokenId: 4n, enVente: true, enchere: true, prix: 50000n, fin: T + 99999 });
 const fixe = sk({ tokenId: 5n, enVente: true, prix: 70000n, block: '0x' + 'd'.repeat(40) });
@@ -113,7 +114,7 @@ ok(!/appel(Acheter|Encherir|Regler|Retirer|MettreEnVente|OuvrirEnchere|Mint|Appr
 ok(/skmLigne\(s, moi, t\)/.test(room) && /\$\('#skMint'\)\.addEventListener\('click', ouvrirMintSkin\)/.test(app), 'its gestures are the Market rows (bcActionMarche) and ouvrirMintSkin');
 ok(/annonceSalle\(\{ skins: skm\.liste \|\| \[\], lu: !!skm\.liste/.test(room), 'the auctioneer reads the SAME list as the Market tab');
 ok(/apercuSkinFormes\(p\.recette\)/.test(room), 'the podium wears the skin face from its on-chain recipe');
-ok(/of at least ' \+ bcMontantSkin\(offreMinimale\(p\), p\.devise\)/.test(room) && /skin #' \+ p\.tokenId/.test(room), 'the screen says what the wallet would sign (amount, currency, skin id)');
+ok(/of at least ' \+ bcMontantSkin\(offreMinimale\(p\), p\.devise\)/.test(room) && /bid on ' \+ texteSkin\(p\) \+ ' of at least/.test(room), 'the screen says what the wallet would sign (amount, currency, the skin\'s app-wide name — game390)');
 /* the auctioneer is an original drawing, not a named mascot */
 ok(!/monopoly|pennybags/i.test(app.slice(app.indexOf('id="skPop"'), app.indexOf('id="bvPop"'))), 'no copyrighted mascot name');
 

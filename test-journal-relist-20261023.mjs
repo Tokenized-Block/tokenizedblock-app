@@ -162,6 +162,9 @@ function fauxNoeud(etat) {
         const duJournal = Array.isArray(f.address) && f.address.map((x) => String(x).toLowerCase()).includes(ROLLS);
         result = duJournal ? etat.logs(etat.tete).filter((l) => { const bn = parseInt(l.blockNumber, 16); return bn >= lo && bn <= hi; }) : [];
       } else if (m === 'eth_chainId') result = '0x2105';
+      /* game390: on this fake chain the earlier skins contracts minted nothing before the next one went live (totalSupply read at a past
+       *   block = 0), so a skin of the active contract keeps its token id as its app-wide number (blockskins.js nomPublicSkin) */
+      else if (m === 'eth_call' && p[0] && String(p[0].data) === '0x18160ddd' && /^0x[0-9a-f]+$/i.test(String(p[1]))) result = '0x' + '0'.repeat(64);
       res.writeHead(200, { 'content-type': 'application/json' });
       res.end(JSON.stringify({ jsonrpc: '2.0', id, result }));
     });

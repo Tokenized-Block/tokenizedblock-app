@@ -146,7 +146,7 @@ if (!process.env.TB_SKM_SANS_MUTANTS) {
     ['skm', 'apercu laisse passer le texte', 'const teinte = (v) => { const x = Math.trunc(Number(v)); return Number.isFinite(x) ? ((x % 360) + 360) % 360 : 0; };', 'const teinte = (v) => v;'],
     ['skm', 'montant arrondi a 8 decimales', "f = s.slice(s.length - d).replace(/0+$/, '');", "f = s.slice(s.length - d).replace(/0+$/, '').slice(0, 8);"],
     ['skm', 'relecture a 60 s', 'export const SKM_RAFRAICHIR_MS = 25000;', 'export const SKM_RAFRAICHIR_MS = 60000;'],
-    ['app', 'un appel RPC par ligne', "  const face = bcEl('span', { cls: 'skmFace', title: 'Skin #' + id });", "  void rpc('eth_call', []);\n  const face = bcEl('span', { cls: 'skmFace', title: 'Skin #' + id });"],
+    ['app', 'un appel RPC par ligne', "  const face = bcEl('span', { cls: 'skmFace', title: nomSkin(s) });", "  void rpc('eth_call', []);\n  const face = bcEl('span', { cls: 'skmFace', title: nomSkin(s) });"],
     ['app', 'lecture ratee : liste vide sans le dire', "if (!skm.liste) { z.textContent = ''; note.textContent = 'The skins could not be read right now — nothing is listed rather than a wrong list. Read again in a moment.'; }", "if (!skm.liste) { z.textContent = ''; note.textContent = 'No skin minted yet.'; }"],
     ['app', 'relecture meme onglet ferme', "  if (document.hidden || !v || !v.classList.contains('on')) return;\n  if (Date.now() - skm.lu", '  if (document.hidden) return;\n  if (Date.now() - skm.lu'],
     ['app', 'onglet Market ne lit plus les skins', "  if (nom === 'trade') void peindreSkinsMarche();", ''],

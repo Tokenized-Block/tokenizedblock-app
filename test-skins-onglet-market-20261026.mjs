@@ -128,6 +128,7 @@ function monde(liste, { moi = MOI } = {}) {
     bcSigner: async (m, appels) => { j.signes.push(appels); return { ok: false, diffusee: false }; }, bc: {}, RESEAUX: { 8453: { explorateur: 'x' } },
     mesSkins: {}, lireMesSkins: async () => {}, poserMesSkins() {}, bcPeindreSkinEtat() {}, bcPeindreMarche: async () => {},
     skmPeindreFiltres() {}, offresChangees: M.offresChangees, SKM_POULS_MS: 6000, SKM_RAFRAICHIR_MS: 25000,
+    nomSkin: S.nomSkin, texteSkin: S.texteSkin, detailSkin: S.detailSkin, cleSkin: S.cleSkin, /* game390: the skin's app-wide name, rows keyed by contract + token id */
   };
   vm.createContext(ctx);
   vm.runInContext([SRC.bcEl, SRC.jb, SRC.bcMontantSkin, SRC.bcDureeSkin, SRC.bcPastilleSkin, SRC.bcFormVendreSkin, SRC.bcLigneSkin, SRC.skmPouls, SRC.skmLigne, SRC.skmPeindreListe,

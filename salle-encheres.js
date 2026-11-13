@@ -9,7 +9,7 @@
  * The caller passes `montant(brut, devise)` (the app's bcMontantSkin) and `nomBlock(adr)`, so amounts and names are the
  *   app's own texts — the same as the Market tab rows.
  */
-import { offreMinimale } from './blockskins.js';
+import { offreMinimale, texteSkin } from './blockskins.js';
 import { statutSkin, ordonnerSkins, compterSkins, tempsRestant, detenteurCourt } from './skins-marche.js';
 
 export const VERSION_SALLE = 'tblock-skin-room/1';
@@ -46,7 +46,7 @@ export function annonce({ skins, lu = true, moi = null, t, montant, nomBlock }) 
   if (podium) {
     const id = String(podium.tokenId), st = statutSkin(podium, t), who = encherisseurCourt(podium, moi);
     const dresse = nomBlock(podium.block);
-    lignes.push({ text: 'On the podium: skin #' + id + ', dressing ' + dresse + '.', from: [{ key: 'tokenId', value: id }, { key: 'block', value: bas(podium.block) }] });
+    lignes.push({ text: 'On the podium: ' + texteSkin(podium) + ', dressing ' + dresse + '.', from: [{ key: 'tokenId', value: id }, { key: 'block', value: bas(podium.block) }] });
     const o = BigInt(podium.offre || 0);
     if (st === 'ENCHERE') {
       lignes.push(o > 0n
