@@ -3127,7 +3127,7 @@ async function fenetreMouche() {
 /* the autonomous fly's relay guard (fly-relay.js): only calls this server planned, withdraw transfers, plain ETH sends */
 const GARDE_MOUCHE = createRelayGuard({ usdc: USDC_BASE, isStock: (a) => !!POOLS_ACTIONS_AERODROME.get(a), transferSelector: selecteurSrv('transfer(address,uint256)') });
 /* per IP and per minute, for each fly route */
-const FLY_BUDGET = { minute: -1, parIp: new Map() }, FLY_LIMITES = { account: 60, estimate: 30, relay: 12, receipt: 60 };
+const FLY_BUDGET = { minute: -1, parIp: new Map() }, FLY_LIMITES = { account: 60, estimate: 30, relay: 12, receipt: 60, gas: 20 };
 function budgetMouche(req, route) {
   const m = Math.floor(Date.now() / 60000);
   if (FLY_BUDGET.minute !== m) { FLY_BUDGET.minute = m; FLY_BUDGET.parIp.clear(); }
@@ -6279,6 +6279,8 @@ const SERVIS = [
   'pools-actions-aerodrome.js',
   /* 2026-11-07 (human-brain branch): the real fly memory circuit (hemibrain v1.2, Janelia, CC BY 4.0) wired to stock prices, read-only */
   'fly-brain.html', 'fly-brain.js', 'fly-brain-circuit.json', 'fly-core.js', 'fly-tx.js', 'fly-wallet.js', 'fly-guard.js', 'fly-seal.js', 'fly-day.js',
+  /* game391: why the fly has not traded, computed from the numbers its buy rule reads (imported by fly-brain.js) */
+  'fly-pourquoi.js',
   /* 2026-10-03 : les Initialize mesures (OUSD/USDC v4) — aretes de fait de « Pay with » (importe par app.html) */
   'cles-v4-mesurees.js',
   /* 2026-10-03 : les 20 pools v4 USDC des actions tokenisees, logs bruts (importe par cles-v4-mesurees.js) */
@@ -7725,6 +7727,20 @@ function traiterRequete(req, res) {
     if (req.method !== 'GET') { send(405, { ok: false, why: 'GET only' }); return; }
     if (!POOLS_ACTIONS_AERODROME.get(token)) { send(404, { ok: false, why: 'not a stock of the measured pool table' }); return; }
     lirePrixMouche(token).then((r) => send(200, r));
+    return;
+  }
+  /* game391: GET /api/fly/gas -> the live base fee and the ETH price, what the fly prices its gas with (fly-core gasUsdCote), for the
+   *   "why it has not traded" panel of a visitor with no fly wallet. Read only; a value not read is null, never 0. */
+  if (chemin === '/api/fly/gas') {
+    const send = (code, body) => { res.writeHead(code, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' }); res.end(JSON.stringify(body)); };
+    if (req.method !== 'GET') { send(405, { ok: false, why: 'GET only' }); return; }
+    if (!budgetMouche(req, 'gas')) { send(429, { ok: false, why: 'too many requests this minute: retry in a minute' }); return; }
+    Promise.all([rpcServeur('eth_getBlockByNumber', ['latest', false]).catch(() => null), prixUsdPourPlan(null).catch(() => null)]).then(([blk, ethUsd]) => {
+      const bf = blk && typeof blk.baseFeePerGas === 'string' && /^0x[0-9a-f]+$/i.test(blk.baseFeePerGas) ? BigInt(blk.baseFeePerGas).toString() : null;
+      const bn = blk && typeof blk.number === 'string' && /^0x[0-9a-f]+$/i.test(blk.number) ? Number(BigInt(blk.number)) : null;
+      const eu = Number.isFinite(ethUsd) && ethUsd > 0 ? ethUsd : null;
+      send(200, { ok: bf != null && eu != null, baseFeePerGas: bf, block: bn, ethUsd: eu, why: bf == null ? 'the node did not answer the latest block' : eu == null ? 'the ETH price was not read' : null });
+    });
     return;
   }
   /* 2026-11-08 (human-brain branch): THE AUTONOMOUS FLY (CLAUDE.md exception, Phil 2026-11-08). Its key is in the user's browser; these

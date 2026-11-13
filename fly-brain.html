@@ -40,6 +40,10 @@
   .btns { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0 8px; }
   .card .log { max-height: 320px; }
   #b-trade .card { border-color: #3a2f12; }
+  .whyLine { margin-top: 6px; } .whyVerdict { margin-top: 8px; font-size: 13px; line-height: 1.4; }
+  .whySizes { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 12px; font-variant-numeric: tabular-nums; color: var(--muted); }
+  .whySizes th, .whySizes td { text-align: left; padding: 3px 4px; border-bottom: 1px solid var(--line); } .whySizes th { font-weight: 600; }
+  .whySizes tr.mine td { color: var(--text); font-weight: 600; }
   @media (max-width: 900px) { .hero { grid-template-columns: 1fr; } .cards .wide { grid-column: auto; } .cards.think { grid-template-columns: 1fr; } .stack { max-height: none; } .stack .grow .log { max-height: 320px; } }
   .scene { position: relative; background: radial-gradient(ellipse at 50% 40%, #0c1222 0%, var(--bg) 70%); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
   canvas { display: block; width: 100%; height: auto; aspect-ratio: 16 / 10; }
@@ -203,6 +207,22 @@
   <section class="band" id="b-trade">
     <h2 class="bandTitle">3 · Trade with it <span class="warn">real money · your risk · not advice</span></h2>
     <div class="cards">
+      <!-- game391: why it has not traded, from the numbers its buy rule reads (fly-pourquoi.js) -->
+      <div class="card" id="whyCard">
+        <h2>Why it has not traded</h2>
+        <div class="why">This is a live experiment. The fly buys only when what one window in can earn beats what a round trip costs at your size. These are today's numbers, read live: the same ones its buy rule reads.</div>
+        <div class="state whyLine" id="whyRecord">1 · Its record: reading…</div>
+        <div class="state whyLine" id="whyShared"></div>
+        <div class="state whyLine" id="whyEdge">2 · What one window in can earn: reading…</div>
+        <div class="state whyLine" id="whyCost">3 · What a round trip costs at your size: reading…</div>
+        <div class="whyVerdict" id="whyVerdict">reading…</div>
+        <div class="state whyLine" id="whyNeed"></div>
+        <table class="whySizes" aria-label="Round trip cost by trade size">
+          <thead><tr><th>Trade size</th><th>Round trip costs</th><th>Record it would need</th></tr></thead>
+          <tbody id="whySizes"></tbody>
+        </table>
+        <div class="state whyLine" id="whyGas"></div>
+      </div>
       <div class="card live">
         <h2>Let it trade alone · one signature</h2>
         <div class="why">The fly gets its <b>own small wallet, created in this browser</b>. You sign <b>one</b> transaction that sends it a budget (USDC, plus a little ETH for gas). Then it trades that budget <b>on its own</b> on the stock you watch, within your caps. <b>Stop</b> halts it; <b>Withdraw all</b> sends everything back. It trades <b>only while this page is open</b>; reopened, it resumes where it was, with your settings (Stop halts it).</div>
@@ -212,8 +232,8 @@
             <li>Its key is kept <b>only in this browser</b>, unencrypted. The server never receives it, so nobody can recover it: clear this site's data or lose this device and the money is lost unless you exported the key.</li>
             <li>Anyone or any extension with access to this browser can use it, and so could the code this site serves: you trust this site's code with the budget.</li>
             <li>The server plans each order; before signing, this page checks every call itself and refuses anything that is not an exact approval, the app's fee, or a swap paying the fly.</li>
-            <li>The app takes no interface fee on the fly's trades: a trade pays the pool's own fee only (0.05% a side on the measured routes; a buy and a sell back cost 0.10% on a fork). If the site is busy, a decision can pass without a trade, a SELL included. Its decisions follow its real holdings, not the paper book.</li>
-            <li><b>It buys only when its edge pays the real cost.</b> It decides once per window fitted to the stock: a quiet stock gets a longer window (up to 2 h), a nervous one a shorter one (from 5 min), so that its usual move can pay the fees. It buys only when the gain it can expect from that window — its record (pulled toward a coin flip while it is short) times the stock's usual move over the window — is larger than one side of the trade: the pool fee plus the app's fee of that route. Otherwise it says so and signs nothing. On a quiet stock, or with a young record, that can mean no trade for a long time: that is the rule working, not a fault.</li>
+            <li>The app takes no interface fee on the fly's trades: a trade pays the pool's own fee and the network fee (0.05% a side on the measured routes; a buy and a sell back cost 0.10% on a fork). If the site is busy, a decision can pass without a trade, a SELL included. Its decisions follow its real holdings, not the paper book.</li>
+            <li><b>It buys only when its edge pays the real cost.</b> It decides once per window fitted to the stock: a quiet stock gets a longer window (up to 2 h), a nervous one a shorter one (from 5 min), so that its usual move can pay the fees. It buys only when the gain it can expect from that window — its record (pulled toward a coin flip while it is short) times the stock's usual move over the window — is larger than a whole round trip at your trade size: the pool fee on both sides plus the network fee of both sides ("Why it has not traded" shows both, live). Otherwise it says so and signs nothing. On a quiet stock, or with a young record, that can mean no trade for a long time: that is the rule working, not a fault.</li>
             <li>Proven on a copy of Base with Base's own precompiles: NVDAc, AAPLc and SNDKc bought and sold back, every order checked by this page, round trip about 0.3%. On Base itself: one real buy (SNDKc, 0.5 USDC, 8 Nov) and one real Withdraw all (9 Nov); no real sell yet. Keep the budget small.</li>
             <li>Tokenized stocks are only for eligible persons outside the U.S.</li>
           </ul>

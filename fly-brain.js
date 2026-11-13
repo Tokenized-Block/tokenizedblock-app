@@ -6,6 +6,7 @@
 import { POOLS_ACTIONS_AERODROME } from './pools-actions-aerodrome.js';
 import { createFly, createSession, foreseeNext, decide, recordEdge, edgeOf, edgePaysFee, aRetourPaye, gasUsdCote, FLY } from './fly-core.js';
 import { checkPlanCalls } from './fly-guard.js';
+import { whyNoTrade, whyLines, recordText, numbersLine } from './fly-pourquoi.js';
 import { memoryFingerprint, sealData, checkSeal } from './fly-seal.js';
 import { dayOf, countedToday, mayTrade, reserveTrade, volume24h, mayBuyVolume, reserveVolume, verdictPerte } from './fly-day.js';
 import { USDC_BASE, displayShort } from './frais-creation.js';
@@ -556,6 +557,36 @@ function proven(t) { const r = recordEdge(t); return r.n >= 10 && r.p < 0.1;
 }
 function renderTally() { $('tally').textContent = tallyText(session.state().tally); }
 
+/* ── game391: WHY IT HAS NOT TRADED. The same inputs its buy rule (aRetourPaye) reads: this page's record and usual move for the stock,
+ * the pool fee read with the price, one side's gas priced live (gasUsdCote, the same function the buy uses), and your max per trade.
+ * The verdict is aRetourPaye's own answer (fly-pourquoi.js); a number not read says "not read", never 0. ── */
+const whyGas = { usd: null, block: null, why: 'reading…', shared: null };
+async function readWhyGas() {
+  try {
+    const g = await fetch('/api/fly/gas', { cache: 'no-store' }).then((x) => x.json());
+    whyGas.usd = g && g.ok ? gasUsdCote(g.baseFeePerGas, Number(g.ethUsd)) : null;
+    whyGas.block = g && Number.isInteger(g.block) ? g.block : null;
+    whyGas.why = whyGas.usd == null ? String((g && g.why) || 'no answer').slice(0, 100) : null;
+  } catch (_) { whyGas.usd = null; whyGas.why = 'no answer'; }
+  renderWhy();
+}
+function renderWhy() {
+  if (!session || !$('whyRecord')) return;
+  const st = session.state(), size = field('autoCap', 0.1, 100, 0.1);
+  const w = whyNoTrade({ tally: st.tally, typical: st.typical, feePips: st.feePips, gasUsd: whyGas.usd, tailleUsd: size });
+  const L = whyLines(w, '1 · Its record on ' + current.symbol + ' (this page)');
+  $('whyRecord').textContent = L.record; $('whyEdge').textContent = L.edge; $('whyCost').textContent = L.cost;
+  $('whyVerdict').textContent = L.verdict; $('whyNeed').textContent = L.need;
+  /* the shared fly on the server, for context only (its numbers, your size, the same rule): it does not decide this page's trades */
+  const sh = whyGas.shared;
+  $('whyShared').textContent = !sh ? recordText(null, 'The shared fly on the server') : recordText(whyNoTrade({ tally: sh.st.tally }).record, 'The shared fly on the server (' + sh.symbol + ', for context)')
+    + ' ' + numbersLine(whyNoTrade({ tally: sh.st.tally, typical: sh.st.typical, feePips: sh.st.feePips, gasUsd: whyGas.usd, tailleUsd: size }));
+  $('whySizes').replaceChildren(...L.table.map((x, i) => { const tr = document.createElement('tr'); if (w.table[i].size === size) tr.className = 'mine';
+    for (const v of [x.size, x.cost, x.need]) { const td = document.createElement('td'); td.textContent = v; tr.append(td); } return tr; }));
+  $('whyGas').textContent = 'Network fee of one side: ' + (whyGas.usd == null ? 'not read (' + whyGas.why + ')' : '$' + fmt(whyGas.usd, 4) + ' (300,000 gas at the live base fee' + (whyGas.block ? ', block ' + whyGas.block.toLocaleString('en-US') : '') + ')')
+    + ' · pool fee of one side: ' + (st.feePips == null ? 'not read' : fmt(st.feePips / 1e4, 3) + '%') + '. Your size is your "Max per trade" in "Let it trade alone": change it to see the cost move.';
+}
+
 function measure() {
   const r = {}; for (const f of FAMILIES) r[f] = { s: 0, n: 0, total: 0 };
   let top = null;
@@ -871,7 +902,7 @@ function forget() {
 async function readShared() {
   try {
     const s = await fetch('/api/fly/state', { cache: 'no-store' }).then((x) => x.json());
-    if (!s || !s.ok) { $('shared').innerHTML = `<div class="state">The shared fly is not running: ${esc((s && s.why) || 'no answer')}.</div>`; return; }
+    if (!s || !s.ok) { whyGas.shared = null; renderWhy(); $('shared').innerHTML = `<div class="state">The shared fly is not running: ${esc((s && s.why) || 'no answer')}.</div>`; return; }
     const since = new Date(s.trainingSince || s.aliveSince).toLocaleString('en-GB');
     const mem = s.persisted ? 'memory kept across server restarts' + (s.restored ? ' (reloaded at the last restart, ' + new Date(s.aliveSince).toLocaleString('en-GB') + ')' : '')
       : 'memory NOT kept: it starts again when the server restarts' + (s.saveError ? ' (' + esc(s.saveError) + ')' : '');
@@ -882,7 +913,8 @@ async function readShared() {
         : `<div class="state" style="margin-top:4px">Next: no forecast yet (${esc((s.foresight && s.foresight.why) || 'not computed yet')}).</div>`)
       + `<div class="log" style="margin-top:6px;max-height:180px">${s.events.slice(-12).reverse().map((e) => `<p class="${e.type === 'verdict' ? 'verdict' : 'live'}">${clock(e.at)} · ${esc(eventText(e, s.symbol))}</p>`).join('')}</div>`;
     renderBook(s.session, $('sharedBook'));
-  } catch (_) { $('shared').innerHTML = '<div class="state">The shared fly could not be read this time.</div>'; }
+    whyGas.shared = { symbol: s.symbol, st: s.session }; renderWhy();
+  } catch (_) { whyGas.shared = null; renderWhy(); $('shared').innerHTML = '<div class="state">The shared fly could not be read this time.</div>'; }
 }
 function eventText(e, symbol) {
   if (e.type === 'tx') return `${e.kind}: ${fmt(e.units, 4)} ${symbol} ($${fmt(e.usd, 0)}) · tx ${String(e.tx).slice(0, 10)}…`;
@@ -1034,6 +1066,7 @@ async function start() {
   requestAnimationFrame(loop);
   select(0);
   readShared(); setInterval(readShared, SHARED_MS);
+  readWhyGas(); setInterval(readWhyGas, 60000); setInterval(renderWhy, 5000); $('autoCap').addEventListener('input', renderWhy);
   /* leaving the tab: whatever is queued is run at once (no animation is lost: nobody sees it) */
   document.addEventListener('visibilitychange', () => { if (document.hidden && fly) fly.drain(); });
   /* the page's own functions, for the fork end-to-end test only: never exposed on the real site */
