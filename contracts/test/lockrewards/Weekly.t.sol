@@ -80,55 +80,84 @@ contract WeeklyTest is Test {
         new TBlockLockRewardsWeekly(address(tb), address(wt), address(lock), address(vault), guardian, 0, 1);
     }
 
+    function _close(uint256 e) internal { vm.warp(_endOf(e) + 1 days); r.closeEpoch(e); }
+    function _mark(address who, uint256 e) internal { vault.play(e, who); r.markPlayed(who, e); }
+
     function test_enroll_countsFromNextWeek_firstPayoutWithinTwoWeeks() public {
         lock.set(alice, 1000 ether, block.timestamp + 60 days);
         r.enroll(alice);
         assertEq(r.weightOf(alice, 2), 0);
         assertEq(r.weightOf(alice, 3), 1000 ether * 12_500 / 10_000); // 60 days committed: band x1.25
-        _fund(2 ether, 1000 ether); // 25% of 2 = 0.5 > the 0.25 cap: the cap is what pays
-        vm.warp(_endOf(2)); r.closeEpoch(2);
-        (uint256 p0,) = r.pot(2); assertEq(p0, 0, "week 2: W = 0, nothing assigned");
-        vault.play(3, alice);
-        vm.warp(_endOf(3)); r.closeEpoch(3);
-        assertLe(block.timestamp - (G + 2 * WEEK + 3 days), 12 days, "first payout at most ~2 weeks after the enroll");
+        _fund(10 ether, 1000 ether); // 7% of 10 = 0.7 > the 0.25 cap: the cap is what pays
+        _close(2);
+        (uint256 p0,) = r.pot(2); assertEq(p0, 0, "week 2: nobody marked, nothing assigned");
+        vm.warp(_endOf(2) + 2 days); _mark(alice, 3);
+        _close(3);
+        assertLe(block.timestamp - (G + 2 * WEEK + 3 days), 13 days, "first payout within ~2 weeks of the enroll");
         vm.prank(alice); (uint256 a0, uint256 a1) = r.claim(_one(3));
         assertEq(a0, 0.25 ether, "capped weekly pot, alone = all of it");
-        assertEq(a1, 250 ether, "25% of the stock");
+        assertEq(a1, 70 ether, "7% of the stock");
         assertEq(wt.balanceOf(alice), a0); assertEq(tb.balanceOf(alice), a1);
     }
 
-    function test_nonPlayer_cannotClaim_andItsPartIsReleasedLater() public {
+    function test_nonPlayersPart_isNeverAssigned_staysInTheStock() public {
         lock.set(alice, 100 ether, block.timestamp + 60 days);
         lock.set(bob, 300 ether, block.timestamp + 60 days);
         r.enroll(alice); r.enroll(bob);
         _fund(0, 4000 ether);
-        vault.play(3, alice);
-        vm.warp(_endOf(2)); r.closeEpoch(2); vm.warp(_endOf(3)); r.closeEpoch(3);
-        (, uint256 pot1) = r.pot(3); assertEq(pot1, 1000 ether);
+        _close(2);
+        vm.warp(_endOf(2) + 2 days); _mark(alice, 3);
+        vm.expectRevert(abi.encodeWithSelector(TBlockLockRewardsWeekly.NotPlayed.selector, 3)); r.markPlayed(bob, 3);
+        _close(3);
+        (, uint256 pot1) = r.pot(3); assertEq(pot1, 280 ether * 100 / 400, "pot = full x P / W, the rule of R");
+        (, uint256 o1) = r.outstanding(); assertEq(o1, 70 ether, "only the players part is reserved (review MEDIUM-1)");
         vm.prank(bob); vm.expectRevert(abi.encodeWithSelector(TBlockLockRewardsWeekly.NotPlayed.selector, 3)); r.claim(_one(3));
         vm.prank(alice); (, uint256 a1) = r.claim(_one(3));
-        assertEq(a1, 250 ether, "alice = pot * w / W = 1000 * 1/4: the same as R");
-        vm.expectRevert(abi.encodeWithSelector(TBlockLockRewardsWeekly.ReleaseTooEarly.selector, 2)); r.release();
-        vm.warp(r.closedAt(3) + 8 * WEEK); r.release(); r.release(); assertEq(r.nextEpochToRelease(), 4);
-        assertEq(r.unassigned(address(tb)), 4000 ether - 250 ether, "bob's part is back in the stock");
-        (, uint256 o1) = r.outstanding(); assertEq(o1, 0);
+        assertEq(a1, 70 ether, "alice = full x w / W, as in R");
+    }
+
+    function test_nobodyPlays_nothingIsReserved_weekAfterWeek() public {
+        lock.set(bob, 300 ether, block.timestamp + 200 days); r.enroll(bob);
+        _fund(0, 1000 ether);
+        for (uint256 e = 2; e < 12; e++) _close(e);
+        assertEq(r.unassigned(address(tb)), 1000 ether, "no play, no starvation: the whole stock stays free");
+    }
+
+    function test_mark_window_andAnyoneCanMark() public {
+        lock.set(alice, 100 ether, block.timestamp + 60 days); r.enroll(alice);
+        vault.play(3, alice);
+        vm.expectRevert(abi.encodeWithSelector(TBlockLockRewardsWeekly.NotMarkable.selector, 3)); r.markPlayed(alice, 3);
+        vm.warp(_endOf(2) + 1 hours);
+        vm.prank(carol); r.markPlayed(alice, 3);
+        assertTrue(r.marked(alice, 3)); assertEq(r.playedWeight(3), 100 ether * 12_500 / 10_000);
+        r.markPlayed(alice, 3); assertEq(r.playedWeight(3), 100 ether * 12_500 / 10_000, "twice = once");
+        _close(2); _close(3);
+        vm.expectRevert(abi.encodeWithSelector(TBlockLockRewardsWeekly.NotMarkable.selector, 3)); r.markPlayed(alice, 3);
+    }
+
+    function test_closeWaitsTheGraceDay() public {
+        vm.warp(_endOf(2));
+        vm.expectRevert(abi.encodeWithSelector(TBlockLockRewardsWeekly.EpochNotEnded.selector, 2)); r.closeEpoch(2);
+        vm.warp(_endOf(2) + 1 days); r.closeEpoch(2);
     }
 
     function test_playInAnotherWeek_doesNotCount() public {
         lock.set(alice, 100 ether, block.timestamp + 60 days);
         r.enroll(alice); _fund(0, 100 ether);
-        vault.play(2, alice); vault.play(4, alice);
-        vm.warp(_endOf(2)); r.closeEpoch(2);
-        vm.warp(_endOf(3)); r.closeEpoch(3);
+        vault.play(4, alice);
+        _close(2);
+        vm.expectRevert(abi.encodeWithSelector(TBlockLockRewardsWeekly.NotPlayed.selector, 3)); r.markPlayed(alice, 3);
+        _close(3);
         vm.prank(alice); vm.expectRevert(abi.encodeWithSelector(TBlockLockRewardsWeekly.NotPlayed.selector, 3)); r.claim(_one(3));
     }
 
     function test_claims_neverExceedThePot_andOnlyOnce() public {
         lock.set(alice, 1 ether, block.timestamp + 60 days); lock.set(bob, 2 ether, block.timestamp + 60 days); lock.set(carol, 7 ether, block.timestamp + 60 days);
         r.enroll(alice); r.enroll(bob); r.enroll(carol);
-        _fund(0.333 ether, 333);
-        vault.play(3, alice); vault.play(3, bob); vault.play(3, carol);
-        vm.warp(_endOf(2)); r.closeEpoch(2); vm.warp(_endOf(3)); r.closeEpoch(3);
+        _fund(0.333 ether, 3333);
+        _close(2);
+        vm.warp(_endOf(2) + 2 days); _mark(alice, 3); _mark(bob, 3); _mark(carol, 3);
+        _close(3);
         (uint256 p0, uint256 p1) = r.pot(3);
         uint256 s0; uint256 s1;
         address[3] memory who = [alice, bob, carol];
@@ -137,16 +166,24 @@ contract WeeklyTest is Test {
         vm.prank(alice); vm.expectRevert(abi.encodeWithSelector(TBlockLockRewardsWeekly.AlreadyClaimed.selector, 3)); r.claim(_one(3));
     }
 
-    function test_exitRequest_cutsTheCurrentWeek() public {
+    function test_exitAfterMark_voidsThePlay() public {
         lock.set(alice, 100 ether, block.timestamp + 60 days); r.enroll(alice);
-        vm.warp(_endOf(2) + 1 days); // in week 3
+        vm.warp(_endOf(2) + 1 days);
+        _mark(alice, 3);
         lock.request(alice); r.sync(alice);
-        assertEq(r.weightOf(alice, 3), 0);
-        vault.play(3, alice); _fund(0, 100 ether);
-        vm.warp(_endOf(2) + 1); r.closeEpoch(2);
-        vm.warp(_endOf(3)); r.closeEpoch(3);
+        assertEq(r.weightOf(alice, 3), 0); assertEq(r.playedWeight(3), 0, "the cut weight left the played sum");
+        _fund(0, 100 ether);
+        _close(2); _close(3);
         assertEq(r.totalWeight(3), 0);
         vm.prank(alice); vm.expectRevert(abi.encodeWithSelector(TBlockLockRewardsWeekly.NoWeight.selector, 3)); r.claim(_one(3));
+    }
+
+    function test_releaseReturnsUnclaimedPlayersPart() public {
+        lock.set(alice, 100 ether, block.timestamp + 60 days); r.enroll(alice); _fund(0, 1000 ether);
+        _close(2); vm.warp(_endOf(2) + 2 days); _mark(alice, 3); _close(3);
+        vm.expectRevert(abi.encodeWithSelector(TBlockLockRewardsWeekly.ReleaseTooEarly.selector, 2)); r.release();
+        vm.warp(r.closedAt(3) + 8 * WEEK); r.release(); r.release();
+        assertEq(r.unassigned(address(tb)), 1000 ether, "alice never claimed: back in the stock");
     }
 
     function test_cannotClaimOrCloseEarly_orOutOfOrder() public {

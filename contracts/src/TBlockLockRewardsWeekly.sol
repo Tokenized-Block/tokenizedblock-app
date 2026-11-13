@@ -34,11 +34,17 @@ interface ILikesWeeks {
 ///  - WEEKS: epoch e is BlockLikesV2's week e ([GENESIS + e*EPOCH, GENESIS + (e+1)*EPOCH), EPOCH = 7 days), read from the Likes contract
 ///    at deploy. The same grid as the holders vault V, so "played in week e" means the same thing everywhere.
 ///  - PLAY IS READ, NOT PUSHED: a locker played week e when V.playOf(e, holder) > 0 (hearts burned + TBLOCK bought by V's listed games:
-///    TAM and Skins v3). V writes a week only while it is the current week, so once week e has ended the answer is final. No game calls
-///    this contract and none needs to be redeployed. Read at claim, after the week is closed.
-///  - POT: closeEpoch(e) assigns full = min(unassigned * REWARD_BPS / 10000, MAX_POT) when W > 0. A player is paid floor(full * w / W):
-///    exactly R's payout (R assigned full * P / W and paid it over P). The parts of the lockers who did not play are never claimable;
-///    release() returns them to the unassigned balance CLAIM_WINDOW weeks after the close, where later weeks draw from them again.
+///    TAM and Skins v3). No game calls this contract and none needs to be redeployed. markPlayed(holder, e) - PERMISSIONLESS (the app
+///    adds it to the heart's batch; anyone may call it for anyone, it only makes the contract see what V already says) - records the
+///    holder's weight for e once (PLAYED bit) and adds it to playedWeight[e], during week e or in the MARK_GRACE day after it, before
+///    the close. playOf only grows and V writes a week only while it is current, so a mark can never become false. A weight cut during
+///    e (exit request -> sync / enroll) is first taken back out of playedWeight[e] (_unplay, R's code).
+///  - POT (R's rule, restored after review 2026-11-13 MEDIUM-1: paying full * w / W and reserving the non-players' parts for weeks
+///    starved the pot to ~9 % of the stock): closeEpoch(e), once MARK_GRACE has passed after e, P = min(playedWeight, W),
+///    pot = full * P / W with full = min(unassigned * REWARD_BPS / 10000, MAX_POT). A marked player is paid floor(pot * w / P) ~=
+///    floor(full * w / W). The non-players' part is NEVER assigned: it stays in the stock for the next weeks. A player not marked
+///    before the close is not paid for that week (its part stays in the stock too).
+///  - PACE (review MEDIUM-2): REWARD_BPS = 700 per week, ~25 % of the stock per ~4.3 weeks, i.e. R's monthly 25 % spread over weeks.
 ///  - START: the first epoch that can be closed is the week of the deploy (no empty closes of past weeks). A weight counts from the week
 ///    AFTER the enroll (as in R: a lock taken just before a close cannot take that week), so the first payout is at most two weeks away.
 ///  - FUNDING: public deposit() and plain transfers. R's guardian can move R's unassigned rewards here only through R's own public
@@ -59,7 +65,8 @@ contract TBlockLockRewardsWeekly {
     uint256 public immutable MAX_POT_TBLOCK;
     address public guardian;
 
-    uint256 public constant REWARD_BPS = 2500;
+    uint256 public constant REWARD_BPS = 700;
+    uint256 public constant MARK_GRACE = 1 days; // after a week ends: plays can still be marked, then the week can be closed
     uint256 public constant CLAIM_WINDOW = 8; // weeks after a week is closed before release() may sweep what nobody claimed
     uint256 public constant MAX_CLAIM_EPOCHS = 24;
     uint256 public constant RESCUE_DELAY = 72 hours;
@@ -86,6 +93,10 @@ contract TBlockLockRewardsWeekly {
     mapping(uint256 => uint256[2]) private _left;
     uint256[2] private _outstanding;                  // sum of _left over open (closed, not released) epochs
     mapping(address => mapping(uint256 => bool)) public claimed;
+    /// @notice true once markPlayed recorded the holder's weight for week e (the holder will be paid for e)
+    mapping(address => mapping(uint256 => bool)) public marked;
+    /// @notice during week e (and its grace day): the live sum of the marked holders' weights. At closeEpoch(e): P = min(sum, W).
+    mapping(uint256 => uint256) public playedWeight;
     mapping(uint256 => uint256) public claimedWeight; // sum of the weights that have claimed epoch e
     mapping(uint256 => uint256) public closedAt;      // timestamp at which epoch e was closed (0 = not closed)
 
@@ -94,7 +105,9 @@ contract TBlockLockRewardsWeekly {
     // ---------------------------------------------------------------- events
     event Enrolled(address indexed holder, uint256 weight, uint256 fromEpoch, uint256 lastFullEpoch, uint256 bandBps);
     event Synced(address indexed holder, uint256 removedWeight, uint256 fromEpoch);
-    event EpochClosed(uint256 indexed epoch, uint256 potWtcoin, uint256 potTblock, uint256 totalWeight);
+    event EpochClosed(uint256 indexed epoch, uint256 potWtcoin, uint256 potTblock, uint256 totalWeight, uint256 playedWeight);
+    event Marked(address indexed holder, uint256 indexed epoch, uint256 weight);
+    event PlayVoided(address indexed holder, uint256 indexed epoch, uint256 weight);
     event Claimed(address indexed holder, uint256 wtcoin, uint256 tblock, uint256 epochs);
     event Released(uint256 indexed epoch, uint256 wtcoin, uint256 tblock);
     event Deposited(address indexed from, address indexed token, uint256 amount);
@@ -125,6 +138,7 @@ contract TBlockLockRewardsWeekly {
     error RescueTooEarly(uint256 executeAt);
     error BadRecipient();
     error NotPlayed(uint256 epoch);
+    error NotMarkable(uint256 epoch);
 
     modifier nonReentrant() { if (_guard != 1) revert Reentrancy(); _guard = 2; _; _guard = 1; }
     modifier onlyGuardian() { if (msg.sender != guardian || msg.sender == address(0)) revert NotGuardian(); _; }
@@ -245,7 +259,7 @@ contract TBlockLockRewardsWeekly {
             uint256 e = epochs[k];
             if (e >= nextEpochToClose || e < nextEpochToRelease || claimed[holder][e]) continue;
             uint256 w = weightOf(holder, e);
-            if (w == 0 || !hasPlayed(holder, e)) continue;
+            if (w == 0 || !marked[holder][e]) continue;
             wtcoin += _share(e, 0, w);
             tblock += _share(e, 1, w);
         }
@@ -266,6 +280,7 @@ contract TBlockLockRewardsWeekly {
         uint256 amount = L.lockedOf(holder);
         uint256 unlockAt = L.unlockAtOf(holder);
         if (amount == 0 || L.requestedAtOf(holder) != 0 || unlockAt <= block.timestamp) {
+            _unplay(holder, cur);
             _removeFrom(holder, cur);
             return;
         }
@@ -296,7 +311,38 @@ contract TBlockLockRewardsWeekly {
     /// @notice if holder asked to exit (or has nothing locked), its weight stops from the CURRENT week on. No-op otherwise.
     function sync(address holder) external nonReentrant {
         ITBlockLockW L = ITBlockLockW(LOCK);
-        if (L.requestedAtOf(holder) != 0 || L.lockedOf(holder) == 0) _removeFrom(holder, currentEpoch());
+        if (L.requestedAtOf(holder) != 0 || L.lockedOf(holder) == 0) {
+            uint256 cur = currentEpoch();
+            _unplay(holder, cur);
+            _removeFrom(holder, cur);
+        }
+    }
+
+    // ================================================================ plays
+
+    /// @notice records that `holder` played week `epoch` (V.playOf > 0), with its weight for that week, once. Permissionless.
+    ///         `epoch` must be the current week, or a week that has ended but is not closed yet (its MARK_GRACE day, or later while
+    ///         nobody closed it). A holder with zero weight for the week stores nothing.
+    function markPlayed(address holder, uint256 epoch) external nonReentrant {
+        if (epoch > currentEpoch() || epoch < nextEpochToClose) revert NotMarkable(epoch);
+        if (marked[holder][epoch]) return;
+        if (IVaultPlays(VAULT).playOf(epoch, holder) == 0) revert NotPlayed(epoch);
+        uint256 w = weightOf(holder, epoch);
+        if (w == 0) revert NoWeight(epoch);
+        marked[holder][epoch] = true;
+        playedWeight[epoch] += w;
+        emit Marked(holder, epoch, w);
+    }
+
+    /// @dev R's code: called right BEFORE each _removeFrom(holder, current week), so playedWeight[e] stays the sum of the marked
+    ///      holders' weights for e
+    function _unplay(address holder, uint256 e) private {
+        if (!marked[holder][e]) return;
+        uint256 w = weightOf(holder, e);
+        if (w != 0) {
+            playedWeight[e] -= w;
+            emit PlayVoided(holder, e, w);
+        }
     }
 
     /// @dev cuts the holder's weight for weeks >= `from`. Only weeks >= currentEpoch are ever passed, and those are not closed.
@@ -323,29 +369,33 @@ contract TBlockLockRewardsWeekly {
 
     // ================================================================ weeks
 
-    /// @notice closes week `epoch` (the next one in order, once ended). W = total weight; when W > 0, each token's pot is
-    ///         full = min(unassigned * REWARD_BPS / 10000, MAX_POT). Players claim floor(full * w / W); the rest is released later.
+    /// @notice closes week `epoch` (the next one in order, MARK_GRACE after it ended). R's rule: W = total weight, P = min(marked
+    ///         weight, W); pot = full * P / W, full = min(unassigned * REWARD_BPS / 10000, MAX_POT). P == 0: nothing is assigned.
     function closeEpoch(uint256 epoch) external nonReentrant {
         if (epoch != nextEpochToClose) revert EpochOutOfOrder(nextEpochToClose);
-        if (block.timestamp < epochEnd(epoch)) revert EpochNotEnded(epoch);
+        if (block.timestamp < epochEnd(epoch) + MARK_GRACE) revert EpochNotEnded(epoch);
         _runningWeight += _delta[epoch];
         uint256 W = uint256(_runningWeight);
+        uint256 P = playedWeight[epoch];
+        if (P > W) P = W; // guard only: P <= W by construction
         totalWeight[epoch] = W;
+        playedWeight[epoch] = P;
         closedAt[epoch] = block.timestamp;
         nextEpochToClose = epoch + 1;
 
         uint256 p0;
         uint256 p1;
-        if (W > 0) {
-            p0 = _assign(epoch, 0, WTCOIN, MAX_POT_WTCOIN);
-            p1 = _assign(epoch, 1, TBLOCK, MAX_POT_TBLOCK);
+        if (P > 0) {
+            p0 = _assign(epoch, 0, WTCOIN, MAX_POT_WTCOIN, P, W);
+            p1 = _assign(epoch, 1, TBLOCK, MAX_POT_TBLOCK, P, W);
         }
-        emit EpochClosed(epoch, p0, p1, W);
+        emit EpochClosed(epoch, p0, p1, W, P);
     }
 
-    function _assign(uint256 epoch, uint256 i, address token, uint256 maxPot) private returns (uint256 p) {
-        p = unassigned(token) * REWARD_BPS / BPS;
-        if (p > maxPot) p = maxPot;
+    function _assign(uint256 epoch, uint256 i, address token, uint256 maxPot, uint256 P, uint256 W) private returns (uint256 p) {
+        uint256 full = unassigned(token) * REWARD_BPS / BPS;
+        if (full > maxPot) full = maxPot;
+        p = full * P / W;
         if (p == 0) return 0;
         _pot[epoch][i] = p;
         _left[epoch][i] = p;
@@ -381,7 +431,7 @@ contract TBlockLockRewardsWeekly {
             if (claimed[msg.sender][e]) revert AlreadyClaimed(e);
             uint256 w = weightOf(msg.sender, e);
             if (w == 0) revert NoWeight(e);
-            if (!hasPlayed(msg.sender, e)) revert NotPlayed(e);
+            if (!marked[msg.sender][e]) revert NotPlayed(e);
             claimed[msg.sender][e] = true;
             uint256 a0 = _share(e, 0, w);
             uint256 a1 = _share(e, 1, w);
@@ -398,14 +448,14 @@ contract TBlockLockRewardsWeekly {
         emit Claimed(msg.sender, paid0, paid1, n);
     }
 
-    /// @dev min(floor((pot - cut) * w / W), floor(left * w / unclaimedW)), never more than _left (R's SEC-2 rule, over W instead of P)
+    /// @dev R's _share: min(floor((pot - cut) * w / P), floor(left * w / (P - claimedWeight))), never more than _left (SEC-2)
     function _share(uint256 e, uint256 i, uint256 w) private view returns (uint256 a) {
-        uint256 W = totalWeight[e];
-        if (W == 0) return 0;
+        uint256 P = playedWeight[e];
+        if (P == 0) return 0;
         uint256 l = _left[e][i];
-        a = (_pot[e][i] - _cut[e][i]) * w / W;
+        a = (_pot[e][i] - _cut[e][i]) * w / P;
         uint256 cw = claimedWeight[e];
-        uint256 unclaimedW = W > cw ? W - cw : 0;
+        uint256 unclaimedW = P > cw ? P - cw : 0;
         if (unclaimedW > w) {
             uint256 fair = l * w / unclaimedW;
             if (fair < a) a = fair;

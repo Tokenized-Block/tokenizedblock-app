@@ -71,17 +71,20 @@ contract WeeklyForkTest is Test {
         assertGt(burned, 0);
         assertGt(IVaultW(VAULT).playOf(e, alice), 0, "the REAL vault saw the heart in week e");
         assertTrue(r2.hasPlayed(alice, e)); assertFalse(r2.hasPlayed(bob, e));
+        vm.prank(bob); r2.markPlayed(alice, e); // anyone may mark: it only shows what the REAL V says
+        vm.expectRevert(abi.encodeWithSelector(TBlockLockRewardsWeekly.NotPlayed.selector, e)); r2.markPlayed(bob, e);
 
         _give(address(r2), 4_000_000 ether);
-        vm.warp(r2.epochEnd(e) + 1);
-        for (uint256 k = r2.START_EPOCH(); k <= e; k++) r2.closeEpoch(k);
+        vm.warp(r2.epochEnd(e) + 1 days);
+        for (uint256 k = r2.START_EPOCH(); k <= e; k++) { if (k < e) vm.warp(r2.epochEnd(e) + 1 days); r2.closeEpoch(k); }
         (, uint256 p1) = r2.pot(e);
-        assertEq(p1, 1_000_000 ether, "25% of the stock, under the weekly cap");
+        assertEq(p1, 280_000 ether * r2.playedWeight(e) / r2.totalWeight(e), "7% of the stock x P / W (rule of R)");
+        assertEq(r2.playedWeight(e) * 4, r2.totalWeight(e), "alice is 1/4 of the weight");
 
         uint256[] memory one = new uint256[](1); one[0] = e;
         uint256 before = IERC20W(TBLOCK).balanceOf(alice);
         vm.prank(alice); (, uint256 a1) = r2.claim(one);
-        assertEq(a1, p1 * r2.weightOf(alice, e) / r2.totalWeight(e), "alice = pot x w / W");
+        assertEq(a1, p1, "alice, the only player, takes the whole pot = full x w / W");
         assertEq(IERC20W(TBLOCK).balanceOf(alice) - before, a1, "the REAL B20 TBLOCK arrived");
         vm.prank(bob); vm.expectRevert(abi.encodeWithSelector(TBlockLockRewardsWeekly.NotPlayed.selector, e)); r2.claim(one);
         console2.log("week", e, "alice paid (raw TBLOCK)", a1);
