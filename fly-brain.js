@@ -606,7 +606,7 @@ function renderWhy() {
     + (size < HOLD_MIN_BUY_USDC ? ' Your Max per trade is under ' + HOLD_MIN_BUY_USDC + ' USDC: it will not buy (the network fee would eat too much).' : '');
   $('whyNeed').textContent = '';
   /* the brain's own record, for context: it calls every window on paper (band 2) and no longer moves the money */
-  $('whyShared').textContent = recordText(whyNoTrade({ tally: st.tally }).record, 'Its brain on ' + current.symbol + ' (this page, on paper)') + ' A record near a coin flip does not pay its fees: that is why the brain no longer moves the money.';
+  $('whyShared').textContent = recordText(whyNoTrade({ tally: st.tally }).record, 'Its brain on ' + current.symbol + ' (this page, on paper)') + ' Replayed on 66 days of real trades, calls like these were right about half the time (50.4%) and lost to the fees: that is why the brain no longer moves the money. A short record can look better or worse by luck.';
   $('whySizes').replaceChildren(...SIZES_USDC.map((x) => { const tr = document.createElement('tr'); if (x === size) tr.className = 'mine';
     const cx = roundTripCost({ feePips: fee, interfaceFee: 0, gasUsd: whyGas.usd, tailleUsd: x });
     for (const v of [x + ' USDC', cx == null ? 'not read' : (cx * 100).toFixed(3) + '%']) { const td = document.createElement('td'); td.textContent = v; tr.append(td); } return tr; }));
