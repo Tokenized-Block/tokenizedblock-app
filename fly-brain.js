@@ -628,12 +628,13 @@ function renderHoldAll() {
   const tb = $('holdAll'); if (!tb) return;
   const byTok = new Map(holdAll.list.map((x) => [x.token, x]));
   if (whyHold.sig && whyHold.sig.ok && whyHold.token) byTok.set(whyHold.token, whyHold.sig);
-  const rows = STOCKS.filter((st) => byTok.has(st.address)).sort((a, b) => (b.address === current.address) - (a.address === current.address));
+  /* the first 12 (kept warm by the server) are always listed: "reading…" until their signal is built (game396) */
+  const rows = STOCKS.filter((st, i) => byTok.has(st.address) || i < ORDER.length).sort((a, b) => (b.address === current.address) - (a.address === current.address));
   if (!rows.length) { tb.replaceChildren(); const tr = document.createElement('tr'), td = document.createElement('td'); td.colSpan = 4; td.textContent = holdAll.at ? 'not read yet' : 'reading…'; tr.append(td); tb.append(tr); return; }
   const pc = (x) => (Number.isFinite(x) ? (x >= 0 ? '+' : '') + (x * 100).toFixed(2) + '%' : '—');
   tb.replaceChildren(...rows.map((st) => { const x = byTok.get(st.address), tr = document.createElement('tr'); if (st.address === current.address) tr.className = 'mine';
-    const now = x.target === 'out' ? 'OUT' : x.target === 'in' ? 'IN' : 'not known';
-    for (const v of [st.symbol, pc(x.move), pc(x.threshold), now]) { const td = document.createElement('td'); td.textContent = v; tr.append(td); }
+    const now = !x ? 'reading…' : x.target === 'out' ? 'OUT' : x.target === 'in' ? 'IN' : 'not known';
+    for (const v of [st.symbol, pc(x && x.move), pc(x && x.threshold), now]) { const td = document.createElement('td'); td.textContent = v; tr.append(td); }
     tr.style.cursor = 'pointer'; tr.title = 'Watch ' + st.symbol;
     tr.addEventListener('click', () => { const p = $('pick'), i = STOCKS.findIndex((x) => x.address === st.address); if (p && i >= 0 && p.value !== String(i)) { p.value = String(i); p.dispatchEvent(new Event('change')); } }); /* the picker's values are indexes into STOCKS */
     return tr; }));

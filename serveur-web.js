@@ -3092,6 +3092,7 @@ function lireSignalMouche(token) {
     const r = { ok: true, token, symbol: entry.symbole, pool: entry.pool, feePips: meta.feePips, ...s, rule: { windowMs: HOLD.WINDOW_MS, dropX: HOLD.DROP_X, alpha: HOLD.ALPHA, minMoves: HOLD.MIN_MOVES },
       closes, readAt: new Date().toISOString(), source: 'Aerodrome CL Swap logs' };
     flyHold.set(token, { known, r, t: Date.now() });
+    sauverCloturesMouche();
     return r;
   })().catch((e) => {
     /* security review 2026-11-13: a failure is kept 60 s too (a failing node must not turn every request into a ~90-call rebuild) */
@@ -3102,6 +3103,31 @@ function lireSignalMouche(token) {
   flyHoldInFlight.set(token, p);
   return p;
 }
+/* game396 (prod 2026-11-13: after each deploy the 12 warm stocks took over 30 minutes to come back, 161 s a cold build): the closes READ
+ *   are kept on the volume — a past close never changes — and read back at boot, so a deploy only reads the newest close of each stock.
+ *   Read back only what is a 6-hour grid end of the last 8 days with a positive finite price, for a stock of the pool table. */
+const FICHIER_CLOTURES_MOUCHE = (process.env.RAILWAY_VOLUME_MOUNT_PATH || (existsSync('/data') ? '/data' : null))
+  ? join(process.env.RAILWAY_VOLUME_MOUNT_PATH || '/data', 'fly-hold-closes.json') : null;
+let sauverCloturesMinuteur = null;
+function sauverCloturesMouche() {
+  if (!FICHIER_CLOTURES_MOUCHE || sauverCloturesMinuteur) return;
+  sauverCloturesMinuteur = setTimeout(() => {
+    sauverCloturesMinuteur = null;
+    const o = {}; for (const [tok, m] of flyHold) if (m && m.known && m.known.size) o[tok] = [...m.known];
+    try { writeFileSync(FICHIER_CLOTURES_MOUCHE + '.tmp', JSON.stringify(o)); renameSync(FICHIER_CLOTURES_MOUCHE + '.tmp', FICHIER_CLOTURES_MOUCHE); } catch (e) { console.warn('[fly-hold] closes not saved: ' + e.message); }
+  }, 30000);
+}
+try {
+  if (FICHIER_CLOTURES_MOUCHE && existsSync(FICHIER_CLOTURES_MOUCHE)) {
+    const o = JSON.parse(readFileSync(FICHIER_CLOTURES_MOUCHE, 'utf8')), depuis = Date.now() - 8 * 86400000; let n = 0;
+    for (const [tok, rows] of Object.entries(o && typeof o === 'object' ? o : {})) {
+      if (!POOLS_ACTIONS_AERODROME.get(tok) || !Array.isArray(rows)) continue;
+      const known = new Map(rows.filter((x) => Array.isArray(x) && Number.isInteger(x[0]) && x[0] % HOLD.WINDOW_MS === 0 && x[0] > depuis && typeof x[1] === 'number' && Number.isFinite(x[1]) && x[1] > 0).slice(-60));
+      if (known.size) { flyHold.set(tok, { known, r: null, t: 0 }); n += known.size; }
+    }
+    console.log('[fly-hold] ' + n + ' closes read back for ' + flyHold.size + ' stocks');
+  }
+} catch (e) { console.warn('[fly-hold] closes file unreadable, starting empty: ' + e.message); }
 /* game395 (Phil 2026-11-13: "ya les autres actions aussi"): the 12 stocks the fly page lists first (its ORDER, Coinbase volume) are kept
  *   warm here, one every 15 s, and rebuilt only once a new close can be read (the last end + 2 min) — so /api/fly/hold-all answers every
  *   one of them without a single RPC call. Cold after a deploy: ~45 calls a stock (~540), then ~6 a stock per 6-hour close. The others

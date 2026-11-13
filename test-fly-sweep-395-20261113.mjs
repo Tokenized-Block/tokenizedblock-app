@@ -45,5 +45,15 @@ t('recommended settings: a button, the values, the wiring', HT.includes('<button
 t('a saved max per trade under 2 USDC is said at load, with the fix', JS.includes("if (auto.s && field('autoCap', 0.1, 100, 0.1) < HOLD_MIN_BUY_USDC) autoNote('your saved Max per trade is "));
 t('the minimum-buy line is said once per close', trade.includes('if (auto.saidMin === tryKey) return; auto.saidMin = tryKey;'));
 
+/* game396: a deploy must not cost 30 minutes of cold builds */
+const CL = rd('fly-hold-closes.js');
+t('closes read 4 at once', CL.includes('export const CONCURRENCY = 4;') && CL.includes('for (let i = 0; i < readable.length; i += CONCURRENCY) await Promise.all(readable.slice(i, i + CONCURRENCY).map(one));'));
+t('server: closes kept on the volume after each build, read back at boot', SRV.includes("join(process.env.RAILWAY_VOLUME_MOUNT_PATH || '/data', 'fly-hold-closes.json')") && /flyHold\.set\(token, \{ known, r, t: Date\.now\(\) \}\);\r?\n {4}sauverCloturesMouche\(\);/.test(SRV)
+  && SRV.includes("writeFileSync(FICHIER_CLOTURES_MOUCHE + '.tmp', JSON.stringify(o)); renameSync(FICHIER_CLOTURES_MOUCHE + '.tmp', FICHIER_CLOTURES_MOUCHE);"));
+t('server: only grid ends of the last 8 days with a positive finite price, for a stock of the table, are read back', SRV.includes("if (!POOLS_ACTIONS_AERODROME.get(tok) || !Array.isArray(rows)) continue;")
+  && SRV.includes("Number.isInteger(x[0]) && x[0] % HOLD.WINDOW_MS === 0 && x[0] > depuis && typeof x[1] === 'number' && Number.isFinite(x[1]) && x[1] > 0"));
+t('page: the 12 first stocks always listed, "reading…" until built', JS.includes('const rows = STOCKS.filter((st, i) => byTok.has(st.address) || i < ORDER.length)') && JS.includes("const now = !x ? 'reading…' :"));
+const UH = HT.replace(/<!--[sS]*?-->/g, '');
+t('page copy: no internal test history', !/Proven on a copy|on a fork|precompiles|8 Nov|9 Nov|synthetic market/i.test(UH));
 console.log(ok + '/' + (ok + ko) + (ko ? ' — RED' : ' — green'));
 process.exit(ko ? 1 : 0);

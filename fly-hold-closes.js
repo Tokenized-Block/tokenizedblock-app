@@ -12,6 +12,7 @@ export const TOPIC_SWAP = '0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed80
 const MARGIN = 300; /* blocks (~60 s) read past the estimated end block */
 const SPANS = [1800, 3000, 14400]; /* blocks read back from there: ~6 min (the 5-minute median), ~10 min more, ~48 min more; none -> not read */
 export const MEDIAN_MS = 5 * 60 * 1000;
+export const CONCURRENCY = 4; /* closes read at once in a build */
 const HEAD_LEAD_MS = 60 * 1000; /* a close is read only once the head is 60 s past it: before, swaps of its last seconds may be missing */
 const hexn = (h) => (typeof h === 'string' && /^0x[0-9a-f]+$/i.test(h) ? Number(BigInt(h)) : null);
 
@@ -90,7 +91,7 @@ export async function readCloses({ rpc, pool, meta, ends, known = new Map() }) {
     const a = readable.length ? await blockAt(rpc, head, Math.floor(readable[0] / 1000)) : null;
     if (readable.length && !a) throw new Error('the block of the oldest close was not found');
     const per = a && head.ts > a.ts ? (head.number - a.number) / (head.ts - a.ts) : 5;
-    for (const at of readable) {
+    const one = async (at) => {
       const tSec = Math.floor(at / 1000);
       /* read up to ~60 s PAST the estimated end block; lastPrice keeps only the swaps timed at or before the end */
       const b = Math.min(head.number, a.number + Math.floor((tSec - a.ts) * per) + MARGIN);
@@ -104,7 +105,9 @@ export async function readCloses({ rpc, pool, meta, ends, known = new Map() }) {
         to = from - 1;
       }
       got.set(at, price);
-    }
+    };
+    /* game396 (prod 2026-11-13: a cold build took 161 s, ~45 calls one after the other): CONCURRENCY ends read at once */
+    for (let i = 0; i < readable.length; i += CONCURRENCY) await Promise.all(readable.slice(i, i + CONCURRENCY).map(one));
   }
   return ends.map((at) => ({ at, price: known.get(at) > 0 ? known.get(at) : (got.get(at) ?? null) }));
 }
