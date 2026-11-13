@@ -1,0 +1,114 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Deploy weekly lock rewards</title>
+<!--
+  2026-11-14 (Phil 13/11: "weekly paid", R2 + the R rescue door). Offers the UNSIGNED deploy of TBlockLockRewardsWeekly to the CONNECTED
+  wallet: ONE signature, from the deployer named in the record only. The data is EXACTLY lock-weekly-deploiement.js
+  (contracts/preparer-deploiement-lock-weekly.mjs); lock-weekly.js checks its sha256 and that its constructor words are the parameters shown.
+  Before the wallet opens: the deploy is SIMULATED and must return the frozen runtime. After the receipt: every read-only check, line by line.
+-->
+<style>
+:root{--bg:#050d24;--card:#0f1d3d;--line:#1e2f57;--fg:#e9f0ff;--dim:#8ba0c9;--or:#f7a318;--ok:#3ecf8e;--ko:#ff6b6b}
+*{box-sizing:border-box}html,body{margin:0}
+body{background:var(--bg);color:var(--fg);font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;padding:16px}
+main{max-width:760px;margin:0 auto}h1{font-size:19px}h2{font-size:15px;margin:0 0 6px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:12px}
+.row{display:flex;gap:10px;padding:5px 0;border-bottom:1px solid var(--line)}.row:last-child{border:0}
+.k{color:var(--dim);flex:0 0 190px;font-size:12px}.v{flex:1;font-size:12px;overflow-wrap:anywhere;min-width:0}
+@media (max-width:560px){.row{flex-direction:column;gap:2px}.k{flex:none}}
+button{width:100%;background:var(--or);color:#20160a;border:0;border-radius:8px;padding:14px;font:inherit;font-weight:700;margin-top:10px;cursor:pointer}
+button:disabled{opacity:.45;cursor:not-allowed}.note{color:var(--dim);font-size:12px}
+a{color:var(--or);word-break:break-all}
+.st{font-weight:700}.st.ok{color:var(--ok)}.st.ko{color:var(--ko)}.warn{color:var(--ko);font-weight:700}
+.ln{font-size:12px;padding:2px 0}.ln.ko{color:var(--ko)}.ln.ok{color:var(--ok)}
+.door{border:1px solid var(--or);border-radius:10px;padding:12px;margin-bottom:12px}
+</style>
+<main>
+<h1>Deploy weekly lock rewards (Base)</h1>
+<p class="note">One contract, one signature. Every week it pays the lockers who played that week. It has no owner; its only exit is the
+DEV rescue door: public on chain, 72 hours, cancelable.</p>
+<div class="card" id="rec"><span class="note">Loading the frozen record...</span></div>
+<div class="card">
+  <button id="connect" disabled>Connect wallet</button>
+  <button id="go" disabled>Deploy (sign in the wallet)</button>
+  <div id="state" class="note" style="margin-top:10px"></div>
+</div>
+<div class="card" id="verif" hidden><h2>After the deploy: read-only checks</h2><div id="lines"></div></div>
+</main>
+<script type="module">
+const $ = (s) => document.querySelector(s);
+const esc = (x) => String(x ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const row = (k, v) => '<div class="row"><span class="k">' + esc(k) + '</span><span class="v">' + esc(v) + '</span></div>';
+const lien = (h) => '<a href="https://basescan.org/tx/' + esc(h) + '" target="_blank" rel="noopener">' + esc(h) + '</a>';
+const lienA = (a) => '<a href="https://basescan.org/address/' + esc(a) + '" target="_blank" rel="noopener">' + esc(a) + '</a>';
+const warn = (s) => '<span class="warn">' + esc(s) + '</span>';
+let B = null, D = null;
+try { B = await import('./lock-weekly.js'); ({ LOCK_WEEKLY_DEPLOIEMENT: D } = await import('./lock-weekly-deploiement.js')); } catch (_) { B = null; D = null; }
+let acct = null, plan = null;
+const rpc = (method, params) => window.ethereum.request({ method, params });
+
+if (!B || !D) {
+  $('#rec').innerHTML = warn('The deploy record cannot load here: nothing can be signed.');
+} else {
+  const faux = await B.integrite(D);
+  $('#rec').innerHTML = '<h2>What the signature deploys</h2>'
+    + row('integrity', faux.length ? 'MISMATCH: ' + faux.join(', ') : 'OK (sha256 of the data, its constructor words are the values below)')
+    + row('deployer (only wallet allowed)', D.deployeur)
+    + B.lignes(D).map(([k, v]) => row(k, v)).join('')
+    + row('compiler', D.compilateur) + row('sha256 of the source', D.sha256Source) + row('sha256 of the data signed', D.sha256Creation)
+    + row('size', D.octetsCreation + ' bytes, ' + D.runtimeOctets + ' bytes of code once deployed');
+  if (D.adresse) {
+    $('#rec').innerHTML = row('DEPLOYED AT', D.adresse) + row('block', D.bloc) + row('transaction', D.tx) + $('#rec').innerHTML;
+    $('#state').innerHTML = 'Already deployed: ' + lienA(D.adresse) + '. Nothing more to sign.';
+  } else if (faux.length || D.pret !== true) {
+    $('#state').innerHTML = warn(faux.length ? 'STOP: the record does not match itself.' : 'The record is not marked ready: nothing can be signed.');
+  } else $('#connect').disabled = false;
+}
+
+async function preparer() {
+  plan = await B.planDeploiement(D, rpc, acct);
+  $('#go').disabled = !plan.pret;
+  $('#state').innerHTML = 'Connected: ' + esc(acct) + '<br>' + (plan.pret ? esc(plan.raison) : warn(plan.raison));
+  return plan;
+}
+
+$('#connect').onclick = async () => {
+  if (!window.ethereum) { $('#state').textContent = 'No wallet in this browser.'; return; }
+  try { [acct] = await rpc('eth_requestAccounts', []); acct = String(acct).toLowerCase(); } catch (e) { $('#state').textContent = 'Wallet refused: ' + (e.message || e); return; }
+  await preparer();
+};
+
+async function receipt(h) {
+  for (let i = 0; i < 120; i++) { const r = await rpc('eth_getTransactionReceipt', [h]).catch(() => null); if (r) return r; await new Promise((o) => setTimeout(o, 2000)); }
+  return null;
+}
+
+$('#go').onclick = async () => {
+  $('#go').disabled = true;
+  const [now] = await rpc('eth_accounts', []).catch(() => []);
+  if (String(now || '').toLowerCase() !== acct) { acct = String(now || '').toLowerCase() || null; await preparer(); return; }
+  const p = await preparer(); /* fresh reads and a fresh simulation right before the wallet opens */
+  if (!p.pret) return;
+  $('#go').disabled = true;
+  let h;
+  try { h = await rpc('eth_sendTransaction', [{ from: acct, data: p.data, gas: '0x' + p.gasEnvoi.toString(16), value: '0x0' }]); }
+  catch (e) { $('#state').textContent = 'Not sent: ' + (e.message || e); $('#go').disabled = false; return; }
+  h = String(h).toLowerCase();
+  $('#state').innerHTML = 'Sent: ' + lien(h) + ' · waiting for the receipt...';
+  const recu = await receipt(h);
+  if (!recu) { $('#state').innerHTML += '<br>' + warn('No receipt yet: check Basescan, then run the verifier with this hash.'); return; }
+  const tx = await rpc('eth_getTransactionByHash', [h]).catch(() => null);
+  const ko = B.controleEnvoi(D, acct, tx, recu);
+  const code = recu.contractAddress ? await rpc('eth_getCode', [recu.contractAddress, 'latest']).catch(() => null) : null;
+  ko.push(...(code ? await B.controleRuntime(D, code) : ['code not read at the new address']));
+  if (ko.length) { $('#state').innerHTML = warn('STOP: ' + ko.join(' · ')) + '<br>' + lien(h); return; }
+  $('#state').innerHTML = '<span class="st ok">Deployed at ' + esc(recu.contractAddress) + ': status 1, signed by the deployer, the frozen data, the frozen code.</span><br>' + lien(h);
+  $('#verif').hidden = false;
+  const res = await B.verifierLockWeekly(D, h, rpc);
+  $('#lines').innerHTML = res.lignes.map((l) => '<div class="ln ' + (l.ok ? 'ok' : 'ko') + '">' + (l.ok ? 'ok ' : 'KO ') + esc(l.quoi) + (l.ok ? '' : ' · seen ' + esc(l.vu)) + '</div>').join('')
+    + '<p class="st ' + (res.ok ? 'ok' : 'ko') + '">' + (res.ok ? 'ALL ' + res.lignes.length + ' CHECKS HOLD. Next: record it from the receipt, then the DEV wallet moves the monthly stock here.' : 'NOT VERIFIED: do not fund it, do not announce it.') + '</p>'
+    + '<p class="note">Transaction: ' + esc(h) + '</p>';
+};
+</script>
