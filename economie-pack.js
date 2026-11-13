@@ -59,6 +59,8 @@ export const SEL = Object.freeze({
   nextEpochToRelease: S_('nextEpochToRelease()'), pot: S_('pot(uint256)'), playedWeight: S_('playedWeight(uint256)'), totalWeight: S_('totalWeight(uint256)'),
   weightOf: S_('weightOf(address,uint256)'), enrollmentOf: S_('enrollmentOf(address)'), rewardsClaimed: S_('claimed(address,uint256)'),
   T0: S_('T0()'), EPOCH: S_('EPOCH()'),
+  /* game398: what has gathered and is not yet given to a month (the next close draws 25% of it), and the weight a month will count */
+  unassigned: S_('unassigned(address)'), projectedTotalWeight: S_('projectedTotalWeight(uint256)'), WTCOIN: S_('WTCOIN()'),
 });
 
 export function wAddr(a) { const s = adr(a); if (!s) throw new Error('not an address: ' + a); return strip(s).padStart(64, '0'); }
@@ -244,4 +246,5 @@ export const VIEW = Object.freeze({
   pot: (e) => vue(REWARDS, SEL.pot, wUint(e)), playedWeight: (e) => vue(REWARDS, SEL.playedWeight, wUint(e)), totalWeight: (e) => vue(REWARDS, SEL.totalWeight, wUint(e)),
   weightOf: (a, e) => vue(REWARDS, SEL.weightOf, wAddr(a) + wUint(e)), enrollmentOf: (a) => vue(REWARDS, SEL.enrollmentOf, wAddr(a)),
   rewardsClaimed: (a, e) => vue(REWARDS, SEL.rewardsClaimed, wAddr(a) + wUint(e)),
+  rUnassigned: (token) => vue(REWARDS, SEL.unassigned, wAddr(token)), projectedWeight: (e) => vue(REWARDS, SEL.projectedTotalWeight, wUint(e)), rWtcoin: () => vue(REWARDS, SEL.WTCOIN),
 });

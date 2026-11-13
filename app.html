@@ -3757,7 +3757,7 @@ details[open] > summary::before{transform:rotate(90deg)}
       <!-- ⛔ L EMPREINTE EST AFFICHEE, DONC ELLE EST DE L ANGLAIS. `20261001-pont-dans-lui` a fait
            rougir `test-texte-a-l-ecran.mjs` : le mot « dans » est de la prose francaise partie a
            l ecran anglais. La garde a fait son travail du premier coup. -->
-      <p class="note" data-build="20261109-game397" hidden>Build <code>20261109-game397</code> ·Contract labels say what they do, not our internal names.</p>
+      <p class="note" data-build="20261109-game398" hidden>Build <code>20261109-game398</code> ·Contract labels say what they do, not our internal names.</p>
       <p class="sous">Everything happening to blocks on Base, live.</p>
       <!-- tip 0013: sticky — Hooked chip = Dex fees; unhooked → Launch beside. No fee addr. -->
       <p class="note" id="sfHookedSticky" hidden>Blocks alive on TokenizedBlock pay their creator on every trade. Example:<button type="button" class="puce" id="sfStickyTbgas">Open TBGAS</button>.</p>
@@ -33099,6 +33099,18 @@ async function peindreRecompensesLock(hote, { moi, locked, active, unlockAt, req
       rpc('eth_call', [EP.VIEW.enrollmentOf(moi), 'latest']), lit(EP.VIEW.weightOf(moi, c)).catch(() => null)]);
     /* game386: the figure on the line, the how-to under the month chips (the chip already says played / not played yet) */
     ligne('This month', 'month ' + c + ', ends ' + quand(finMois) + (joue === 1n ? ' · you played' : ''));
+    /* game398 (slot moved to R 2026-11-13): what has gathered (trading fees + deposits, not yet given to a month), and the first month a lock
+     *   counts for — a lock counts from the month AFTER it joins (enroll writes cur + 1), so a month nobody's lock covers pays nobody and its
+     *   share stays here for the next one. All read on chain; nothing promised. */
+    try {
+      const vw = EP.VIEW.rWtcoin(), wt = '0x' + String(await rpc('eth_call', [{ to: vw.to, data: vw.data }, 'latest'])).slice(-40);
+      const [unT, unW] = await Promise.all([lit(EP.VIEW.rUnassigned(EP.TBLOCK)), lit(EP.VIEW.rUnassigned(wt))]);
+      ligne('Gathered so far', EP.fmt(unT) + ' TBLOCK + ' + EP.fmt(unW, 4) + ' wtCOIN (TBLOCK trading fees and deposits)');
+      let k = c, poids = 0n;
+      for (; k < c + 4n; k++) { poids = await lit(EP.VIEW.projectedWeight(k)); if (poids > 0n) break; }
+      if (poids > 0n) ligne('Next payout', 'month ' + k + ' closes ' + quand(await lit(EP.VIEW.rEpochEnd(k))) + ': a quarter of what has gathered then goes to the locks it counts, for those who played in it' + (k > c ? ' (no lock counts for month ' + c + ': a lock counts from the month after it joins)' : ''));
+      else ligne('Next payout', 'no lock counts yet for the coming months: a lock counts from the month after it joins');
+    } catch (_) { /* said by the lines that did read */ }
     const enrUnlock = EP.word(enr, 0), enrAmount = EP.word(enr, 2);
     const actif = active > 0n && requestedAt === 0n;
     let moisLu = null;
