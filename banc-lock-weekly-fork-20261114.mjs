@@ -14,8 +14,8 @@ const rpc = async (method, params = []) => {
 };
 let ok = 0, ko = 0;
 const t = (m, c, vu = '') => { if (c) ok++; else { ko++; console.log('KO', m, vu); } };
-const REC = { ...REC0, pret: true }; /* the fork only: the served record stays pret:false until Phil's go */
-t('served record is NOT ready (no signature possible before the go)', REC0.pret === false);
+const REC = REC0; /* Phil's go 2026-11-13 night, after the second review: the served record is ready */
+t('served record is ready', REC0.pret === true);
 t('record integrity', (await W.integrite(REC)).length === 0, (await W.integrite(REC)).join(', '));
 const dep = REC.deployeur;
 await rpc('anvil_impersonateAccount', [dep]);
