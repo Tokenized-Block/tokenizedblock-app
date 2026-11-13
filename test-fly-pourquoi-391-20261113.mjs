@@ -127,7 +127,7 @@ if (baseRef) {
 const JS = lire('fly-brain.js'), HT = lire('fly-brain.html'), SRV = lire('serveur-web.js'), MOD = lire(NOM);
 /* game392 (Phil 2026-11-13, option A): the panel became "How it trades": the hold rule its trades read (fly-hold.js), the cost of one
  *   step out and back at your size (roundTripCost of this module, interface fee 0: the fly's trades carry none), the brain's paper record */
-t('page imports what the panel uses from this module', JS.includes("import { whyNoTrade, recordText, roundTripCost, SIZES_USDC } from './fly-pourquoi.js';"));
+t('page imports what the panel uses from this module', JS.includes("import { roundTripCost, SIZES_USDC } from './fly-pourquoi.js';"));
 const rw = JS.slice(JS.indexOf('function renderWhy()'), JS.indexOf('function renderWhy()') + 3200);
 t('page: the panel shows the hold signal of the stock you watch (holdLines), never the signal of another stock',
   rw.includes('const sig = whyHold.token === current.address ? whyHold.sig : null;') && rw.includes('const H = holdLines(sig, current.symbol);'));
@@ -136,14 +136,14 @@ t('page: the cost at your size is roundTripCost with no interface fee, at your m
 t('page: the buy reads the same max-per-trade field', JS.includes("const cap = BigInt(Math.round(field('autoCap', 0.1, 100, 0.1) * 1e6))"));
 t('page: gas priced with gasUsdCote', JS.includes('whyGas.usd = g && g.ok ? gasUsdCote(g.baseFeePerGas, Number(g.ethUsd)) : null;'));
 t('page: gas or fee not read -> "not read"', rw.includes("whyGas.usd == null ? 'not read (' + whyGas.why + ')'") && rw.includes("fee == null ? 'not read'") && rw.includes("c == null ? 'not read'"));
-t('page: the brain record is shown for context, and said not to move the money', rw.includes("recordText(whyNoTrade({ tally: st.tally }).record, 'Its brain on '") && rw.includes('that is why the brain no longer moves the money'));
+t('page (game395): no brain record line in the panel any more (Phil: it drives people away); every stock is listed', rw.includes("$('whyShared').textContent = '';") && rw.includes('renderHoldAll();') && !rw.includes('coin flip'));
 t('page: refreshed (gas every minute, numbers every 5 s, hold signal every 5 min, on a stock switch, and on a size change)',
   JS.includes("readWhyGas(); setInterval(readWhyGas, 60000); setInterval(renderWhy, 5000);") && JS.includes('void readWhyHold(); setInterval(() => { void readWhyHold(); }, 300000);')
   && JS.includes('lastDecision = null; void readWhyHold();') && JS.includes("$('autoCap').addEventListener('input', renderWhy);"));
 t('page: a size under the minimum buy is said in the panel', rw.includes('size < HOLD_MIN_BUY_USDC ?'));
 t('page: a failed hold read is read again in 30 s, once at a time', JS.includes("if (!sig.ok && !whyHold.retry) whyHold.retry = setTimeout(() => { whyHold.retry = null; void readWhyHold(); }, 30000); }"));
 t('html: the panel and its fields', ['id="whyCard"', 'id="whyRecord"', 'id="whyShared"', 'id="whyEdge"', 'id="whyCost"', 'id="whyVerdict"', 'id="whyNeed"', 'id="whySizes"', 'id="whyGas"', '<h2>How it trades</h2>'].every((s) => HT.includes(s)));
-t('html: the replay misses are written next to the catches (AAPLc behind, a different risk)', HT.includes('but AAPLc +2.0% against +5.6% held') && HT.includes('It is a different risk, not a better investment: it can lose, and it can miss a rise.'));
+t('html (game395): the panel says the rule and the risk, with no performance figure (no win shown without its miss)', HT.includes('The fly <b>holds the stock and steps out after a sharp drop</b>') && HT.includes('You can lose money: prices move, and it can miss a rise.') && !/[−+-]\d+\.\d%/.test(HT.slice(HT.indexOf('id="whyCard"'), HT.indexOf('<div class="card live">'))));
 t('html: the old edge rule text is gone', !HT.includes('It buys only when its edge pays the real cost') && !HT.includes('<h2>Why it has not traded</h2>'));
 t('html: defaults 5 USDC budget and per trade, 20 USDC a day', HT.includes('id="autoBudget" type="number" min="0.1" max="100" step="0.1" value="5"') && HT.includes('id="autoCap" type="number" min="0.1" max="100" step="0.1" value="5"') && HT.includes('id="autoVol" type="number" min="0.5" max="1000" step="0.5" value="20"'));
 t('server: the module is served (SERVIS)', /\r?\n {2}'fly-pourquoi\.js',\r?\n/.test(SRV));

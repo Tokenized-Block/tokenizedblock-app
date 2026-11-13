@@ -3102,6 +3102,26 @@ function lireSignalMouche(token) {
   flyHoldInFlight.set(token, p);
   return p;
 }
+/* game395 (Phil 2026-11-13: "ya les autres actions aussi"): the 12 stocks the fly page lists first (its ORDER, Coinbase volume) are kept
+ *   warm here, one every 15 s, and rebuilt only once a new close can be read (the last end + 2 min) — so /api/fly/hold-all answers every
+ *   one of them without a single RPC call. Cold after a deploy: ~45 calls a stock (~540), then ~6 a stock per 6-hour close. The others
+ *   are built on demand (/api/fly/hold/<stock>), as before. Off with FLY_SERVER=off and in test mode. */
+const FLY_HOLD_CHAUDS = ['SNDKc', 'MSTRc', 'SPCXc', 'NVDAc', 'AMZNc', 'GOOGLc', 'METAc', 'MSFTc', 'TSLAc', 'MUc', 'AAPLc', 'PLTRc']
+  .map((sym) => [...POOLS_ACTIONS_AERODROME.entries()].find(([, t]) => t.symbole === sym)).filter(Boolean).map(([adr]) => adr);
+let flyHoldChauffe = false;
+async function chaufferSignauxMouche() {
+  if (flyHoldChauffe) return; flyHoldChauffe = true;
+  try {
+    for (const tok of FLY_HOLD_CHAUDS) {
+      const m = flyHold.get(tok), last = windowEnds(Date.now(), 1)[0];
+      if (Date.now() < last + 120000 && m && m.r) continue;                                            /* a close just ended: give the head 2 min */
+      if (m && m.r && m.r.ok && m.r.at === last && m.r.closes.every((c) => c.price > 0)) continue;  /* already up to date */
+      await lireSignalMouche(tok);
+      await new Promise((o) => setTimeout(o, 15000));
+    }
+  } catch (_) { /* each stock says its own failure in its answer */ } finally { flyHoldChauffe = false; }
+}
+if (!(process.env.FLY_SERVER === 'off' || ESSAI_SRV.actif)) { setTimeout(() => { void chaufferSignauxMouche(); }, 60000); setInterval(() => { void chaufferSignauxMouche(); }, 5 * 60000); }
 
 /* ── THE SHARED FLY (2026-11-08) ──────────────────────────────────────────────────────────────────────────────────────────────
  * The page's fly lives in each visitor's browser; this one lives in the server and trains on SNDKc (the most traded stock, Coinbase
@@ -7761,6 +7781,16 @@ function traiterRequete(req, res) {
     if (req.method !== 'GET') { send(405, { ok: false, why: 'GET only' }); return; }
     if (!POOLS_ACTIONS_AERODROME.get(token)) { send(404, { ok: false, why: 'not a stock of the measured pool table' }); return; }
     lirePrixMouche(token).then((r) => send(200, r));
+    return;
+  }
+  /* game395: GET /api/fly/hold-all -> the signals ALREADY built (the 12 kept warm + any built on demand), no RPC call; a stock not
+   *   built yet is simply absent */
+  if (chemin === '/api/fly/hold-all') {
+    const send = (code, body) => { res.writeHead(code, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' }); res.end(JSON.stringify(body)); };
+    if (req.method !== 'GET') { send(405, { ok: false, why: 'GET only' }); return; }
+    if (!budgetMouche(req, 'hold')) { send(429, { ok: false, why: 'too many requests this minute: retry in a minute' }); return; }
+    const stocks = [...flyHold.entries()].filter(([, m]) => m && m.r && m.r.ok).map(([token, m]) => ({ token, symbol: m.r.symbol, target: m.r.target, move: m.r.move, typical: m.r.typical, threshold: m.r.threshold, at: m.r.at, why: m.r.why }));
+    send(200, { ok: true, stocks, warm: FLY_HOLD_CHAUDS.length });
     return;
   }
   /* game392: GET /api/fly/hold/<stock> -> the fly's real-money signal (in by default, out after a sharp 6-hour drop) and the closes it

@@ -72,7 +72,8 @@ export const HOLD_MIN_BUY_USDC = 2;
 export function holdLines(s, symbol = 'the stock') {
   const pc = (x, d = 2) => (x >= 0 ? '+' : '') + (x * 100).toFixed(d) + '%';
   const when = s && s.at ? new Date(s.at).toISOString().slice(0, 16).replace('T', ' ') + ' UTC' : null;
-  const rule = 'Its rule: it holds ' + symbol + ' by default and steps out for 6 hours when the last 6 hours fell more than ' + HOLD.DROP_X + 'x the usual 6-hour move. It checks at 00:00, 06:00, 12:00 and 18:00 UTC.';
+  /* game395 (Phil: "t'as ecrit juste pour SNDK"): the rule is said for every stock; the symbol only names the one on screen */
+  const rule = 'Its rule, for every stock: it holds the stock by default and steps out for 6 hours when its last 6 hours fell more than ' + HOLD.DROP_X + 'x the usual 6-hour move. It checks at 00:00, 06:00, 12:00 and 18:00 UTC, and sells any stock it holds on a sharp drop, even one you are not watching.';
   if (!s || s.target == null) return { rule, last: 'Last 6-hour close: ' + (s && s.why ? s.why : 'not read') + '.', verdict: 'Not known yet: it trades nothing until it is.' };
   const last = `Last 6-hour close (${when}): ${pc(s.move)} · usual 6-hour move ${(s.typical * 100).toFixed(2)}% · it steps out below ${pc(s.threshold)}.`;
   const verdict = s.target === 'out' ? 'Now: OUT. It sells what it holds and waits for the next close.' : 'Now: IN. It holds ' + symbol + ' (it buys if it holds none).';

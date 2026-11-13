@@ -146,17 +146,17 @@ const base = await checks(H, C);
 t('the rule and the closes, on the real modules (' + base + ' failed checks)', base === 0);
 
 /* ── the page acts on it ── */
-const trade = JS.slice(JS.indexOf('async function autoTrade(e) {'), JS.indexOf('/* the session is remembered'));
+const trade = JS.slice(JS.indexOf('async function autoTrade(e, other = null) {'), JS.indexOf('/* the session is remembered'));
 const code = trade.replace(/\/\*[\s\S]*?\*\//g, '');
 t('page imports the rule', JS.includes("import { holdAction, holdLines, HOLD, HOLD_MIN_BUY_USDC } from './fly-hold.js';"));
 t('page: reads the signal of the stock it trades, fresh only (MAX_AGE), and acts on the REAL holdings', code.includes('const sig = await readHold(stock.address);')
   && code.includes('const fresh = sig.target != null && sig.token === stock.address && Number.isInteger(sig.at) && sig.at % HOLD.WINDOW_MS === 0 && sig.at <= Date.now() && Date.now() - sig.at <= HOLD.MAX_AGE_MS;')
-  && code.includes('const action = fresh ? holdAction(sig.target, held) : null;') && code.indexOf('const a = await autoAccount(stock.address), held = a.stock ? BigInt(a.stock) : 0n;') < code.indexOf('holdAction('));
+  && code.includes("const action0 = fresh ? holdAction(sig.target, held) : null, action = sellOnly && action0 !== 'sell' ? null : action0;") && code.indexOf('const a = await autoAccount(stock.address), held = a.stock ? BigInt(a.stock) : 0n;') < code.indexOf('holdAction('));
 t('page: the auto-stop is checked before the signal is acted on', code.indexOf('verdictPerte(') > 0 && code.indexOf('verdictPerte(') < code.indexOf('holdAction('));
 t('page: no brain word in the money path', !/decide\(e\.word|e\.word ===/.test(code));
 t('page: once per close and action, 3 tries at most, counted in the SAVED state (a reload gives no more)', code.includes("const tryKey = seenKey + '|' + action;")
-  && code.includes('autoRefresh(); const tr = auto.s.holdTries && auto.s.holdTries.key === tryKey ? auto.s.holdTries.n + 1 : 1;') && code.includes('auto.s.holdTries = { key: tryKey, n: tr }; autoSave();') && code.includes('if (tr > 3) return;'));
-t('page: buys from 2 USDC, said otherwise', code.includes('if (amt < BigInt(HOLD_MIN_BUY_USDC * 1e6)) { autoNote('));
+  && code.includes('const tr = ht[stock.address] && ht[stock.address].key === tryKey ? ht[stock.address].n + 1 : 1;') && code.includes('ht[stock.address] = { key: tryKey, n: tr }; auto.s.holdTries = ht; autoSave();') && code.includes('if (tr > 3) return;'));
+t('page: buys from 2 USDC, said once per close (not every minute), with the one-press fix', code.includes('if (amt < BigInt(HOLD_MIN_BUY_USDC * 1e6)) { if (auto.saidMin === tryKey) return; auto.saidMin = tryKey; autoNote(') && code.includes('Press "Use recommended settings" below.'));
 t('page: daily cap and 24 h volume cap still checked before planning', code.indexOf('mayTrade(autoRefresh(), today, maxDay)') > 0 && code.indexOf('mayBuyVolume(') > code.indexOf('mayTrade(') && code.indexOf('mayBuyVolume(') < code.indexOf("fetch('/api/rails/plan?"));
 /* the fee condition, EXECUTED on the values a planner can send: only "0" (what it sends, fork 2026-11-13) and 0 pass */
 { const COND = "(typeof bps === 'string' || typeof bps === 'number') && String(bps) === '0'";
@@ -166,7 +166,7 @@ t('page: daily cap and 24 h volume cap still checked before planning', code.inde
     && !code.includes('if (round === 0) { const bps')); }
 t('page: a sell counts in the 24 h volume at what its plan receives', code.includes("if (action === 'sell' && round === 0 && /^\\d+$/.test(String(p.resume.recoitAuMoins || ''))) volumeDuTrade = Number(p.resume.recoitAuMoins) / 1e6;"));
 t('page: the guard still checks every call before its key signs', code.includes('const refused = checkPlanCalls({ calls: p.aSigner, fly: s.address, pay: de, receive: vers, amount: montant,') && code.includes("if (refused) throw new Error('the fly refused to sign: ' + refused.why);"));
-t('page: looked at every minute and at each brain decision', JS.includes("setInterval(() => { void autoTrade({ type: 'tick' }); }, 60000);") && JS.includes("if (e.type === 'decision') { renderDecision(e); autoTrade(e);")
+t('page: looked at every minute and at each brain decision', JS.includes("setInterval(async () => { await autoTrade({ type: 'tick' }); await autoSweep(); }, 60000);") && JS.includes("if (e.type === 'decision') { renderDecision(e); autoTrade(e);")
   && trade.includes("if (!auto.s || !e || e.sim || (e.type !== 'decision' && e.type !== 'tick')) return;"));
 t('page: a trade in flight -> the tick does nothing (no second trade)', code.includes('if (auto.busy) return;'));
 t('page: the start note and the rules say the hold rule', JS.includes('in by default and out for 6 hours after a sharp 6-hour drop') && JS.includes("'Its rule: it holds the stock by default and steps out for 6 hours after a 6-hour move below ' + HOLD.DROP_X"));

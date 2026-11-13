@@ -134,6 +134,12 @@
         <canvas id="spark" width="600" height="96"></canvas>
         <div class="state" id="ref"></div>
       </div>
+      <!-- game395 (Phil: "mets le en haut pour voir en meme temps que la mouche interagit"): the live activity, next to the brain -->
+      <div class="card">
+        <h2>Activity right now</h2>
+        <div class="gauges" id="gauges"></div>
+        <div class="state" id="output"></div>
+      </div>
       <div class="card">
         <h2>Its decision now</h2>
         <div class="state" id="watching">watching —</div>
@@ -163,11 +169,6 @@
         </details>
       </div>
       <div class="stack">
-      <div class="card">
-        <h2>Activity right now</h2>
-        <div class="gauges" id="gauges"></div>
-        <div class="state" id="output"></div>
-      </div>
       <div class="card grow">
         <h2>What happened · log</h2>
         <div class="log" id="log"></div>
@@ -210,7 +211,7 @@
       <!-- game391, game392: how it trades, from the signal its trades read (fly-hold.js via /api/fly/hold/) -->
       <div class="card" id="whyCard">
         <h2>How it trades</h2>
-        <div class="why">Its brain's calls are a coin flip once fees are paid, so the money follows a plain rule instead: <b>hold the stock, and step out after a sharp drop</b>. Replayed on 66 days of real trades of three stocks (5 USDC a trade, all fees, the last 33 days): SNDKc −30.6% against −40.3% held, NVDAc −26.0% against −27.4%, but AAPLc +2.0% against +5.6% held. Ahead in the two falls, behind in the rise. It is a different risk, not a better investment: it can lose, and it can miss a rise.</div>
+        <div class="why">The fly <b>holds the stock and steps out after a sharp drop</b>, then comes back in. It watches every stock every 6 hours, from the pool's own trades. You can lose money: prices move, and it can miss a rise.</div>
         <div class="state whyLine" id="whyRecord">Its rule: reading…</div>
         <div class="state whyLine" id="whyShared"></div>
         <div class="state whyLine" id="whyEdge">Last 6-hour close: reading…</div>
@@ -222,6 +223,12 @@
           <tbody id="whySizes"></tbody>
         </table>
         <div class="state whyLine" id="whyGas"></div>
+        <!-- game395: every stock, now (the signals the server already built) -->
+        <h2 style="margin-top:12px">Every stock, now</h2>
+        <table class="whySizes" aria-label="Hold signal of every stock">
+          <thead><tr><th>Stock</th><th>Last 6 h</th><th>Steps out below</th><th>Now</th></tr></thead>
+          <tbody id="holdAll"><tr><td colspan="4">reading…</td></tr></tbody>
+        </table>
       </div>
       <div class="card live">
         <h2>Let it trade alone · one signature</h2>
@@ -249,6 +256,9 @@
           <label class="state">Max traded in 24 h (USDC)<input id="autoVol" type="number" min="0.5" max="1000" step="0.5" value="20"></label>
           <label class="state">Auto-stop if down (%)<input id="autoLoss" type="number" min="1" max="50" step="1" value="5"></label>
         </div>
+        <!-- game395 (Phil: "un set automatique pour que la mouche soit deja pre calibree"): one press sets the calibrated values -->
+        <div class="btns" style="margin-top:6px"><button id="autoReco" type="button">Use recommended settings</button></div>
+        <div class="state" id="autoRecoNote">5 USDC budget · 5 USDC a trade · 10 trades a day · 20 USDC in 24 h · auto-stop at −5%. Then create its wallet, fund it, and press Start.</div>
         <!-- game364: the fly's rules, in one place; the brain decides, these limits decide what can be signed -->
         <details class="state" id="autoRules" style="margin-top:8px"><summary><b>The fly's rules</b> — what it can never do</summary>
           <ul id="autoRulesList" style="margin:6px 0 0 18px;padding:0"></ul>

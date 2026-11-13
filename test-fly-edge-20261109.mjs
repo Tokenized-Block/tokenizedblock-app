@@ -91,10 +91,10 @@ const total = await banc(ICI);
 const page = readFileSync(join(ICI, 'fly-brain.js'), 'utf8');
 /* game392 (Phil 2026-11-13, option A): the edge rule NO LONGER gates real buys — the hold rule (fly-hold.js) decides, from the real
  *   holdings; edgeOf / aRetourPaye stay in fly-core for the paper book above and are tested there. Inverted on purpose: */
-const trade = page.slice(page.indexOf('async function autoTrade(e) {'), page.indexOf('/* the session is remembered'));
+const trade = page.slice(page.indexOf('async function autoTrade(e, other = null) {'), page.indexOf('/* the session is remembered'));
 assert.ok(trade.length > 1000 && !/aRetourPaye\(|edgePaysFee\(/.test(trade.replace(/\/\*[\s\S]*?\*\//g, '')), 'the real trade path no longer calls the edge rule');
-assert.ok(/const action = fresh \? holdAction\(sig\.target, held\) : null;/.test(trade), 'the real action is the hold rule on the real holdings, nothing when the signal is not fresh');
-assert.ok(/const amt = have < cap \? have : cap;[\s\S]{0,1200}de = USDC_BASE; vers = stock\.address; montant = amt\.toString\(\);/.test(trade), 'the amount planned is min(USDC, cap)');
+assert.ok(trade.includes("const action0 = fresh ? holdAction(sig.target, held) : null, action = sellOnly && action0 !== 'sell' ? null : action0;"), 'the real action is the hold rule on the real holdings, nothing when the signal is not fresh');
+assert.ok(/const amt = have < cap \? have : cap;[\s\S]{0,2000}de = USDC_BASE; vers = stock\.address; montant = amt\.toString\(\);/.test(trade), 'the amount planned is min(USDC, cap)');
 { const i = trade.indexOf('{ const bps = p.resume.fraisBps;'), j = trade.indexOf("if (!((typeof bps === 'string' || typeof bps === 'number') && String(bps) === '0'))"), h1 = trade.indexOf('/* ⛔ H1: nothing is signed');
   assert.ok(i > 0 && j > i && j - i < 120 && h1 > j, 'every real trade (every round) refuses a route that states an interface fee, before anything is signed'); }
 /* 09/11: the coin-flip gate is gone (it changed nothing on top of the edge rule in simulation, and added a second refusal): no checkbox,
