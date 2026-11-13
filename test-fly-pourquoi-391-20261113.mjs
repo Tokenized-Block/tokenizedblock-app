@@ -141,6 +141,7 @@ t('page: refreshed (gas every minute, numbers every 5 s, hold signal every 5 min
   JS.includes("readWhyGas(); setInterval(readWhyGas, 60000); setInterval(renderWhy, 5000);") && JS.includes('void readWhyHold(); setInterval(() => { void readWhyHold(); }, 300000);')
   && JS.includes('lastDecision = null; void readWhyHold();') && JS.includes("$('autoCap').addEventListener('input', renderWhy);"));
 t('page: a size under the minimum buy is said in the panel', rw.includes('size < HOLD_MIN_BUY_USDC ?'));
+t('page: a failed hold read is read again in 30 s, once at a time', JS.includes("if (!sig.ok && !whyHold.retry) whyHold.retry = setTimeout(() => { whyHold.retry = null; void readWhyHold(); }, 30000); }"));
 t('html: the panel and its fields', ['id="whyCard"', 'id="whyRecord"', 'id="whyShared"', 'id="whyEdge"', 'id="whyCost"', 'id="whyVerdict"', 'id="whyNeed"', 'id="whySizes"', 'id="whyGas"', '<h2>How it trades</h2>'].every((s) => HT.includes(s)));
 t('html: the replay misses are written next to the catches (AAPLc behind, a different risk)', HT.includes('but AAPLc +2.0% against +5.6% held') && HT.includes('It is a different risk, not a better investment: it can lose, and it can miss a rise.'));
 t('html: the old edge rule text is gone', !HT.includes('It buys only when its edge pays the real cost') && !HT.includes('<h2>Why it has not traded</h2>'));

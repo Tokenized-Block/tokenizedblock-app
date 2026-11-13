@@ -592,7 +592,9 @@ async function readWhyGas() {
 }
 /* game392: the hold signal shown in "How it trades" (the same /api/fly/hold/ answer the trades read) */
 const whyHold = { sig: null, token: null };
-async function readWhyHold() { const t = current.address; const sig = await readHold(t); if (current.address === t) { whyHold.sig = sig; whyHold.token = t; renderWhy(); } }
+async function readWhyHold() { const t = current.address; const sig = await readHold(t); if (current.address === t) { whyHold.sig = sig; whyHold.token = t; renderWhy(); }
+  /* prod 2026-11-13 (game393): the first read after a deploy failed and the panel said "no answer" for 5 minutes: a failure reads again in 30 s */
+  if (!sig.ok && !whyHold.retry) whyHold.retry = setTimeout(() => { whyHold.retry = null; void readWhyHold(); }, 30000); }
 function renderWhy() {
   if (!session || !$('whyRecord')) return;
   const st = session.state(), size = field('autoCap', 0.1, 100, 0.1);
