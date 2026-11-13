@@ -89,16 +89,19 @@ async function banc(dir) {
 const total = await banc(ICI);
 /* the real buy follows the same rule (page source: fly-brain.js is a browser module; its money path is exercised on the fork bench) */
 const page = readFileSync(join(ICI, 'fly-brain.js'), 'utf8');
-/* game366: the real BUY is refused while the edge does not pay the WHOLE round trip (both sides' fees and gas) — aRetourPaye, not edgePaysFee */
-assert.ok(/const st = session\.state\(\), r = recordEdge\(st\.tally\);[\s\S]{0,900}if \(!aRetourPaye\(\{ tally: st\.tally, typical: st\.typical, feePips: st\.feePips, gasUsd: gasCote, tailleUsd: taille \}\)\) \{ autoNote\(/.test(page), 'the real BUY is refused while the edge does not pay the round trip');
-assert.ok(/const amt = have < cap \? have : cap;[\s\S]{0,3200}de = USDC_BASE; vers = stock\.address; montant = amt\.toString\(\);/.test(page), 'when it pays, the amount planned is min(USDC, cap)');
-{ const i = page.indexOf("if (action === 'buy' && round === 0) { const st2 = session.state(), bps = Number(p.resume.fraisBps);"), j = page.indexOf('if (!Number.isFinite(bps) || !aRetourPaye({ tally: st2.tally, typical: st2.typical, feePips: st2.feePips, interfaceFee: bps / 1e4,') /* game366: the round trip */, h1 = page.indexOf('/* ⛔ H1: nothing is signed');
-  assert.ok(i > 0 && j > i && j - i < 200 && h1 > j, 'the real BUY checks the cost of ITS route before anything is signed'); }
+/* game392 (Phil 2026-11-13, option A): the edge rule NO LONGER gates real buys — the hold rule (fly-hold.js) decides, from the real
+ *   holdings; edgeOf / aRetourPaye stay in fly-core for the paper book above and are tested there. Inverted on purpose: */
+const trade = page.slice(page.indexOf('async function autoTrade(e) {'), page.indexOf('/* the session is remembered'));
+assert.ok(trade.length > 1000 && !/aRetourPaye\(|edgePaysFee\(/.test(trade.replace(/\/\*[\s\S]*?\*\//g, '')), 'the real trade path no longer calls the edge rule');
+assert.ok(/const action = fresh \? holdAction\(sig\.target, held\) : null;/.test(trade), 'the real action is the hold rule on the real holdings, nothing when the signal is not fresh');
+assert.ok(/const amt = have < cap \? have : cap;[\s\S]{0,1200}de = USDC_BASE; vers = stock\.address; montant = amt\.toString\(\);/.test(trade), 'the amount planned is min(USDC, cap)');
+{ const i = trade.indexOf('{ const bps = p.resume.fraisBps;'), j = trade.indexOf("if (!((typeof bps === 'string' || typeof bps === 'number') && String(bps) === '0'))"), h1 = trade.indexOf('/* ⛔ H1: nothing is signed');
+  assert.ok(i > 0 && j > i && j - i < 120 && h1 > j, 'every real trade (every round) refuses a route that states an interface fee, before anything is signed'); }
 /* 09/11: the coin-flip gate is gone (it changed nothing on top of the edge rule in simulation, and added a second refusal): no checkbox,
  *   no gate left in the trade path */
 { const html = readFileSync(join(ICI, 'fly-brain.html'), 'utf8');
   assert.ok(!html.includes('autoProven') && !page.includes("$('autoProven')") && !/does not beat a coin flip yet: no real buy/.test(page), 'no coin-flip gate left on the page'); }
-console.log('test-fly-edge-20261109 : ' + (total + 4) + ' assertions OK');
+console.log('test-fly-edge-20261109 : ' + (total + 5) + ' assertions OK');
 
 const MUT = [
   ['no prior (raw record)', 'a = FLY.EDGE_PRIOR;', 'a = 0;'],

@@ -207,18 +207,18 @@
   <section class="band" id="b-trade">
     <h2 class="bandTitle">3 · Trade with it <span class="warn">real money · your risk · not advice</span></h2>
     <div class="cards">
-      <!-- game391: why it has not traded, from the numbers its buy rule reads (fly-pourquoi.js) -->
+      <!-- game391, game392: how it trades, from the signal its trades read (fly-hold.js via /api/fly/hold/) -->
       <div class="card" id="whyCard">
-        <h2>Why it has not traded</h2>
-        <div class="why">This is a live experiment. The fly buys only when what one window in can earn beats what a round trip costs at your size. These are today's numbers, read live: the same ones its buy rule reads.</div>
-        <div class="state whyLine" id="whyRecord">1 · Its record: reading…</div>
+        <h2>How it trades</h2>
+        <div class="why">Its brain's calls are a coin flip once fees are paid, so the money follows a plain rule instead: <b>hold the stock, and step out after a sharp drop</b>. Replayed on 66 days of real trades of three stocks (5 USDC a trade, all fees, the last 33 days): SNDKc −30.6% against −40.3% held, NVDAc −26.0% against −27.4%, but AAPLc +2.0% against +5.6% held. Ahead in the two falls, behind in the rise. It is a different risk, not a better investment: it can lose, and it can miss a rise.</div>
+        <div class="state whyLine" id="whyRecord">Its rule: reading…</div>
         <div class="state whyLine" id="whyShared"></div>
-        <div class="state whyLine" id="whyEdge">2 · What one window in can earn: reading…</div>
-        <div class="state whyLine" id="whyCost">3 · What a round trip costs at your size: reading…</div>
+        <div class="state whyLine" id="whyEdge">Last 6-hour close: reading…</div>
+        <div class="state whyLine" id="whyCost">What a step out and back costs at your size: reading…</div>
         <div class="whyVerdict" id="whyVerdict">reading…</div>
         <div class="state whyLine" id="whyNeed"></div>
         <table class="whySizes" aria-label="Round trip cost by trade size">
-          <thead><tr><th>Trade size</th><th>Round trip costs</th><th>Record it would need</th></tr></thead>
+          <thead><tr><th>Trade size</th><th>One step out and back costs</th></tr></thead>
           <tbody id="whySizes"></tbody>
         </table>
         <div class="state whyLine" id="whyGas"></div>
@@ -233,20 +233,20 @@
             <li>Anyone or any extension with access to this browser can use it, and so could the code this site serves: you trust this site's code with the budget.</li>
             <li>The server plans each order; before signing, this page checks every call itself and refuses anything that is not an exact approval, the app's fee, or a swap paying the fly.</li>
             <li>The app takes no interface fee on the fly's trades: a trade pays the pool's own fee and the network fee (0.05% a side on the measured routes; a buy and a sell back cost 0.10% on a fork). If the site is busy, a decision can pass without a trade, a SELL included. Its decisions follow its real holdings, not the paper book.</li>
-            <li><b>It buys only when its edge pays the real cost.</b> It decides once per window fitted to the stock: a quiet stock gets a longer window (up to 2 h), a nervous one a shorter one (from 5 min), so that its usual move can pay the fees. It buys only when the gain it can expect from that window — its record (pulled toward a coin flip while it is short) times the stock's usual move over the window — is larger than a whole round trip at your trade size: the pool fee on both sides plus the network fee of both sides ("Why it has not traded" shows both, live). Otherwise it says so and signs nothing. On a quiet stock, or with a young record, that can mean no trade for a long time: that is the rule working, not a fault.</li>
+            <li><b>It holds the stock by default and steps out after a sharp drop.</b> Every 6 hours (00:00, 06:00, 12:00, 18:00 UTC) it reads the stock's last 6-hour move from the pool's own trades. If the stock fell more than twice its usual 6-hour move, it sells and stays out for 6 hours; otherwise it holds it, and buys back if it was out. It buys from 2 USDC (below, the network fee eats over 0.5% of a round trip). Its brain still calls every window on paper, above; it no longer moves the money. A step out can be followed by a rise it misses, and holding means the stock can fall with you in it.</li>
             <li>Proven on a copy of Base with Base's own precompiles: NVDAc, AAPLc and SNDKc bought and sold back, every order checked by this page, round trip about 0.3%. On Base itself: one real buy (SNDKc, 0.5 USDC, 8 Nov) and one real Withdraw all (9 Nov); no real sell yet. Keep the budget small.</li>
             <li>Tokenized stocks are only for eligible persons outside the U.S.</li>
           </ul>
         </details>
         <label class="state check"><input type="checkbox" id="autoRisk"> I understand that I can lose this money, that the key lives only in this browser, and that the fly trades without asking me each time.</label>
-        <label class="state" for="bold" style="display:block;margin-top:8px">Boldness — acts from <b id="boldMirror">2.0%</b> sure (lower = trades on weaker pulls, pays the fee more often)</label>
+        <label class="state" for="bold" style="display:block;margin-top:8px">Brain boldness (paper calls only) — calls from <b id="boldMirror">2.0%</b> sure</label>
         <input type="range" id="bold" min="2" max="50" step="1" value="20">
         <div class="row2">
-          <label class="state">Budget sent to the fly (USDC)<input id="autoBudget" type="number" min="0.1" max="100" step="0.1" value="1"></label>
-          <label class="state">Max per trade (USDC)<input id="autoCap" type="number" min="0.1" max="100" step="0.1" value="0.5"></label>
+          <label class="state">Budget sent to the fly (USDC)<input id="autoBudget" type="number" min="0.1" max="100" step="0.1" value="5"></label>
+          <label class="state">Max per trade (USDC)<input id="autoCap" type="number" min="0.1" max="100" step="0.1" value="5"></label>
           <label class="state">Max trades per day<input id="autoDay" type="number" min="1" max="50" step="1" value="10"></label>
           <!-- game364: the two controls Coinbase announced the same day for its agents, here for the fly -->
-          <label class="state">Max traded in 24 h (USDC)<input id="autoVol" type="number" min="0.5" max="1000" step="0.5" value="5"></label>
+          <label class="state">Max traded in 24 h (USDC)<input id="autoVol" type="number" min="0.5" max="1000" step="0.5" value="20"></label>
           <label class="state">Auto-stop if down (%)<input id="autoLoss" type="number" min="1" max="50" step="1" value="5"></label>
         </div>
         <!-- game364: the fly's rules, in one place; the brain decides, these limits decide what can be signed -->

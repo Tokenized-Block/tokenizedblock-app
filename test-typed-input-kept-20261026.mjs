@@ -135,6 +135,8 @@ function world(src) {
     lireSkins: async () => ({ etat: 'LU', skins, total: skins.length }),
     bcLireDevisesSkin: async () => {}, bcTexteDevisesOffertes: () => 'Paid in USDC.', bcDevisesSkin: () => ({}),
     bcResoudre: () => ({ sym: 'UNIT' }), bcMontantSkin: () => '1 USDC', bcDureeSkin: () => '1 h', offreMinimale: () => 1n,
+    /* game390: the painters name a skin by its app-wide name (blockskins.js); the module's own functions are tested in test-skin-numerotation-390 */
+    nomSkin: (s) => 'Skin #' + String(s && s.tokenId), texteSkin: (s) => 'skin #' + String(s && s.tokenId), detailSkin: () => '', cleSkin: (s) => String(s && s.tokenId),
     actionsSkin: (s, moi) => (s.detenteur === moi && !s.enVente ? ['METTRE_EN_VENTE'] : []),
     bcPastilleSkin: () => doc.createElement('span'), bcDevisesOffertes: () => ({ '0xusdc': { sym: 'USDC', dec: 6 } }), DEVISES_SKIN: { '0xusdc': {} },
     BC_DUREES_ENCHERE: [['1 day', 86400]], montantVersBrut: () => 1n, bcActionMarche: async () => {}, jb() {}, texteMarcheSkins: () => '2 skins.',

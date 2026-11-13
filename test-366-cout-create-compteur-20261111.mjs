@@ -20,7 +20,9 @@ t('the OLD one-side rule would buy this edge', edgePaysFee(fort, 0.004, 500, 0) 
 t('the round trip at 0.5 USDC refuses it (gas both sides)', aRetourPaye({ tally: fort, typical: 0.004, feePips: 500, interfaceFee: 0, gasUsd: g, tailleUsd: 0.5 }) === false);
 t('the same edge at 50 USDC pays the round trip', aRetourPaye({ tally: fort, typical: 0.004, feePips: 500, interfaceFee: 0, gasUsd: g, tailleUsd: 50 }) === true);
 t('unknown gas / size / fee -> no buy', !aRetourPaye({ tally: fort, typical: 0.004, feePips: 500, gasUsd: null, tailleUsd: 50 }) && !aRetourPaye({ tally: fort, typical: 0.004, feePips: 500, gasUsd: g, tailleUsd: 0 }) && !aRetourPaye({ tally: fort, typical: 0.004, feePips: null, gasUsd: g, tailleUsd: 50 }));
-t('page: both buy checks use the round trip with the account\'s base fee and ETH price', (FB.match(/aRetourPaye\(\{/g) || []).length === 2 && FB.includes('gasUsdCote(a.baseFeePerGas, Number(a.ethUsd))') && !/if \(!edgePaysFee\(st\.tally/.test(FB));
+/* game392 (Phil 2026-11-13, option A): real buys follow the hold rule (test-fly-hold-392), no longer the edge rule; the round-trip cost is
+ *   still priced live with gasUsdCote and shown per size in "How it trades" (test-fly-pourquoi-391) */
+t('page (game392): no edge rule in the real trade path; the live gas is still priced with gasUsdCote', !/aRetourPaye\(\{|edgePaysFee\(/.test(FB.replace(/\/\*[\s\S]*?\*\//g, '')) && FB.includes('gasUsdCote(g.baseFeePerGas, Number(g.ethUsd))'));
 t('server: /api/fly/account adds the ETH price', SRV.includes('send(200, { ...r, ethUsd: await prixUsdPourPlan(null).catch(() => null) })'));
 /* 2026-11-11 (wt-369): the fixed 0.0023 ETH BIRTH_ETH_RESERVE_WEI is replaced by what the birth preflight asks (besoinEthNaissance) and a
  *   pure verdict, TIP.stepOneFits — the 0.002033 ETH wallet of the live audit is now EXECUTED, not only matched as text */

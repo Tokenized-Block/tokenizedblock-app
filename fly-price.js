@@ -28,6 +28,14 @@ async function decimalsOf(rpc, address) {
   return d;
 }
 
+/** game392: the pool's fixed facts (which side the stock is, both decimals, the fee), read once and cached: the 6-hour closes of
+ *  /api/fly/hold/ price each Swap log's sqrtPriceX96 with them (priceFromSqrt). Throws when the pool does not hold the token. */
+export async function readPoolMeta({ rpc, pool, token }) {
+  await readPoolPrice({ rpc, pool, token });
+  const m = poolCache.get(String(pool).toLowerCase()), t = String(token).toLowerCase();
+  return { tokenIsToken0: m.token0 === t, decimals0: m.decimals0, decimals1: m.decimals1, feePips: m.feePips };
+}
+
 /** Reads slot0, token0, token1 and decimals; returns { priceUsd, tick, block } or throws. */
 export async function readPoolPrice({ rpc, pool, token }) {
   const t = String(token).toLowerCase(), key = String(pool).toLowerCase();

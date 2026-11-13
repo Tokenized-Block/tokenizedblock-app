@@ -4,9 +4,10 @@
  * Price: /api/fly/price/<address> (the stock's Aerodrome pool, slot0, 24/7). Trades: /api/activite/<address> (Transfer logs, each
  * confirmed by its transaction's signer). Reference: /api/actions/reference/ (Chainlink) shown, never fed. Shared fly: /api/fly/state. */
 import { POOLS_ACTIONS_AERODROME } from './pools-actions-aerodrome.js';
-import { createFly, createSession, foreseeNext, decide, recordEdge, edgeOf, edgePaysFee, aRetourPaye, gasUsdCote, FLY } from './fly-core.js';
+import { createFly, createSession, foreseeNext, decide, recordEdge, gasUsdCote, FLY } from './fly-core.js';
 import { checkPlanCalls } from './fly-guard.js';
-import { whyNoTrade, whyLines, recordText, numbersLine } from './fly-pourquoi.js';
+import { whyNoTrade, recordText, roundTripCost, SIZES_USDC } from './fly-pourquoi.js';
+import { holdAction, holdLines, HOLD, HOLD_MIN_BUY_USDC } from './fly-hold.js';
 import { memoryFingerprint, sealData, checkSeal } from './fly-seal.js';
 import { dayOf, countedToday, mayTrade, reserveTrade, volume24h, mayBuyVolume, reserveVolume, verdictPerte } from './fly-day.js';
 import { USDC_BASE, displayShort } from './frais-creation.js';
@@ -316,12 +317,19 @@ async function flySend(c, { sweep = false } = {}) {
 }
 /* one tab trades at a time (Web Locks where the browser has them) */
 const withLock = (fn) => (navigator.locks ? navigator.locks.request('fly-auto', { ifAvailable: true }, (l) => (l ? fn() : 'locked')) : fn());
+/* game392 (Phil 2026-11-13, option A): the money follows the HOLD rule (fly-hold.js, signal from /api/fly/hold/), not the brain's word:
+ *   in by default, out for 6 hours after a sharp 6-hour drop. The brain keeps smelling and calling on paper (band 2); it no longer moves
+ *   the money, because its record is a coin flip (measured 2026-11-12, "Why"). Called at each brain decision and every minute. */
+async function readHold(token) {
+  const r = await fetch('/api/fly/hold/' + token, { cache: 'no-store', signal: AbortSignal.timeout(30000) }).then((x) => x.json()).catch(() => null);
+  return r && r.ok ? r : { ok: false, target: null, why: String((r && r.why) || 'no answer from the server').slice(0, 120) };
+}
 async function autoTrade(e) {
-  if (!auto.s || e.sim || e.type !== 'decision') return;
+  if (!auto.s || !e || e.sim || (e.type !== 'decision' && e.type !== 'tick')) return;
   autoRefresh();
   const s = auto.s;
   if (!s.running) return;
-  if (auto.busy) { autoNote(`decided ${ACT[e.action]} while a trade was still in flight: this decision is skipped`); return; }
+  if (auto.busy) return; /* a trade in flight: the next tick looks again */
   auto.busy = true;
   /* the memory that DECIDED, taken now: a stock switched while the trade is in flight loads another memory (QA 08/11: the seal of
    *   SNDKc's trade carried the next stock's memory) */
@@ -352,15 +360,28 @@ async function autoTrade(e) {
           return;
         }
       }
-      /* the REAL position decides, not the paper book: after a reload or a stock switch the paper book starts out (review L3) */
-      const action = decide(e.word, held > 0n ? 1 : 0);
-      /* every live decision is said, trade or not (Phil 08/11: "it does not talk any more" — a HOLD left no line at all) */
-      if (action !== 'buy' && action !== 'sell') {
-        const why = e.word === 'approach' ? 'still drawn' : e.word === 'avoid' ? 'repelled' : 'not sure enough';
-        const sure = Number.isFinite(e.t) ? ` (${fmt(Math.abs(e.t) * 100, 1)}% sure ${e.t >= 0 ? 'toward' : 'away'}, acts from ${fmt((e.threshold ?? 0.02) * 100, 1)}%)` : '';
-        autoNote(`${ACT[action]} ${stock.symbol} · ${why}${sure} · ${held > 0n ? 'holds ' + fmt(Number(held) / 10 ** (live.decimals ?? 8), 6) + ' ' + stock.symbol : 'out of the stock'}: no trade`);
+      /* game392: the hold signal of THIS stock; not known, stale, or for another stock -> nothing is traded */
+      const sig = await readHold(stock.address);
+      whyHold.sig = sig; whyHold.token = stock.address; renderWhy();
+      /* security review 2026-11-13: the page bounds the signal itself: a 6-hour grid end, not in the future, not stale */
+      const fresh = sig.target != null && sig.token === stock.address && Number.isInteger(sig.at) && sig.at % HOLD.WINDOW_MS === 0 && sig.at <= Date.now() && Date.now() - sig.at <= HOLD.MAX_AGE_MS;
+      /* the REAL position decides, never a paper book: what the fly wallet holds of this stock, read on chain just above */
+      const action = fresh ? holdAction(sig.target, held) : null;
+      const holding = held > 0n ? 'holds ' + fmt(Number(held) / 10 ** (live.decimals ?? 8), 6) + ' ' + stock.symbol : 'out of the stock';
+      const seenKey = stock.address + '|' + (sig.at || 0) + '|' + (fresh ? sig.target : 'unknown');
+      if (!action) {
+        /* said once per close and target, not every minute */
+        if (auto.seen !== seenKey) { auto.seen = seenKey; autoNote(fresh ? `${sig.target === 'in' ? 'IN' : 'OUT'} ${stock.symbol} at the ${new Date(sig.at).toISOString().slice(11, 16)} UTC close (6-hour move ${fmt(sig.move * 100, 2)}%, steps out below ${fmt(sig.threshold * 100, 2)}%) · ${holding}: no trade`
+          : `${stock.symbol}: the hold signal is not known (${sig.why || 'stale'}): nothing traded`); }
         return;
       }
+      auto.seen = seenKey;
+      /* one close, one action: at most 3 tries (a node busy before anything is sent may be retried; three failures wait for the next close) */
+      /* kept in the SAVED state (security review 2026-11-13): a reload does not give a close three more tries */
+      const tryKey = seenKey + '|' + action;
+      autoRefresh(); const tr = auto.s.holdTries && auto.s.holdTries.key === tryKey ? auto.s.holdTries.n + 1 : 1;
+      auto.s.holdTries = { key: tryKey, n: tr }; autoSave();
+      if (tr > 3) return;
       /* 09/11 (Phil: "the button makes it worse, remove it?"): the "only once it beats a coin flip" gate is gone. Simulated (banc-fly-sim,
        *   5 markets), "gate AND edge pays the fee" gave exactly what "edge pays the fee" alone gave: the edge rule below already pulls a
        *   short record toward a coin (Beta(10, 10)) and asks the edge to pay the real cost, which is stricter; the gate only added a second
@@ -370,18 +391,13 @@ async function autoTrade(e) {
       if (action === 'buy') {
         const cap = BigInt(Math.round(field('autoCap', 0.1, 100, 0.1) * 1e6)), have = BigInt(a.usdc);
         const amt = have < cap ? have : cap;
-        if (amt < 100000n) { autoNote(`decided BUY ${stock.symbol}, but it holds ${usd6(have)} USDC: nothing to buy with`); return; }
+        /* game392: below HOLD_MIN_BUY_USDC the gas of a round trip is over ~0.5% of the trade (1.55% at 0.5 USDC, measured 2026-11-12) */
+        if (amt < BigInt(HOLD_MIN_BUY_USDC * 1e6)) { autoNote(`BUY ${stock.symbol} (hold rule), but ${cap < BigInt(HOLD_MIN_BUY_USDC * 1e6) ? 'your Max per trade is ' + usd6(cap) + ' USDC' : 'it holds ' + usd6(have) + ' USDC'}: it buys from ${HOLD_MIN_BUY_USDC} USDC (below, the network fee eats over 0.5% a round trip): nothing sent`); return; }
         /* game364: the rolling 24 h volume cap, checked before anything is planned or signed */
         const capVol = field('autoVol', 0.5, 1000, 0.5);
         if (!mayBuyVolume(autoRefresh(), Date.now(), Number(amt) / 1e6, capVol)) { autoNote(`decided BUY ${stock.symbol}, but ${fmt(volume24h(auto.s, Date.now()), 2)} USDC were traded in the last 24 h and the cap is ${capVol} USDC: nothing sent`); return; }
-        /* 09/11 (fly-core.edgePaysFee, kept by simulation): it buys only when the expected gain of a window in, from its RECORD and the
-         *   usual move, pays the pool fee; otherwise the fees eat a small edge, and it does not buy */
-        const st = session.state(), r = recordEdge(st.tally);
-        /* game366: the expected gain must pay the WHOLE round trip — both sides' pool + interface fees and both sides' gas at this size;
-         *   the gas is priced from the live base fee and ETH price the account read returns; unknown -> no buy */
-        const gasCote = gasUsdCote(a.baseFeePerGas, Number(a.ethUsd)), taille = Number(amt) / 1e6;
-        const allerRetour = gasCote == null || st.feePips == null ? null : 2 * (st.feePips / 1e6 + FLY.INTERFACE_FEE) + 2 * gasCote / taille;
-        if (!aRetourPaye({ tally: st.tally, typical: st.typical, feePips: st.feePips, gasUsd: gasCote, tailleUsd: taille })) { autoNote(`decided BUY ${stock.symbol}, but its edge does not pay the round trip yet: record ${r.k} right, ${r.n - r.k} wrong, usual move ${fmt(st.typical * 100, 3)}% -> expected ${fmt(edgeOf(st.tally, st.typical) * 100, 4)}% a window, round trip at ${fmt(taille, 2)} USDC ${allerRetour == null ? 'not priced (gas or fee unread)' : fmt(allerRetour * 100, 3) + '% (pool and gas, both sides)'}: no buy`); return; }
+        /* game392: the edge rule (aRetourPaye) no longer gates buys: the hold rule is not a bet on the next window (its record), it is
+         *   "be in the stock unless it just fell hard"; the cost is paid per step out and back, and shown in the panel */
         de = USDC_BASE; vers = stock.address; montant = amt.toString(); volumeDuTrade = Number(amt) / 1e6;
       } else { de = stock.address; vers = USDC_BASE; montant = held.toString(); volumeDuTrade = Number.isFinite(lastPrice) ? Number(held) / 10 ** (live.decimals ?? 8) * lastPrice : 0; }
       /* game323: mouche=1 -> the fly's own trades carry no interface fee (Phil 09/11); the route's real fee is still checked below */
@@ -390,10 +406,13 @@ async function autoTrade(e) {
       for (let round = 0; round < 3; round++) {
         if (!p || !p.ok) { autoNote(`decided ${ACT[action]} ${stock.symbol}: no order (${String((p && p.etat) || '?')}${p && p.pourquoi ? ' — ' + String(p.pourquoi).slice(0, 120) : ''})`); return; }
         if (!p.resume || String(p.resume.paye) !== montant) throw new Error('the plan does not pay the amount asked (' + String(p.resume && p.resume.paye) + ' vs ' + montant + ')');
-        /* 09/11: the REAL cost of this route (the pool fee + the interface fee the planner states for it): a BUY whose edge does not pay it
-         *   is dropped before anything is signed (fork 09/11: a round trip cost 0.30%, three times the pool fee alone) */
-        if (action === 'buy' && round === 0) { const st2 = session.state(), bps = Number(p.resume.fraisBps);
-          if (!Number.isFinite(bps) || !aRetourPaye({ tally: st2.tally, typical: st2.typical, feePips: st2.feePips, interfaceFee: bps / 1e4, gasUsd: gasUsdCote(a.baseFeePerGas, Number(a.ethUsd)), tailleUsd: Number(montant) / 1e6 })) { autoNote(`decided BUY ${stock.symbol}, but this route costs ${Number.isFinite(bps) ? fmt(bps / 100, 2) + '% interface + ' : 'an unknown interface fee + '}${st2.feePips == null ? '?' : fmt(st2.feePips / 1e4, 3) + '%'} pool fee a side, more than its expected ${fmt(edgeOf(st2.tally, st2.typical) * 100, 4)}% a window: nothing signed`); return; } }
+        /* game392: the fly's trades carry NO interface fee (game323, mouche=1): a plan that states one, or none, is not signed */
+        /* security review 2026-11-13: exactly 0 — the planner sends the STRING "0" (fork bench 2026-11-13); Number(null), Number('') and
+         *   Number([]) are 0 too, so only "0" or 0 pass — on EVERY round, the re-plans after approvals included */
+        { const bps = p.resume.fraisBps;
+          if (!((typeof bps === 'string' || typeof bps === 'number') && String(bps) === '0')) { autoNote(`${ACT[action]} ${stock.symbol}: this route states an interface fee of ${typeof bps === 'string' || typeof bps === 'number' ? bps + ' bps' : 'nothing readable'}; the fly's trades carry none: nothing signed`); return; } }
+        /* a sell counts in the 24 h volume at what the plan says it receives, not at the page's price (which a stock switch changes) */
+        if (action === 'sell' && round === 0 && /^\d+$/.test(String(p.resume.recoitAuMoins || ''))) volumeDuTrade = Number(p.resume.recoitAuMoins) / 1e6;
         /* ⛔ H1: nothing is signed that the browser's own guard does not accept */
         const refused = checkPlanCalls({ calls: p.aSigner, fly: s.address, pay: de, receive: vers, amount: montant, nowSec: Math.floor(Date.now() / 1000) });
         if (refused) throw new Error('the fly refused to sign: ' + refused.why);
@@ -431,6 +450,7 @@ function autoRulesRender() {
     'At most ' + field('autoCap', 0.1, 100, 0.1) + ' USDC per buy, and ' + field('autoDay', 1, 50, 1) + ' trades a day (UTC).',
     'At most ' + field('autoVol', 0.5, 1000, 0.5) + ' USDC traded in any 24 hours: a buy above it is not sent (a sell, an exit, always is).',
     'Auto-stop: if the fly wallet is down ' + field('autoLoss', 1, 50, 1) + '% or more from its value when you pressed Start, it stops; only you can start it again.',
+    'Its rule: it holds the stock by default and steps out for 6 hours after a 6-hour move below ' + HOLD.DROP_X + 'x the usual one; it buys from ' + HOLD_MIN_BUY_USDC + ' USDC. The calls of its brain do not move the money.',
     'Spot only: it buys the one stock you chose with USDC and sells it back. No leverage, no borrowing, no other asset.',
     'Every call is checked in this page before its key signs: known routers only, approvals no larger than the trade, no ETH attached, nothing sent to another wallet.',
     'Where these rules live: in this page, which holds the fly\'s key. The brain cannot change them; no server enforces them. Stop and Withdraw all are always yours.',
@@ -441,7 +461,7 @@ function autoRemember() { if (!auto.s) return; autoRefresh(); auto.s.settings = 
 function autoStart() { if (!auto.s || !auto.s.owner || auto.withdrawing || auto.funding) return; if (!$('autoRisk').checked) { autoSay('Tick the box first.'); return; }
   /* game364: Start is the human's act: it sets the base value of the auto-stop again (measured at the first decision) and clears a stop */
   autoRefresh(); auto.s.running = true; auto.s.consentAt = auto.s.consentAt || Date.now(); auto.s.settings = autoSettings(); auto.s.baseUsd = null; auto.s.stopPerte = null; autoSave(); autoRender();
-  autoNote(`trading alone on ${current.symbol}, on its live decisions only, max ${field('autoCap', 0.1, 100, 0.1)} USDC per buy, ${field('autoDay', 1, 50, 1)} trades a day, buying only when its edge pays the real cost. Stop halts it.`); }
+  autoNote(`trading alone on ${current.symbol}, in by default and out for 6 hours after a sharp 6-hour drop, max ${field('autoCap', 0.1, 100, 0.1)} USDC per buy, ${field('autoDay', 1, 50, 1)} trades a day. Stop halts it.`); }
 function autoStop() { if (!auto.s) return; autoRefresh(); auto.s.running = false; autoSave(); autoRender(); autoNote({ b: 'stopped' }, ': it sends nothing more' + (auto.busy ? ' after the call already in flight' : '') + '.'); }
 async function autoWithdraw() {
   if (!auto.s || !auto.s.owner || auto.withdrawing || auto.funding) return;
@@ -486,7 +506,7 @@ function autoWire() {
     if (Number.isFinite(st.cap)) $('autoCap').value = String(st.cap);
     if (Number.isFinite(st.day)) $('autoDay').value = String(st.day);
     if (Number.isFinite(auto.s.consentAt)) $('autoRisk').checked = true;
-    if (auto.s.running) autoNote('page reopened: ', { b: 'still trading alone' }, ` on its live decisions, with your settings (max ${field('autoCap', 0.1, 100, 0.1)} USDC per buy, ${field('autoDay', 1, 50, 1)} trades a day, buying only when its edge pays the real cost). Stop halts it.`);
+    if (auto.s.running) autoNote('page reopened: ', { b: 'still trading alone' }, ` with your settings (in by default, out after a sharp 6-hour drop, max ${field('autoCap', 0.1, 100, 0.1)} USDC per buy, ${field('autoDay', 1, 50, 1)} trades a day). Stop halts it.`);
   }
   if (auto.s && auto.s.settings) { const st2 = auto.s.settings; if (Number.isFinite(st2.vol)) $('autoVol').value = String(st2.vol); if (Number.isFinite(st2.loss)) $('autoLoss').value = String(st2.loss); }
   for (const id of ['autoBudget', 'autoCap', 'autoDay', 'autoVol', 'autoLoss', 'autoRisk']) $(id).addEventListener('change', () => { autoRemember(); autoRulesRender(); });
@@ -557,9 +577,9 @@ function proven(t) { const r = recordEdge(t); return r.n >= 10 && r.p < 0.1;
 }
 function renderTally() { $('tally').textContent = tallyText(session.state().tally); }
 
-/* ── game391: WHY IT HAS NOT TRADED. The same inputs its buy rule (aRetourPaye) reads: this page's record and usual move for the stock,
+/* ── game391, game392: HOW IT TRADES. The hold signal its trades read (/api/fly/hold/), and what one step out and back costs at your size;
  * the pool fee read with the price, one side's gas priced live (gasUsdCote, the same function the buy uses), and your max per trade.
- * The verdict is aRetourPaye's own answer (fly-pourquoi.js); a number not read says "not read", never 0. ── */
+ * the brain's paper record is shown for context. A number not read says "not read", never 0. ── */
 const whyGas = { usd: null, block: null, why: 'reading…', shared: null };
 async function readWhyGas() {
   try {
@@ -570,21 +590,28 @@ async function readWhyGas() {
   } catch (_) { whyGas.usd = null; whyGas.why = 'no answer'; }
   renderWhy();
 }
+/* game392: the hold signal shown in "How it trades" (the same /api/fly/hold/ answer the trades read) */
+const whyHold = { sig: null, token: null };
+async function readWhyHold() { const t = current.address; const sig = await readHold(t); if (current.address === t) { whyHold.sig = sig; whyHold.token = t; renderWhy(); } }
 function renderWhy() {
   if (!session || !$('whyRecord')) return;
   const st = session.state(), size = field('autoCap', 0.1, 100, 0.1);
-  const w = whyNoTrade({ tally: st.tally, typical: st.typical, feePips: st.feePips, gasUsd: whyGas.usd, tailleUsd: size });
-  const L = whyLines(w, '1 · Its record on ' + current.symbol + ' (this page)');
-  $('whyRecord').textContent = L.record; $('whyEdge').textContent = L.edge; $('whyCost').textContent = L.cost;
-  $('whyVerdict').textContent = L.verdict; $('whyNeed').textContent = L.need;
-  /* the shared fly on the server, for context only (its numbers, your size, the same rule): it does not decide this page's trades */
-  const sh = whyGas.shared;
-  $('whyShared').textContent = !sh ? recordText(null, 'The shared fly on the server') : recordText(whyNoTrade({ tally: sh.st.tally }).record, 'The shared fly on the server (' + sh.symbol + ', for context)')
-    + ' ' + numbersLine(whyNoTrade({ tally: sh.st.tally, typical: sh.st.typical, feePips: sh.st.feePips, gasUsd: whyGas.usd, tailleUsd: size }));
-  $('whySizes').replaceChildren(...L.table.map((x, i) => { const tr = document.createElement('tr'); if (w.table[i].size === size) tr.className = 'mine';
-    for (const v of [x.size, x.cost, x.need]) { const td = document.createElement('td'); td.textContent = v; tr.append(td); } return tr; }));
+  const sig = whyHold.token === current.address ? whyHold.sig : null;
+  const H = holdLines(sig, current.symbol);
+  $('whyRecord').textContent = H.rule; $('whyEdge').textContent = H.last; $('whyVerdict').textContent = H.verdict;
+  /* the cost of one step out and back at your size: the same expression the old buy rule used (fly-pourquoi roundTripCost) */
+  const fee = Number.isFinite(sig && sig.feePips) ? sig.feePips : st.feePips;
+  const c = roundTripCost({ feePips: fee, interfaceFee: 0, gasUsd: whyGas.usd, tailleUsd: size });
+  $('whyCost').textContent = 'Each step out and back costs one round trip: ' + (c == null ? 'not read' : (c * 100).toFixed(3) + '% at your size (' + size + ' USDC)') + ' — the pool fee on both sides plus the network fee of both sides.'
+    + (size < HOLD_MIN_BUY_USDC ? ' Your Max per trade is under ' + HOLD_MIN_BUY_USDC + ' USDC: it will not buy (the network fee would eat too much).' : '');
+  $('whyNeed').textContent = '';
+  /* the brain's own record, for context: it calls every window on paper (band 2) and no longer moves the money */
+  $('whyShared').textContent = recordText(whyNoTrade({ tally: st.tally }).record, 'Its brain on ' + current.symbol + ' (this page, on paper)') + ' A record near a coin flip does not pay its fees: that is why the brain no longer moves the money.';
+  $('whySizes').replaceChildren(...SIZES_USDC.map((x) => { const tr = document.createElement('tr'); if (x === size) tr.className = 'mine';
+    const cx = roundTripCost({ feePips: fee, interfaceFee: 0, gasUsd: whyGas.usd, tailleUsd: x });
+    for (const v of [x + ' USDC', cx == null ? 'not read' : (cx * 100).toFixed(3) + '%']) { const td = document.createElement('td'); td.textContent = v; tr.append(td); } return tr; }));
   $('whyGas').textContent = 'Network fee of one side: ' + (whyGas.usd == null ? 'not read (' + whyGas.why + ')' : '$' + fmt(whyGas.usd, 4) + ' (300,000 gas at the live base fee' + (whyGas.block ? ', block ' + whyGas.block.toLocaleString('en-US') : '') + ')')
-    + ' · pool fee of one side: ' + (st.feePips == null ? 'not read' : fmt(st.feePips / 1e4, 3) + '%') + '. Your size is your "Max per trade" in "Let it trade alone": change it to see the cost move.';
+    + ' · pool fee of one side: ' + (fee == null ? 'not read' : fmt(fee / 1e4, 3) + '%') + '. Your size is your "Max per trade" in "Let it trade alone": change it to see the cost move.';
 }
 
 function measure() {
@@ -1018,7 +1045,7 @@ function select(i) {
   const prev = current;
   current = STOCKS[i];
   /* the fly trades only the stock watched: what it still holds of the one left is said, not forgotten (QA 08/11) */
-  if (auto.s && auto.s.owner && prev && prev !== current) autoAccount(prev.address).then((a) => { if (a.stock && BigInt(a.stock) > 0n) autoNote(`it still holds ${fmt(Number(BigInt(a.stock)) / 10 ** (live.decimals ?? 8), 6)} ${prev.symbol}: it trades only the stock you watch, so it sells that only when you watch ${prev.symbol} again (or Withdraw all brings it back)`); }).catch(() => { /* said at the next balance read */ }); lastPrice = null; history = []; drawSpark(); lastDecision = null;
+  if (auto.s && auto.s.owner && prev && prev !== current) autoAccount(prev.address).then((a) => { if (a.stock && BigInt(a.stock) > 0n) autoNote(`it still holds ${fmt(Number(BigInt(a.stock)) / 10 ** (live.decimals ?? 8), 6)} ${prev.symbol}: it trades only the stock you watch, so it sells that only when you watch ${prev.symbol} again (or Withdraw all brings it back)`); }).catch(() => { /* said at the next balance read */ }); lastPrice = null; history = []; drawSpark(); lastDecision = null; void readWhyHold();
   $('watching').textContent = `watching ${current.symbol} · its real trades are read every 30 s and smelled together over a window fitted to how much it moves (5 min to 2 h)`;
   $('verdict').textContent = 'Waiting for a smell'; $('verdict').className = 'decision';
   session.reset(); loadMemory(); thoughts.length = 0; renderThoughts(); renderSeal();
@@ -1066,7 +1093,9 @@ async function start() {
   requestAnimationFrame(loop);
   select(0);
   readShared(); setInterval(readShared, SHARED_MS);
-  readWhyGas(); setInterval(readWhyGas, 60000); setInterval(renderWhy, 5000); $('autoCap').addEventListener('input', renderWhy);
+  readWhyGas(); setInterval(readWhyGas, 60000); setInterval(renderWhy, 5000);
+  /* game392: the hold signal for the panel every 5 min, and the money rule looked at every minute (not only at the brain's decisions) */
+  void readWhyHold(); setInterval(() => { void readWhyHold(); }, 300000); setInterval(() => { void autoTrade({ type: 'tick' }); }, 60000); $('autoCap').addEventListener('input', renderWhy);
   /* leaving the tab: whatever is queued is run at once (no animation is lost: nobody sees it) */
   document.addEventListener('visibilitychange', () => { if (document.hidden && fly) fly.drain(); });
   /* the page's own functions, for the fork end-to-end test only: never exposed on the real site */

@@ -133,7 +133,9 @@ import { selecteur as selecteurSrv, topic as topicSrv, keccak256Hex as keccak256
 import { parseTx } from './fly-tx.js';
 import { createRelayGuard } from './fly-relay.js';
 import { POOLS_ACTIONS_AERODROME } from './pools-actions-aerodrome.js';
-import { readPoolPrice } from './fly-price.js';
+import { readPoolPrice, readPoolMeta } from './fly-price.js';
+import { readCloses } from './fly-hold-closes.js';
+import { windowEnds, holdSignal, HOLD } from './fly-hold.js';
 import { createFly, createSession, foreseeNext, FLY } from './fly-core.js';
 import { readPrices as tbReadPrices, readHold as tbReadHold, holdMessage as tbHoldMessage, verifyOwnership as tbVerifyOwnership,
   telegramInvite as tbTelegramInvite, telegramConfigured as tbTelegramConfigured, telegramReply as tbTelegramReply, joinRequestDecision as tbJoinRequestDecision, holderTagCall as tbHolderTagCall, HOLD_THRESHOLD_USD as TB_HOLD_USD, CHALLENGE_TTL_S as TB_CHALLENGE_TTL_S, TBLOCK_POOL as TB_POOL } from './tblock-hold.js';
@@ -3069,6 +3071,37 @@ function lirePrixMouche(token) {
   }
   return flyPricesInFlight.get(token);
 }
+/* game392 (Phil 2026-11-13, option A): the fly's real-money signal, "in by default, out after a sharp 6-hour drop" (fly-hold.js), for one
+ *   stock of the pool table. The 6-hour closes are rebuilt from the pool's own Swap logs (fly-hold-closes.js), so a deploy loses nothing
+ *   that cannot be read again. A close read is kept (a past price never changes); a close not read is read again next time. One build
+ *   in flight per stock, two stocks at most at once; the answer is kept 60 s. Read only. */
+const flyHold = new Map(), flyHoldInFlight = new Map();
+function lireSignalMouche(token) {
+  const entry = POOLS_ACTIONS_AERODROME.get(token);
+  if (!entry) return Promise.resolve({ ok: false, why: 'not a stock of the measured pool table' });
+  const memo = flyHold.get(token) || { known: new Map(), r: null, t: 0 };
+  if (memo.r && Date.now() - memo.t < 60000) return Promise.resolve({ ...memo.r, cached: true });
+  if (flyHoldInFlight.has(token)) return flyHoldInFlight.get(token);
+  if (flyHoldInFlight.size >= 2) return Promise.resolve({ ok: false, busy: true, why: 'the server is reading other stocks: retry in a minute' });
+  const p = (async () => {
+    const meta = await readPoolMeta({ rpc: rpcServeur, pool: entry.pool, token });
+    const ends = windowEnds(Date.now());
+    const closes = await readCloses({ rpc: rpcServeur, pool: entry.pool, meta, ends, known: memo.known });
+    const known = new Map(); for (const c of closes) if (c.price > 0) known.set(c.at, c.price); /* only the 28 ends in use are kept */
+    const s = holdSignal(closes, { nowMs: Date.now() });
+    const r = { ok: true, token, symbol: entry.symbole, pool: entry.pool, feePips: meta.feePips, ...s, rule: { windowMs: HOLD.WINDOW_MS, dropX: HOLD.DROP_X, alpha: HOLD.ALPHA, minMoves: HOLD.MIN_MOVES },
+      closes, readAt: new Date().toISOString(), source: 'Aerodrome CL Swap logs' };
+    flyHold.set(token, { known, r, t: Date.now() });
+    return r;
+  })().catch((e) => {
+    /* security review 2026-11-13: a failure is kept 60 s too (a failing node must not turn every request into a ~90-call rebuild) */
+    const r = { ok: false, target: null, why: 'closes not read: ' + String((e && e.message) || e).slice(0, 120) };
+    flyHold.set(token, { known: memo.known, r, t: Date.now() });
+    return r;
+  }).finally(() => flyHoldInFlight.delete(token));
+  flyHoldInFlight.set(token, p);
+  return p;
+}
 
 /* ── THE SHARED FLY (2026-11-08) ──────────────────────────────────────────────────────────────────────────────────────────────
  * The page's fly lives in each visitor's browser; this one lives in the server and trains on SNDKc (the most traded stock, Coinbase
@@ -3127,7 +3160,7 @@ async function fenetreMouche() {
 /* the autonomous fly's relay guard (fly-relay.js): only calls this server planned, withdraw transfers, plain ETH sends */
 const GARDE_MOUCHE = createRelayGuard({ usdc: USDC_BASE, isStock: (a) => !!POOLS_ACTIONS_AERODROME.get(a), transferSelector: selecteurSrv('transfer(address,uint256)') });
 /* per IP and per minute, for each fly route */
-const FLY_BUDGET = { minute: -1, parIp: new Map() }, FLY_LIMITES = { account: 60, estimate: 30, relay: 12, receipt: 60, gas: 20 };
+const FLY_BUDGET = { minute: -1, parIp: new Map() }, FLY_LIMITES = { account: 60, estimate: 30, relay: 12, receipt: 60, gas: 20, hold: 20 };
 function budgetMouche(req, route) {
   const m = Math.floor(Date.now() / 60000);
   if (FLY_BUDGET.minute !== m) { FLY_BUDGET.minute = m; FLY_BUDGET.parIp.clear(); }
@@ -6281,6 +6314,7 @@ const SERVIS = [
   'fly-brain.html', 'fly-brain.js', 'fly-brain-circuit.json', 'fly-core.js', 'fly-tx.js', 'fly-wallet.js', 'fly-guard.js', 'fly-seal.js', 'fly-day.js',
   /* game391: why the fly has not traded, computed from the numbers its buy rule reads (imported by fly-brain.js) */
   'fly-pourquoi.js',
+  'fly-hold.js',
   /* 2026-10-03 : les Initialize mesures (OUSD/USDC v4) — aretes de fait de « Pay with » (importe par app.html) */
   'cles-v4-mesurees.js',
   /* 2026-10-03 : les 20 pools v4 USDC des actions tokenisees, logs bruts (importe par cles-v4-mesurees.js) */
@@ -7727,6 +7761,17 @@ function traiterRequete(req, res) {
     if (req.method !== 'GET') { send(405, { ok: false, why: 'GET only' }); return; }
     if (!POOLS_ACTIONS_AERODROME.get(token)) { send(404, { ok: false, why: 'not a stock of the measured pool table' }); return; }
     lirePrixMouche(token).then((r) => send(200, r));
+    return;
+  }
+  /* game392: GET /api/fly/hold/<stock> -> the fly's real-money signal (in by default, out after a sharp 6-hour drop) and the closes it
+   *   comes from. Read only; target null = not known, and the fly trades nothing on it. */
+  if (chemin.startsWith('/api/fly/hold/')) {
+    const token = chemin.slice('/api/fly/hold/'.length).toLowerCase();
+    const send = (code, body) => { res.writeHead(code, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' }); res.end(JSON.stringify(body)); };
+    if (req.method !== 'GET') { send(405, { ok: false, why: 'GET only' }); return; }
+    if (!POOLS_ACTIONS_AERODROME.get(token)) { send(404, { ok: false, why: 'not a stock of the measured pool table' }); return; }
+    if (!budgetMouche(req, 'hold')) { send(429, { ok: false, why: 'too many requests this minute: retry in a minute' }); return; }
+    lireSignalMouche(token).then((r) => send(r && r.busy ? 429 : 200, r));
     return;
   }
   /* game391: GET /api/fly/gas -> the live base fee and the ETH price, what the fly prices its gas with (fly-core gasUsdCote), for the

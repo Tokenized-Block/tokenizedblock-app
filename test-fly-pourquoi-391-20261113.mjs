@@ -113,7 +113,7 @@ let baseRef = null; for (const b of BASES) { try { git(['rev-parse', '--verify',
 t('the base tree is readable (public/main or d7454bb)', baseRef !== null);
 if (baseRef) {
   const avant = git(['show', baseRef + ':fly-core.js']), apres = lire('fly-core.js');
-  const fn = (src, name) => { const i = src.indexOf('export function ' + name + '('); if (i < 0) return null; const j = src.indexOf('\n}\n', i); return src.slice(i, j + 2); };
+  const fn = (src, name) => { const i = src.indexOf('export function ' + name + '('); if (i < 0) return null; const m = /\r?\n\}\r?\n/.exec(src.slice(i)); if (!m) return null; return src.slice(i, i + m.index + m[0].length - 1); };
   for (const name of ['aRetourPaye', 'edgePaysFee', 'edgeOf', 'gasUsdCote', 'recordEdge', 'decide']) {
     const a = fn(avant, name), b = fn(apres, name);
     t('rule untouched: ' + name + ' byte-identical to ' + baseRef, a !== null && a === b);
@@ -125,23 +125,28 @@ if (baseRef) {
 
 /* ── the page, the server, the copy ── */
 const JS = lire('fly-brain.js'), HT = lire('fly-brain.html'), SRV = lire('serveur-web.js'), MOD = lire(NOM);
-t('page imports the explainer', /import \{ whyNoTrade, whyLines, recordText, numbersLine \} from '\.\/fly-pourquoi\.js';/.test(JS));
-const rw = JS.slice(JS.indexOf('function renderWhy()'), JS.indexOf('function renderWhy()') + 2800);
-t('page: the explainer reads the buy rule inputs (session state, pool fee, usual move, record) and your max per trade',
-  rw.includes("const st = session.state(), size = field('autoCap', 0.1, 100, 0.1);") && rw.includes('whyNoTrade({ tally: st.tally, typical: st.typical, feePips: st.feePips, gasUsd: whyGas.usd, tailleUsd: size })'));
+/* game392 (Phil 2026-11-13, option A): the panel became "How it trades": the hold rule its trades read (fly-hold.js), the cost of one
+ *   step out and back at your size (roundTripCost of this module, interface fee 0: the fly's trades carry none), the brain's paper record */
+t('page imports what the panel uses from this module', JS.includes("import { whyNoTrade, recordText, roundTripCost, SIZES_USDC } from './fly-pourquoi.js';"));
+const rw = JS.slice(JS.indexOf('function renderWhy()'), JS.indexOf('function renderWhy()') + 3200);
+t('page: the panel shows the hold signal of the stock you watch (holdLines), never the signal of another stock',
+  rw.includes('const sig = whyHold.token === current.address ? whyHold.sig : null;') && rw.includes('const H = holdLines(sig, current.symbol);'));
+t('page: the cost at your size is roundTripCost with no interface fee, at your max per trade',
+  rw.includes("const st = session.state(), size = field('autoCap', 0.1, 100, 0.1);") && rw.includes('roundTripCost({ feePips: fee, interfaceFee: 0, gasUsd: whyGas.usd, tailleUsd: size })'));
 t('page: the buy reads the same max-per-trade field', JS.includes("const cap = BigInt(Math.round(field('autoCap', 0.1, 100, 0.1) * 1e6))"));
-t('page: gas priced with the same function the buy uses (gasUsdCote)', /whyGas\.usd = g && g\.ok \? gasUsdCote\(g\.baseFeePerGas, Number\(g\.ethUsd\)\) : null;/.test(JS) && JS.includes('const gasCote = gasUsdCote(a.baseFeePerGas, Number(a.ethUsd))'));
-t('page: gas not read -> "not read"', rw.includes("whyGas.usd == null ? 'not read (' + whyGas.why + ')'") && rw.includes("st.feePips == null ? 'not read'"));
-t('page: the shared fly record and its numbers at your size (same rule), "not read" when the server does not answer',
-  rw.includes("$('whyShared').textContent = !sh ? recordText(null, 'The shared fly on the server')") && rw.includes('numbersLine(whyNoTrade({ tally: sh.st.tally, typical: sh.st.typical, feePips: sh.st.feePips, gasUsd: whyGas.usd, tailleUsd: size }))')
-  && (JS.match(/whyGas\.shared = null; renderWhy\(\);/g) || []).length === 2 && JS.includes('whyGas.shared = { symbol: s.symbol, st: s.session }; renderWhy();'));
-t('page: refreshed (gas every minute, numbers every 5 s, and on a size change)', JS.includes("readWhyGas(); setInterval(readWhyGas, 60000); setInterval(renderWhy, 5000); $('autoCap').addEventListener('input', renderWhy);"));
-t('page: the buy rule still gates the real buy, unchanged', JS.includes('if (!aRetourPaye({ tally: st.tally, typical: st.typical, feePips: st.feePips, gasUsd: gasCote, tailleUsd: taille })) { autoNote('));
-t('html: the panel and its fields', ['id="whyCard"', 'id="whyRecord"', 'id="whyShared"', 'id="whyEdge"', 'id="whyCost"', 'id="whyVerdict"', 'id="whyNeed"', 'id="whySizes"', 'id="whyGas"', '<h2>Why it has not traded</h2>'].every((s) => HT.includes(s)));
-t('html: says live experiment', /This is a live experiment\./.test(HT));
-t('html: the old "one side of the trade" rule text is gone (the rule is the round trip)', !HT.includes('is larger than one side of the trade') && HT.includes('is larger than a whole round trip at your trade size'));
-t('server: the module is served (SERVIS)', /\n {2}'fly-pourquoi\.js',\n/.test(SRV));
-t('server: /api/fly/gas is read-only, budgeted, null when unread', SRV.includes("if (chemin === '/api/fly/gas') {") && SRV.includes("if (!budgetMouche(req, 'gas'))") && /FLY_LIMITES = \{[^}]*gas: \d+ \}/.test(SRV) && SRV.includes('ethUsd: eu, why:'));
+t('page: gas priced with gasUsdCote', JS.includes('whyGas.usd = g && g.ok ? gasUsdCote(g.baseFeePerGas, Number(g.ethUsd)) : null;'));
+t('page: gas or fee not read -> "not read"', rw.includes("whyGas.usd == null ? 'not read (' + whyGas.why + ')'") && rw.includes("fee == null ? 'not read'") && rw.includes("c == null ? 'not read'"));
+t('page: the brain record is shown for context, and said not to move the money', rw.includes("recordText(whyNoTrade({ tally: st.tally }).record, 'Its brain on '") && rw.includes('that is why the brain no longer moves the money'));
+t('page: refreshed (gas every minute, numbers every 5 s, hold signal every 5 min, on a stock switch, and on a size change)',
+  JS.includes("readWhyGas(); setInterval(readWhyGas, 60000); setInterval(renderWhy, 5000);") && JS.includes('void readWhyHold(); setInterval(() => { void readWhyHold(); }, 300000);')
+  && JS.includes('lastDecision = null; void readWhyHold();') && JS.includes("$('autoCap').addEventListener('input', renderWhy);"));
+t('page: a size under the minimum buy is said in the panel', rw.includes('size < HOLD_MIN_BUY_USDC ?'));
+t('html: the panel and its fields', ['id="whyCard"', 'id="whyRecord"', 'id="whyShared"', 'id="whyEdge"', 'id="whyCost"', 'id="whyVerdict"', 'id="whyNeed"', 'id="whySizes"', 'id="whyGas"', '<h2>How it trades</h2>'].every((s) => HT.includes(s)));
+t('html: the replay misses are written next to the catches (AAPLc behind, a different risk)', HT.includes('but AAPLc +2.0% against +5.6% held') && HT.includes('It is a different risk, not a better investment: it can lose, and it can miss a rise.'));
+t('html: the old edge rule text is gone', !HT.includes('It buys only when its edge pays the real cost') && !HT.includes('<h2>Why it has not traded</h2>'));
+t('html: defaults 5 USDC budget and per trade, 20 USDC a day', HT.includes('id="autoBudget" type="number" min="0.1" max="100" step="0.1" value="5"') && HT.includes('id="autoCap" type="number" min="0.1" max="100" step="0.1" value="5"') && HT.includes('id="autoVol" type="number" min="0.5" max="1000" step="0.5" value="20"'));
+t('server: the module is served (SERVIS)', /\r?\n {2}'fly-pourquoi\.js',\r?\n/.test(SRV));
+t('server: /api/fly/gas is read-only, budgeted, null when unread', SRV.includes("if (chemin === '/api/fly/gas') {") && SRV.includes("if (!budgetMouche(req, 'gas'))") && /FLY_LIMITES = \{[^}]*gas: \d+[,}]/.test(SRV) && SRV.includes('ethUsd: eu, why:'));
 const texte = MOD.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '') + HT.slice(HT.indexOf('id="whyCard"'), HT.indexOf('<div class="card live">')) + rw;
 t('copy: no internal words, no version names', !/not deployed|under review|fork[- ]?test|\b[vV]\d+\b|\bV8\b/.test(texte));
 t('copy: promises nothing', !/guarantee|profit|will (?:earn|make|gain)|risk[- ]free|sure gain/i.test(texte));
