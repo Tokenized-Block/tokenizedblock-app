@@ -6465,6 +6465,8 @@ const SERVIS = [
   /* 2026-11-12: the TBLOCK buyback that pays the holders vault: its unsigned deployment (generated), the pure module that checks and judges
    *   it, and the page that offers its ONE signature (buyback-vault.js imports keccak.js, pack-economie-v2.js and the two pack records) */
   'deployer-tblock-buyback-vault.html', 'tblock-buyback-vault-deploiement.js', 'buyback-vault.js',
+  /* game401: the weekly lock rewards: its unsigned deployment (generated), its pure module (same imports as buyback-vault.js), its page */
+  'deployer-lock-weekly.html', 'lock-weekly-deploiement.js', 'lock-weekly.js',
   /* game325: the unsigned deployment of the block contest (generated) and its page */
   'deployer-block-contest.html', 'block-contest-deploiement.js',
   /* the block contest page for users (reads Base, builds unsigned calls for the wallet of the user) and its pure module */
@@ -6914,6 +6916,7 @@ function traiterRequete(req, res) {
     res.end(['User-agent: *', 'Allow: /', 'Disallow: /frais.html', 'Disallow: /deploy-v2.html', 'Disallow: /deploy-v3.html', 'Disallow: /deploy-v4.html', 'Disallow: /deploy-v5.html', 'Disallow: /deploy-v6.html', 'Disallow: /deploy-v7.html', 'Disallow: /deploy-v8.html', 'Disallow: /deploy-pot.html', 'Disallow: /pot.html',
       'Disallow: /deployer-tblock-buyback.html', /* 2026-11-11: the retired buyback v1 page stays served, not indexed */
       'Disallow: /deployer-tblock-buyback-vault.html', /* 2026-11-12: a deploy page, served, not indexed */
+      'Disallow: /deployer-lock-weekly.html', /* game401: a deploy page, served, not indexed */
       'Disallow: /api/', '', 'Sitemap: https://tokenizedblock.space/sitemap.xml', ''].join('\n'));
     return;
   }
