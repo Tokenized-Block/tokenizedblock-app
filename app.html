@@ -3757,7 +3757,7 @@ details[open] > summary::before{transform:rotate(90deg)}
       <!-- ⛔ L EMPREINTE EST AFFICHEE, DONC ELLE EST DE L ANGLAIS. `20261001-pont-dans-lui` a fait
            rougir `test-texte-a-l-ecran.mjs` : le mot « dans » est de la prose francaise partie a
            l ecran anglais. La garde a fait son travail du premier coup. -->
-      <p class="note" data-build="20261109-game404" hidden>Build <code>20261109-game404</code> ·Contract labels say what they do, not our internal names.</p>
+      <p class="note" data-build="20261109-game405" hidden>Build <code>20261109-game405</code> ·Contract labels say what they do, not our internal names.</p>
       <p class="sous">Everything happening to blocks on Base, live.</p>
       <!-- tip 0013: sticky — Hooked chip = Dex fees; unhooked → Launch beside. No fee addr. -->
       <p class="note" id="sfHookedSticky" hidden>Blocks alive on TokenizedBlock pay their creator on every trade. Example:<button type="button" class="puce" id="sfStickyTbgas">Open TBGAS</button>.</p>
@@ -32908,7 +32908,7 @@ async function peindreLock(hote, { offre = false } = {}) {
     pli.append(el('p', 'sous', 'Locking earns community points, and monthly lock rewards for each whole month your lock covers and you play in. Hearts ♥ and holders vault claims count your lock; the holders’ channel counts your wallet balance. To leave: request the withdrawal (points and rewards stop at once); you take it all back ' + LK.RETRAIT_JOURS + ' days after the request, or at the lock date if that is later.'));
     pli.append(el('p', 'note', 'Locked TBLOCK cannot be sold until the date, then the ' + LK.RETRAIT_JOURS + '-day withdrawal period.'),
       el('p', 'note', 'Community points: 1 a day per 100,000 TBLOCK, ×1.25 from 30 days, ×1.5 from 90, ×2 from 1 year. Points decide your share of the community drop, a separate distribution coming soon; the weekly player budget follows what you put in.'
-        + (EP.REWARDS ? ' Monthly lock rewards are paid for the months you play in (a heart, a TAM art mint or a skin mint).' : '') + ' No rate is promised.'));
+        + (EP.REWARDS ? ' Monthly lock rewards are paid for the months you play in (a heart or a TAM art mint).' : '') + ' No rate is promised.'));
     const t0c = Math.floor(Date.now() / 1000), R7 = LK.RETRAIT_JOURS * 86400;
     if (locked > 0n) {
       const hero = el('div', 'hvBloc hvHero', null); hero.dataset.l = 'lock';
@@ -33139,8 +33139,8 @@ async function peindreRecompensesLock(hote, { moi, locked, active, unlockAt, req
     box.append(HV.puces(document, HV.moisPuces({ courant: c, premier: moisLu ? moisLu.premier : 0, dernier: moisLu ? moisLu.dernier : 0, n: moisLu ? moisLu.n : 0, joue: joue === 1n }), 'Months of the lock rewards'));
     /* review 2026-11-12: "play this month to be paid for it" only when the rewards contract counts this lock for THIS month (weightOf > 0):
      *   enroll writes the weight from the NEXT month on, so a lock enrolled this month (Grok, month 0) cannot be paid for it, played or not */
-    if (joue !== 1n && typeof poidsMois === 'bigint' && poidsMois > 0n) box.append(el('p', 'hvDetail', 'Play this month (a heart, a TAM art mint or a skin mint) to be paid for it.'));
-    else if (joue !== 1n && poidsMois === 0n && moisLu && moisLu.n > 0 && R.inscrit) box.append(el('p', 'hvDetail', 'Your lock counts from month ' + moisLu.premier + ': play in it (a heart, a TAM art mint or a skin mint) to be paid for it.'));
+    if (joue !== 1n && typeof poidsMois === 'bigint' && poidsMois > 0n) box.append(el('p', 'hvDetail', 'Play this month (a heart or a TAM art mint) to be paid for it.'));
+    else if (joue !== 1n && poidsMois === 0n && moisLu && moisLu.n > 0 && R.inscrit) box.append(el('p', 'hvDetail', 'Your lock counts from month ' + moisLu.premier + ': play in it (a heart or a TAM art mint) to be paid for it.'));
     if (prochain === 0n) ligne('Last closed month', 'none yet: month 0 closes after ' + quand(await lit(EP.VIEW.rEpochEnd(0n))));
     else {
       const e = prochain - 1n;
@@ -33220,7 +33220,7 @@ async function peindreRecompensesHebdo(hote, { moi, locked, active, unlockAt, re
       ligne('Yours to claim', aPayer.length ? texte + ' (' + aPayer.length + (aPayer.length === 1 ? ' week' : ' weeks') + ')' : 'nothing for this wallet');
       if (aPayer.length) bouton('Claim ' + texte, () => [LW.claimWeeklyCall(aPayer)], 'claim ' + texte, 'Claimed: ' + texte + ' sent to your wallet.');
     } else ligne('Last closed week', 'none yet: week ' + c + ' closes after ' + quand(fin) + ' and its grace day');
-    box.append(el('p', 'note', 'Each week pays only the locks that joined before it AND whose holder played in it (a heart, a TAM art mint or a skin mint) and was counted before it closed. What it pays is what has gathered in the weekly rewards contract; an amount is never promised.'));
+    box.append(el('p', 'note', 'Each week pays only the locks that joined before it AND whose holder played in it (a heart or a TAM art mint) and was counted before it closed. What it pays is what has gathered in the weekly rewards contract; an amount is never promised.'));
   } catch (_) { ligne('Weekly lock rewards', 'not read just now'); }
   if (String(compte || '').toLowerCase() !== moi || (perime && perime())) return null;
   return { box };
@@ -33607,7 +33607,7 @@ async function peindreVaultWallet() {
   const wc = $('#wVaultComment');
   /* 2026-11-12: the rules are READ from the live vault (EP.REGLES_VAULT); unread = a sentence without numbers, never typed ones */
   if (wc) wc.textContent = (wVaultRegle || 'Each week the vault keeps a budget for the players, never more than part of what each one put in; claiming needs TBLOCK locked.')
-    + ' You must play that week: a heart, a TAM art mint or a skin mint. Community points are separate: they decide your share of a later community drop.';
+    + ' You must play that week: a heart or a TAM art mint. Community points are separate: they decide your share of a later community drop.';
   void peindreCoeursWallet();
   void peindreLock($('#wLock'));
   void peindrePointsWallet();

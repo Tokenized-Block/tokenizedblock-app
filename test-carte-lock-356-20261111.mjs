@@ -36,6 +36,6 @@ t('big counter painted from /api/points total, hidden when none', APP.includes('
 /* 2026-11-12 (the economy pack is live): the explainer is the LIVE vault's rules, read on chain (EP.REGLES_VAULT -> texteRegleVault), never
  *   typed; these two clauses replace those of the first vault's explainer */
 t('vault explainer: the live vault rules read on chain, never typed', APP.includes('for (const k of EP.REGLES_VAULT) r[k] = await lit(EP.VIEW.regleVault(k)); wVaultRegle = EP.texteRegleVault(r);') && APP.includes("if (wc) wc.textContent = (wVaultRegle || ") && !/17,200,000|2,580,000/.test(APP.slice(APP.indexOf("const wc = $('#wVaultComment');"), APP.indexOf("const wc = $('#wVaultComment');") + 900)));
-t('vault explainer: you must play that week; points are separate from the weekly budget', APP.includes(' You must play that week: a heart, a TAM art mint or a skin mint. Community points are separate') && !APP.includes('Points decide a share of what the vault actually receives'));
+t('vault explainer: you must play that week; points are separate from the weekly budget', APP.includes(' You must play that week: a heart or a TAM art mint. Community points are separate') && !APP.includes('Points decide a share of what the vault actually receives'));
 console.log(ok + '/' + (ok + ko) + (ko ? ' — RED' : ' — green'));
 process.exit(ko ? 1 : 0);

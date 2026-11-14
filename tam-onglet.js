@@ -13,6 +13,9 @@ import { planJeuUsdc } from './misables.js';
 /* 2026-11-12 (the economy pack is live): the mint is paid through the TBLOCK payment router on TAM art (EP.TAM): the payment itself buys
  *   TBLOCK for the holders vault, so the separate optional buy after a USDC mint (game358) is gone. The first TamArt stays in the gallery. */
 import * as EP from './economie-pack.js';
+/* 2026-11-14: a TAM art mint is a play for the weekly lock rewards (R2): the mint batch also counts the week (fork-proven) */
+import * as LW from './lock-weekly-app.js';
+import * as LK from './lock.js';
 import { projectCam } from './map3d.js';
 import { navGesture } from './vision-inside.js';
 import { keccak256Hex } from './keccak.js';
@@ -2539,7 +2542,21 @@ export function monter(racine, ctx = {}) {
     const jeu = { genre: 'tam-routeur', contrat: EP.ROUTER, pack: EP, lu, octets: oct, graine, paramsJson, minOut: mr.minOut, deadline: mr.deadline };
     const planUsdc = planJeuUsdc(jeu);
     if (planUsdc.etat !== 'PRET') { dit.textContent = planUsdc.pourquoi + '.'; return; }
-    const pj = { ok: true, plan: planUsdc, sym: 'USDC', phrase: 'Paid as ' + EP.usdcTexte(planUsdc.resume.prixUsdc) + ' USDC.' };
+    /* the weekly count, appended only when every read answered and the rule says it lands (lock-weekly-app.js marquageApresMintTam:
+     *   weight this week, not counted yet, 2 × minHold locked, more than 10 minutes left); any failed read = nothing appended */
+    let compter = null;
+    if (LW.WEEKLY) {
+      try {
+        const w = async (v) => EP.word(await ctx.rpc('eth_call', [v, 'latest']));
+        const sc = await w(LW.VIEW.currentEpoch());
+        const [fin, poids, mq, locked, mh, step, iv] = await Promise.all([w(LW.VIEW.epochEnd(sc)), w(LW.VIEW.weightOf(c, sc)), w(LW.VIEW.marked(c, sc)), w(LK.VIEW.activeLockedOf(c)), w(EP.VIEW.minHold()),
+          w(LW.heartsView(EP.HEARTS, 'MAX_STEP_BPS()')), w(LW.heartsView(EP.HEARTS, 'MIN_INTERVAL()'))]);
+        compter = LW.marquageApresMintTam({ holder: c, courant: sc, finSemaineS: fin, maintenantS: BigInt(mr.deadline - EP.DELAI_PAIEMENT_S), poids, marque: mq === 1n,
+          locked, minHold: mh, maxStepBps: step, minIntervalS: iv, fenetreS: EP.DELAI_PAIEMENT_S });
+      } catch (_) { compter = null; }
+    }
+    const planFinal = compter ? { ...planUsdc, appels: [...planUsdc.appels, { to: compter.to, data: compter.data, value: '0x0', quoi: 'count this week for your weekly lock rewards' }] } : planUsdc;
+    const pj = { ok: true, plan: planFinal, sym: 'USDC', phrase: 'Paid as ' + EP.usdcTexte(planUsdc.resume.prixUsdc) + ' USDC.' };
     const rs = planUsdc.resume;
     /* 2026-11-12 (browser check): the plan is on screen — "Reading a fresh TBLOCK quote…" stayed under it, as if still waiting */
     dit.textContent = '';

@@ -160,7 +160,7 @@ const { verifierPack, LETTRES } = await import('./pack-economie-v2.js');
   t('app strings found (witness)', lockCarte.length >= 1 && vault.length >= 2 && ptsNote.length >= 2 /* 2026-11-12: the explainer is the live vault's rules, read on chain */, [lockCarte.length, vault.length, ptsNote.length].join('/'));
   const tout = [...lockCarte, ...vault, ...ptsNote];
   t('app lock card, vault explainer and points note: no status or version word', fautes(tout).length === 0, fautes(tout).join(' '));
-  t('app vault explainer: the live vault\'s rules read on chain, and you must play that week', vault.join('').includes('You must play that week: a heart, a TAM art mint or a skin mint.') && !vault.join('').includes('Coming soon, the holders vault'));
+  t('app vault explainer: the live vault\'s rules read on chain, and you must play that week', vault.join('').includes('You must play that week: a heart or a TAM art mint.') && !vault.join('').includes('Coming soon, the holders vault'));
 }
 
 /* ======== the view modules those pages print ======== */

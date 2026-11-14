@@ -70,7 +70,7 @@ export function semainesMarquables({ courant, prochainAFermer }) {
 export function etatSemaine({ poids, joue, marque }) {
   if (BigInt(poids) === 0n) return { action: null, texte: 'your lock does not count for this week' };
   if (marque) return { action: null, texte: 'played and counted' };
-  if (!joue) return { action: null, texte: 'not played yet: a heart, a TAM art mint or a skin mint' };
+  if (!joue) return { action: null, texte: 'not played yet: a heart or a TAM art mint' };
   return { action: 'mark', texte: 'played, not counted yet: one signature counts it' };
 }
 
@@ -82,4 +82,24 @@ export function marquageApresJeu({ holder, courant, finSemaineS, maintenantS, po
   if (!WEEKLY || BigInt(poids) === 0n || marque) return null;
   if (BigInt(finSemaineS) - BigInt(maintenantS) < BigInt(MARGE_FIN_S)) return null;
   return markPlayedCall(holder, courant);
+}
+
+/** a TAM art mint through the router (fork-proven in banc-lock-weekly-routeur-fork-20261114): unlike a heart, the mint does NOT need the
+ *   hold, but V records its play ONLY when the payer has activeLockedOf >= hearts' minHold IN THE BLOCK IT LANDS. minHold follows the
+ *   hearts' keeper price: at most one write per MIN_INTERVAL, each within MAX_STEP_BPS (read on chain: 3600 s, 1000 bps on 2026-11-14).
+ *   The batch can land up to `fenetreS` (the payment deadline) after the read, so the append needs the lock to stay above minHold after
+ *   every price write that window allows (each one can raise minHold by BPS / (BPS - step)). Otherwise the play may go unrecorded,
+ *   markPlayed reverts NotPlayed, and an atomic batch drops the paid mint: then nothing is appended and "Count my week" stays.
+ * ⛔ NEVER for a skin mint: V does not list the 1 USDC Skins (a skin mint records no play; measured on the fork). */
+export const heartsView = (hearts, sig) => ({ to: adr(hearts), data: '0x' + S_(sig) });
+export function holdTientLaFenetre({ locked, minHold, maxStepBps, minIntervalS, fenetreS }) {
+  const l = BigInt(locked), step = BigInt(maxStepBps), iv = BigInt(minIntervalS), f = BigInt(fenetreS);
+  let m = BigInt(minHold);
+  if (m <= 0n || step <= 0n || step >= 10000n || iv <= 0n || f < 0n) return false;
+  for (let k = f / iv + 1n; k > 0n; k--) m = (m * 10000n + (10000n - step) - 1n) / (10000n - step); /* rounded up */
+  return l >= m;
+}
+export function marquageApresMintTam({ locked, minHold, maxStepBps, minIntervalS, fenetreS, ...semaine }) {
+  if (!holdTientLaFenetre({ locked, minHold, maxStepBps, minIntervalS, fenetreS })) return null;
+  return marquageApresJeu(semaine);
 }

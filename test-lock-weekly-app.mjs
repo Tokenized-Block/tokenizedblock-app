@@ -43,5 +43,17 @@ t('apres jeu: already marked -> nothing', A.marquageApresJeu({ ...base, marque: 
 t('apres jeu: 599 s before the end -> nothing', A.marquageApresJeu({ ...base, maintenantS: 10_000n - 599n }) === null);
 t('apres jeu: 600 s before the end -> appended', A.marquageApresJeu({ ...base, maintenantS: 10_000n - 600n }) !== null);
 t('apres jeu: after the end -> nothing', A.marquageApresJeu({ ...base, maintenantS: 10_001n }) === null);
+/* marquageApresMintTam: the TAM append needs 2 × minHold locked (V records a play only above minHold, which moves) */
+/* one write possible in 600 s (interval 3600): minHold 9000 can become 10000; interval 300: writes at +0, +300, +600 = three: 12347 (rounded up) */
+const tam = { ...base, locked: 10000n, minHold: 9000n, maxStepBps: 1000n, minIntervalS: 3600n, fenetreS: 600n };
+t('tam: the lock holds after one -10% price write -> appended', A.marquageApresMintTam(tam) && A.marquageApresMintTam(tam).data === A.markPlayedCall(moi, 4n).data);
+t('tam: one unit short -> nothing', A.marquageApresMintTam({ ...tam, locked: 9999n }) === null);
+t('tam: a shorter keeper interval allows three writes -> 10000 is not enough, 12347 is', A.marquageApresMintTam({ ...tam, minIntervalS: 300n }) === null && A.holdTientLaFenetre({ ...tam, locked: 12347n, minIntervalS: 300n }) && !A.holdTientLaFenetre({ ...tam, locked: 12346n, minIntervalS: 300n }));
+t('tam: the measured 2026-11-14 lock (3,000,000 vs minHold 2,789,880) is too close: nothing appended', !A.holdTientLaFenetre({ locked: 3_000_000n, minHold: 2_789_880n, maxStepBps: 1000n, minIntervalS: 3600n, fenetreS: 600n }));
+t('tam: an unread step (0) -> nothing', A.marquageApresMintTam({ ...tam, maxStepBps: 0n }) === null);
+t('tam: minHold unread as 0 -> nothing', A.marquageApresMintTam({ ...tam, minHold: 0n }) === null);
+t('tam: the week rules still apply (already marked)', A.marquageApresMintTam({ ...tam, marque: true }) === null);
+t('tam: the week rules still apply (last 10 minutes)', A.marquageApresMintTam({ ...tam, maintenantS: 10_000n - 599n }) === null);
+t('the copy never says a skin mint counts', !/skin/.test(A.etatSemaine({ poids: 1n, joue: false, marque: false }).texte));
 console.log(ok + '/' + (ok + ko) + (ko ? ' — RED' : ' — green'));
 process.exit(ko ? 1 : 0);
