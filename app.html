@@ -3757,7 +3757,7 @@ details[open] > summary::before{transform:rotate(90deg)}
       <!-- ⛔ L EMPREINTE EST AFFICHEE, DONC ELLE EST DE L ANGLAIS. `20261001-pont-dans-lui` a fait
            rougir `test-texte-a-l-ecran.mjs` : le mot « dans » est de la prose francaise partie a
            l ecran anglais. La garde a fait son travail du premier coup. -->
-      <p class="note" data-build="20261109-game409" hidden>Build <code>20261109-game409</code> ·Contract labels say what they do, not our internal names.</p>
+      <p class="note" data-build="20261109-game410" hidden>Build <code>20261109-game410</code> ·Contract labels say what they do, not our internal names.</p>
       <p class="sous">Everything happening to blocks on Base, live.</p>
       <!-- tip 0013: sticky — Hooked chip = Dex fees; unhooked → Launch beside. No fee addr. -->
       <p class="note" id="sfHookedSticky" hidden>Blocks alive on TokenizedBlock pay their creator on every trade. Example:<button type="button" class="puce" id="sfStickyTbgas">Open TBGAS</button>.</p>
@@ -5411,6 +5411,7 @@ import { repartitionFrappe, TBLOCK_TEST_ANCIEN as TBLOCK, TBLOCK as TBLOCK_REEL,
 import * as ECO from './economie.js'; /* holders economy, FIRST contracts: their hearts stay counted, their past vault weeks stay claimable */
 import * as EP from './economie-pack.js'; /* 2026-11-12: the live economy pack — Hearts, the payment router, TAM art, Skins, the vault, the lock rewards */
 import * as LW from './lock-weekly-app.js'; /* 2026-11-14: the WEEKLY lock rewards (R2), address from its deploy record */
+import * as LM from './lock-marge.js'; /* 2026-11-14: how far a lock is above the hearts' hold line (Phil, item 1) */
 import * as CV from './coeurs-vue.js'; /* game346: hearts given / received, the board, the signals between blocks (text only) */
 import * as PTS from './points.js'; /* game356: the server's own points function, for the lock pills */
 import * as PV from './points-vue.js'; /* game353: the community points (text only) */
@@ -32910,6 +32911,7 @@ async function peindreLock(hote, { offre = false } = {}) {
       el('p', 'note', 'Community points: 1 a day per 100,000 TBLOCK, ×1.25 from 30 days, ×1.5 from 90, ×2 from 1 year. Points decide your share of the community drop, a separate distribution coming soon; the weekly player budget follows what you put in.'
         + (EP.REWARDS ? ' Monthly lock rewards are paid for the months you play in (a heart or a TAM art mint).' : '') + ' No rate is promised.'));
     const t0c = Math.floor(Date.now() / 1000), R7 = LK.RETRAIT_JOURS * 86400;
+    let suggestionLock = null; /* 2026-11-14: the top-up the margin line suggests, offered as the form's amount */
     if (locked > 0n) {
       const hero = el('div', 'hvBloc hvHero', null); hero.dataset.l = 'lock';
       hero.append(el('span', 'hvK', e.cle === 'actif' ? 'Locked' : (e.cle === 'expire' ? 'Lock date passed' : 'Leaving the lock')), ' ', el('b', 'hvGros', LK.fmt(locked) + ' TBLOCK'),
@@ -32930,6 +32932,28 @@ async function peindreLock(hote, { offre = false } = {}) {
        *   only, not the 3,000,000) — a partial figure is left out here, never shown as his rate */
       const c = ptsLu && ptsLu.ok && ptsLu.complet !== false && ptsLu.compte && String(ptsLu.compte.holder || '').toLowerCase() === moi ? ptsLu.compte : null;
       if (e.cle === 'actif' && c && Number(c.parJour) > 0 && c.mult) { const d = el('p', 'hvTete', null); d.dataset.l = 'lock-pts'; d.append(el('span', 'hvK', 'Points'), ' ', el('b', null, '+' + PV.fmtPts(c.parJour) + ' a day'), ' (' + PV.multTexte(c.mult) + ' commitment)'); vue.push(d); }
+      /* 2026-11-14 (Phil, items 1 and 5): the margin above the hearts' hold line (lock-marge.js: minHold moves with the hearts' keeper price,
+       *   MAX_STEP_BPS per MIN_INTERVAL, all READ), and the last week the weekly lock rewards pay this lock (R2.rewardEpochsFor of its date).
+       *   A value not read draws no line. */
+      if (e.cle === 'actif') {
+        try {
+          const lh = async (sig) => ECO.word(await rpc('eth_call', [LW.heartsView(EP.HEARTS, sig), 'latest']));
+          const [mh, step, iv] = await Promise.all([lit(EP.VIEW.minHold()), lh('MAX_STEP_BPS()'), lh('MIN_INTERVAL()')]);
+          const mg = LM.margeHold({ locked: active, minHold: mh, maxStepBps: step, minIntervalS: iv });
+          const tm = LM.texteMarge(mg, LK.fmt);
+          if (tm) { const d = el('p', 'note' + (mg.niveau === 'ok' ? '' : ' wKo'), tm); d.dataset.l = 'lock-marge'; vue.push(d); if (mg.aAjouter > 0n) suggestionLock = mg.aAjouter; }
+        } catch (_) { /* not read: no margin line */ }
+        if (LW.WEEKLY) {
+          try {
+            const q = await rpc('eth_call', [LW.VIEW.rewardEpochsFor(unlockAt), 'latest']);
+            const dern = ECO.word(q, 1), nb = ECO.word(q, 2);
+            const d = el('p', 'note', null); d.dataset.l = 'lock-fin';
+            if (nb > 0n) d.textContent = 'Weekly lock rewards: this lock counts until week ' + dern + ' (ends ' + HV.jour(await lit(LW.VIEW.epochEnd(dern))) + '). To keep counting after that, lock more below with a longer duration: the later date applies to the whole lock.';
+            else d.textContent = 'Weekly lock rewards: this lock ends too soon to count for another whole week. Lock more below with a longer duration to keep counting.';
+            vue.push(d);
+          } catch (_) { /* not read: no line */ }
+        }
+      }
     }
     /* game386: an active lock's sentence repeated the big figure, its date and the timeline's legend — the line stays (it carries the
      *   wallet's answers), empty until there is something new to say; every other state keeps etatLock's sentence */
@@ -33006,7 +33030,10 @@ async function peindreLock(hote, { offre = false } = {}) {
     if (bal > 0n) {
       /* game357: no 'holder stage' amount while the v1 contracts read the wallet balance — the offer is 1,000 TBLOCK, or all you hold if less */
       const MILLE = 1000n * 10n ** 18n;
-      const propose = bal < MILLE ? bal : MILLE;
+      /* 2026-11-14: when the margin line suggests a top-up this wallet can pay, the form offers exactly that (rounded up to whole TBLOCK) */
+      const UN = 10n ** 18n, sug = suggestionLock ? ((suggestionLock + UN - 1n) / UN) * UN : null;
+      /*   (more than the wallet holds: all its whole TBLOCK, the most it can add now) */
+      const propose = sug ? (sug <= bal ? sug : (bal / UN) * UN) : (bal < MILLE ? bal : MILLE);
       /* game356 (Grok's Wallet card plan, kept by Phil): amount chips, duration pills with the points they earn, a button that says
        *   exactly what it sends. The points come from points.js — the SAME function the server's board uses (no copy of the rule). */
       /* review 356: '1.5' was read as 15 — whole TBLOCK only (digits, with optional thousands commas/spaces); anything else = 0 = refused */

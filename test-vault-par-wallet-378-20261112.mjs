@@ -25,6 +25,8 @@ import * as PV from './points-vue.js';
 import * as CV from './coeurs-vue.js';
 import * as PTS from './points.js';
 import * as HV from './holders-vue.js';
+import * as LWr from './lock-weekly-app.js';
+import * as LM from './lock-marge.js';
 
 const fichier = process.argv[2] || new URL('./app.html', import.meta.url);
 const APP = readFileSync(fichier, 'utf8');
@@ -88,6 +90,7 @@ const S = EP.SEL, SL = LK.SEL || null;
 const selDe = (d) => String(d).slice(2, 10);
 const argAdr = (d, k) => '0x' + String(d).slice(10 + 64 * k + 24, 10 + 64 * (k + 1));
 let freins = null; /* when set: (call) => Promise that holds the answer (to test a read still running) */
+const SEL_STEP = String(LWr.heartsView(EP.HEARTS, 'MAX_STEP_BPS()').data).slice(2, 10), SEL_IV = String(LWr.heartsView(EP.HEARTS, 'MIN_INTERVAL()').data).slice(2, 10);
 function repondre({ to, data }) {
   const s = selDe(data), to_ = String(to).toLowerCase();
   if (to_ === EP.TBLOCK && s === S.balanceOf) return w(argAdr(data, 0) === EP.VAULT ? CH.vaultBalance : (CH.par[argAdr(data, 0)] || zero).bal);
@@ -103,6 +106,8 @@ function repondre({ to, data }) {
   if (to_ === EP.HEARTS) {
     if (s === S.currentEpoch) return w(CH.ep); if (s === S.epochEnd) return w(CH.epochEnd); if (s === S.minHold) return w(CH.minHold);
     if (s === S.EPOCH) return w(L_EPOCH);
+    /* 2026-11-14 (lock margin line): the hearts' keeper bounds, read on chain that day: MAX_STEP_BPS 1000, MIN_INTERVAL 3600 */
+    if (s === SEL_STEP) return w(1000n); if (s === SEL_IV) return w(3600n);
   }
   if (to_ === EP.VAULT) {
     if (s === S.reserved) return w(CH.reserved); if (s === S.free) return w(CH.free); if (s === S.totalPlayIn) return w(CH.totalPlayIn);
@@ -147,7 +152,7 @@ const fetch = async (url) => {
 const envois = [];
 /* 2026-11-14: the lock card also reads the WEEKLY lock rewards (LW, game403): not modelled in this 2026-11-12 recording (R2 did not exist),
  *   so LW.WEEKLY = null here and the card draws as before; the weekly box is proven by banc-lock-weekly-*-fork-20261114 */
-const deps = { LW: { WEEKLY: null }, $, document, EP, LK, ECO, PV, CV, PTS, HV, rpc, fetch, envoyerAppels: async (appels, qui) => { envois.push({ appels, qui }); return { etat: 'REFUSE' }; }, bcResoudre: () => ({}), court: (x) => x.slice(0, 8),
+const deps = { LW: { WEEKLY: null, heartsView: LWr.heartsView }, LM, $, document, EP, LK, ECO, PV, CV, PTS, HV, rpc, fetch, envoyerAppels: async (appels, qui) => { envois.push({ appels, qui }); return { etat: 'REFUSE' }; }, bcResoudre: () => ({}), court: (x) => x.slice(0, 8),
   bcLikeUsd: null, allerA() {}, choisirBrain() {}, bcRepeindre() {}, AbortSignal };
 // eslint-disable-next-line no-new-func
 const usine = new Function('deps', 'with (deps) { let compte = null;\n' + CODE_LOCK + CODE + '\nreturn { peindreLock, peindreVaultWallet, peindrePointsWallet, peindreCoeursWallet, setCompte: (x) => { compte = x; }, raz: () => { wVaultLu = 0; } }; }');
@@ -302,6 +307,12 @@ t('setup: the lock card shows Grok\'s lock', /Locked 3,000,000 TBLOCK until 2027
   t('lock card: the points a day of this lock, the /api/points figure (+37 a day, ×1.25)', parL('lock-pts') && parL('lock-pts').textContent === 'Points +37 a day (×1.25 commitment)', parL('lock-pts') && parL('lock-pts').textContent);
   const mois = tous.filter((x) => x.tag === 'li' && x.className === 'hvMoisP');
   t('lock card: the months as chips — month 0 now (not played, hasPlayed read 0), month 1 earned by the lock (rewardEpochsFor 1..1)', mois.map((x) => x.dataset.etat + ':' + x.textContent).join(' | ') === 'afaire:Month 0 now · not played yet | gagne:Month 1 your lock earns it', mois.map((x) => x.dataset.etat + ':' + x.textContent).join(' | '));
+  /* 2026-11-14 item 1: Grok's 3,000,000 against minHold 2,789,880.2 (both read 2026-11-12): +7.5 %, under after one 10 % write down */
+  const marge = parL('lock-marge');
+  t('lock card: the hold margin line says 7.5% and a top-up, as a warning', !!marge && /only 7\.5% above the hold line/.test(marge.textContent) && /Add [\d,]+ TBLOCK to keep a margin/.test(marge.textContent) && /wKo/.test(marge.className), marge && marge.textContent);
+  const inpL = tous.find((x) => x.tag === 'input');
+  /* the suggested top-up (~827k) is more than Grok's wallet holds (246,365.07 TBLOCK read): the form offers all its WHOLE TBLOCK */
+  t('lock card: a top-up above the balance -> the form offers the whole balance (246365)', !!inpL && String(inpL.value) === (CH.par[GROK].bal / 10n ** 18n).toString(), inpL && inpL.value);
   const prim = tous.filter((x) => x.tag === 'button' && x.className === 'bouton');
   t('lock card: ONE primary button (the lock), the others secondary', prim.length === 1 && /^(Lock|Add) /.test(prim[0].textContent), prim.map((x) => x.textContent).join(' | '));
   const dur = tous.filter((x) => x.tag === 'button' && x.dataset && x.dataset.jours);
