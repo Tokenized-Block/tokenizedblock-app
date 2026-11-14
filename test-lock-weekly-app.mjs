@@ -34,5 +34,14 @@ t('inscrit: same date, same amount', A.inscritPourCeLock({ enrUnlock: 100n, enrA
 t('inscrit: a top-up not enrolled', A.inscritPourCeLock({ enrUnlock: 100n, enrAmount: 5n, unlockAt: 100n, locked: 9n }) === false);
 t('inscrit: a later date not enrolled', A.inscritPourCeLock({ enrUnlock: 100n, enrAmount: 5n, unlockAt: 200n, locked: 5n }) === false);
 t('inscrit: nothing locked', A.inscritPourCeLock({ enrUnlock: 0n, enrAmount: 0n, unlockAt: 0n, locked: 0n }) === false);
+/* marquageApresJeu: appended only when weight > 0, not marked, and more than 10 minutes before the week ends */
+const base = { holder: moi, courant: 4n, finSemaineS: 10_000n, maintenantS: 9_000n, poids: 5n, marque: false };
+const mk = A.marquageApresJeu(base);
+t('apres jeu: markPlayed(holder, current week)', mk && mk.data === A.markPlayedCall(moi, 4n).data);
+t('apres jeu: no weight -> nothing', A.marquageApresJeu({ ...base, poids: 0n }) === null);
+t('apres jeu: already marked -> nothing', A.marquageApresJeu({ ...base, marque: true }) === null);
+t('apres jeu: 599 s before the end -> nothing', A.marquageApresJeu({ ...base, maintenantS: 10_000n - 599n }) === null);
+t('apres jeu: 600 s before the end -> appended', A.marquageApresJeu({ ...base, maintenantS: 10_000n - 600n }) !== null);
+t('apres jeu: after the end -> nothing', A.marquageApresJeu({ ...base, maintenantS: 10_001n }) === null);
 console.log(ok + '/' + (ok + ko) + (ko ? ' — RED' : ' — green'));
 process.exit(ko ? 1 : 0);

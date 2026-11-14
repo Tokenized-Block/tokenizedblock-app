@@ -73,3 +73,13 @@ export function etatSemaine({ poids, joue, marque }) {
   if (!joue) return { action: null, texte: 'not played yet: a heart, a TAM art mint or a skin mint' };
   return { action: 'mark', texte: 'played, not counted yet: one signature counts it' };
 }
+
+/** ONLY for a batch whose earlier call records the play in V this week (a heart: fork-proven in Weekly.fork.t.sol): the markPlayed to
+ *   append, or null. null when it would no-op (marked) or revert (no weight), and in the last 10 minutes of the week — the batch could land
+ *   in the next week, where markPlayed(old week) reverts NotPlayed if nothing was played in it, and an atomic batch would drop the heart. */
+export const MARGE_FIN_S = 600;
+export function marquageApresJeu({ holder, courant, finSemaineS, maintenantS, poids, marque }) {
+  if (!WEEKLY || BigInt(poids) === 0n || marque) return null;
+  if (BigInt(finSemaineS) - BigInt(maintenantS) < BigInt(MARGE_FIN_S)) return null;
+  return markPlayedCall(holder, courant);
+}

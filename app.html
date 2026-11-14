@@ -3757,7 +3757,7 @@ details[open] > summary::before{transform:rotate(90deg)}
       <!-- ⛔ L EMPREINTE EST AFFICHEE, DONC ELLE EST DE L ANGLAIS. `20261001-pont-dans-lui` a fait
            rougir `test-texte-a-l-ecran.mjs` : le mot « dans » est de la prose francaise partie a
            l ecran anglais. La garde a fait son travail du premier coup. -->
-      <p class="note" data-build="20261109-game403" hidden>Build <code>20261109-game403</code> ·Contract labels say what they do, not our internal names.</p>
+      <p class="note" data-build="20261109-game404" hidden>Build <code>20261109-game404</code> ·Contract labels say what they do, not our internal names.</p>
       <p class="sous">Everything happening to blocks on Base, live.</p>
       <!-- tip 0013: sticky — Hooked chip = Dex fees; unhooked → Launch beside. No fee addr. -->
       <p class="note" id="sfHookedSticky" hidden>Blocks alive on TokenizedBlock pay their creator on every trade. Example:<button type="button" class="puce" id="sfStickyTbgas">Open TBGAS</button>.</p>
@@ -32731,8 +32731,18 @@ async function bcCoeur(a, dire = null) {
     const chk = EP.likeCheck({ balance: bal, locked, likePrice: prix, minHold: need, n: 1, usdLike: bcLikeUsd && bcLikeUsd.like, usdHold: bcLikeUsd && bcLikeUsd.hold });
     if (!chk.ok) { dire('Not sent: ' + chk.why + '.'); return { ok: false }; }
     dire('Waiting for your wallet: a heart for ' + EP.fmt(chk.cost) + ' TBLOCK, burned, not refundable…');
-    const r = await envoyerAppels(EP.likeBatch({ block: a, n: 1, likePrice: prix }).map((c) => ({ to: c.to, data: c.data, value: c.value })), compte);
-    if (r && r.etat === 'CONFIRME') { dire('♥ confirmed. It counts as play this week for the holders vault, and this month for the lock rewards.'); bcLikeEtat.lu = 0; bcSignauxEtat.lu = 0; wVaultLu = 0; bcPeindreLike(a); return { ok: true }; }
+    /* 2026-11-14: the weekly lock rewards pay a week only to the players COUNTED in it: the heart's batch counts it too (markPlayed after
+     *   the like, same week), when this lock has a weight for the week and is not counted yet. A read that fails appends nothing. */
+    let compter = null;
+    if (LW.WEEKLY) {
+      try {
+        const sc = await lit(LW.VIEW.currentEpoch());
+        const [fin, poids, mq] = await Promise.all([lit(LW.VIEW.epochEnd(sc)), lit(LW.VIEW.weightOf(moi, sc)), lit(LW.VIEW.marked(moi, sc))]);
+        compter = LW.marquageApresJeu({ holder: moi, courant: sc, finSemaineS: fin, maintenantS: BigInt(Math.floor(Date.now() / 1000)), poids, marque: mq === 1n });
+      } catch (_) { compter = null; }
+    }
+    const r = await envoyerAppels([...EP.likeBatch({ block: a, n: 1, likePrice: prix }), ...(compter ? [compter] : [])].map((c) => ({ to: c.to, data: c.data, value: c.value })), compte);
+    if (r && r.etat === 'CONFIRME') { dire('♥ confirmed. It counts as play this week for the holders vault' + (compter ? ', and it is counted for the weekly lock rewards' : '') + ', and this month for the lock rewards.'); bcLikeEtat.lu = 0; bcSignauxEtat.lu = 0; wVaultLu = 0; bcPeindreLike(a); return { ok: true }; }
     dire('Not done: ' + String((r && (r.pourquoi || r.etat)) || 'no answer').slice(0, 160));
     return { ok: false };
   } catch (e) { dire('Not sent: ' + String((e && e.message) || e).slice(0, 160)); return { ok: false }; }
