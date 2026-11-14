@@ -6466,7 +6466,7 @@ const SERVIS = [
    *   it, and the page that offers its ONE signature (buyback-vault.js imports keccak.js, pack-economie-v2.js and the two pack records) */
   'deployer-tblock-buyback-vault.html', 'tblock-buyback-vault-deploiement.js', 'buyback-vault.js',
   /* game401: the weekly lock rewards: its unsigned deployment (generated), its pure module (same imports as buyback-vault.js), its page */
-  'deployer-lock-weekly.html', 'lock-weekly-deploiement.js', 'lock-weekly.js', 'lock-weekly-app.js',
+  'deployer-lock-weekly.html', 'lock-weekly-deploiement.js', 'lock-weekly.js', 'lock-weekly-app.js', 'fund-weekly.html', 'fund-weekly.js',
   /* game325: the unsigned deployment of the block contest (generated) and its page */
   'deployer-block-contest.html', 'block-contest-deploiement.js',
   /* the block contest page for users (reads Base, builds unsigned calls for the wallet of the user) and its pure module */
