@@ -529,6 +529,12 @@ const DECORS = {
     const a = (I.amygdalaPlaceWiring || '').split(' ').map(Number);
     if (a.length === 3 && a.every(Number.isFinite)) out.push(pt(a, C.repere, 'Left amygdala: ' + (I.amygdalaWiring || '')));
     return out; },
+  /* riskBernoulli (2026-11-14): one printed number per problem, where the drawing puts it */
+  riskBernoulli: (P, o, B) => { const k = Math.max(0, Math.min(3, Math.round(Number(P.problemBernoulli)) || 0));
+    return [k === 0 ? pt([0, 2 / 12, B.centre[2]], C.repere, 'No fortune: printed exactly 2 ducats')
+      : k === 1 ? pt([(800 - 500) / 500, Math.log10(5043) / 6, B.centre[2]], C.repere, 'Premium 800: Caius printed 5043 roubles')
+      : k === 2 ? pt([0, (6751 - 6500) / 1000, B.centre[2]], C.repere, 'One ship: printed 6751 ducats')
+      : pt([0.5, 13 / 100, B.centre[2]], C.repere, 'Stake 50 of 100: loss printed as more than 13')]; },
   /* game299 */
   reactionDonders: (P, o, B) => [pt([1, 74.08 * 1000 / 261 / 320, B.centre[2]], C.repere, 'Method b: about 284 ms, the slowest')],
   /* game297 */

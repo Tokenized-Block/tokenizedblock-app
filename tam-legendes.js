@@ -1242,6 +1242,14 @@ const L = {
         'Measured: ' + e.measured + '. Ours: ' + e.ours + ', and the places of ' + Object.values(HB.POS3D_SOURCE).filter((x) => x.startsWith('our placement')).length + ' deep parts. Over all packs ' + HB.SHARED.shared + ' of ' + HB.SHARED.mapped + ' mapped regions serve two or more emotions, ' + HB.SHARED.single + ' serve one.']; },
     fin: null,
   },
+  /* riskBernoulli (2026-11-14; idea: codex "human brain", Claude sub-agent): a rule and its author's worked examples, never a measurement of people */
+  riskBernoulli: {
+    titre: 'Bernoulli: the value of a risk, by the logarithm',
+    enUnePhrase: 'Daniel Bernoulli\'s 1738 rule, the logarithm of the whole fortune, computed again: his printed examples come back within one unit. They are his own calculations, not a record of how people decide.',
+    colonnes: ['what varies: fortune, premium, ships or stake', 'what the rule gives', 'log rule, square root, expected value, or printed'],
+    aRegarder: ['The printed points sit on the log curve, not on the square-root one.', 'Slider 0: with no fortune the game is worth exactly 2 ducats; the plain expected value has no curve, it grows without end.', 'Slider 1: by his rule Caius gains by insuring below about 5043 roubles; by the expected value, never.'],
+    fin: null,
+  },
   /* game299 (idee : codex « cerveau humain », sous-agent Claude) */
   reactionDonders: {
     titre: 'Donders: timing a decision',

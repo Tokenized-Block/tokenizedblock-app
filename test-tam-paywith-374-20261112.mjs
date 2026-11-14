@@ -29,7 +29,9 @@ t('a line under the button says how it is paid: through the router, TBLOCK for t
 t('"You sign" reads its amounts from the plan, none typed', /EP\.usdcTexte\(rs\.prixUsdc\)/.test(prep) && /EP\.usdcTexte\(rs\.devUsdc\)/.test(prep) && /EP\.usdcTexte\(rs\.achatUsdc\)/.test(prep) && /EP\.fmt\(rs\.minTblock\)/.test(prep));
 t('no v2 / V8 named in the mint zone', !/\bv2\b|\bV8\b/i.test(sansCommentaires(mint)) && !/\bv2\b|\bV8\b/i.test(sansCommentaires(prep)));
 t('mint flow: the router plan is what is sent, USDC only', prep.includes("const jeu = { genre: 'tam-routeur', contrat: EP.ROUTER,") && prep.includes('const planUsdc = planJeuUsdc(jeu);')
-  && prep.includes("const pj = { ok: true, plan: planUsdc, sym: 'USDC', phrase: 'Paid as ' + EP.usdcTexte(planUsdc.resume.prixUsdc) + ' USDC.' };") && prep.includes('await ctx.envoyer(pj, c,'));
+  /* game405: the plan sent is the router plan, plus at most the weekly count appended after it (never before the payment) */
+  && prep.includes("const planFinal = compter ? { ...planUsdc, appels: [...planUsdc.appels, { to: compter.to, data: compter.data, value: '0x0', quoi: 'count this week for your weekly lock rewards' }] } : planUsdc;")
+  && prep.includes("const pj = { ok: true, plan: planFinal, sym: 'USDC', phrase: 'Paid as ' + EP.usdcTexte(planUsdc.resume.prixUsdc) + ' USDC.' };") && prep.includes('await ctx.envoyer(pj, c,'));
 t('the minimum comes from a fresh quote, never under the router floor', prep.includes('const mr = await minimumRouteur(lu);') && TAM.includes('EP.minimumDepuisDevis({ devis: q.devis, plancher })'));
 t('no separate TBLOCK leg (no box, no second step)', !TAM.includes('tamAchatTblock') && !TAM.includes('labAchat') && !TAM.includes('ctx.acheterTblock(') && !/\bmontantAchat\b/.test(TAM));
 t('no Pay-with change handler left behind', !/\bperime\b/.test(mint));
