@@ -42,7 +42,7 @@ t('dispatcher: heart -> bcCommandeCoeur', /if \(c\.type === 'heart'\) \{ void bc
 t('the ♥ button and the command share bcCoeur', /\$\('#bcLikeBtn'\)\.addEventListener\('click', \(\) => \{ void bcCoeur\(\$\('#bcLike'\)\.dataset\.adr\); \}\);/.test(APP) && /await bcCoeur\(j\.adr, /.test(APP));
 /* 2026-11-12 (the economy pack is live): hearts are given on Hearts (BlockLikesV2): its OWN rule, read on chain before the wallet opens —
  *   likePrice() from the wallet, minHold() LOCKED — replaces the app-side $15 check of the first contract */
-t('bcCoeur checks the contract rule (price, minimum LOCKED) before the wallet, then sends at the price read', /async function bcCoeur\(a, dire = null\) \{[\s\S]{0,2500}EP\.likeCheck\(\{ balance: bal, locked, likePrice: prix, minHold: need[\s\S]{0,400}EP\.likeBatch\(\{ block: a, n: 1, likePrice: prix \}\)/.test(APP));
+t('bcCoeur checks the contract rule (price, minimum LOCKED) before the wallet, then sends at the price read', /async function bcCoeur\(a, dire = null\) \{[\s\S]{0,2500}EP\.likeCheck\(\{ balance: bal, locked, likePrice: prix, minHold: need[\s\S]{0,2000}EP\.likeBatch\(\{ block: a, n: 1, likePrice: prix \}\)/.test(APP)); /* game404: the weekly count's reads sit between the check and the batch (0,400 -> 0,2000) */
 t('only one likeBatch call site', (APP.match(/(ECO|EP)\.likeBatch\(/g) || []).length === 1);
 
 /* Create: brain always on, old list gone */

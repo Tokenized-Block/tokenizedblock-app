@@ -102,7 +102,7 @@ ok(p5.etat === 'SKIN', 'skin #1 also readable on the Brain tab cards');
 const g = app.indexOf('async function bvPoserSkin(');
 ok(g > 0, 'bvPoserSkin is found');
 const glue = app.slice(g, app.indexOf('function ouvrirVision(', g));
-ok(/skinDuBlock\(r\.skins, block, compte\)/.test(glue) && /paletteSkin\(/.test(glue), 'the skin comes from the chain list (skinDuBlock on lireSkins)');
+ok(/skinDuBlock\(r\.skins, block, compte(\)|, BLOCKSKINS_SUITE\.map\(\(x\) => x\.contrat\)\))/.test(glue) /* game399: + the contracts order */ && /paletteSkin\(/.test(glue), 'the skin comes from the chain list (skinDuBlock on lireSkins)');
 ok(!/skinPortee|bc\.skin|hsl\(|#[0-9a-f]{3,6}\b/i.test(glue), 'no try-on skin and no colour literal in the glue');
 ok(/if \(!r\) \{ effacer\('not-read'\)/.test(glue), 'a failed read poses nothing');
 ok(/pal\.etat !== 'SKIN'\) \{ effacer\('default'\)/.test(glue), 'a default verdict removes the skin variables');

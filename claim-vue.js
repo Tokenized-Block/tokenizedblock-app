@@ -21,6 +21,8 @@ import * as LK from './lock.js';
 import { WTCOIN as WTCOIN_REC } from './create-vault-tip.js';
 import { displayShort } from './frais-creation.js';
 import { ENTRY_POINTS } from './entry-points.js';
+/* 2026-11-14 (Phil: one place to claim): the WEEKLY lock rewards (R2) too; its address comes from its deploy record only */
+import * as LW from './lock-weekly-app.js';
 
 export const CHAINE = 8453;
 export const CHAINE_HEX = '0x2105';
@@ -29,6 +31,8 @@ const bas = (x) => String(x == null ? '' : x).toLowerCase();
 const adr = (x) => { const s = bas(x); return ADR.test(s) ? s : null; };
 export const V = adr(EP.VAULT);
 export const R = adr(EP.REWARDS);
+export const R2 = adr(LW.WEEKLY);
+const LW_MAX_CLAIM = 24; /* R2.MAX_CLAIM_EPOCHS */
 export const TBLOCK = adr(EP.TBLOCK);
 export const WTCOIN = adr(WTCOIN_REC);
 export const NON_LU = 'not read';
@@ -108,7 +112,7 @@ export async function lireTout(rpc, wallet, maintenant) {
   const brut = async (v) => { try { return await rpc('eth_call', [{ to: v.to, data: v.data }, 'latest']); } catch (_) { return null; } };
   const lit = async (v, i = 0) => { const h = await brut(v); if (h === null) return null; try { return EP.word(h, i); } catch (_) { return null; } };
   const lit2 = async (v) => { const h = await brut(v); if (h === null) return null; try { return [EP.word(h, 0), EP.word(h, 1)]; } catch (_) { return null; } };
-  const out = { wallet: w, maintenant: Number(maintenant), v: { semaines: [] }, moi: {}, r: { mois: [] } };
+  const out = { wallet: w, maintenant: Number(maintenant), v: { semaines: [] }, moi: {}, r: { mois: [] }, h: { semaines: [] } };
 
   /* ── V: its own clock is LIKES (read from V), its window and commitment are its own immutables ── */
   const v = out.v;
@@ -168,6 +172,21 @@ export async function lireTout(rpc, wallet, maintenant) {
       }
     }
   }
+  /* ── R2: the weekly lock rewards (same claim shape as R: claim(uint256[]), Claimed(holder, wtcoin, tblock, n)) ── */
+  const h = out.h;
+  if (R2) {
+    const [ht, hw] = await Promise.all([lit(vue(R2, SEL.TBLOCK)), lit(vue(R2, SEL.WTCOIN))]);
+    h.tokensOk = ht !== null && hw !== null && motAdr(ht) === TBLOCK && motAdr(hw) === WTCOIN;
+    const [hc, hp, hl] = await Promise.all([lit(LW.VIEW.currentEpoch()), lit(LW.VIEW.nextEpochToClose()), lit(LW.VIEW.nextEpochToRelease())]);
+    Object.assign(h, { courant: hc, prochain: hp, aLiberer: hl });
+    h.finProchain = hp !== null ? await lit(LW.VIEW.epochEnd(hp)) : null;
+    if (w && h.tokensOk && hp !== null && hl !== null) {
+      for (let k = hp - 1n; k >= hl && k >= 0n && h.semaines.length < MOIS_MAX; k--) {
+        const q = await lit2(LW.VIEW.claimable(w, [k]));
+        h.semaines.push({ k, claimable: q ? { wtcoin: q[0], tblock: q[1] } : null });
+      }
+    }
+  } else h.tokensOk = false;
   return out;
 }
 
@@ -251,6 +270,17 @@ export function planClaimMois(L, compte) {
   const attendu = { wtcoin: bons.reduce((s, x) => s + x.wtcoin, 0n), tblock: bons.reduce((s, x) => s + x.tblock, 0n) };
   return { ok: true, type: 'mois', mois, appel: claimMoisCall(mois), attendu, wallet: L.wallet };
 }
+/** ONE claim of every closed week of the WEEKLY lock rewards that owes this wallet something (1..24), or a refusal (claimable() is the
+ *  contract's own answer: marked, weight, not claimed, not released) */
+export function planClaimHebdo(L, compte) {
+  const no = memeWallet(L, compte); if (no) return no;
+  if (!L.h || !L.h.tokensOk) return refus('the weekly lock rewards were ' + NON_LU);
+  const bons = L.h.semaines.filter((x) => x.claimable && x.claimable.wtcoin + x.claimable.tblock > 0n).slice(0, LW_MAX_CLAIM);
+  if (!bons.length) return refus('no closed week of the weekly lock rewards owes this wallet anything');
+  const semaines = bons.map((x) => x.k).sort((a, b) => (a < b ? -1 : 1));
+  const attendu = { wtcoin: bons.reduce((s, x) => s + x.claimable.wtcoin, 0n), tblock: bons.reduce((s, x) => s + x.claimable.tblock, 0n) };
+  return { ok: true, type: 'hebdo', mois: semaines, appel: LW.claimWeeklyCall(semaines), attendu, wallet: L.wallet };
+}
 /** closing an ended week of V (anyone) — offered only when it ended and is not closed */
 export function planCloseSemaine(L, e, compte) {
   const no = memeWallet(L, compte); if (no) return no;
@@ -280,7 +310,7 @@ export async function simuler(rpc, plan) {
   }
   try {
     if (plan.type === 'semaine') { const p = EP.word(h, 0); return p > 0n ? { ok: true, retour: p } : { ok: false, why: 'the simulation pays nothing' }; }
-    if (plan.type === 'mois') { const a = EP.word(h, 0), b = EP.word(h, 1); return a + b > 0n ? { ok: true, retour: { wtcoin: a, tblock: b } } : { ok: false, why: 'the simulation pays nothing' }; }
+    if (plan.type === 'mois' || plan.type === 'hebdo') { const a = EP.word(h, 0), b = EP.word(h, 1); return a + b > 0n ? { ok: true, retour: { wtcoin: a, tblock: b } } : { ok: false, why: 'the simulation pays nothing' }; }
     return { ok: true, retour: null };
   } catch (_) { return { ok: false, why: 'the simulation answered another shape' }; }
 }
@@ -332,14 +362,15 @@ export function verifierRecu(plan, tx, recu, simule = null) {
     const paye = t.length === 1 && t[0].to === w ? t[0].value : null;
     return { ok: !ko.length, ko, signe, paye, du, simule };
   }
-  if (plan.type === 'mois') {
-    const c = de(R, TOPIC.ClaimedR).filter((l) => l.topics.length === 2 && motTopic(l.topics[1]) === w);
+  if (plan.type === 'mois' || plan.type === 'hebdo') {
+    const RX = plan.type === 'hebdo' ? R2 : R;
+    const c = de(RX, TOPIC.ClaimedR).filter((l) => l.topics.length === 2 && motTopic(l.topics[1]) === w);
     if (c.length !== 1) { ko.push('no claim of the lock rewards by this wallet in the receipt'); return { ok: false, ko, signe }; }
     const dw = EP.word(c[0].data, 0), dt = EP.word(c[0].data, 1), n = EP.word(c[0].data, 2);
-    if (n !== BigInt(plan.mois.length)) ko.push('the receipt claimed ' + n + ' months, ' + plan.mois.length + ' were offered');
+    if (n !== BigInt(plan.mois.length)) ko.push('the receipt claimed ' + n + (plan.type === 'hebdo' ? ' weeks, ' : ' months, ') + plan.mois.length + ' were offered');
     const paye = {};
     for (const [jeton, du, cle, unite] of [[TBLOCK, dt, 'tblock', 'TBLOCK'], [WTCOIN, dw, 'wtcoin', 'wtCOIN']]) {
-      const t = transferts(recu, jeton).filter((x) => x.from === R);
+      const t = transferts(recu, jeton).filter((x) => x.from === RX);
       if (du === 0n) { if (t.length) ko.push('the lock rewards moved ' + unite + ' it did not owe'); paye[cle] = 0n; continue; }
       if (t.length !== 1 || t[0].to !== w) { ko.push('expected one ' + unite + ' transfer from the lock rewards to this wallet, saw ' + t.length); continue; }
       if (t[0].value !== du) ko.push('the lock rewards paid ' + montant(t[0].value, unite) + ', the contract owed ' + montant(du, unite));
@@ -392,6 +423,7 @@ export function texteVerdict(plan, res) {
     const ecart = typeof v.simule === 'bigint' && v.simule !== v.paye ? ' The simulation showed ' + montant(v.simule) + ' a moment before: the lock time bonus is read at the block.' : '';
     return 'Claimed on Base' + sig + ': ' + montant(v.paye) + ' from the holders vault to your wallet, exactly what the contract owed for week ' + plan.e + '.' + ecart;
   }
+  if (plan.type === 'hebdo') return 'Claimed on Base' + sig + ': ' + montant(v.paye.tblock) + ' and ' + montant(v.paye.wtcoin, 'wtCOIN', 6) + ' from the weekly lock rewards to your wallet, exactly what the contract owed for week' + (plan.mois.length === 1 ? ' ' : 's ') + plan.mois.join(', ') + '.';
   if (plan.type === 'mois') return 'Claimed on Base' + sig + ': ' + montant(v.paye.tblock) + ' and ' + montant(v.paye.wtcoin, 'wtCOIN', 6) + ' from the lock rewards to your wallet, exactly what the contract owed for month' + (plan.mois.length === 1 ? ' ' : 's ') + plan.mois.join(', ') + '.';
   return 'Closed on Base' + sig + '.';
 }
@@ -424,7 +456,7 @@ export function lignesMoi(L) {
   const l = [];
   l.push(['This week', v.semaine === null ? NON_LU : 'week ' + v.semaine + ', closes ' + minute(v.fin)]);
   if (!L.wallet) return l;
-  l.push(['Your play this week', moi.jeuSemaine === null || moi.jeuSemaine === undefined ? NON_LU : montant(moi.jeuSemaine) + (moi.jeuSemaine === 0n ? ' (play to be paid: a heart, a TAM art mint or a skin mint)' : '')]);
+  l.push(['Your play this week', moi.jeuSemaine === null || moi.jeuSemaine === undefined ? NON_LU : montant(moi.jeuSemaine) + (moi.jeuSemaine === 0n ? ' (play to be paid: a heart or a TAM art mint)' : '')]);
   l.push(['Your lock factor now', moi.facteur === null || moi.facteur === undefined ? NON_LU : EP.texteFacteur(moi.facteur)]);
   l.push(['Your lock', moi.locked === null || moi.locked === undefined ? NON_LU : montant(moi.locked, 'TBLOCK', 0) + (moi.locked > 0n ? ' until ' + jourTexte(moi.unlockAt) : '')
     + (typeof v.need === 'bigint' ? ' · a claim needs ' + montant(v.need, 'TBLOCK', 0) : '')]);
@@ -452,7 +484,7 @@ export function texteRegleMois(r) {
   const x = (bps) => '×' + (Number(bps) / 10000).toString();
   const b = r.bandes;
   return 'Each month (' + jours(r.longueur) + ' days) the lock rewards set aside up to ' + (Number(r.rewardBps) / 100) + '% of the wtCOIN and TBLOCK they hold for the lockers. '
-    + 'A month pays the holders whose lock covers the WHOLE month and who played in it (a heart, a TAM art mint or a skin mint); a locker who did not play leaves their part for the next months. '
+    + 'A month pays the holders whose lock covers the WHOLE month and who played in it (a heart or a TAM art mint; a skin mint is not a play); a locker who did not play leaves their part for the next months. '
     + 'Your weight is what you lock times your commitment: ' + b.map((y) => x(y.bps) + (y.jours ? ' from ' + y.jours + ' days' : ' under ' + b[1].jours + ' days')).join(', ') + '. '
     + 'Claim within ' + r.fenetre + ' months after a month is closed. No rate is promised.';
 }

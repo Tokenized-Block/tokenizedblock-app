@@ -114,9 +114,11 @@ details.pli p{font-size:13px;color:var(--doux);line-height:1.55}
     <div class="droite"><button class="puce" id="bWallet" type="button">Connect wallet</button></div>
   </div>
   <h1>Claim</h1>
-  <p class="sous">What the holders vault and the monthly lock rewards owe your wallet, read on Base. You claim from your own wallet; nothing is held here.</p>
+  <p class="sous">What the holders vault and the monthly and weekly lock rewards owe your wallet, read on Base. You claim from your own wallet; nothing is held here.</p>
 
   <div class="carte" id="cWallet"><p class="note" id="walletTexte" style="margin:0">Reading Base…</p></div>
+
+  <div class="carte" id="cTotal" hidden><p class="titre">Yours to claim now</p><div id="total"></div></div>
 
   <div class="carte" id="cSemaines">
     <p class="titre">Holders vault · every week</p>
@@ -128,6 +130,12 @@ details.pli p{font-size:13px;color:var(--doux);line-height:1.55}
     <p class="titre">Monthly lock rewards</p>
     <p class="sous" style="margin-bottom:4px">Paid in wtCOIN and TBLOCK to the lockers who played, for each whole month their lock covers.</p>
     <div id="mois"></div>
+  </div>
+
+  <div class="carte" id="cHebdo">
+    <p class="titre">Weekly lock rewards</p>
+    <p class="sous" style="margin-bottom:4px">Paid in wtCOIN and TBLOCK each week to the joined locks whose holder played that week and was counted. A finished week is closed after its grace day, then claimed.</p>
+    <div id="hebdo"></div>
   </div>
 
   <div class="carte" id="cDetails">
@@ -260,6 +268,35 @@ function peindre() {
   if (!L.wallet && ouvre[1]) mo.push(mk('p', 'ouvre', ouvre[1]));
   hm.replaceChildren(...mo);
 
+  /* 2026-11-14: the weeks of the weekly lock rewards (R2), claimed in one call */
+  const he = [];
+  const H = L.h || {};
+  if (!CV.R2) he.push(mk('p', 'note', 'The weekly lock rewards are not on this network.'));
+  else if (!H.tokensOk) he.push(mk('p', 'note', 'The weekly lock rewards were not read just now. Read again in a moment.'));
+  else if (!L.wallet) he.push(mk('p', 'note', 'Connect a wallet to see the weeks it can claim.'));
+  else {
+    for (const x of H.semaines) {
+      if (!x.claimable || x.claimable.tblock + x.claimable.wtcoin === 0n) continue;
+      const box = mk('div', 'periode'); const haut = mk('div', 'haut'); haut.append(mk('b', null, 'Week ' + x.k), pastille('A_RECLAMER')); box.append(haut);
+      box.append(mk('p', null, CV.montant(x.claimable.tblock) + ' + ' + CV.montant(x.claimable.wtcoin, 'wtCOIN', 6))); he.push(box);
+    }
+    const ph = CV.planClaimHebdo(L, wallet);
+    if (ph.ok) he.push(bouton('Claim ' + CV.montant(ph.attendu.tblock) + ' + ' + CV.montant(ph.attendu.wtcoin, 'wtCOIN', 6) + ' (' + ph.mois.length + (ph.mois.length === 1 ? ' week)' : ' weeks)'), () => CV.planClaimHebdo(L, wallet)));
+    else he.push(mk('p', 'note', H.prochain === null || H.prochain === undefined ? 'The weeks were not read.' : H.prochain === 0n ? 'No week of the weekly lock rewards is closed yet: week 0 closes after ' + CV.minute(H.finProchain) + ' and its grace day.' : 'Nothing to claim for this wallet in the closed weeks.'));
+  }
+  $('hebdo').replaceChildren(...he);
+
+  /* the total at the top: what each contract would pay this wallet now (owed / claimable, read), never a promise */
+  const tot = [];
+  if (L.wallet) {
+    let tb = 0n, wt = 0n, n = 0;
+    for (const s of L.v.semaines) { const st = CV.etatSemaine(s, L); if (st.cle === 'A_RECLAMER' && typeof st.attendu === 'bigint') { tb += st.attendu; n++; } }
+    const pm = CV.planClaimMois(L, wallet); if (pm.ok) { tb += pm.attendu.tblock; wt += pm.attendu.wtcoin; n += pm.mois.length; }
+    const ph2 = CV.planClaimHebdo(L, wallet); if (ph2.ok) { tb += ph2.attendu.tblock; wt += ph2.attendu.wtcoin; n += ph2.mois.length; }
+    if (n) tot.push(ligne('Total', CV.montant(tb) + ' + ' + CV.montant(wt, 'wtCOIN', 6)), mk('p', 'note', n + (n === 1 ? ' period' : ' periods') + ' to claim below: the holders vault week by week, then one claim for all the months and one for all the weeks of the lock rewards.'));
+  }
+  $('total').replaceChildren(...tot); $('cTotal').hidden = !tot.length;
+
   /* details: this wallet now, the three steps, the factor gauge, the rules in words (all READ) */
   moi.replaceChildren(...CV.lignesMoi(L).map(([k, v]) => ligne(k, v)));
   const a = CV.argsEtapes(L);
@@ -275,7 +312,7 @@ function peindre() {
   }
   $('regleV').textContent = EP.texteRegleVault(rg) || 'The rules of the holders vault were not read just now.';
   $('regleR').textContent = CV.texteRegleMois(L.r) || 'The rules of the monthly lock rewards were not read just now.';
-  const c = $('contrats'); c.textContent = 'Contracts on Base: holders vault '; c.append(lienScan('address', CV.V), ' · lock rewards ', lienScan('address', CV.R));
+  const c = $('contrats'); c.textContent = 'Contracts on Base: holders vault '; c.append(lienScan('address', CV.V), ' · lock rewards ', lienScan('address', CV.R)); if (CV.R2) c.append(' · weekly lock rewards ', lienScan('address', CV.R2));
 }
 
 /* one action: claim-vue.js re-reads the account, simulates FROM the wallet, then the wallet opens (envoi.js), then the receipt is judged */

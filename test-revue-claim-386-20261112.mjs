@@ -158,7 +158,7 @@ async function verifier(cheminModule, APP) {
     t('C1 Grok as on Base (enrolled from month 1, weightOf month 0 = 0, not played): no "Play this month ... to be paid for it"', !/Play this month/.test(x), x);
     t('C2 ... and it says from which month the lock counts', /Your lock counts from month 1: play in it/.test(x), x);
     x = await boiteApp(APP, { inscrit: true, joue: false, poids0: 3750000n * 10n ** 18n });
-    t('C3 a lock counted for this month, not played: "Play this month ... to be paid for it."', /Play this month \(a heart, a TAM art mint or a skin mint\) to be paid for it\./.test(x), x);
+    t('C3 a lock counted for this month, not played: "Play this month ... to be paid for it."', /Play this month \(a heart or a TAM art mint\) to be paid for it\./ /* game405: a skin mint is not a play (V does not list the 1 USDC Skins) */.test(x), x);
     x = await boiteApp(APP, { inscrit: true, joue: true, poids0: 3750000n * 10n ** 18n });
     t('C4 played: no how-to', !/Play this month|play in it/.test(x), x);
     x = await boiteApp(APP, { inscrit: true, joue: false, poids0: 0n, poidsPanne: true });

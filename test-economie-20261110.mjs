@@ -75,7 +75,7 @@ const app = readFileSync(new URL('./app.html', import.meta.url), 'utf8');
 t('app: +1 sits on the name line', /<div class="bcNomLigne"><div class="bcNom" id="bcNom">[^<]*<\/div>\s*<span class="bcLike" id="bcLike" hidden>/.test(app));
 /* 2026-11-12 (the economy pack is live): hearts are given on Hearts (BlockLikesV2): its OWN rule, read on chain before the wallet opens —
  *   likePrice() from the wallet, minHold() LOCKED — replaces the app-side $15 check of the first contract */
-t('app: the click checks the contract rule (price, minimum LOCKED) then sends the likeBatch', /EP\.likeCheck\(\{ balance: bal, locked, likePrice: prix, minHold: need[\s\S]{0,400}EP\.likeBatch\(\{ block: a, n: 1, likePrice: prix \}\)/.test(app));
+t('app: the click checks the contract rule (price, minimum LOCKED) then sends the likeBatch', /EP\.likeCheck\(\{ balance: bal, locked, likePrice: prix, minHold: need[\s\S]{0,2000}EP\.likeBatch\(\{ block: a, n: 1, likePrice: prix \}\)/.test(app)); /* game404: the weekly count's reads sit between (0,400 -> 0,2000) */
 t('app: Community vault card in the Wallet tab, hidden while the vault is null', /<section class="volet" id="v-wallet"[\s\S]*?<div class="carte" id="wVault" hidden data-v="lock">[\s\S]*?<\/section>/.test(app)
   && /if \(!EP\.VAULT \|\| !EP\.HEARTS\) \{ carte\.hidden = true; return; \}/.test(app)); /* 2026-11-12: the live vault and Hearts */
 t('app: hidden while Hearts is not on this network', /if \(!EP\.HEARTS \|\| !EP\.isB20\(a\)\) \{ box\.hidden = true;/.test(app));

@@ -145,7 +145,9 @@ const fetch = async (url) => {
 };
 
 const envois = [];
-const deps = { $, document, EP, LK, ECO, PV, CV, PTS, HV, rpc, fetch, envoyerAppels: async (appels, qui) => { envois.push({ appels, qui }); return { etat: 'REFUSE' }; }, bcResoudre: () => ({}), court: (x) => x.slice(0, 8),
+/* 2026-11-14: the lock card also reads the WEEKLY lock rewards (LW, game403): not modelled in this 2026-11-12 recording (R2 did not exist),
+ *   so LW.WEEKLY = null here and the card draws as before; the weekly box is proven by banc-lock-weekly-*-fork-20261114 */
+const deps = { LW: { WEEKLY: null }, $, document, EP, LK, ECO, PV, CV, PTS, HV, rpc, fetch, envoyerAppels: async (appels, qui) => { envois.push({ appels, qui }); return { etat: 'REFUSE' }; }, bcResoudre: () => ({}), court: (x) => x.slice(0, 8),
   bcLikeUsd: null, allerA() {}, choisirBrain() {}, bcRepeindre() {}, AbortSignal };
 // eslint-disable-next-line no-new-func
 const usine = new Function('deps', 'with (deps) { let compte = null;\n' + CODE_LOCK + CODE + '\nreturn { peindreLock, peindreVaultWallet, peindrePointsWallet, peindreCoeursWallet, setCompte: (x) => { compte = x; }, raz: () => { wVaultLu = 0; } }; }');

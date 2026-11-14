@@ -187,6 +187,9 @@ import { creerRegleur } from './slots-regleur.js';
 import { creerKeeperBuyback } from './buyback-keeper.js';
 /* 2026-11-12 : le keeper de la part dev du Spin (spin-dev-keeper.js) : n appelle que payDev, depuis la meme cle gas-only que le buyback */
 import { creerKeeperSpinDev, creerExclusif } from './spin-dev-keeper.js';
+/* 2026-11-14 (Phil: « utilise deja le keeper qu'on a ») : le keeper des clotures (close-keeper.js) : n appelle que closeEpoch(uint256), sur V, R, R2 */
+import { creerKeeperClose } from './close-keeper.js';
+import { LOCK_WEEKLY_DEPLOIEMENT as LOCK_WEEKLY_REC } from './lock-weekly-deploiement.js';
 import { BUYBACK_VAULT_DEPLOIEMENT } from './tblock-buyback-vault-deploiement.js';
 /* 2026-10-18 : TicketPot LIVE (0xf986…1df1, bloc 52 776 705) — la fiche notee, et la lecture PURE du jour (lireJour : aucune cle requise) */
 import { TICKETPOT_DEPLOIEMENT } from './ticketpot-deploiement.js';
@@ -5845,6 +5848,14 @@ const keeperSpinDev = ESSAI_SRV.actif
     rpc: rpcServeur, journal: (t) => console.log(t), exclusif: verrouCleKeeper });
 if (keeperSpinDev.demarrer()) console.log('[spin-dev-keeper] on, keeper ' + keeperSpinDev.etat().adresse);
 else console.log('[spin-dev-keeper] off: ' + keeperSpinDev.etat().pourquoi);
+/* le keeper des clotures : meme cle gas-only, meme verrou ; ferme les semaines de V et R2 et les mois de R une fois finis (+ 1 h), jamais rien d autre */
+const keeperClose = ESSAI_SRV.actif
+  ? creerKeeperClose({ desactive: 'trial mode (ESSAI): the close keeper never runs against a trial node' })
+  : creerKeeperClose({ cle: process.env.BUYBACK_KEEPER_KEY || null, vault: EP_PACK.VAULT, horloge: EP_PACK.HEARTS, mensuel: EP_PACK.REWARDS,
+    hebdo: LOCK_WEEKLY_REC && LOCK_WEEKLY_REC.adresse ? LOCK_WEEKLY_REC.adresse : null, chaine: BUYBACK_VAULT_DEPLOIEMENT.chaine,
+    keeperAttendu: BUYBACK_VAULT_DEPLOIEMENT.parametres && BUYBACK_VAULT_DEPLOIEMENT.parametres.keeper, rpc: rpcServeur, journal: (t) => console.log(t), exclusif: verrouCleKeeper });
+if (keeperClose.demarrer()) console.log('[close-keeper] on, keeper ' + keeperClose.etat().adresse);
+else console.log('[close-keeper] off: ' + keeperClose.etat().pourquoi);
 
 /* ══ LE JOURNAL DU JOUR DU JEU (Phil 2026-10-18 : « les brains sont les occupants de la Map ») — journal-jeu.js, GET /api/jeu/journal.
  * ⛔ LU SUR UN MINUTEUR, JAMAIS PAR REQUETE : un tour toutes les JOURNAL_TOUR_MS, au plus JOURNAL_FENETRES_PAR_TOUR fenetres de
@@ -9441,6 +9452,7 @@ function traiterRequete(req, res) {
       /* 2026-11-12 : le keeper des buybacks — OFF (et pourquoi) / ON / ARRETE, son adresse, ses compteurs ; jamais la cle */
       buybackKeeper: keeperBuyback.etat(),
       spinDevKeeper: keeperSpinDev.etat(),
+      closeKeeper: keeperClose.etat(),
       mcpWidget: widgetHtml !== null, trousCreations: trousCreations.slice(-10), trousRelus: trousRelus.slice(-10), noeuds: etatNoeuds, ...(ok ? {} : { modulesManquants }),
       /* 2026-10-16 : le revenu VERIFIE par recu, par ligne et par devise (unites brutes), externe et interne separes — jamais les hashes.
        *   ⛔ BORNES dites : seules les transactions que le client poste sont vues ; l ETH natif (sans log) n est pas compte. */

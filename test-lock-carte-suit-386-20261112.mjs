@@ -117,7 +117,8 @@ function charger(APP) {
   const dom = Object.fromEntries(ids.map((i) => [i, new El('div')]));
   const document = { hidden: false, createElement: (tag) => new El(tag) };
   const envois = [];
-  const deps = { $: (q) => dom[q] || null, document, EP, LK, ECO, PV, CV, PTS, HV, rpc, fetch, AbortSignal, bcLikeUsd: null, allerA() {}, choisirBrain() {}, bcRepeindre() {},
+  /* 2026-11-14: LW.WEEKLY = null: the weekly lock rewards (game403) are not modelled in this recording; proven on the fork instead */
+  const deps = { LW: { WEEKLY: null }, $: (q) => dom[q] || null, document, EP, LK, ECO, PV, CV, PTS, HV, rpc, fetch, AbortSignal, bcLikeUsd: null, allerA() {}, choisirBrain() {}, bcRepeindre() {},
     envoyerAppels: async (appels, qui) => { envois.push({ appels, qui }); return { etat: 'REFUSE', pourquoi: 'refused by the test wallet (4001)' }; }, bcResoudre: () => ({}), court: (x) => x.slice(0, 8) };
   // eslint-disable-next-line no-new-func
   const C = new Function('deps', 'with (deps) { let compte = null;\n' + APP.slice(la, lb) + APP.slice(a, b)
@@ -274,7 +275,8 @@ const MUTANTS = [
   ['enroll not the primary action', "if (!principal && R && R.inscrit === false) {", 'if (false) {'],
   ['claim not the primary action', "if (!principal && R && R.aPayer.length) {", 'if (false) {'],
   ['the lock button always primary', "const go = el('button', principal ? 'bouton sec' : 'bouton', '');", "const go = el('button', 'bouton', '');"],
-  ['the form after the rewards for a wallet without lock', 'const reste = locked > 0n ? [R && R.box, form, sortie] : [form, R && R.box, sortie];', 'const reste = [R && R.box, form, sortie];'],
+  /* game403: the weekly box H joined the order (first for a lock holder, after the form otherwise) */
+  ['the form after the rewards for a wallet without lock', 'const reste = locked > 0n ? [H && H.box, R && R.box, form, sortie] : [form, H && H.box, R && R.box, sortie];', 'const reste = [H && H.box, R && R.box, form, sortie];'],
   ['the Wallet tab waits for the 5 s tick again', "  if (nom === 'wallet') setTimeout(", "  if (nom === 'wallet' && false) setTimeout("],
   ['the holders card hidden until every vault read is back', 'rows.append(p); } carte.hidden = false; /* shown while its reads run */', 'rows.append(p); } /* shown while its reads run */'],
   ['the sentence repeating the figure is back', "e.cle === 'actif' && locked > 0n ? '' : e.texte", 'e.texte'],

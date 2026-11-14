@@ -62,7 +62,7 @@ t('register step: "Register the market — 0.0003 ETH min"', A.includes("nom: 'R
  *   vs") and the pack made the new vault LIVE, so "Today" vs "the coming vault" no longer exists on screen: the vault and lock rows say
  *   what the live contracts do, read on chain. The witnesses pin those words (still: reworded, not just deleted). */
 t('open step: "Open market — ..." and "open market vs"', A.includes("'Open market — ' + symQ") && A.includes("'Open market — seed ETH (fee already paid)'") && A.includes("'Instant Birth — open market vs ' + symQ"));
-t('wallet vault comment: the live vault in words, never a "coming version"', A.includes(" You must play that week: a heart, a TAM art mint or a skin mint.") && !/coming version|not deployed yet/.test(A));
+t('wallet vault comment: the live vault in words, never a "coming version"', A.includes(" You must play that week: a heart or a TAM art mint.") /* game405: a skin mint is not a play */ && !/coming version|not deployed yet/.test(A));
 t('holders page: the live vault and lock rows in words, never a "coming vault"', H.includes("['🔒', 'Lock TBLOCK', ") && H.includes("'Holders vault, every week'") && H.includes("'Monthly lock rewards'") && !/[Cc]oming vault/.test(H));
 t('duel refusal in plain words', D.includes("refuse('a joined duel is never refunded: settle it in the window, or the creator wins by default')"));
 

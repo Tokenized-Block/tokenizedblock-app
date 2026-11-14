@@ -38,7 +38,7 @@ export function etapesPaiement({ wallet, locked, need, unlockAt, minCommit, main
   const assez = L >= N && N > 0n, dure = M === null ? null : U >= t + M;
   const e1 = { titre: accesUsd !== null ? 'Lock $' + Number(accesUsd).toLocaleString('en-US') + ' of TBLOCK' : 'Lock ' + fmt(N) + ' TBLOCK',
     detail: (accesUsd !== null ? fmt(N) + ' TBLOCK at the contract price' : 'at least that much locked') + (M === null ? '' : ', in a lock that lasts ' + Math.round(M / 86400) + ' more days') };
-  const e2 = { titre: 'Play this week', detail: 'a heart, a TAM art mint or a skin mint' };
+  const e2 = { titre: 'Play this week', detail: 'a heart or a TAM art mint' }; /* 2026-11-14: a skin mint is not a play (V does not list the 1 USDC Skins) */
   const e3 = { titre: 'Claim after the close', detail: 'week ' + semaineNo + ' closes ' + minute(finSemaine) + (fenetreJours ? '; then ' + fenetreJours + ' days to claim' : '') };
   if (!wallet) return [{ ...e1, etat: 'info' }, { ...e2, etat: 'info' }, { ...e3, etat: 'info' }];
   if (assez && dure !== false) { e1.etat = dure === null ? 'info' : 'fait'; e1.detail = fmt(L) + ' TBLOCK locked until ' + jour(U); }

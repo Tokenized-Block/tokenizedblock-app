@@ -101,6 +101,9 @@ const rpcFige = (over = {}, manques = []) => async (method, params) => {
   if (r.error) { const e = new Error(r.error.message); if (/revert/i.test(r.error.message)) { e.reverted = true; e.data = r.error.data; } throw e; }
   return r.result;
 };
+/* 2026-11-14: claim-vue also reads the weekly lock rewards (R2, deployed at block 57183954, after this recording): at the recorded block
+ *   R2 has no code, so the chain answers '0x' — answered so, and the page must then say R2 was not read (never a 0) */
+const sansR2 = (rp) => async (m, p) => (m === 'eth_call' && String(p[0].to).toLowerCase() === CV.R2 ? '0x' : rp(m, p));
 
 /** one page run: a fake DOM, a fake wallet, fetch answered from REC (+ scenario overrides). Returns the controls.
  *  holdFor: requests whose key contains it wait until released; stall: requests matching it never answer (the page must bound them);
@@ -430,8 +433,9 @@ function displayShortOf(a) { return a.slice(0, 6) + '…' + a.slice(-4); }
 /* 4. the holders vault, now on claim.html: its module (claim-vue.js lireTout, the read code of claim.html) on the SAME frozen chain */
 const need = lu(EP.VIEW.needFor(0n)), minHold = lu(EP.VIEW.minHold()), commit = lu(EP.VIEW.minCommit()), epoch = lu(EP.VIEW.currentEpoch());
 {
-  const m0 = [], LA = await CV.lireTout(rpcFige({}, m0), A, TS), L0 = await CV.lireTout(rpcFige({}, m0), null, TS), LB = await CV.lireTout(rpcFige({}, m0), B, TS);
+  const m0 = [], LA = await CV.lireTout(sansR2(rpcFige({}, m0)), A, TS), L0 = await CV.lireTout(sansR2(rpcFige({}, m0)), null, TS), LB = await CV.lireTout(sansR2(rpcFige({}, m0)), B, TS);
   t(m0.length === 0, 'claim page module: every read is in the recording', m0.join(' '));
+  t(LA.h.tokensOk === false && LA.h.semaines.length === 0 && CV.planClaimHebdo(LA, A).ok === false, 'R2 absent at the recorded block: not read, nothing offered', JSON.stringify(LA.h, (k, v) => (typeof v === 'bigint' ? String(v) : v)));
   const lA = Object.fromEntries(CV.lignesMoi(LA)), l0 = Object.fromEntries(CV.lignesMoi(L0)), lB = Object.fromEntries(CV.lignesMoi(LB));
   t(T18(need) === '2,789,880.2 TBLOCK' && need === minHold && String(lA['Your lock']).includes('a claim needs ' + EP.fmt(need) + ' TBLOCK'), 'claim minimum = V.needFor(week) = L.minHold() (2,789,880.2), said on the claim page', lA['Your lock']);
   t(commit === 604800n && LA.v.minCommit === commit, 'lock commitment = V.MIN_COMMIT() (7 days), read by the claim page', String(LA.v.minCommit));
@@ -444,7 +448,7 @@ const need = lu(EP.VIEW.needFor(0n)), minHold = lu(EP.VIEW.minHold()), commit = 
   const ferme = await scenarioFerme();
   const playA = lu(EP.VIEW.playOf(0n, A));
   t(playA > 0n, 'recorded: A played ' + T18(playA) + ' in week 0 (V.playOf)');
-  const etat = async (w, extra) => { const m = []; const L = await CV.lireTout(rpcFige({ ...ferme, ...extra }, m), w, TS); assert.equal(m.length, 0, 'closed week reads recorded: ' + m.join(' ')); const s = L.v.semaines.find((x) => x.e === 0n); return { L, s, st: s ? CV.etatSemaine(s, L) : null }; };
+  const etat = async (w, extra) => { const m = []; const L = await CV.lireTout(sansR2(rpcFige({ ...ferme, ...extra }, m)), w, TS); assert.equal(m.length, 0, 'closed week reads recorded: ' + m.join(' ')); const s = L.v.semaines.find((x) => x.e === 0n); return { L, s, st: s ? CV.etatSemaine(s, L) : null }; };
   const vrai = '0x' + W(1);
   /* 4a. A claimed: owed() = (0,0) on chain once claimed */
   { const { st } = await etat(A, Object.fromEntries([ov(EP.VIEW.claimed(0n, A), vrai), ov(EP.VIEW.owed(0n, A), '0x' + W(0) + W(0))]));
