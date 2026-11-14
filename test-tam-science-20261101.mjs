@@ -18,7 +18,7 @@ const ICI = path.dirname(fileURLToPath(import.meta.url));
 const MOI = '0x' + 'ab'.repeat(20);
 
 /* 1. TOUTES les sciences (game78 : 7 modules — physique, sciences, fluides, astres, cosmos, invisible, quantique) : rejeu, en-tete, decodage, tailles */
-{ const parModule = [['tam-physique.js', 7], ['tam-sciences.js', 9], ['tam-fluides.js', 4], ['tam-astro.js', 6], ['tam-cosmos.js', 11], ['tam-invisible.js', 10], ['tam-quantique.js', 8], ['tam-fusion.js', 1], ['tam-grandes-questions.js', 9], ['tam-grandes-questions-2.js', 7], ['tam-champs-quantiques.js', 9], ['tam-vide-quantique.js', 4], ['tam-theories-2.js', 6], ['tam-theories-3.js', 6], ['tam-biologie.js', 10], ['tam-chimie.js', 10], ['tam-maths.js', 154], ['tam-ondes.js', 4], ['tam-electricite.js', 2], ['tam-mecanique.js', 22]];
+{ const parModule = [['tam-physique.js', 7], ['tam-sciences.js', 9], ['tam-fluides.js', 4], ['tam-astro.js', 6], ['tam-cosmos.js', 11], ['tam-invisible.js', 10], ['tam-quantique.js', 8], ['tam-fusion.js', 1], ['tam-grandes-questions.js', 9], ['tam-grandes-questions-2.js', 7], ['tam-champs-quantiques.js', 9], ['tam-vide-quantique.js', 4], ['tam-theories-2.js', 6], ['tam-theories-3.js', 6], ['tam-biologie.js', 10], ['tam-chimie.js', 10], ['tam-maths.js', 155], ['tam-ondes.js', 4], ['tam-electricite.js', 2], ['tam-mecanique.js', 22]];
   let attendu = 0; for (const [f, min] of parModule) { const m = await import('./' + f); ok(m.SYSTEMES.length >= min, f + ' : au moins ' + min + ' systemes (' + m.SYSTEMES.length + ')'); attendu += m.SYSTEMES.length; }
   ok(T.SYSTEMES.length === attendu && new Set(T.SYSTEMES.map((s) => s.id)).size === attendu, 'tam-science rassemble les ' + attendu + ' systemes, sans doublon d id'); }
 for (const s of T.SYSTEMES) {

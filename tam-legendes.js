@@ -1242,6 +1242,14 @@ const L = {
         'Measured: ' + e.measured + '. Ours: ' + e.ours + ', and the places of ' + Object.values(HB.POS3D_SOURCE).filter((x) => x.startsWith('our placement')).length + ' deep parts. Over all packs ' + HB.SHARED.shared + ' of ' + HB.SHARED.mapped + ' mapped regions serve two or more emotions, ' + HB.SHARED.single + ' serve one.']; },
     fin: null,
   },
+  /* nerveHelmholtz (2026-11-14; idea: codex "human brain", Claude sub-agent): a frog nerve, never a human one; probable errors, not standard deviations */
+  nerveHelmholtz: {
+    titre: 'Helmholtz: the speed of the nerve signal',
+    enUnePhrase: 'In 1850 Helmholtz stimulated a frog nerve far from the muscle and near it: the far stimulus made the muscle twitch later, so the nerve signal takes time, about 25 to 38 metres a second here. Length over delay gives back his printed speeds to the tenth for 6 of 8 series, within a tenth for the other two.',
+    colonnes: ['series in the order printed, then the 1852 record', 'speed of the nerve signal (m/s)', 'computed, probable-error bar, printed, or printed mean'],
+    aRegarder: ['The bars are his probable errors (an even chance that the true value lies inside), not standard deviations.', 'His least-squares 26.4 for series IX to XI is not reproduced here: weighting by one over the error squared gives 26.15. His 27.0 for XII to XIV is.', 'A frog nerve at 11 to 21 degrees C, not a human one: it shows that the signal takes time, not how fast people think.'],
+    fin: null,
+  },
   /* riskBernoulli (2026-11-14; idea: codex "human brain", Claude sub-agent): a rule and its author's worked examples, never a measurement of people */
   riskBernoulli: {
     titre: 'Bernoulli: the value of a risk, by the logarithm',

@@ -529,6 +529,11 @@ const DECORS = {
     const a = (I.amygdalaPlaceWiring || '').split(' ').map(Number);
     if (a.length === 3 && a.every(Number.isFinite)) out.push(pt(a, C.repere, 'Left amygdala: ' + (I.amygdalaWiring || '')));
     return out; },
+  /* nerveHelmholtz (2026-11-14): one printed speed per slider position, where the drawing puts it (x = series / 8, y = m/s / 50) */
+  nerveHelmholtz: (P, o, B) => { const k = Math.max(0, Math.min(3, Math.round(Number(P.seriesHelmholtz)) || 0));
+    return [k === 2 ? pt([6 / 8, 25.1 / 50, B.centre[2]], C.repere, 'Series XIII: 25.1 m/s printed, a fresh frog at 20 degrees C')
+      : k === 3 ? pt([1, 27.25 / 50, B.centre[2]], C.repere, '1852 curve record: 27.25 m/s printed')
+      : pt([0, 24.6 / 50, B.centre[2]], C.repere, 'Series IX: 24.6 m/s printed, the smallest probable error (2.0)')]; },
   /* riskBernoulli (2026-11-14): one printed number per problem, where the drawing puts it */
   riskBernoulli: (P, o, B) => { const k = Math.max(0, Math.min(3, Math.round(Number(P.problemBernoulli)) || 0));
     return [k === 0 ? pt([0, 2 / 12, B.centre[2]], C.repere, 'No fortune: printed exactly 2 ducats')
