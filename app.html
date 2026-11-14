@@ -3757,7 +3757,7 @@ details[open] > summary::before{transform:rotate(90deg)}
       <!-- ⛔ L EMPREINTE EST AFFICHEE, DONC ELLE EST DE L ANGLAIS. `20261001-pont-dans-lui` a fait
            rougir `test-texte-a-l-ecran.mjs` : le mot « dans » est de la prose francaise partie a
            l ecran anglais. La garde a fait son travail du premier coup. -->
-      <p class="note" data-build="20261109-game406" hidden>Build <code>20261109-game406</code> ·Contract labels say what they do, not our internal names.</p>
+      <p class="note" data-build="20261109-game407" hidden>Build <code>20261109-game407</code> ·Contract labels say what they do, not our internal names.</p>
       <p class="sous">Everything happening to blocks on Base, live.</p>
       <!-- tip 0013: sticky — Hooked chip = Dex fees; unhooked → Launch beside. No fee addr. -->
       <p class="note" id="sfHookedSticky" hidden>Blocks alive on TokenizedBlock pay their creator on every trade. Example:<button type="button" class="puce" id="sfStickyTbgas">Open TBGAS</button>.</p>
@@ -33210,6 +33210,19 @@ async function peindreRecompensesHebdo(hote, { moi, locked, active, unlockAt, re
       if (poids === 0n && s !== c) continue;
       ligne(s === c ? 'Your week ' + s : 'Last week (' + s + ')', et.texte);
       if (et.action === 'mark') bouton('Count my week ' + s, () => [LW.markPlayedCall(moi, s)], 'count your play in week ' + s, 'Counted: week ' + s + ' will pay your lock once it is closed.');
+    }
+    /* 2026-11-14: closeEpoch is permissionless and nobody runs it for the players: until a week is closed, nobody can claim it. Offered to
+     *   any wallet once the week's grace day has passed (lock-weekly-app.js semainesAFermer), weeks in order, at most 4 per batch. */
+    if (prochain < c) {
+      const tsC = BigInt((await rpc('eth_getBlockByNumber', ['latest', false])).timestamp);
+      const fins = await Promise.all(Array.from({ length: LW.MAX_FERMER }, (_, i) => (prochain + BigInt(i) < c ? lit(LW.VIEW.epochEnd(prochain + BigInt(i))).catch(() => null) : Promise.resolve(null))));
+      const aFermer = LW.semainesAFermer({ prochain, fins, maintenantS: tsC });
+      if (aFermer.length) {
+        const noms = (aFermer.length === 1 ? 'week ' : 'weeks ') + aFermer.join(', ');
+        ligne('Finished, not closed', noms);
+        bouton('Close ' + noms, () => aFermer.map((e) => LW.closeWeeklyCall(e)), 'close ' + noms, 'Closed: ' + noms + '. Its claims are open.');
+        box.append(el('p', 'note', 'Anyone can close a finished week: it sets that week\'s pot and opens its claims. Closing pays nothing to the one who closes.'));
+      }
     }
     if (prochain > 0n) {
       const ouverts = [];

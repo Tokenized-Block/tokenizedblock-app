@@ -55,5 +55,13 @@ t('tam: minHold unread as 0 -> nothing', A.marquageApresMintTam({ ...tam, minHol
 t('tam: the week rules still apply (already marked)', A.marquageApresMintTam({ ...tam, marque: true }) === null);
 t('tam: the week rules still apply (last 10 minutes)', A.marquageApresMintTam({ ...tam, maintenantS: 10_000n - 599n }) === null);
 t('the copy never says a skin mint counts', !/skin/.test(A.etatSemaine({ poids: 1n, joue: false, marque: false }).texte));
+/* closeWeeklyCall + semainesAFermer: closeEpoch(e) once epochEnd(e) + 1 day passed, weeks in order */
+t('closeEpoch(7)', A.closeWeeklyCall(7).data === '0x' + A.SEL.closeEpoch + '7'.padStart(64, '0') && A.closeWeeklyCall(7).to === A.WEEKLY);
+const fins = [1000n, 1000n + 604800n, 1000n + 2n * 604800n];
+t('fermer: before end + grace -> none', A.semainesAFermer({ prochain: 3n, fins, maintenantS: 1000n + 86399n }).length === 0);
+t('fermer: at end + grace -> the first', A.semainesAFermer({ prochain: 3n, fins, maintenantS: 1000n + 86400n }).join() === '3');
+t('fermer: two weeks late -> both, in order', A.semainesAFermer({ prochain: 3n, fins, maintenantS: 1000n + 604800n + 86400n }).join() === '3,4');
+t('fermer: an unread end stops the list', A.semainesAFermer({ prochain: 3n, fins: [1000n, null, 1000n], maintenantS: 10n ** 9n }).join() === '3');
+t('fermer: at most MAX_FERMER', A.semainesAFermer({ prochain: 0n, fins: Array(9).fill(0n), maintenantS: 10n ** 9n }).length === A.MAX_FERMER);
 console.log(ok + '/' + (ok + ko) + (ko ? ' — RED' : ' — green'));
 process.exit(ko ? 1 : 0);
