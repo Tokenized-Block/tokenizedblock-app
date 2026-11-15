@@ -3760,7 +3760,7 @@ details[open] > summary::before{transform:rotate(90deg)}
       <!-- ⛔ L EMPREINTE EST AFFICHEE, DONC ELLE EST DE L ANGLAIS. `20261001-pont-dans-lui` a fait
            rougir `test-texte-a-l-ecran.mjs` : le mot « dans » est de la prose francaise partie a
            l ecran anglais. La garde a fait son travail du premier coup. -->
-      <p class="note" data-build="20261109-game420" hidden>Build <code>20261109-game420</code> ·Contract labels say what they do, not our internal names.</p>
+      <p class="note" data-build="20261109-game421" hidden>Build <code>20261109-game421</code> ·Contract labels say what they do, not our internal names.</p>
       <p class="sous">Everything happening to blocks on Base, live.</p>
       <!-- tip 0013: sticky — Hooked chip = Dex fees; unhooked → Launch beside. No fee addr. -->
       <p class="note" id="sfHookedSticky" hidden>Blocks alive on TokenizedBlock pay their creator on every trade. Example:<button type="button" class="puce" id="sfStickyTbgas">Open TBGAS</button>.</p>
@@ -33312,9 +33312,13 @@ async function peindreLpLock(hote, { force = false } = {}) {
   hote.hidden = false;
   const el = (tag, cls, txt) => { const x = document.createElement(tag); if (cls) x.className = cls; if (txt != null) x.textContent = txt; return x; };
   const titre = 'Lock wtCOIN + TBLOCK liquidity';
-  if (!compte) { lplEtat.pour = null; hote.replaceChildren(el('p', 'titre', titre), el('p', 'note', 'Connect your wallet to add wtCOIN + TBLOCK liquidity and lock it. Only TBLOCK? The card first swaps about half of it for wtCOIN on the same pool.')); return; }
+  if (!compte) { lplEtat.pour = null; hote.dataset.compte = ''; hote.dataset.saisie = ''; hote.replaceChildren(el('p', 'titre', titre), el('p', 'note', 'Connect your wallet to add wtCOIN + TBLOCK liquidity and lock it. Only TBLOCK? The card first swaps about half of it for wtCOIN on the same pool.')); return; }
   const moi = String(compte).toLowerCase();
   if (!force && lplEtat.pour === moi && Date.now() - lplEtat.lu < 60000) return;
+  /* game421 (wallet click-through on a fork): the vault card repaints every 60 s and called this without force, which REPLACED the card
+   *   while its owner was typing an amount or waiting for a preview — the amount, the token and the preview were wiped. A card being
+   *   filled for THIS wallet is not repainted by the timer; a send (force) or another wallet still repaints it. */
+  if (!force && hote.dataset.compte === moi && hote.dataset.saisie === '1') return;
   const jeton = ++lplEtat.jeton;
   lplEtat.lu = Date.now(); lplEtat.pour = moi;
   if (hote.dataset.compte !== moi) hote.replaceChildren(el('p', 'titre', titre), el('p', 'note', 'Reading your liquidity locks…'));
@@ -33383,7 +33387,7 @@ async function peindreLpLock(hote, { force = false } = {}) {
   const lplCandidats = [...new Set([...lplIndices(moi), ...(lplServeur ? lplServeur.ids : [])])];
   try { E = await L.lireEtat({ rpc, moi, candidats: lplCandidats, ...(lplServeur && lplServeur.aJour ? { fenetres: 1 } : {}) }); } catch (_) { E = null; }
   if (perime()) return;
-  if (!E) { hote.dataset.compte = moi; hote.replaceChildren(el('p', 'titre', titre), el('p', 'note', 'Not read just now. It is read again in a minute.')); lplEtat.lu = Date.now() - 45000; return; }
+  if (!E) { hote.dataset.compte = moi; hote.dataset.saisie = ''; hote.replaceChildren(el('p', 'titre', titre), el('p', 'note', 'Not read just now. It is read again in a minute.')); lplEtat.lu = Date.now() - 45000; return; }
   const sem = (k) => 'week ' + k;
   /* the week and the pots, read */
   const info = el('div', 'hvBloc hvRecomp', null); info.dataset.l = 'lp-semaine';
@@ -33518,6 +33522,8 @@ async function peindreLpLock(hote, { force = false } = {}) {
     const s = cote.value === 'tblock' ? seulTblock() : null;
     montant.placeholder = !mini ? '' : s !== null ? 'more than ' + auDessus(s, 0) : 'at least ' + (cote.value === 'tblock' ? auDessus(mini.tblock, 0) : auDessus(mini.wtcoin, 6));
   };
+  /* game421: a wallet with TBLOCK and 0 wtCOIN can only go the TBLOCK way (swap first): the side starts there, not on wtCOIN */
+  if (E.soldes && E.soldes.wtcoin === 0n && E.soldes.tblock > 0n) cote.value = 'tblock';
   majPlaceholder();
   const s0 = apresEchange && Number(apresEchange.semaines) >= L.REGLE.minWeeks && Number(apresEchange.semaines) <= L.REGLE.maxWeeks ? Number(apresEchange.semaines) : L.REGLE.minWeeks;
   const semaines = choixSemaines(L.REGLE.minWeeks, L.REGLE.maxWeeks, s0);
@@ -33570,6 +33576,10 @@ async function peindreLpLock(hote, { force = false } = {}) {
   };
   voir.addEventListener('click', async () => {
     voir.disabled = true;
+    hote.dataset.saisie = '1';
+    /* game421: the preview reads the pool and quotes the swap (several seconds on a slow node): say so, the old text stayed up before */
+    apercu.textContent = 'Reading the pool' + (cote.value === 'tblock' ? ' and quoting the swap' : '') + '… a few seconds. Nothing is sent.';
+    envoi.hidden = true; envoiEchange.hidden = true; risqueEnvoi.hidden = true;
     try {
       planVu = await planifier();
       const w = BigInt(planVu.semaines);
@@ -33596,7 +33606,9 @@ async function peindreLpLock(hote, { force = false } = {}) {
   aj.append(voir);
   /* a preview is only good for what it showed: any change of the amount, the token or the weeks hides the send buttons */
   const perimer = () => { planVu = null; envoi.hidden = true; envoiEchange.hidden = true; risqueEnvoi.hidden = true; apercu.textContent = 'Preview again: the amount, the token or the weeks changed.'; };
-  montant.addEventListener('input', perimer); cote.addEventListener('change', () => { majPlaceholder(); perimer(); }); semaines.addEventListener('change', perimer);
+  /* game421: once its owner touches the form, the card is "being filled": the 60 s timer no longer replaces it (see the top of peindreLpLock) */
+  const enSaisie = () => { hote.dataset.saisie = '1'; };
+  montant.addEventListener('input', () => { enSaisie(); perimer(); }); cote.addEventListener('change', () => { enSaisie(); majPlaceholder(); perimer(); }); semaines.addEventListener('change', () => { enSaisie(); perimer(); });
   const risqueEnvoi = risque(); risqueEnvoi.hidden = true; aj.append(risqueEnvoi);
   /* step 0 is planned AGAIN at the click on the SAME TBLOCK amount, fresh quote and allowances, keeping the previewed minimum out */
   let echangeEnvoye = null;
@@ -33660,6 +33672,7 @@ async function peindreLpLock(hote, { force = false } = {}) {
   vue.push(pli);
   if (perime()) return;
   hote.dataset.compte = moi;
+  hote.dataset.saisie = ''; /* a fresh card: nothing typed in it yet */
   hote.replaceChildren(...vue);
 }
 /* game357: Wallet sections and Holders panels — a click sets data-w / data-v; CSS shows the matching card. */

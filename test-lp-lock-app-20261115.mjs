@@ -434,5 +434,18 @@ const ligneDeconnecte = APP.split('\n').find((l) => l.includes("Connect your wal
 t('disconnected card text exists (exactly once)', APP.split('Connect your wallet to add wtCOIN + TBLOCK liquidity').length === 2);
 t('disconnected card text does not say both tokens are required', !/needs both tokens/i.test(ligneDeconnecte));
 t('disconnected card text names the TBLOCK-only path', /Only TBLOCK\?/.test(ligneDeconnecte) && /swaps/.test(ligneDeconnecte));
+/* game421 — found by a wallet click-through on a fork (test mode): the card's body in app.html */
+const debut = APP.indexOf('async function peindreLpLock(');
+const corps = APP.slice(debut, APP.indexOf('\n}\n', debut));
+t('peindreLpLock found in app.html', debut > 0 && corps.length > 1000);
+t('a card being filled for this wallet is not repainted by the 60 s timer (force still repaints)', corps.includes("if (!force && hote.dataset.compte === moi && hote.dataset.saisie === '1') return;"));
+t('typing, the side and the weeks mark the card as being filled', /montant\.addEventListener\('input', \(\) => \{ enSaisie\(\);/.test(corps) && /cote\.addEventListener\('change', \(\) => \{ enSaisie\(\);/.test(corps) && /semaines\.addEventListener\('change', \(\) => \{ enSaisie\(\);/.test(corps));
+/* every place that REPLACES the card resets the mark, else the card would freeze on a disconnected or "not read" view */
+const remplacements = corps.split('hote.replaceChildren(').length - 1;
+const remisAZero = (corps.match(/hote\.dataset\.saisie = '';[^\n]*\n?[^\n]*hote\.replaceChildren\(/g) || []).length;
+t('each card replacement after a read resets the "being filled" mark (' + remisAZero + ' of the replacements)', remisAZero >= 3);
+t('the disconnected view forgets the wallet it was painted for', corps.includes("if (!compte) { lplEtat.pour = null; hote.dataset.compte = ''; hote.dataset.saisie = '';"));
+t('0 wtCOIN and some TBLOCK: the side starts on TBLOCK', corps.includes("if (E.soldes && E.soldes.wtcoin === 0n && E.soldes.tblock > 0n) cote.value = 'tblock';"));
+t('the preview says it is reading while it reads', corps.includes("apercu.textContent = 'Reading the pool'"));
 console.log(ok + '/' + (ok + ko) + (ko ? ' — RED' : ' — green'));
 process.exit(ko ? 1 : 0);
