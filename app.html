@@ -1779,6 +1779,12 @@ html.lOuvert,html.lOuvert body{overflow:hidden}
 #v-learn .lPas li>span{display:block;opacity:.8;font-size:13px;margin:2px 0 8px}
 #v-learn .lPas .bouton{width:auto;display:inline-block;margin:4px 6px 0 0}
 #v-learn .lChoix{opacity:1!important}
+/* game424: the film of the "?" sheet. While it plays alone, everything else in the sheet is out of the way */
+#v-learn .lFilm video{display:block;width:100%;aspect-ratio:16/9;border-radius:12px;background:#000}
+#v-learn .lFilmBas{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px}
+#v-learn .lFilmBas .bouton{width:auto;margin:0}
+#v-learn.lFilmSeul .feuilleCorps>:not(#lFilm){display:none}
+#v-learn #lFilmRevoir{width:auto;margin:6px 0 2px}
 #v-learn details.lPli>summary{cursor:pointer;list-style:none;display:flex;align-items:center} /* the app-wide › chevron (details > summary::before) */
 #v-learn details.lPli>summary::-webkit-details-marker{display:none}
 @media (max-width:640px){
@@ -3280,9 +3286,17 @@ details[open] > summary::before{transform:rotate(90deg)}
        never-list folded below. A bottom sheet on a phone, a centred window on a computer. -->
   <section class="volet" id="v-learn" aria-label="Learn" role="dialog" aria-modal="true" aria-labelledby="lTitre">
    <div class="feuilleCorps">
+    <!-- game424 (Phil 2026-11-16: "quand tu appuies sur le bouton ca lance la video puis s'affiche le ? avec le texte"):
+         the product film plays first, alone; when it ends (or is skipped) the guide below shows. Once seen, "?" opens on the guide
+         and the film stays one tap away. The file is only asked for when the film is shown (no src here). -->
+    <div class="carte lFilm" id="lFilm" hidden>
+      <video id="lFilmVideo" playsinline controls preload="none" poster="film-poster.jpg" aria-label="TokenizedBlock, the film"></video>
+      <div class="lFilmBas"><span class="sous">TokenizedBlock in 1 min 50</span><button type="button" class="bouton sec" id="lFilmPasser">Skip the film</button></div>
+    </div>
     <div class="carte">
       <div class="lTete"><p class="titre" id="lTitre">Welcome to Tokenized Block</p><button type="button" class="lFermer" id="lFermer" aria-label="Close">✕</button></div>
       <p class="sous">A living map of tokens on Base. Every little cube is a real token — we call it a <b>block</b>.</p>
+      <button type="button" class="bouton sec" id="lFilmRevoir">▶ Watch the film · 1 min 50</button>
       <p class="sousTitre">New here? Start with these 3 steps</p>
       <ol class="lPas">
         <li><b>Look around</b><span>Tap any cube on the map to see its page, its market and its brain. No wallet needed for that.</span>
@@ -3764,7 +3778,7 @@ details[open] > summary::before{transform:rotate(90deg)}
       <!-- ⛔ L EMPREINTE EST AFFICHEE, DONC ELLE EST DE L ANGLAIS. `20261001-pont-dans-lui` a fait
            rougir `test-texte-a-l-ecran.mjs` : le mot « dans » est de la prose francaise partie a
            l ecran anglais. La garde a fait son travail du premier coup. -->
-      <p class="note" data-build="20261109-game423" hidden>Build <code>20261109-game423</code> ·Contract labels say what they do, not our internal names.</p>
+      <p class="note" data-build="20261109-game424" hidden>Build <code>20261109-game424</code> ·Contract labels say what they do, not our internal names.</p>
       <p class="sous">Everything happening to blocks on Base, live.</p>
       <!-- tip 0013: sticky — Hooked chip = Dex fees; unhooked → Launch beside. No fee addr. -->
       <p class="note" id="sfHookedSticky" hidden>Blocks alive on TokenizedBlock pay their creator on every trade. Example:<button type="button" class="puce" id="sfStickyTbgas">Open TBGAS</button>.</p>
@@ -36700,12 +36714,40 @@ function ouvrirLearn() {
   document.documentElement.classList.add('lOuvert');
   const c = $('#lConnecter'); if (c) { c.textContent = compte ? 'Connected ✓' : 'Connect wallet'; c.disabled = !!compte; }
   f.scrollTop = 0;
+  /* game424: the first time, the film plays before the guide (this click is the gesture that lets it play with sound) */
+  if (!filmVu()) { montrerFilm(); return; }
   const x = $('#lFermer'); if (x) x.focus({ preventScroll: true });
 }
 function fermerLearn() {
+  /* closing in the middle of the film stops it and puts the sheet back in order; the next "?" decides again what to show */
+  arreterFilm(false); { const b = $('#lFilm'); if (b) b.hidden = true; } $('#v-learn').classList.remove('lFilmSeul');
   $('#v-learn').classList.remove('feuille');
   document.documentElement.classList.remove('lOuvert');
 }
+/* ── the film in the "?" sheet (game424). Seen = watched to the end or skipped once, remembered in this browser only. */
+const FILM_VU = 'tb.film.vu';
+function filmVu() { try { return localStorage.getItem(FILM_VU) === '1'; } catch (_) { return false; } }
+function montrerFilm() {
+  const f = $('#v-learn'), bloc = $('#lFilm'), v = $('#lFilmVideo'); if (!bloc || !v) return;
+  bloc.hidden = false; f.classList.add('lFilmSeul'); f.scrollTop = 0;
+  if (!v.getAttribute('src')) v.setAttribute('src', 'film.mp4');
+  try { v.currentTime = 0; } catch (_) { /* not loaded yet: it starts at 0 anyway */ }
+  /* a browser may refuse to start it (no gesture, data saver): the player and its poster stay, one tap on play starts it */
+  const p = v.play(); if (p && typeof p.catch === 'function') p.catch(() => {});
+  const s = $('#lFilmPasser'); if (s) s.focus({ preventScroll: true });
+}
+/* stops the film; `versGuide` = the guide takes its place (end of the film, or Skip) */
+function arreterFilm(versGuide) {
+  const f = $('#v-learn'), bloc = $('#lFilm'), v = $('#lFilmVideo'); if (!bloc || !v) return;
+  try { v.pause(); } catch (_) { /* nothing was playing */ }
+  if (!versGuide) return;
+  try { localStorage.setItem(FILM_VU, '1'); } catch (_) { /* private window: the film plays again next time, nothing else changes */ }
+  bloc.hidden = true; f.classList.remove('lFilmSeul'); f.scrollTop = 0;
+  const x = $('#lFermer'); if (x) x.focus({ preventScroll: true });
+}
+$('#lFilmVideo').addEventListener('ended', () => arreterFilm(true));
+$('#lFilmPasser').addEventListener('click', () => arreterFilm(true));
+$('#lFilmRevoir').addEventListener('click', montrerFilm);
 $('#pLearn').addEventListener('click', ouvrirLearn);
 $('#lFermer').addEventListener('click', fermerLearn);
 $('#v-learn').addEventListener('click', (e) => { if (e.target === e.currentTarget) fermerLearn(); }); /* the dimmed backdrop */

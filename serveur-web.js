@@ -4929,6 +4929,9 @@ const TYPES = {
   '.mjs': 'text/javascript; charset=utf-8',
   '.json': 'application/json; charset=utf-8',
   '.png': 'image/png',
+  /* 2026-11-16 (game424): the product film shown in the "?" sheet, and its poster */
+  '.mp4': 'video/mp4',
+  '.jpg': 'image/jpeg',
   '.txt': 'text/plain; charset=utf-8', /* 2026-10-03 : llms.txt */
 };
 
@@ -6588,6 +6591,8 @@ const SERVIS = [
   'tam-cles-en.js',
   'abi.json', 'known-bad.json', 'A-SIGNER-mainnet.json', 'brain-agent.json',
   'icon.png', 'splash.png', 'embed.png',
+  /* game424: the product film of the "?" sheet (1280x720, about 9 MB, served with byte ranges) and its poster */
+  'film.mp4', 'film-poster.jpg',
 ];
 
 /* ⛔ L APP NEUVE EST LA RACINE. L ancien ecran reste atteignable a son nom, mais ce n est plus lui
@@ -6687,7 +6692,8 @@ for (const nom of SERVIS) {
     continue;
   }
   const corps = readFileSync(chemin);
-  const image = nom.endsWith('.png');
+  /* `image` = already compressed, rarely changes: no gzip, and a cache may keep it (PNG, the film and its poster) */
+  const image = nom.endsWith('.png') || nom.endsWith('.mp4') || nom.endsWith('.jpg');
   /* ⛔ ON PRE-COMPRESSE UNE FOIS, AU DEMARRAGE. Les fichiers ne changent pas pendant la vie du
    *    processus — c est deja l hypothese du cache juste au-dessus — donc gzipper a chaque requete
    *    brulerait du CPU pour un resultat identique.
@@ -9572,6 +9578,23 @@ function traiterRequete(req, res) {
   } else if (e.image && req.headers['if-none-match'] === e.etag) {
     res.writeHead(304, entete(e));
     res.end();
+    return;
+  }
+  /* game424 — the film: a video player asks for PARTS of the file (Range), and Safari on iPhone refuses to play a video a server
+   *   cannot serve in parts. One range only ("bytes=a-b", "bytes=a-", "bytes=-n"); anything else, or a range outside the file,
+   *   is answered 416 with the file's size, as the player expects. Without a Range header the whole file goes, saying ranges exist. */
+  if (e.type === 'video/mp4') {
+    const taille = e.corps.length, base = { ...entete(e), 'accept-ranges': 'bytes' }, r = req.headers.range;
+    if (r === undefined) { res.writeHead(200, { ...base, 'content-length': taille }); res.end(req.method === 'HEAD' ? undefined : e.corps); return; }
+    const m = /^bytes=(\d*)-(\d*)$/.exec(String(r).trim());
+    let debut = -1, fin = -1;
+    if (m && (m[1] !== '' || m[2] !== '')) {
+      if (m[1] === '') { const n = Number(m[2]); debut = n > 0 ? Math.max(0, taille - n) : -1; fin = taille - 1; }
+      else { debut = Number(m[1]); fin = m[2] === '' ? taille - 1 : Math.min(Number(m[2]), taille - 1); }
+    }
+    if (!(debut >= 0 && debut < taille && fin >= debut)) { res.writeHead(416, { 'content-range': 'bytes */' + taille, 'cache-control': 'no-store' }); res.end(); return; }
+    res.writeHead(206, { ...base, 'content-range': 'bytes ' + debut + '-' + fin + '/' + taille, 'content-length': fin - debut + 1 });
+    res.end(req.method === 'HEAD' ? undefined : e.corps.subarray(debut, fin + 1));
     return;
   }
   /* ⛔ LE CLIENT DOIT AVOIR DEMANDE LE GZIP. On ne le devine pas : un client qui ne l annonce pas
