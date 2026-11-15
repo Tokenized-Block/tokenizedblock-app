@@ -1785,6 +1785,28 @@ html.lOuvert,html.lOuvert body{overflow:hidden}
 #v-learn .lFilmBas .bouton{width:auto;margin:0}
 #v-learn.lFilmSeul .feuilleCorps>:not(#lFilm){display:none}
 #v-learn #lFilmRevoir{width:auto;margin:6px 0 2px}
+/* game425: the "turn your phone" line is for a phone held upright only; sideways, the film takes the whole sheet */
+#v-learn .lFilmTourner{display:none;margin:8px 0 0}
+/* the card shown just before the film on a phone: a small phone that tips over, and one line */
+#v-learn .lFilm{position:relative}
+.lFilmAvant{position:absolute;inset:0;z-index:2;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:rgba(4,9,12,.9);color:#f2fbff;font-size:18px;text-align:center;border-radius:inherit}
+.lFilmAvant[hidden]{display:none}
+.lFilmAvant i{display:block;width:34px;height:58px;border:3px solid #35d3f0;border-radius:9px;animation:lFilmBascule 1.5s ease-in-out infinite}
+@keyframes lFilmBascule{0%,15%{transform:rotate(0)}65%,100%{transform:rotate(-90deg)}}
+@media (prefers-reduced-motion:reduce){.lFilmAvant i{animation:none;transform:rotate(-90deg)}}
+/* in full screen (phones): black, the film fits the screen, Skip stays under it */
+#lFilm:fullscreen{display:flex;flex-direction:column;justify-content:center;background:#000;padding:6px 10px;border:0;border-radius:0}
+#lFilm:fullscreen video{width:100%;height:calc(100% - 58px);aspect-ratio:auto;object-fit:contain;border-radius:0}
+#lFilm:fullscreen .lFilmTourner{display:none}
+#lFilm:fullscreen .lFilmBas{margin-top:4px}
+@media (max-width:700px) and (orientation:portrait){#v-learn .lFilmTourner{display:block}}
+@media (max-height:520px) and (orientation:landscape){
+  #v-learn.lFilmSeul.feuille{padding:0;justify-content:center}
+  #v-learn.lFilmSeul .feuilleCorps{max-height:100dvh;padding:0;border-radius:0}
+  #v-learn.lFilmSeul .lFilm{margin:0;padding:6px;border-radius:0}
+  #v-learn.lFilmSeul .lFilm video{width:auto;max-width:100%;height:calc(100dvh - 64px);margin:0 auto;aspect-ratio:16/9}
+  #v-learn.lFilmSeul .lFilmBas{margin-top:4px}
+}
 #v-learn details.lPli>summary{cursor:pointer;list-style:none;display:flex;align-items:center} /* the app-wide › chevron (details > summary::before) */
 #v-learn details.lPli>summary::-webkit-details-marker{display:none}
 @media (max-width:640px){
@@ -3291,7 +3313,11 @@ details[open] > summary::before{transform:rotate(90deg)}
          and the film stays one tap away. The file is only asked for when the film is shown (no src here). -->
     <div class="carte lFilm" id="lFilm" hidden>
       <video id="lFilmVideo" playsinline controls preload="none" poster="film-poster.jpg" aria-label="TokenizedBlock, the film"></video>
+      <!-- game425: on a phone only, shown for under two seconds before the film starts sideways -->
+      <div class="lFilmAvant" id="lFilmAvant" hidden><i aria-hidden="true"></i><b>Turn your phone sideways</b></div>
       <div class="lFilmBas"><span class="sous">TokenizedBlock in 1 min 50</span><button type="button" class="bouton sec" id="lFilmPasser">Skip the film</button></div>
+      <!-- game425 (Phil 2026-11-16): shown only on a phone held upright (CSS), where a 16:9 film is small -->
+      <p class="note lFilmTourner" id="lFilmTourner">↻ Turn your phone sideways to watch it full screen.</p>
     </div>
     <div class="carte">
       <div class="lTete"><p class="titre" id="lTitre">Welcome to Tokenized Block</p><button type="button" class="lFermer" id="lFermer" aria-label="Close">✕</button></div>
@@ -3778,7 +3804,7 @@ details[open] > summary::before{transform:rotate(90deg)}
       <!-- ⛔ L EMPREINTE EST AFFICHEE, DONC ELLE EST DE L ANGLAIS. `20261001-pont-dans-lui` a fait
            rougir `test-texte-a-l-ecran.mjs` : le mot « dans » est de la prose francaise partie a
            l ecran anglais. La garde a fait son travail du premier coup. -->
-      <p class="note" data-build="20261109-game424" hidden>Build <code>20261109-game424</code> ·Contract labels say what they do, not our internal names.</p>
+      <p class="note" data-build="20261109-game425" hidden>Build <code>20261109-game425</code> ·Contract labels say what they do, not our internal names.</p>
       <p class="sous">Everything happening to blocks on Base, live.</p>
       <!-- tip 0013: sticky — Hooked chip = Dex fees; unhooked → Launch beside. No fee addr. -->
       <p class="note" id="sfHookedSticky" hidden>Blocks alive on TokenizedBlock pay their creator on every trade. Example:<button type="button" class="puce" id="sfStickyTbgas">Open TBGAS</button>.</p>
@@ -36732,14 +36758,50 @@ function montrerFilm() {
   bloc.hidden = false; f.classList.add('lFilmSeul'); f.scrollTop = 0;
   if (!v.getAttribute('src')) v.setAttribute('src', 'film.mp4');
   try { v.currentTime = 0; } catch (_) { /* not loaded yet: it starts at 0 anyway */ }
-  /* a browser may refuse to start it (no gesture, data saver): the player and its poster stay, one tap on play starts it */
-  const p = v.play(); if (p && typeof p.catch === 'function') p.catch(() => {});
-  const s = $('#lFilmPasser'); if (s) s.focus({ preventScroll: true });
+  const avant = $('#lFilmAvant'), s = $('#lFilmPasser');
+  clearTimeout(filmMinuteur); filmTenu = false;
+  if (filmSurMobile()) {
+    /* game425 (Phil 2026-11-16: "le petit filigrane juste avant le lancement, tu lances en mode paysage direct, puis tu repars en
+     *   vertical") — ON A PHONE ONLY: a short "turn your phone" card, the film in full screen and sideways, upright again at the end.
+     *   Full screen and the orientation lock are asked INSIDE this tap: a browser refuses both outside a gesture. Either can be
+     *   refused (iPhone has no full screen for a page element): the film then plays in the sheet, with the line under it. */
+    filmPleinEcran(bloc);
+    if (avant) avant.hidden = false;
+    /* the tap is also what unlocks the sound: the film is started now, held during the card, then let go */
+    filmTenu = true;
+    const tenir = () => { if (!filmTenu) return; try { v.pause(); v.currentTime = 0; } catch (_) { /* it will start at 0 */ } };
+    const p = v.play(); if (p && typeof p.then === 'function') p.then(tenir, () => {}); else tenir();
+    filmMinuteur = setTimeout(() => { filmTenu = false; if (avant) avant.hidden = true; const q = v.play(); if (q && typeof q.catch === 'function') q.catch(() => {}); }, 1700);
+  } else {
+    if (avant) avant.hidden = true;
+    /* a browser may refuse to start it (no gesture, data saver): the player and its poster stay, one tap on play starts it */
+    const p = v.play(); if (p && typeof p.catch === 'function') p.catch(() => {});
+  }
+  if (s) s.focus({ preventScroll: true });
 }
+/* a phone or a small tablet: a finger for a pointer, and a short side under 700 px. A desktop never gets the full-screen path. */
+let filmMinuteur = 0, filmTenu = false;
+function filmSurMobile() { try { return matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 700; } catch (_) { return false; } }
+function filmPleinEcran(bloc) {
+  try {
+    const demander = bloc.requestFullscreen || bloc.webkitRequestFullscreen; if (!demander) return;
+    const tourner = () => { try { const o = screen.orientation; if (o && typeof o.lock === 'function') { const r = o.lock('landscape'); if (r && typeof r.catch === 'function') r.catch(() => {}); } } catch (_) { /* no lock on this browser: the hint asks the user */ } };
+    const r = demander.call(bloc); if (r && typeof r.then === 'function') r.then(tourner, () => {}); else tourner();
+  } catch (_) { /* refused: the film plays in the sheet */ }
+}
+/* back to an upright page: the orientation is released first, then full screen is left */
+function filmQuitterPleinEcran() {
+  try { const o = screen.orientation; if (o && typeof o.unlock === 'function') o.unlock(); } catch (_) { /* nothing was locked */ }
+  try { if (document.fullscreenElement) { const r = document.exitFullscreen(); if (r && typeof r.catch === 'function') r.catch(() => {}); } else if (document.webkitFullscreenElement && document.webkitExitFullscreen) document.webkitExitFullscreen(); } catch (_) { /* already out */ }
+}
+/* the user left full screen by hand (back gesture): the orientation goes back to free, the film keeps playing in the sheet */
+document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement) { try { const o = screen.orientation; if (o && typeof o.unlock === 'function') o.unlock(); } catch (_) { /* nothing was locked */ } } });
 /* stops the film; `versGuide` = the guide takes its place (end of the film, or Skip) */
 function arreterFilm(versGuide) {
   const f = $('#v-learn'), bloc = $('#lFilm'), v = $('#lFilmVideo'); if (!bloc || !v) return;
+  clearTimeout(filmMinuteur); filmTenu = false; { const a = $('#lFilmAvant'); if (a) a.hidden = true; }
   try { v.pause(); } catch (_) { /* nothing was playing */ }
+  filmQuitterPleinEcran();
   if (!versGuide) return;
   try { localStorage.setItem(FILM_VU, '1'); } catch (_) { /* private window: the film plays again next time, nothing else changes */ }
   bloc.hidden = true; f.classList.remove('lFilmSeul'); f.scrollTop = 0;

@@ -29,6 +29,21 @@ t('only reaching the guide marks the film as seen', arreter.indexOf('if (!versGu
 t('the file is set only when the film is shown', APP.includes("if (!v.getAttribute('src')) v.setAttribute('src', 'film.mp4');"));
 t('while the film plays alone, the rest of the sheet is hidden by CSS', APP.includes('#v-learn.lFilmSeul .feuilleCorps>:not(#lFilm){display:none}'));
 
+/* game425: the "turn your phone" line — only on a phone held upright; sideways the film fills the screen and Skip stays reachable */
+t('the turn-your-phone line exists inside the film block', /id="lFilmTourner">[^<]*Turn your phone sideways/.test(bloc + APP.slice(APP.indexOf('id="lFilmPasser"'), APP.indexOf('id="lTitre"'))));
+t('it is hidden by default and shown only upright on a narrow screen', APP.includes('#v-learn .lFilmTourner{display:none') && APP.includes('@media (max-width:700px) and (orientation:portrait){#v-learn .lFilmTourner{display:block}}'));
+t('sideways, the film takes the height of the screen', /@media \(max-height:520px\) and \(orientation:landscape\)\{[\s\S]*?height:calc\(100dvh - 64px\)/.test(APP));
+
+/* game425: on a phone only — a card before the film, full screen sideways, upright again after */
+const montrer = APP.slice(APP.indexOf('function montrerFilm()'), APP.indexOf('function filmSurMobile()'));
+t('the full-screen path is taken on a phone only (coarse pointer and a short side under 700 px)', montrer.includes('if (filmSurMobile()) {') && APP.includes("matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 700"));
+t('on a phone: the card shows, then the film is let go after it', montrer.includes('if (avant) avant.hidden = false;') && /setTimeout\(\(\) => \{ filmTenu = false; if \(avant\) avant\.hidden = true; const q = v\.play\(\)/.test(montrer));
+t('a desktop keeps the direct start, with the card hidden', /\} else \{\s*if \(avant\) avant\.hidden = true;[\s\S]*?const p = v\.play\(\)/.test(montrer));
+t('full screen then the landscape lock, both allowed to fail', APP.includes("o.lock('landscape')") && APP.includes('bloc.requestFullscreen || bloc.webkitRequestFullscreen'));
+t('stopping the film (end, Skip or close) releases the orientation and leaves full screen', arreter.includes('filmQuitterPleinEcran();') && arreter.indexOf('filmQuitterPleinEcran();') < arreter.indexOf('if (!versGuide) return;') && APP.includes('o.unlock()'));
+t('leaving full screen by hand also frees the orientation', APP.includes("document.addEventListener('fullscreenchange'"));
+t('the card exists, hidden by default', /<div class="lFilmAvant" id="lFilmAvant" hidden>/.test(APP));
+
 t('the server lists the film and its poster', /'film\.mp4', 'film-poster\.jpg',/.test(SRV));
 t('the server types them', SRV.includes("'.mp4': 'video/mp4'") && SRV.includes("'.jpg': 'image/jpeg'"));
 t('the server never gzips them', SRV.includes("nom.endsWith('.png') || nom.endsWith('.mp4') || nom.endsWith('.jpg')"));
