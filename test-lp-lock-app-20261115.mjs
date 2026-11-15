@@ -428,5 +428,11 @@ for (const [nom, avant, apres] of MUTANTS) {
     t('mutant "' + nom + '" is caught (red)', verifierPlan(M).length + ech.length > 0);
   } finally { rmSync(f, { force: true }); }
 }
+/* the card text a visitor reads BEFORE connecting: it must not send TBLOCK-only holders away now that the swap step exists */
+const APP = readFileSync(new URL('./app.html', import.meta.url), 'utf8');
+const ligneDeconnecte = APP.split('\n').find((l) => l.includes("Connect your wallet to add wtCOIN + TBLOCK liquidity")) || '';
+t('disconnected card text exists (exactly once)', APP.split('Connect your wallet to add wtCOIN + TBLOCK liquidity').length === 2);
+t('disconnected card text does not say both tokens are required', !/needs both tokens/i.test(ligneDeconnecte));
+t('disconnected card text names the TBLOCK-only path', /Only TBLOCK\?/.test(ligneDeconnecte) && /swaps/.test(ligneDeconnecte));
 console.log(ok + '/' + (ok + ko) + (ko ? ' — RED' : ' — green'));
 process.exit(ko ? 1 : 0);
