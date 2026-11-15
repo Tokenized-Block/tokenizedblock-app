@@ -21,8 +21,11 @@
  *   then approve(lock, id) + lock(id, weeks). If step 2 is never signed, the position simply stays unlocked in the user's wallet. */
 import { selecteur, topic } from './keccak.js';
 import { LP_LOCK_DEPLOIEMENT as REC } from './lp-lock-deploiement.js';
-import { PERMIT2, STATE_VIEW } from './etat-naissance.js';
-import { encodeMintPosition, liquiditePourDepot, montantsPourLiquidite, decoderPoolEtPosition, poolId as poolIdDe, TICK_BAS, TICK_HAUT } from './pool.js';
+import { PERMIT2, STATE_VIEW, UNIVERSAL_ROUTER } from './etat-naissance.js';
+import { encodeMintPosition, liquiditePourDepot, montantsPourLiquidite, decoderPoolEtPosition, poolId as poolIdDe, TICK_BAS, TICK_HAUT,
+  encodeV4Swap, encodeQuote, ACTIONS_V4, paramsAction, SANS_MINHOP } from './pool.js';
+import { etapesPermit2Exactes } from './approbations-exactes.js';
+import { QUOTEUR } from './echange.js'; /* the v4 quoter the app already quotes with (tblock-route.js QUOTER_V4 = the same; a test compares) */
 
 const strip = (h) => String(h).replace(/^0x/, '');
 const adr = (a) => (/^0x[0-9a-fA-F]{40}$/.test(String(a || '')) ? String(a).toLowerCase() : null);
@@ -37,6 +40,8 @@ export const POOL_ID = String(P_.poolId || '').toLowerCase();
 /* the pool is wtCOIN (currency0) / TBLOCK (currency1): lp-lock.js integrite() checks the record says so */
 export const WTCOIN = CLE.currency0, TBLOCK = CLE.currency1;
 export const PERMIT2_ = adr(PERMIT2), STATE_VIEW_ = adr(STATE_VIEW);
+/* step 0's swap: the Universal Router and the v4 quoter the app already uses for its TBLOCK swaps (tblock-route.js; a test compares) */
+export const ROUTEUR_ = adr(UNIVERSAL_ROUTER), QUOTEUR_ = adr(QUOTEUR && QUOTEUR[8453]);
 /* the contract's constants (TBlockLPLock.sol; test-lp-lock-app checks them against the source and lp-lock.js REGLE) */
 export const REGLE = Object.freeze({ minWeeks: 4, maxWeeks: 12, maxSpanWeeks: 26, maxPositions: 10, markGraceS: 518400, epochS: 604800 });
 export const MAX_SEMAINES_RECLAMER = 26;
@@ -104,6 +109,8 @@ export const VIEW = Object.freeze({
   poolEtPosition: (id) => vue(PM, SEL_EXT.getPoolAndPositionInfo, wUint(id)),
   balanceOf: (t, a) => vue(adr(t), SEL_EXT.balanceOf, wAddr(a)), allowance: (t, o, s) => vue(adr(t), SEL_EXT.allowance, wAddr(o) + wAddr(s)),
   permit2: (o, t) => vue(PERMIT2_, SEL_EXT.p2Allowance, wAddr(o) + wAddr(t) + wAddr(PM)), slot0: () => vue(STATE_VIEW_, SEL_EXT.getSlot0, strip(POOL_ID)),
+  permit2Routeur: (o, t) => vue(PERMIT2_, SEL_EXT.p2Allowance, wAddr(o) + wAddr(t) + wAddr(ROUTEUR_)),
+  devis: (montantTblock) => ({ to: QUOTEUR_, data: encodeQuote({ cle: CLE, zeroForOne: false, montant: BigInt(montantTblock) }) }),
   playOf: (v, e, a) => vue(adr(v), SEL_EXT.playOf, wUint(e) + wAddr(a)),
 });
 
@@ -116,6 +123,19 @@ export function minimumEnJetons({ sqrtPrix, minL, glissementPct = 1 }) {
   if (sqrtPrix === null || sqrtPrix === undefined || BigInt(sqrtPrix) === 0n || minL === null || minL === undefined) return null;
   const m = montantsDe(minL, sqrtPrix);
   return { wtcoin: plafond(m.wtcoin, glissementPct), tblock: plafond(m.tblock, glissementPct) };
+}
+
+/** the largest full-range liquidity whose maxima (need x (100 + pct)%) fit under BOTH caps; null when either side is too small */
+export function liquiditeDeuxCotes({ plafonds, sqrtPrix, glissementPct = 1 }) {
+  const m = 100n + BigInt(glissementPct);
+  const a = liquiditePourDepot({ depot: BigInt(plafonds.wtcoin), sqrtPrix, deviseEst0: true, margePct: m });
+  const b = liquiditePourDepot({ depot: BigInt(plafonds.tblock), sqrtPrix, deviseEst0: false, margePct: m });
+  if (a.etat !== 'OK' || b.etat !== 'OK') return null;
+  const L = a.liquidite < b.liquidite ? a.liquidite : b.liquidite;
+  const besoin = montantsDe(L, sqrtPrix);
+  const max = { wtcoin: plafond(besoin.wtcoin, glissementPct), tblock: plafond(besoin.tblock, glissementPct) };
+  for (const k of ['wtcoin', 'tblock']) if (max[k] > BigInt(plafonds[k])) max[k] = BigInt(plafonds[k]);
+  return { liquidite: L, besoin, max };
 }
 
 export const DELAI_S = 1200;          /* the mint's deadline: 20 minutes after the block read */
@@ -133,7 +153,9 @@ export function planAjoutEtLock({ moi, cote, montant, semaines, lu, glissementPc
   if (!LP_LOCK || !PM) return refus('The LP lock is not on this network.');
   if (!adr(moi)) return refus('Connect your wallet first.');
   let w; try { w = semainesOk(semaines); } catch (_) { return refus('Choose ' + REGLE.minWeeks + ' to ' + REGLE.maxWeeks + ' weeks.'); }
-  if (cote !== 'wtcoin' && cote !== 'tblock') return refus('Choose the token you type the amount in.');
+  /* cote 'deux' (after step 0's swap): montant = { wtcoin, tblock }, the most of EACH token step 1 may put in; the liquidity is the
+   *   largest whose maxima fit under both (re-planned from the balances read after the swap confirmed) */
+  if (cote !== 'wtcoin' && cote !== 'tblock' && cote !== 'deux') return refus('Choose the token you type the amount in.');
   const pct = BigInt(glissementPct);
   if (pct < 0n || pct > 5n) return refus('Price margin must be 0 to 5%.');
   if (!lu) return { etat: 'NON_LU', pourquoi: 'Nothing was read.' };
@@ -143,15 +165,27 @@ export function planAjoutEtLock({ moi, cote, montant, semaines, lu, glissementPc
   if (maintenantS === null || maintenantS === undefined) return { etat: 'NON_LU', pourquoi: 'The chain time was not read.' };
   if (lockedCount !== null && lockedCount !== undefined && BigInt(lockedCount) >= BigInt(REGLE.maxPositions)) return refus('This wallet already has ' + REGLE.maxPositions + ' positions locked, the most the lock accepts.');
   const minimum = minimumEnJetons({ sqrtPrix, minL, glissementPct: pct });
-  const d = BigInt(montant || 0);
-  if (d <= 0n) return refus('Type an amount.', { minimum });
-  const r = liquiditePourDepot({ depot: d, sqrtPrix, deviseEst0: cote === 'wtcoin', margePct: 100n + pct });
-  if (r.etat !== 'OK' || r.liquidite < BigInt(minL)) return refus('Below the lock minimum.', { minimum });
-  const L = r.liquidite;
-  const besoin = montantsDe(L, sqrtPrix);
-  const max = { wtcoin: plafond(besoin.wtcoin, pct), tblock: plafond(besoin.tblock, pct) };
-  /* the typed side is never asked for more than typed (liquiditePourDepot kept besoin x margin under it) */
-  if (max[cote] > d) max[cote] = d;
+  let L, besoin, max;
+  if (cote === 'deux') {
+    const c = montant || {};
+    let cw = 0n, ct = 0n; try { cw = BigInt(c.wtcoin || 0); ct = BigInt(c.tblock || 0); } catch (_) { cw = 0n; ct = 0n; }
+    /* after a confirmed swap, 0 wtCOIN read = a node behind the receipt, not a missing amount (2026-11-15 review) */
+    if (cw <= 0n) return refus('The wtCOIN from your swap is not read in your wallet yet: preview again in a moment.', { minimum, attendreSolde: true });
+    if (ct <= 0n) return refus('No TBLOCK is left of the amount you chose.', { minimum });
+    const r2 = liquiditeDeuxCotes({ plafonds: { wtcoin: cw, tblock: ct }, sqrtPrix, glissementPct: pct });
+    if (!r2 || r2.liquidite < BigInt(minL)) return refus('Below the lock minimum.', { minimum });
+    ({ liquidite: L, besoin, max } = r2);
+  } else {
+    const d = BigInt(montant || 0);
+    if (d <= 0n) return refus('Type an amount.', { minimum });
+    const r = liquiditePourDepot({ depot: d, sqrtPrix, deviseEst0: cote === 'wtcoin', margePct: 100n + pct });
+    if (r.etat !== 'OK' || r.liquidite < BigInt(minL)) return refus('Below the lock minimum.', { minimum });
+    L = r.liquidite;
+    besoin = montantsDe(L, sqrtPrix);
+    max = { wtcoin: plafond(besoin.wtcoin, pct), tblock: plafond(besoin.tblock, pct) };
+    /* the typed side is never asked for more than typed (liquiditePourDepot kept besoin x margin under it) */
+    if (max[cote] > d) max[cote] = d;
+  }
   if (!soldes || soldes.wtcoin === null || soldes.wtcoin === undefined || soldes.tblock === null || soldes.tblock === undefined) return { etat: 'NON_LU', pourquoi: 'Your balances were not read.' };
   const manque = {};
   for (const k of ['wtcoin', 'tblock']) if (BigInt(soldes[k]) < max[k]) manque[k] = max[k] - BigInt(soldes[k]);
@@ -224,6 +258,179 @@ export async function lirePositionMintee({ rpc, hashes, moi }) {
 }
 export async function planifierAjoutEtLock({ rpc, moi, cote, montant, semaines, glissementPct = 1 }) {
   return planAjoutEtLock({ moi, cote, montant, semaines, glissementPct, lu: await lireAjout({ rpc, moi }) });
+}
+
+/* ── step 0 (Phil, 2026-11-15): a wallet with TBLOCK but not enough wtCOIN swaps PART of the TBLOCK it chose for wtCOIN, on THIS pool
+ *   (the key above, the record's), through the app's own v4 path: the Universal Router + Permit2, exact approvals (approbations-exactes.js),
+ *   the same calldata as tblock-route.js calldataSwapTblock (SETTLE_ALL + TAKE_ALL, the 8-field struct; a test compares the bytes).
+ *   THE HOOK (read from its address bits, v4-core Hooks.sol): afterSwap + afterSwapReturnDelta, no beforeSwap, no add-liquidity flag.
+ *   Its afterSwap CAN make a swap fail (gas lost, nothing moved) and its return delta decides the cut; neither can take the person below
+ *   the minimum out, which the router enforces on chain. It keeps a cut of every swap OUTPUT (measured 2026-11-15 on Base: a 100,000 TBLOCK quote came out 1.30% under the pool price, the
+ *   pool's 0.3% fee included) and takes nothing on an add. The cut is inside the quoter's answer, so the size, the minimum and the
+ *   impact below are all read from the quote, never assumed.
+ *   SIZE: what stays (total - s) and the wtCOIN after the swap (already held + quote) equal in value at the pool price:
+ *   total - s = p x held + s x r, r = quote / (s at the pool price), read; refined twice on fresh quotes. Steps 1 (add) and 2 (lock) are
+ *   planned AGAIN from the balances read after the swap confirmed (cote 'deux'). */
+export const HOOK_FLAGS = CLE.hooks ? BigInt(CLE.hooks) & 0x3fffn : null;
+export const HOOK = Object.freeze({
+  bloqueEchange: HOOK_FLAGS === null ? null : (HOOK_FLAGS & (1n << 7n)) !== 0n,
+  prendSurSortie: HOOK_FLAGS === null ? null : (HOOK_FLAGS & (1n << 6n)) !== 0n && (HOOK_FLAGS & (1n << 2n)) !== 0n,
+  toucheAjout: HOOK_FLAGS === null ? null : (HOOK_FLAGS & ((1n << 11n) | (1n << 10n) | (1n << 1n))) !== 0n,
+});
+/* refused when the swap gets more than 3% under the pool price (fee and hook cut included). ⚠️ The pool price is this pool's own spot
+ *   price, read in the same state as the quote: this bound caps the cost of the swap on that state, it does NOT detect a pool already
+ *   moved by someone else (no independent price of wtCOIN/TBLOCK is read here; the add step has the same exposure). The minimum out
+ *   only covers what moves between the preview and the swap. */
+export const IMPACT_MAX_BPS = 300n;
+export const TOLERANCE_ECHANGE_BPS = 100n;   /* the minimum out: the quote less 1% */
+export const DELAI_ECHANGE_S = 600;          /* the swap's deadline: 10 minutes after the block read (tblock-route.js DEADLINE_S) */
+const Q192 = 1n << 192n;
+/** raw TBLOCK worth `w` raw wtCOIN at the pool price, and the reverse (floor) */
+export const tblockPourWtcoin = (w, sq) => (BigInt(w) * BigInt(sq) * BigInt(sq)) / Q192;
+export const wtcoinPourTblock = (t, sq) => (BigInt(t) * Q192) / (BigInt(sq) * BigInt(sq));
+/** what one unit of value swapped returns, in millionths: quote / (montant at the pool price) */
+export function rendementPpm({ montant, sortie, sqrtPrix }) { const mid = wtcoinPourTblock(montant, sqrtPrix); return mid > 0n ? (BigInt(sortie) * 1000000n) / mid : 0n; }
+/** the TBLOCK to swap: total - s = p x deja + s x r  =>  s = (total - p x deja) / (1 + r); 0 when the wtCOIN held already covers it */
+export function partAEchanger({ total, wtcoinDeja, sqrtPrix, rendementPpm: r }) {
+  const T = BigInt(total), d = tblockPourWtcoin(wtcoinDeja || 0n, sqrtPrix), k = BigInt(r);
+  if (k <= 0n || k > 1000000n) throw new Error('swap return out of range');
+  if (T <= d) return 0n;
+  return ((T - d) * 1000000n) / (1000000n + k);
+}
+/**
+ * the smallest TBLOCK a wallet holding `wtcoinDeja` wtCOIN (often 0) must choose for step 0 + step 1 to reach the lock minimum, at the
+ *   swap return READ from a quote (`rendementPpm`), the minimum-out margin and the add's price margin. Checked with the plan's own
+ *   arithmetic (split, minimum out, two-sided liquidity), raised by 0.5% steps until it passes. "About": a different swap size gets a
+ *   slightly different return. null when not computable. Pure.
+ */
+export function minimumTblockSeul({ sqrtPrix, minL, wtcoinDeja = 0n, rendementPpm: r, toleranceBps = TOLERANCE_ECHANGE_BPS, glissementPct = 1 }) {
+  if (sqrtPrix === null || sqrtPrix === undefined || BigInt(sqrtPrix) === 0n || minL === null || minL === undefined || r === null || r === undefined) return null;
+  const k = BigInt(r), f = 10000n - BigInt(toleranceBps), sq = BigInt(sqrtPrix), held = BigInt(wtcoinDeja || 0n);
+  if (k <= 0n || k > 1000000n || f <= 0n) return null;
+  const mini = minimumEnJetons({ sqrtPrix: sq, minL, glissementPct });
+  if (!mini) return null;
+  const d = tblockPourWtcoin(held, sq), Vm = tblockPourWtcoin(mini.wtcoin, sq);
+  const passe = (T) => {
+    const s = partAEchanger({ total: T, wtcoinDeja: held, sqrtPrix: sq, rendementPpm: k });
+    const sortieMin = (((wtcoinPourTblock(s, sq) * k) / 1000000n) * f) / 10000n;
+    const a = liquiditeDeuxCotes({ plafonds: { wtcoin: held + sortieMin, tblock: T - s }, sqrtPrix: sq, glissementPct });
+    return Boolean(a && a.liquidite >= BigInt(minL));
+  };
+  let T;
+  if (d >= Vm) T = mini.tblock;
+  else {
+    const s = ((Vm - d) * 1000000n * 10000n) / (k * f) + 1n;
+    T = d + (s * (1000000n + k)) / 1000000n + 1n;
+    if (T < mini.tblock + s) T = mini.tblock + s;
+  }
+  for (let i = 0; i < 40 && !passe(T); i++) T = (T * 1005n) / 1000n + 1n;
+  /* + 0.1%: the plan re-reads the quote for its own size (rounding of a fresh quote), never a figure that fails by a few wei */
+  return passe(T) ? (T * 1001n) / 1000n + 1n : null;
+}
+/** the Universal Router call: exactly `montant` TBLOCK in, at least `sortieMin` wtCOIN out, on this pool's key */
+export function echangeCall({ montant, sortieMin, deadline }) {
+  if (!ROUTEUR_) throw new Error('the router is not known');
+  const m = BigInt(montant), mn = BigInt(sortieMin);
+  if (m <= 0n || mn <= 0n) throw new Error('amount and minimum must be above zero');
+  const actions = [{ code: ACTIONS_V4.SETTLE_ALL, params: paramsAction.settleAll(TBLOCK, m) }, { code: ACTIONS_V4.TAKE_ALL, params: paramsAction.takeAll(WTCOIN, mn) }];
+  return fige(ROUTEUR_, encodeV4Swap({ cle: CLE, zeroForOne: false, montant: m, sortieMin: mn, deadline: BigInt(deadline), forme: SANS_MINHOP, actions }));
+}
+
+/**
+ * step 0: the swap batch (exact approvals + the swap), pure. `total` = the TBLOCK the person chose to put in (raw); `devis` = { echange, sortie }
+ *   (the TBLOCK to swap and the wtCOIN the quoter answered for it, read). `sortieMinImposee`: at the click, the minimum the preview showed
+ *   (a fresh quote under it is refused: the price moved). Returns { etat: 'PRET', appels, etapes, echange, devis, sortieMin, impactBps,
+ *   resteTblock, ajoutPrevu, ... } or { etat: 'REFUSE' | 'NON_LU', pourquoi }.
+ */
+export function planEchangePourAjout({ moi, total, lu, devis, toleranceBps = TOLERANCE_ECHANGE_BPS, sortieMinImposee = null, glissementPct = 1 }) {
+  const refus = (pourquoi, x = {}) => ({ etat: 'REFUSE', pourquoi, ...x });
+  if (!LP_LOCK || !PM || !ROUTEUR_ || !QUOTEUR_) return refus('The LP lock is not on this network.');
+  if (!adr(moi)) return refus('Connect your wallet first.');
+  if (HOOK.bloqueEchange !== false) return refus('The pool’s hook could refuse a swap: no swap is offered here.');
+  let T = 0n; try { T = BigInt(total || 0); } catch (_) { T = 0n; }
+  if (T <= 0n) return refus('Type an amount.');
+  const tol = BigInt(toleranceBps);
+  if (tol < 0n || tol > 500n) return refus('Price margin must be 0 to 5%.');
+  if (!lu) return { etat: 'NON_LU', pourquoi: 'Nothing was read.' };
+  const { sqrtPrix, maintenantS, minL, soldes, versPermit2, permit2Routeur } = lu;
+  if (sqrtPrix === null || sqrtPrix === undefined || BigInt(sqrtPrix) === 0n) return { etat: 'NON_LU', pourquoi: 'The pool price was not read.' };
+  if (minL === null || minL === undefined) return { etat: 'NON_LU', pourquoi: 'The lock minimum was not read.' };
+  if (maintenantS === null || maintenantS === undefined) return { etat: 'NON_LU', pourquoi: 'The chain time was not read.' };
+  if (!soldes || soldes.wtcoin === null || soldes.wtcoin === undefined || soldes.tblock === null || soldes.tblock === undefined) return { etat: 'NON_LU', pourquoi: 'Your balances were not read.' };
+  if (BigInt(soldes.tblock) < T) return refus('This wallet holds less TBLOCK than that.', { manque: { tblock: T - BigInt(soldes.tblock) } });
+  if (!devis || devis.echange === null || devis.echange === undefined) return { etat: 'NON_LU', pourquoi: 'The swap was not quoted just now.' };
+  const s = BigInt(devis.echange);
+  if (s <= 0n) return refus('No swap needed: this wallet already holds enough wtCOIN for that amount.', { inutile: true });
+  if (s >= T) return refus('The amount is too small to split.');
+  if (devis.sortie === null || devis.sortie === undefined) return { etat: 'NON_LU', pourquoi: 'The swap was not quoted just now.' };
+  const q = BigInt(devis.sortie);
+  if (q <= 0n) return refus('The pool quotes nothing for this amount.');
+  const mid = wtcoinPourTblock(s, sqrtPrix);
+  if (mid <= 0n) return refus('The amount is too small to split.');
+  /* above the pool's own price (10 bps of rounding): the quote does not come from this pool's state */
+  if (q * 10000n > mid * 10010n) return refus('The quote is above the pool price: it does not come from this pool. Nothing is offered.');
+  const impact = q >= mid ? 0n : ((mid - q) * 10000n) / mid;
+  if (impact > IMPACT_MAX_BPS) return refus('This swap would get ' + (Number(impact) / 100).toFixed(2) + '% less than the pool price, more than the ' + (Number(IMPACT_MAX_BPS) / 100) + '% this card accepts: try a smaller amount.', { impactBps: impact });
+  let min = (q * (10000n - tol)) / 10000n;
+  if (sortieMinImposee !== null && sortieMinImposee !== undefined) {
+    if (q < BigInt(sortieMinImposee)) return refus('The price moved since your preview: preview again.', { impactBps: impact });
+    /* never looser than the preview, never looser than a fresh quote less the margin (a price that moved in the person's favour) */
+    if (BigInt(sortieMinImposee) > min) min = BigInt(sortieMinImposee);
+  }
+  if (min <= 0n) return refus('The amount is too small for a meaningful minimum.');
+  /* what step 1 can then add, at today's price, with the TBLOCK left and the wtCOIN after the swap (its guaranteed minimum) */
+  const ajoutPrevu = liquiditeDeuxCotes({ plafonds: { wtcoin: BigInt(soldes.wtcoin) + min, tblock: T - s }, sqrtPrix, glissementPct });
+  if (!ajoutPrevu || ajoutPrevu.liquidite < BigInt(minL)) {
+    /* the TBLOCK-only answer (2026-11-15 review): the two-token minimum is not what a TBLOCK-only wallet must type */
+    const seul = minimumTblockSeul({ sqrtPrix, minL, wtcoinDeja: soldes.wtcoin, rendementPpm: rendementPpm({ montant: s, sortie: q, sqrtPrix }), toleranceBps: tol, glissementPct });
+    return refus('Below the lock minimum once split.', { minimum: minimumEnJetons({ sqrtPrix, minL, glissementPct }), minimumTblockSeul: seul });
+  }
+  if (!versPermit2 || versPermit2.tblock === null || versPermit2.tblock === undefined || !permit2Routeur || permit2Routeur.montant === null || permit2Routeur.montant === undefined
+    || permit2Routeur.expiration === null || permit2Routeur.expiration === undefined) return { etat: 'NON_LU', pourquoi: 'Your allowances were not read.' };
+  const now = BigInt(maintenantS);
+  const ap = etapesPermit2Exactes({ jeton: TBLOCK, permit2: PERMIT2_, routeur: ROUTEUR_, montant: s, maintenantSec: now, libelleJeton: 'TBLOCK',
+    okP2: BigInt(versPermit2.tblock) >= s, okR: BigInt(permit2Routeur.montant) >= s && BigInt(permit2Routeur.expiration) >= now + BigInt(MARGE_PERMIT_S) });
+  if (ap.etat !== 'OK') return refus(ap.pourquoi);
+  const appels = ap.etapes.map((x) => fige(adr(x.to), x.data)), etapes = ap.etapes.map((x) => x.nom);
+  const deadline = now + BigInt(DELAI_ECHANGE_S);
+  appels.push(echangeCall({ montant: s, sortieMin: min, deadline })); etapes.push('Swap part of your TBLOCK for wtCOIN on the wtCOIN/TBLOCK pool');
+  return { etat: 'PRET', etape: 0, appels, etapes, atomique: true, total: T, echange: s, devis: q, sortieMin: min, impactBps: impact, impactMaxBps: IMPACT_MAX_BPS,
+    resteTblock: T - s, wtcoinApres: BigInt(soldes.wtcoin) + min, ajoutPrevu, deadline };
+}
+
+/** step 0's reads: lireAjout's, plus the Permit2 allowance to the Universal Router */
+export async function lireEchange({ rpc, moi }) {
+  const lu = await lireAjout({ rpc, moi });
+  let p = null;
+  try { const h = await rpc('eth_call', [{ to: VIEW.permit2Routeur(moi, TBLOCK).to, data: VIEW.permit2Routeur(moi, TBLOCK).data }, 'latest']); p = { montant: word(h, 0), expiration: word(h, 1) }; } catch (_) { p = null; }
+  return { ...lu, permit2Routeur: p };
+}
+/** the wtCOIN the v4 quoter answers for `montant` TBLOCK on this pool (hook cut included), or null when not read */
+export async function devisEchange({ rpc, montant }) {
+  try { const v = VIEW.devis(montant); return word(await rpc('eth_call', [{ to: v.to, data: v.data }, 'latest']), 0); } catch (_) { return null; }
+}
+/**
+ * step 0, read and planned. `echange` (optional) = the TBLOCK to swap, fixed (the click re-plans the SAME amount the preview showed, on a
+ *   fresh quote and fresh allowances); without it the size is computed from the quotes as described above.
+ */
+export async function planifierEchangePourAjout({ rpc, moi, total, toleranceBps = TOLERANCE_ECHANGE_BPS, echange = null, sortieMinImposee = null, glissementPct = 1 }) {
+  const lu = await lireEchange({ rpc, moi });
+  const base = { moi, total, lu, toleranceBps, sortieMinImposee, glissementPct };
+  if (lu.sqrtPrix === null || lu.sqrtPrix === undefined || lu.soldes.wtcoin === null) return planEchangePourAjout({ ...base, devis: null });
+  let T; try { T = BigInt(total || 0); } catch (_) { T = 0n; }
+  let s = echange === null || echange === undefined ? null : BigInt(echange);
+  if (s === null && T > 0n) {
+    s = partAEchanger({ total: T, wtcoinDeja: lu.soldes.wtcoin, sqrtPrix: lu.sqrtPrix, rendementPpm: 1000000n });
+    for (let i = 0; i < 2 && s > 0n; i++) {
+      const q = await devisEchange({ rpc, montant: s });
+      if (q === null) return planEchangePourAjout({ ...base, devis: { echange: s, sortie: null } });
+      const r = rendementPpm({ montant: s, sortie: q, sqrtPrix: lu.sqrtPrix });
+      if (r <= 0n || r > 1000000n) return planEchangePourAjout({ ...base, devis: { echange: s, sortie: q } });
+      s = partAEchanger({ total: T, wtcoinDeja: lu.soldes.wtcoin, sqrtPrix: lu.sqrtPrix, rendementPpm: r });
+    }
+  }
+  if (s === null || s <= 0n) return planEchangePourAjout({ ...base, devis: { echange: s === null ? 0n : s, sortie: 0n } });
+  return planEchangePourAjout({ ...base, devis: { echange: s, sortie: await devisEchange({ rpc, montant: s }) } });
 }
 
 /* ── (b) lock a position the person already holds ── */

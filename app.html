@@ -3760,7 +3760,7 @@ details[open] > summary::before{transform:rotate(90deg)}
       <!-- ⛔ L EMPREINTE EST AFFICHEE, DONC ELLE EST DE L ANGLAIS. `20261001-pont-dans-lui` a fait
            rougir `test-texte-a-l-ecran.mjs` : le mot « dans » est de la prose francaise partie a
            l ecran anglais. La garde a fait son travail du premier coup. -->
-      <p class="note" data-build="20261109-game418" hidden>Build <code>20261109-game418</code> ·Contract labels say what they do, not our internal names.</p>
+      <p class="note" data-build="20261109-game419" hidden>Build <code>20261109-game419</code> ·Contract labels say what they do, not our internal names.</p>
       <p class="sous">Everything happening to blocks on Base, live.</p>
       <!-- tip 0013: sticky — Hooked chip = Dex fees; unhooked → Launch beside. No fee addr. -->
       <p class="note" id="sfHookedSticky" hidden>Blocks alive on TokenizedBlock pay their creator on every trade. Example:<button type="button" class="puce" id="sfStickyTbgas">Open TBGAS</button>.</p>
@@ -33293,6 +33293,11 @@ let lplMod = null;
 const lplEtat = { lu: 0, pour: null, jeton: 0, enAttente: null };
 const LPL_INDICES = 'tb.lplock.ids.';
 const LPL_ATTENTE = 'tb.lplock.step2.';
+/* 2026-11-15 step 0 (a wallet with TBLOCK but not enough wtCOIN): the swap sent, its hashes, the TBLOCK chosen and the TBLOCK swapped,
+ *   kept in this browser until step 1 is sent; its receipts are READ before step 1 is offered (a swap not confirmed opens nothing) */
+const LPL_ECHANGE = 'tb.lplock.step0.';
+function lplEchange(moi) { try { const x = JSON.parse(localStorage.getItem(LPL_ECHANGE + moi) || 'null'); return x && Array.isArray(x.hashes) && x.hashes.length && /^\d{1,40}$/.test(String(x.total)) && /^\d{1,40}$/.test(String(x.echange)) && Date.now() - Number(x.t || 0) < 7 * 86400000 ? x : null; } catch (_) { return null; } }
+function lplNoterEchange(moi, x) { try { if (x) localStorage.setItem(LPL_ECHANGE + moi, JSON.stringify({ ...x, t: Date.now() })); else localStorage.removeItem(LPL_ECHANGE + moi); } catch (_) { /* step 1 can still be typed by hand: the swap's wtCOIN is in the wallet */ } }
 function lplAttente(moi) { try { const x = JSON.parse(localStorage.getItem(LPL_ATTENTE + moi) || 'null'); return x && Array.isArray(x.hashes) && x.hashes.length && Date.now() - Number(x.t || 0) < 7 * 86400000 ? x : null; } catch (_) { return null; } }
 function lplNoterAttente(moi, x) { try { if (x) localStorage.setItem(LPL_ATTENTE + moi, JSON.stringify({ ...x, t: Date.now() })); else localStorage.removeItem(LPL_ATTENTE + moi); } catch (_) { /* step 2 is still offered by "Lock a position you already hold" */ } }
 function lplIndices(moi) { try { const x = JSON.parse(localStorage.getItem(LPL_INDICES + moi) || '[]'); return Array.isArray(x) ? x.filter((s) => /^\d{1,30}$/.test(String(s))).slice(-20) : []; } catch (_) { return []; } }
@@ -33365,7 +33370,18 @@ async function peindreLpLock(hote, { force = false } = {}) {
   const champ = (txt, x) => { const c = el('label', 'champ', txt); c.append(x); return c; };
   const choixSemaines = (de, a, def) => { const s = el('select', null, null); for (let k = de; k <= a; k++) { const o = el('option', null, k + (k === 1 ? ' week' : ' weeks')); o.value = String(k); if (k === def) o.selected = true; s.append(o); } return s; };
   let E = null;
-  try { E = await L.lireEtat({ rpc, moi, candidats: lplIndices(moi) }); } catch (_) { E = null; }
+  /* the server's index of the lock's Locked/Unlocked events (lp-lock-keeper.js, GET /api/lp-lock/positions/<wallet>) finds positions older
+   *   than this card's own log window; its ids are hints only (lireEtat checks each on chain: positionOf, locker = this wallet). When the
+   *   index says it is caught up, the card's own scan reads one recent window (the blocks since the index's last round); otherwise, or when
+   *   the server does not answer, the card's own scan runs as before. */
+  let lplServeur = null;
+  try {
+    const r = await fetch('/api/lp-lock/positions/' + moi, { cache: 'no-store', signal: AbortSignal.timeout(8000) });
+    const j = r.ok ? await r.json() : null;
+    if (j && j.ok === true && Array.isArray(j.ids)) lplServeur = { ids: j.ids.map(String).filter((s) => /^\d{1,30}$/.test(s)).slice(0, 50), aJour: j.aJour === true };
+  } catch (_) { lplServeur = null; }
+  const lplCandidats = [...new Set([...lplIndices(moi), ...(lplServeur ? lplServeur.ids : [])])];
+  try { E = await L.lireEtat({ rpc, moi, candidats: lplCandidats, ...(lplServeur && lplServeur.aJour ? { fenetres: 1 } : {}) }); } catch (_) { E = null; }
   if (perime()) return;
   if (!E) { hote.dataset.compte = moi; hote.replaceChildren(el('p', 'titre', titre), el('p', 'note', 'Not read just now. It is read again in a minute.')); lplEtat.lu = Date.now() - 45000; return; }
   const sem = (k) => 'week ' + k;
@@ -33465,35 +33481,90 @@ async function peindreLpLock(hote, { force = false } = {}) {
     }
     vue.push(s2);
   }
-  /* add liquidity (step 1), then lock it (step 2) */
+  /* add liquidity (step 1), then lock it (step 2). 2026-11-15: a wallet that types TBLOCK and lacks wtCOIN first swaps part of that
+   *   TBLOCK for wtCOIN on the same pool (step 0, lp-lock-app.js planifierEchangePourAjout); step 1 is then planned AGAIN from the balances
+   *   read after the swap's receipt (cote 'deux': what is left of the TBLOCK chosen, with the wtCOIN in the wallet) */
   const aj = el('div', 'hvBloc hvRecomp', null); aj.dataset.l = 'lp-ajout';
   aj.append(el('p', 'hvTitreBloc', 'Add liquidity, then lock it'));
   ligne(aj, 'Your wallet', wt(E.soldes ? E.soldes.wtcoin : null) + ' · ' + tb(E.soldes ? E.soldes.tblock : null));
   const mini = L.minimumEnJetons({ sqrtPrix: E.sqrtPrix, minL: E.minL });
   ligne(aj, 'Smallest position the lock takes', mini ? 'about ' + wt(mini.wtcoin) + ' + ' + tb(mini.tblock) : NL);
-  if (E.soldes && E.soldes.wtcoin === 0n) aj.append(el('p', 'note wKo', 'This needs wtCOIN too, and this wallet holds 0 wtCOIN: get some wtCOIN first.'));
-  else if (E.soldes && E.soldes.tblock === 0n) aj.append(el('p', 'note wKo', 'This needs TBLOCK too, and this wallet holds 0 TBLOCK: get some TBLOCK first.'));
+  /* step 0 sent: its receipts are read before step 1 is offered */
+  const ech = att ? null : lplEchange(moi);
+  let apresEchange = null, echangeEnAttente = false;
+  if (ech) {
+    let recus = []; try { recus = await Promise.all(ech.hashes.slice(0, 5).map((h) => rpc('eth_getTransactionReceipt', [h]).catch(() => null))); } catch (_) { recus = []; }
+    if (perime()) return;
+    const lus = recus.filter(Boolean);
+    if (lus.some((r) => r.status !== '0x1')) { lplNoterEchange(moi, null); aj.append(el('p', 'note wKo', 'Step 0 (the swap) did not go through: nothing was swapped. If its approvals went through, they cover only that amount, and the router’s ends within an hour. You can preview again.')); }
+    else if (lus.length && lus.length === recus.length) apresEchange = ech;
+    else if (Date.now() - Number(ech.t || 0) > 30 * 60000) { lplNoterEchange(moi, null); aj.append(el('p', 'note', 'Step 0’s receipt was not found after 30 minutes. If the swap went through, its wtCOIN is in your wallet: type your amount again below.')); }
+    else echangeEnAttente = true;
+  }
+  if (!apresEchange) {
+    if (E.soldes && E.soldes.wtcoin === 0n && E.soldes.tblock > 0n) aj.append(el('p', 'note', 'This needs wtCOIN too, and this wallet holds 0 wtCOIN: type your amount in TBLOCK and the card first swaps about half of it for wtCOIN on the same pool (one more signature). With TBLOCK only, the smallest amount is a bit more than twice the TBLOCK minimum (the swap has a cost); the preview shows it.'));
+    else if (E.soldes && E.soldes.wtcoin === 0n) aj.append(el('p', 'note wKo', 'This needs wtCOIN too, and this wallet holds 0 wtCOIN: get some wtCOIN first.'));
+    else if (E.soldes && E.soldes.tblock === 0n) aj.append(el('p', 'note wKo', 'This needs TBLOCK too, and this wallet holds 0 TBLOCK: get some TBLOCK first.'));
+  }
   const montant = el('input', null, null); montant.inputMode = 'decimal'; montant.autocomplete = 'off';
   const cote = el('select', null, null); for (const [v, n] of [['wtcoin', 'wtCOIN'], ['tblock', 'TBLOCK']]) { const o = el('option', null, n); o.value = v; cote.append(o); }
   /* the placeholder is the smallest amount of the chosen side (read), else empty */
   const auDessus = (x, d) => { const q = 10n ** BigInt(18 - d); return EP.fmt(((x + q - 1n) / q) * q, d).replace(/,/g, ''); }; /* rounded UP: the placeholder itself is accepted */
-  const majPlaceholder = () => { montant.placeholder = mini ? 'at least ' + (cote.value === 'tblock' ? auDessus(mini.tblock, 0) : auDessus(mini.wtcoin, 6)) : ''; };
+  /* TBLOCK typed by a wallet short of wtCOIN: the two-token minimum is not enough, part of the TBLOCK must buy the wtCOIN side. A floor,
+   *   from the price read (the TBLOCK minimum + the TBLOCK worth of the missing wtCOIN); the preview gives the figure with the swap's cost */
+  const seulTblock = () => (mini && E.sqrtPrix && E.soldes && E.soldes.wtcoin !== null && E.soldes.wtcoin < mini.wtcoin
+    ? mini.tblock + L.tblockPourWtcoin(mini.wtcoin - E.soldes.wtcoin, E.sqrtPrix) : null);
+  const majPlaceholder = () => {
+    const s = cote.value === 'tblock' ? seulTblock() : null;
+    montant.placeholder = !mini ? '' : s !== null ? 'more than ' + auDessus(s, 0) : 'at least ' + (cote.value === 'tblock' ? auDessus(mini.tblock, 0) : auDessus(mini.wtcoin, 6));
+  };
   majPlaceholder();
-  const semaines = choixSemaines(L.REGLE.minWeeks, L.REGLE.maxWeeks, L.REGLE.minWeeks);
-  aj.append(champ('Amount to put in', montant), champ('In', cote), champ('Locked for', semaines));
-  const apercu = el('p', 'note', 'Type how much wtCOIN (or TBLOCK) to put in: the other token is added at the pool price. Two signatures: step 1 adds the position to your wallet, step 2 locks it.');
+  const s0 = apresEchange && Number(apresEchange.semaines) >= L.REGLE.minWeeks && Number(apresEchange.semaines) <= L.REGLE.maxWeeks ? Number(apresEchange.semaines) : L.REGLE.minWeeks;
+  const semaines = choixSemaines(L.REGLE.minWeeks, L.REGLE.maxWeeks, s0);
+  const resteChoisi = apresEchange ? BigInt(apresEchange.total) - BigInt(apresEchange.echange) : null;
+  let apercu;
+  if (apresEchange) {
+    ligne(aj, 'Step 0 done', 'you swapped ' + tb(BigInt(apresEchange.echange)) + ' of the ' + tb(BigInt(apresEchange.total)) + ' you chose for wtCOIN');
+    aj.append(champ('Locked for', semaines));
+    apercu = el('p', 'note', 'Step 1 of 3 puts in what is left of the TBLOCK you chose (up to ' + tb(resteChoisi) + ') with the wtCOIN in your wallet, at the pool price, as a new position in your wallet; step 2 locks it. Preview to see the amounts read now.');
+  } else {
+    aj.append(champ('Amount to put in', montant), champ('In', cote), champ('Locked for', semaines));
+    apercu = el('p', 'note', 'Type how much wtCOIN (or TBLOCK) to put in: the other token is added at the pool price. Two signatures: step 1 adds the position to your wallet, step 2 locks it.');
+  }
   aj.append(apercu);
   let planVu = null;
   const voir = el('button', 'bouton sec', 'Preview'); voir.type = 'button';
+  const pctBps = (b) => (Number(b) / 100).toFixed(2) + '%';
+  const texteRefus = (p) => {
+    let t = p.pourquoi;
+    if (p.minimumTblockSeul) t += ' With the TBLOCK in this wallet, choose at least about ' + tb(p.minimumTblockSeul) + ' (part of it is swapped for wtCOIN, read from the quote).';
+    else if (p.minimum && !p.attendreSolde) t += ' The smallest position is about ' + wt(p.minimum.wtcoin) + ' + ' + tb(p.minimum.tblock) + '.';
+    if (p.manque) t += ' Missing: ' + [p.manque.wtcoin ? wt(p.manque.wtcoin) : null, p.manque.tblock ? tb(p.manque.tblock) : null].filter(Boolean).join(' and ') + '.';
+    return t + ' Nothing was sent.';
+  };
   const planifier = async () => {
+    if (apresEchange) {
+      /* step 1 after the swap: the balances read NOW; the TBLOCK side never above what is left of the TBLOCK chosen */
+      const lu = await L.lireAjout({ rpc, moi });
+      if (!lu.soldes || lu.soldes.wtcoin === null || lu.soldes.tblock === null) throw new Error('Your balances were not read just now. Nothing was sent.');
+      const caps = { wtcoin: lu.soldes.wtcoin, tblock: resteChoisi < lu.soldes.tblock ? resteChoisi : lu.soldes.tblock };
+      const p = L.planAjoutEtLock({ moi, cote: 'deux', montant: caps, semaines: Number(semaines.value), lu });
+      if (p.etat !== 'PRET') throw new Error(texteRefus(p));
+      return p;
+    }
     const brut = lplBrut(montant.value);
     if (brut === null || brut === 0n) throw new Error('Type an amount, for example 0.01.');
     const p = await L.planifierAjoutEtLock({ rpc, moi, cote: cote.value, montant: brut, semaines: Number(semaines.value) });
     if (p.etat !== 'PRET') {
-      let t = p.pourquoi;
-      if (p.minimum) t += ' The smallest position is about ' + wt(p.minimum.wtcoin) + ' + ' + tb(p.minimum.tblock) + '.';
-      if (p.manque) t += ' Missing: ' + [p.manque.wtcoin ? wt(p.manque.wtcoin) : null, p.manque.tblock ? tb(p.manque.tblock) : null].filter(Boolean).join(' and ') + '.';
-      throw new Error(t + ' Nothing was sent.');
+      /* TBLOCK typed and only wtCOIN missing: step 0 swaps part of that TBLOCK for wtCOIN first */
+      if (cote.value === 'tblock' && p.manque && p.manque.wtcoin && !p.manque.tblock) {
+        const e = await L.planifierEchangePourAjout({ rpc, moi, total: brut });
+        if (e.etat !== 'PRET') throw new Error(texteRefus(e));
+        return { ...e, semaines: BigInt(semaines.value) };
+      }
+      /* wtCOIN typed, only wtCOIN missing, TBLOCK in the wallet: say the swap path exists (it is offered on TBLOCK amounts) */
+      if (cote.value === 'wtcoin' && p.manque && p.manque.wtcoin && !p.manque.tblock && E.soldes && E.soldes.tblock > 0n) throw new Error(texteRefus(p) + ' Or type your amount in TBLOCK: the card can first swap part of it for wtCOIN.');
+      throw new Error(texteRefus(p));
     }
     return p;
   };
@@ -33502,38 +33573,69 @@ async function peindreLpLock(hote, { force = false } = {}) {
     try {
       planVu = await planifier();
       const w = BigInt(planVu.semaines);
-      const fenetre = planVu.premiereSemaine !== null && planVu.premiereSemaine !== undefined
-        ? 'it counts ' + sem(planVu.premiereSemaine) + ' to ' + sem(planVu.premiereSemaine + w - 1n) + ' and comes back on about ' + quand(planVu.retourS)
-        : 'its dates were not read';
-      apercu.textContent = 'Step 1 puts in at most ' + wt(planVu.max.wtcoin) + ' + ' + tb(planVu.max.tblock) + ' (the pool takes what the price needs, about ' + wt(planVu.besoin.wtcoin) + ' + ' + tb(planVu.besoin.tblock)
-        + '; step 1 does not go through if the price moves more than about 2% before it lands). It becomes a new position in your wallet (' + planVu.appels.length + (planVu.appels.length === 1 ? ' call' : ' calls') + ' in one signature: ' + planVu.etapes.join('; ')
-        + '). Step 2 then locks it for ' + w + ' weeks: if locked this week, ' + fenetre + '.';
+      if (planVu.etape === 0) {
+        apercu.textContent = 'Step 0 of 3 swaps ' + tb(planVu.echange) + ' of your ' + tb(planVu.total) + ' for at least ' + wt(planVu.sortieMin) + ' on the wtCOIN/TBLOCK pool (quoted ' + wt(planVu.devis) + ': '
+          + pctBps(planVu.impactBps) + ' under the pool price, the pool fee and its hook’s cut included; this card refuses a swap more than ' + pctBps(planVu.impactMaxBps) + ' under it). '
+          + planVu.appels.length + (planVu.appels.length === 1 ? ' call' : ' calls') + ' in one signature: ' + planVu.etapes.join('; ') + '. Then step 1 adds about ' + wt(planVu.ajoutPrevu.besoin.wtcoin) + ' + ' + tb(planVu.ajoutPrevu.besoin.tblock)
+          + ' as a new position in your wallet (planned again once the swap is read), and step 2 locks it for ' + w + ' weeks: three signatures. About 1% of each token, and any wtCOIN the swap gives above its minimum, stays in your wallet.';
+        envoiEchange.hidden = false; envoi.hidden = true;
+      } else {
+        const fenetre = planVu.premiereSemaine !== null && planVu.premiereSemaine !== undefined
+          ? 'it counts ' + sem(planVu.premiereSemaine) + ' to ' + sem(planVu.premiereSemaine + w - 1n) + ' and comes back on about ' + quand(planVu.retourS)
+          : 'its dates were not read';
+        apercu.textContent = 'Step 1 puts in at most ' + wt(planVu.max.wtcoin) + ' + ' + tb(planVu.max.tblock) + ' (the pool takes what the price needs, about ' + wt(planVu.besoin.wtcoin) + ' + ' + tb(planVu.besoin.tblock)
+          + '; step 1 does not go through if the price moves more than about 2% before it lands). It becomes a new position in your wallet (' + planVu.appels.length + (planVu.appels.length === 1 ? ' call' : ' calls') + ' in one signature: ' + planVu.etapes.join('; ')
+          + '). Step 2 then locks it for ' + w + ' weeks: if locked this week, ' + fenetre + '.';
+        envoi.hidden = false; envoiEchange.hidden = true;
+      }
       planVu.vu = { cote: cote.value, montant: montant.value, semaines: semaines.value };
-      envoi.hidden = false; risqueEnvoi.hidden = false;
-    } catch (err) { apercu.textContent = String((err && err.message) || err); envoi.hidden = true; risqueEnvoi.hidden = true; planVu = null; }
+      risqueEnvoi.hidden = false;
+    } catch (err) { apercu.textContent = String((err && err.message) || err); envoi.hidden = true; envoiEchange.hidden = true; risqueEnvoi.hidden = true; planVu = null; }
     voir.disabled = false;
   });
   aj.append(voir);
-  /* a preview is only good for what it showed: any change of the amount, the token or the weeks hides the send button */
-  const perimer = () => { planVu = null; envoi.hidden = true; risqueEnvoi.hidden = true; apercu.textContent = 'Preview again: the amount, the token or the weeks changed.'; };
+  /* a preview is only good for what it showed: any change of the amount, the token or the weeks hides the send buttons */
+  const perimer = () => { planVu = null; envoi.hidden = true; envoiEchange.hidden = true; risqueEnvoi.hidden = true; apercu.textContent = 'Preview again: the amount, the token or the weeks changed.'; };
   montant.addEventListener('input', perimer); cote.addEventListener('change', () => { majPlaceholder(); perimer(); }); semaines.addEventListener('change', perimer);
   const risqueEnvoi = risque(); risqueEnvoi.hidden = true; aj.append(risqueEnvoi);
+  /* step 0 is planned AGAIN at the click on the SAME TBLOCK amount, fresh quote and allowances, keeping the previewed minimum out */
+  let echangeEnvoye = null;
+  const envoiEchange = bouton(aj, 'Step 0 of 3: swap part of your TBLOCK for wtCOIN', async () => {
+    const vu = planVu;
+    if (!vu || vu.etape !== 0 || !vu.vu || vu.vu.cote !== cote.value || vu.vu.montant !== montant.value || vu.vu.semaines !== semaines.value) { perimer(); throw new Error('Preview again before sending. Nothing was sent.'); }
+    const p = await L.planifierEchangePourAjout({ rpc, moi, total: vu.total, echange: vu.echange, sortieMinImposee: vu.sortieMin });
+    if (p.etat !== 'PRET') { perimer(); throw new Error(texteRefus(p)); }
+    if (p.echange !== vu.echange || p.sortieMin < vu.sortieMin) { perimer(); throw new Error('The price moved since your preview: preview again. Nothing was sent.'); }
+    echangeEnvoye = { total: String(p.total), echange: String(p.echange), semaines: String(vu.semaines) };
+    return p.appels;
+  }, 'swap part of your TBLOCK for wtCOIN', 'Step 0 done: part of your TBLOCK is now wtCOIN. Step 1 (below, once read) adds the liquidity: a second signature.', {
+    atomique: true, sec: false,
+    apres: (r) => { if (echangeEnvoye) lplNoterEchange(moi, { ...echangeEnvoye, hashes: (r && Array.isArray(r.hashes) && r.hashes.length ? r.hashes : [r && r.hash]).filter(Boolean) }); },
+    enAttente: (r) => { if (echangeEnvoye && r && r.hash) lplNoterEchange(moi, { ...echangeEnvoye, hashes: [r.hash] }); },
+  });
+  envoiEchange.hidden = true;
   /* step 1 is planned AGAIN at the click (fresh allowances and price) and must not ask for more than the preview showed */
   let planEnvoye = null;
-  const envoi = bouton(aj, 'Step 1 of 2: add to your wallet', async () => {
+  const envoi = bouton(aj, apresEchange ? 'Step 1 of 3: add to your wallet' : 'Step 1 of 2: add to your wallet', async () => {
     const vu = planVu;
-    if (!vu || !vu.vu || vu.vu.cote !== cote.value || vu.vu.montant !== montant.value || vu.vu.semaines !== semaines.value) { perimer(); throw new Error('Preview again before sending. Nothing was sent.'); }
+    if (!vu || vu.etape === 0 || !vu.vu || vu.vu.cote !== cote.value || vu.vu.montant !== montant.value || vu.vu.semaines !== semaines.value) { perimer(); throw new Error('Preview again before sending. Nothing was sent.'); }
     const p = await planifier();
-    if (p.semaines !== vu.semaines || p.max.wtcoin > vu.max.wtcoin || p.max.tblock > vu.max.tblock) { perimer(); throw new Error('The price moved since your preview: preview again. Nothing was sent.'); }
+    if (p.etape === 0 || p.semaines !== vu.semaines || p.max.wtcoin > vu.max.wtcoin || p.max.tblock > vu.max.tblock) { perimer(); throw new Error('The price moved since your preview: preview again. Nothing was sent.'); }
     planEnvoye = p; return p.appels;
   }, 'add your liquidity to your wallet', 'Step 1 done: the liquidity is in your wallet as a new position. Step 2 (above, once read) locks it: a second signature.', {
     atomique: true, sec: false,
-    apres: (r) => { if (planEnvoye) lplNoterAttente(moi, { hashes: (r && Array.isArray(r.hashes) && r.hashes.length ? r.hashes : [r && r.hash]).filter(Boolean), semaines: String(planEnvoye.semaines), liquidite: String(planEnvoye.liquidite) }); },
-    enAttente: (r) => { if (planEnvoye && r && r.hash) lplNoterAttente(moi, { hashes: [r.hash], semaines: String(planEnvoye.semaines), liquidite: String(planEnvoye.liquidite) }); },
+    apres: (r) => { lplNoterEchange(moi, null); if (planEnvoye) lplNoterAttente(moi, { hashes: (r && Array.isArray(r.hashes) && r.hashes.length ? r.hashes : [r && r.hash]).filter(Boolean), semaines: String(planEnvoye.semaines), liquidite: String(planEnvoye.liquidite) }); },
+    enAttente: (r) => { lplNoterEchange(moi, null); if (planEnvoye && r && r.hash) lplNoterAttente(moi, { hashes: [r.hash], semaines: String(planEnvoye.semaines), liquidite: String(planEnvoye.liquidite) }); },
   });
   envoi.hidden = true;
-  /* while step 2 waits (or step 1 is not confirmed), no second add is offered */
+  if (apresEchange) {
+    const b = el('button', 'bouton sec', 'Start over (the wtCOIN stays in your wallet)'); b.type = 'button';
+    b.addEventListener('click', () => { lplNoterEchange(moi, null); void peindreLpLock(hote, { force: true }); });
+    aj.append(b);
+  }
+  /* while step 2 waits (or step 1 / step 0 is not confirmed), no second add or swap is offered */
   if (attenteOuverte) aj.replaceChildren(el('p', 'hvTitreBloc', 'Add liquidity, then lock it'), el('p', 'note', 'Finish step 2 above first.'));
+  else if (echangeEnAttente) aj.replaceChildren(el('p', 'hvTitreBloc', 'Add liquidity, then lock it'), el('p', 'note', 'Step 0 (the swap) was sent; its receipt is not read yet — do not swap again. This is read again in a minute.'));
   vue.push(aj);
   /* a position already held */
   const ex = el('details', 'wPli hvPli', null); ex.append(el('summary', 'note', 'Lock a position you already hold'));

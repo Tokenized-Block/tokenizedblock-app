@@ -10,7 +10,11 @@
  *   MUTATIONS (run here every time, on a temporary copy of the module): approve of the wrong number, the typed-side cap removed, the lock
  *   for other weeks than chosen, a receipt log from any emitter accepted, the step-2 liquidity check removed — each must turn the checks
  *   red; the copy is deleted afterwards.
- * NE PROUVE PAS: the chain (banc-lp-lock-app-fork-20261115 does, on a local fork); a wallet's atomic batch. */
+ * STEP 0 (2026-11-15): the router / quoter / key / deadline are tblock-route.js's; the swap calldata is tblock-route.js calldataSwapTblock
+ *   byte for byte; the hook flags are read from its address; on a fake quoter: exact TBLOCK approvals to Permit2 and Permit2 -> ROUTER,
+ *   min = quote - 1%, the split leaves both sides equal in value, 3.00% under the pool price accepted and above refused, the click keeps
+ *   the previewed minimum, step 1 after the swap (cote 'deux') stays under both caps. Six more mutants, each red.
+ * NE PROUVE PAS: the chain (banc-lp-lock-app-fork-20261115 does, on a local fork); a wallet's atomic batch; the card's DOM. */
 import { readFileSync, writeFileSync, rmSync } from 'node:fs';
 import * as A from './lp-lock-app.js';
 import { LP_LOCK_DEPLOIEMENT as REC } from './lp-lock-deploiement.js';
@@ -253,6 +257,146 @@ t('etatMarquage: a value not read offers nothing', A.etatMarquage({ liquidite: n
   }
 }
 
+/* ── step 0 (2026-11-15): a wallet with TBLOCK only swaps part of it for wtCOIN on the same pool, then adds (cote 'deux'), then locks ── */
+const R = await import('./tblock-route.js');
+t('step 0 router = tblock-route.js UNIVERSAL_ROUTER (the app\'s v4 path)', A.ROUTEUR_ === R.UNIVERSAL_ROUTER && /^0x[0-9a-f]{40}$/.test(A.ROUTEUR_));
+t('step 0 quoter = tblock-route.js QUOTER_V4', A.QUOTEUR_ === R.QUOTER_V4 && /^0x[0-9a-f]{40}$/.test(A.QUOTEUR_));
+t('step 0 key = tblock-route.js TBLOCK_KEY = the lock\'s pool', poolId(R.TBLOCK_KEY).toLowerCase() === A.POOL_ID && JSON.stringify(R.TBLOCK_KEY) === JSON.stringify(A.CLE));
+t('step 0 deadline = tblock-route.js DEADLINE_S', A.DELAI_ECHANGE_S === R.DEADLINE_S);
+t('hook read from its address: no beforeSwap, a cut on the output (= tblock-route verifierCleTblock), no add-liquidity flag',
+  A.HOOK.bloqueEchange === false && A.HOOK.prendSurSortie === true && R.verifierCleTblock().prendSurSortie === true && A.HOOK.toucheAjout === false && A.HOOK_FLAGS === 0x2044n);
+{
+  const a = A.echangeCall({ montant: 123n * E18, sortieMin: 456n, deadline: 789n }), b = R.calldataSwapTblock({ entree: A.TBLOCK, montant: 123n * E18, min: 456n, deadline: 789n });
+  t('swap calldata = tblock-route.js calldataSwapTblock, byte for byte (TBLOCK in, wtCOIN out)', a.to === b.to && a.data === b.data && a.value === '0x0' && b.zeroForOne === false);
+  let j = 0; for (const x of [[0n, 1n], [1n, 0n]]) { try { A.echangeCall({ montant: x[0], sortieMin: x[1], deadline: 1n }); } catch (_) { j++; } }
+  t('swap with no amount or no minimum: refused', j === 2);
+}
+/* a fake chain whose quoter answers the pool price less `coutBps` (the fee and hook cut), linear */
+const NOWE = 1_800_000_000n;
+function chaineE({ wt = 0n, tb = 10n ** 24n, coutBps = 130n, deja = false, quoteur = null } = {}) {
+  const vus = { devis: [] };
+  const rpc = async (m, params) => {
+    if (m === 'eth_getBlockByNumber') return { timestamp: '0x' + NOWE.toString(16), number: '0x1' };
+    const c = params[0], s = c.data.slice(2, 10);
+    if (c.to === A.QUOTEUR_) {
+      const mt = BigInt('0x' + c.data.slice(10 + 64 * 7, 10 + 64 * 8)); vus.devis.push(mt);
+      if (c.data.slice(10 + 64 * 6, 10 + 64 * 7) !== w(0)) throw new Error('quote asked in the wrong direction');
+      if (quoteur) return quoteur(mt);
+      return '0x' + w((A.wtcoinPourTblock(mt, SQ) * (10000n - coutBps)) / 10000n) + w(90000);
+    }
+    if (s === A.SEL_EXT.getSlot0) return '0x' + w(SQ) + w(0) + w(0) + w(3000);
+    if (s === A.SEL.MIN_L) return '0x' + w(2n * 10n ** 19n);
+    if (s === A.SEL.T0) return '0x' + w(T0);
+    if (s === A.SEL.EPOCH) return '0x' + w(EP_);
+    if (s === A.SEL.lockedCount) return '0x' + w(0);
+    if (s === A.SEL_EXT.balanceOf) return '0x' + w(c.to === A.WTCOIN ? wt : tb);
+    if (s === A.SEL_EXT.allowance) return '0x' + w(deja ? 10n ** 30n : 0);
+    if (s === A.SEL_EXT.p2Allowance) return '0x' + w(deja ? 10n ** 30n : 0) + w(deja ? NOWE + 3000n : 0) + w(0);
+    throw new Error('not modelled ' + s);
+  };
+  return { rpc, vus };
+}
+const TOT = 3n * 10n ** 23n; /* 300,000 TBLOCK, about twice the smallest position's TBLOCK side */
+async function verifierEchange(M) {
+  const f = [];
+  const { rpc, vus } = chaineE();
+  const p = await M.planifierEchangePourAjout({ rpc, moi, total: TOT });
+  if (p.etat !== 'PRET') return ['step 0 not ready: ' + p.pourquoi];
+  const s = p.echange, q = p.devis;
+  if (vus.devis.length !== 3) f.push('3 quotes (guess, 2 refinements) + 0 more, got ' + vus.devis.length);
+  if (p.appels.length !== 3) f.push('3 calls with no allowance: TBLOCK->Permit2, Permit2->router, swap; got ' + p.appels.length);
+  else {
+    if (p.appels[0].to !== M.TBLOCK || p.appels[0].data !== '0x' + M.SEL_EXT.approve + w(PERMIT2) + w(s)) f.push('TBLOCK approves Permit2 for exactly the swap');
+    if (p.appels[1].to !== M.PERMIT2_ || p.appels[1].data !== '0x' + M.SEL_EXT.p2Approve + w(M.TBLOCK) + w(M.ROUTEUR_) + w(s) + w(NOWE + 3600n)) f.push('Permit2 lets the ROUTER take exactly the swap, one hour');
+    if (p.appels[2].to !== M.ROUTEUR_ || p.appels[2].data !== R.calldataSwapTblock({ entree: M.TBLOCK, montant: s, min: (q * 9900n) / 10000n, deadline: NOWE + 600n }).data) f.push('the swap = tblock-route calldata, min = quote - 1%, deadline + 600 s');
+  }
+  if (p.sortieMin !== (q * 9900n) / 10000n) f.push('min out = quote less 1%');
+  if (q !== (M.wtcoinPourTblock(s, SQ) * 9870n) / 10000n) f.push('the quote shown is the quote read for the amount swapped');
+  if (p.impactBps !== 130n) f.push('impact 1.30% read from the quote, got ' + p.impactBps);
+  /* balanced: what stays and the wtCOIN after the swap are equal in value at the pool price (within 0.05% of the total) */
+  const ecart = (TOT - s) - M.tblockPourWtcoin(q, SQ);
+  if ((ecart < 0n ? -ecart : ecart) * 10000n > TOT * 5n) f.push('both sides equal in value after the swap, off by ' + ecart);
+  if (!(s * 100n > TOT * 49n && s * 100n < TOT * 51n)) f.push('about half swapped, got ' + s);
+  if (!p.ajoutPrevu || p.ajoutPrevu.liquidite < 2n * 10n ** 19n || p.ajoutPrevu.max.tblock > TOT - s || p.ajoutPrevu.max.wtcoin > p.sortieMin) f.push('step 1 fits the TBLOCK left and the minimum out, above MIN_L');
+  /* the bound */
+  const lu0 = await M.lireEchange({ rpc, moi });
+  const mid = M.wtcoinPourTblock(s, SQ);
+  const a300 = M.planEchangePourAjout({ moi, total: TOT, lu: lu0, devis: { echange: s, sortie: mid - (mid * 300n) / 10000n } });
+  const a301 = M.planEchangePourAjout({ moi, total: TOT, lu: lu0, devis: { echange: s, sortie: mid - (mid * 301n + 9999n) / 10000n } });
+  if (a300.etat !== 'PRET') f.push('3.00% under the pool price is accepted: ' + a300.pourquoi);
+  if (a301.etat !== 'REFUSE' || !(a301.impactBps > 300n) || a301.appels) f.push('above 3% under the pool price: refused, nothing built');
+  if (M.planEchangePourAjout({ moi, total: TOT, lu: lu0, devis: { echange: s, sortie: mid + mid / 500n } }).etat !== 'REFUSE') f.push('a quote above the pool price is refused');
+  /* the click: the previewed minimum is kept; a fresh quote under it is refused */
+  const imp = M.planEchangePourAjout({ moi, total: TOT, lu: lu0, devis: { echange: s, sortie: q }, sortieMinImposee: p.sortieMin });
+  if (imp.etat !== 'PRET' || imp.sortieMin !== p.sortieMin) f.push('the click keeps the previewed minimum');
+  if (M.planEchangePourAjout({ moi, total: TOT, lu: lu0, devis: { echange: s, sortie: p.sortieMin - 1n }, sortieMinImposee: p.sortieMin }).etat !== 'REFUSE') f.push('a fresh quote under the previewed minimum is refused');
+  /* step 1 after the swap: cote 'deux' fits under both caps, never above */
+  const caps = { wtcoin: p.sortieMin, tblock: TOT - s };
+  const a = M.planAjoutEtLock({ moi, cote: 'deux', montant: caps, semaines: 4, lu: lu({ soldes: { wtcoin: caps.wtcoin, tblock: caps.tblock } }) });
+  if (a.etat !== 'PRET') f.push('step 1 after the swap ready: ' + a.pourquoi);
+  else {
+    if (a.max.wtcoin > caps.wtcoin || a.max.tblock > caps.tblock) f.push('step 1 maxima under both caps');
+    if (a.besoin.wtcoin > a.max.wtcoin || a.besoin.tblock > a.max.tblock) f.push('step 1 maxima cover the need');
+    if (a.appels.at(-1).to !== M.PM || a.appels.length !== 5) f.push('step 1 = 4 approvals + the mint');
+    /* the leftover of the scarcer side is the 1% margin only (plus rounding) */
+    const resteW = caps.wtcoin - a.besoin.wtcoin, resteT = caps.tblock - a.besoin.tblock;
+    if (resteW * 100n > caps.wtcoin * 2n && resteT * 100n > caps.tblock * 2n) f.push('step 1 leaves at most ~1% of the scarcer side');
+  }
+  /* REVIEW 2026-11-15 */
+  /* the click: a fresh quote ABOVE the preview's raises the minimum (never looser than a fresh quote less 1%) */
+  const mieux = q + q / 200n;
+  const imp2 = M.planEchangePourAjout({ moi, total: TOT, lu: lu0, devis: { echange: s, sortie: mieux }, sortieMinImposee: p.sortieMin });
+  if (imp2.etat !== 'PRET' || imp2.sortieMin !== (mieux * 9900n) / 10000n || !(imp2.sortieMin > p.sortieMin)) f.push('a better fresh quote raises the minimum to it less 1%: ' + (imp2.sortieMin || imp2.pourquoi));
+  /* step 1 after the swap, 0 wtCOIN read (a node behind the receipt): said so, not "type an amount" */
+  const zero = M.planAjoutEtLock({ moi, cote: 'deux', montant: { wtcoin: 0n, tblock: TOT - s }, semaines: 4, lu: lu() });
+  if (zero.etat !== 'REFUSE' || zero.attendreSolde !== true || !/not read in your wallet yet/.test(zero.pourquoi) || /Type an amount/.test(zero.pourquoi)) f.push('0 wtCOIN after the swap: "not read yet", got ' + zero.pourquoi);
+  /* the TBLOCK-only minimum, from the swap return read in the quote */
+  const r = M.rendementPpm({ montant: s, sortie: q, sqrtPrix: SQ });
+  const Tm = M.minimumTblockSeul({ sqrtPrix: SQ, minL: lu0.minL, wtcoinDeja: lu0.soldes.wtcoin, rendementPpm: r });
+  const mini = M.minimumEnJetons({ sqrtPrix: SQ, minL: lu0.minL });
+  if (Tm === null || !(Tm > 2n * mini.tblock) || !(Tm * 100n < mini.tblock * 210n)) f.push('TBLOCK-only minimum a bit above twice the TBLOCK minimum (swap cost ~1.3% + 1% margin): ' + Tm + ' vs ' + mini.tblock);
+  else {
+    const okTm = await M.planifierEchangePourAjout({ rpc, moi, total: Tm });
+    if (okTm.etat !== 'PRET') f.push('choosing the TBLOCK-only minimum: step 0 ready, got ' + okTm.pourquoi);
+    const sous = await M.planifierEchangePourAjout({ rpc, moi, total: (Tm * 98n) / 100n });
+    if (sous.etat !== 'REFUSE' || !sous.minimumTblockSeul) f.push('2% under it: refused WITH the TBLOCK-only minimum, got ' + sous.etat);
+    else { const e = sous.minimumTblockSeul - Tm; if ((e < 0n ? -e : e) * 100n > Tm) f.push('the refusal\'s figure is that minimum within 1%: ' + sous.minimumTblockSeul + ' vs ' + Tm); }
+  }
+  return f;
+}
+{
+  const f = await verifierEchange(A);
+  t('the module passes the step 0 checks', f.length === 0, f.join('; '));
+  const { rpc } = chaineE();
+  const p = await A.planifierEchangePourAjout({ rpc, moi, total: TOT });
+  t('step 0 texts in English, no jargon', p.etapes.length === 3 && /Permit2/.test(p.etapes[0]) && /wtCOIN\/TBLOCK pool/.test(p.etapes[2]));
+  /* a wallet that already holds some wtCOIN swaps less; one that holds enough swaps nothing */
+  const demi = await A.planifierEchangePourAjout({ rpc: chaineE({ wt: p.sortieMin / 2n }).rpc, moi, total: TOT });
+  t('some wtCOIN held: a smaller swap', demi.etat === 'PRET' && demi.echange < p.echange && demi.echange > 0n, demi.pourquoi);
+  const assez = chaineE({ wt: 10n ** 18n });
+  const rien = await A.planifierEchangePourAjout({ rpc: assez.rpc, moi, total: TOT });
+  t('enough wtCOIN held: no swap offered, nothing built, not quoted', rien.etat === 'REFUSE' && rien.inutile === true && !rien.appels && assez.vus.devis.length === 0, rien.pourquoi);
+  const peu = await A.planifierEchangePourAjout({ rpc: chaineE({ tb: TOT - 1n }).rpc, moi, total: TOT });
+  t('less TBLOCK than chosen: refused, shortfall said', peu.etat === 'REFUSE' && peu.manque && peu.manque.tblock === 1n);
+  const deja = await A.planifierEchangePourAjout({ rpc: chaineE({ deja: true }).rpc, moi, total: TOT });
+  t('allowances already there (and not expiring): only the swap', deja.etat === 'PRET' && deja.appels.length === 1 && deja.appels[0].to === A.ROUTEUR_);
+  const cher = await A.planifierEchangePourAjout({ rpc: chaineE({ coutBps: 400n }).rpc, moi, total: TOT });
+  t('a quote 4% under the pool price: refused, impact said', cher.etat === 'REFUSE' && cher.impactBps === 400n && !cher.appels, cher.pourquoi);
+  const muet = await A.planifierEchangePourAjout({ rpc: chaineE({ quoteur: () => { throw new Error('HTTP 429'); } }).rpc, moi, total: TOT });
+  t('quoter not read: NON_LU, nothing built', muet.etat === 'NON_LU' && !muet.appels, muet.etat);
+  const petit = await A.planifierEchangePourAjout({ rpc, moi, total: 2n * 10n ** 23n });
+  t('200,000 TBLOCK split is below the lock minimum: refused with the minimum', petit.etat === 'REFUSE' && petit.minimum && !petit.appels, petit.pourquoi);
+  const fixe = await A.planifierEchangePourAjout({ rpc, moi, total: TOT, echange: p.echange, sortieMinImposee: p.sortieMin });
+  t('the click re-plans the SAME amount on a fresh quote, with the previewed minimum', fixe.etat === 'PRET' && fixe.echange === p.echange && fixe.sortieMin === p.sortieMin);
+  const luN = await A.lireEchange({ rpc: chaineE().rpc, moi });
+  for (const [k, v] of [['permit2Routeur', null], ['soldes', { wtcoin: 0n, tblock: null }], ['sqrtPrix', null]]) {
+    const r = A.planEchangePourAjout({ moi, total: TOT, lu: { ...luN, [k]: v }, devis: { echange: p.echange, sortie: p.devis } });
+    t('step 0 not read ' + k + ': NON_LU, nothing built', r.etat === 'NON_LU' && !r.appels, r.etat);
+  }
+  t('step 1 cote deux: a cap at 0 is refused', A.planAjoutEtLock({ moi, cote: 'deux', montant: { wtcoin: 0n, tblock: TOT }, semaines: 4, lu: lu() }).etat === 'REFUSE');
+  t('step 1 cote deux: more than the balance is refused (shortfall)', (() => { const r = A.planAjoutEtLock({ moi, cote: 'deux', montant: { wtcoin: E18, tblock: TOT }, semaines: 4, lu: lu({ soldes: { wtcoin: 10n ** 15n, tblock: TOT } }) }); return r.etat === 'REFUSE' && r.manque && r.manque.wtcoin > 0n; })());
+}
+
 /* MUTATIONS: a temporary copy of the module, each mutant must fail verifierPlan (or the order check); the copy is then deleted */
 const SRC = readFileSync(new URL('./lp-lock-app.js', import.meta.url), 'utf8');
 const MUTANTS = [
@@ -261,14 +405,27 @@ const MUTANTS = [
   ['lock for other weeks than chosen', 'appels.push(lockCall(nft.tokenId, w));', 'appels.push(lockCall(nft.tokenId, 4n + (w === 4n ? 1n : 0n)));'],
   ['receipt log from any emitter', "String(l.address || '').toLowerCase() !== PM || ", ''],
   ['step-2 liquidity check removed', "if (liquiditeAttendue !== null && liquiditeAttendue !== undefined && BigInt(nft.liquidite) !== BigInt(liquiditeAttendue)) return refus('Position #' + tokenId + ' does not hold the liquidity you just added.');", ''],
+  /* step 0 */
+  ['swap impact bound removed', 'if (impact > IMPACT_MAX_BPS) return refus(', 'if (false) return refus('],
+  ['swap minimum out at 1 wei', 'let min = (q * (10000n - tol)) / 10000n;', 'let min = 1n;'],
+  ['Permit2 lets the position manager (not the router) take the swap', 'routeur: ROUTEUR_, montant: s,', 'routeur: PM, montant: s,'],
+  ['the whole amount swapped (no split)', 'return ((T - d) * 1000000n) / (1000000n + k);', 'return T - d;'],
+  ['step 1 after the swap takes the larger liquidity', 'const L = a.liquidite < b.liquidite ? a.liquidite : b.liquidite;', 'const L = a.liquidite > b.liquidite ? a.liquidite : b.liquidite;'],
+  ['the click accepts a quote under the previewed minimum', 'if (q < BigInt(sortieMinImposee)) return refus(', 'if (false) return refus('],
+  /* review 2026-11-15 */
+  ['the click keeps a looser previewed minimum', 'if (BigInt(sortieMinImposee) > min) min = BigInt(sortieMinImposee);', 'min = BigInt(sortieMinImposee);'],
+  ['no TBLOCK-only minimum in the refusal', 'const seul = minimumTblockSeul(', 'const seul = null && minimumTblockSeul('],
+  ['TBLOCK-only minimum ignores the wtCOIN side', 'Vm = tblockPourWtcoin(mini.wtcoin, sq);', 'Vm = 0n;'],
+  ['0 wtCOIN after the swap read as "type an amount"', "if (cw <= 0n) return refus('The wtCOIN from your swap is not read in your wallet yet: preview again in a moment.', { minimum, attendreSolde: true });", "if (cw <= 0n) return refus('Type an amount.', { minimum });"],
 ];
 for (const [nom, avant, apres] of MUTANTS) {
   t('mutant "' + nom + '": the line exists', SRC.split(avant).length === 2);
   const f = new URL('./lp-lock-app.mutant-tmp.mjs', import.meta.url);
-  writeFileSync(f, SRC.replace(avant, apres));
+  writeFileSync(f, SRC.replace(avant, () => apres)); /* a function: no "$" pattern of the replacement is ever read */
   try {
     const M = await import(f.href + '?' + Date.now());
-    t('mutant "' + nom + '" is caught (red)', verifierPlan(M).length > 0);
+    let ech = []; try { ech = await verifierEchange(M); } catch (e) { ech = ['threw: ' + e.message]; }
+    t('mutant "' + nom + '" is caught (red)', verifierPlan(M).length + ech.length > 0);
   } finally { rmSync(f, { force: true }); }
 }
 console.log(ok + '/' + (ok + ko) + (ko ? ' — RED' : ' — green'));

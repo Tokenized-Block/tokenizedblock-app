@@ -189,6 +189,10 @@ import { creerKeeperBuyback } from './buyback-keeper.js';
 import { creerKeeperSpinDev, creerExclusif } from './spin-dev-keeper.js';
 /* 2026-11-14 (Phil: « utilise deja le keeper qu'on a ») : le keeper des clotures (close-keeper.js) : n appelle que closeEpoch(uint256), sur V, R, R2 */
 import { creerKeeperClose } from './close-keeper.js';
+/* 2026-11-15 (Phil: « Keeper hebdo. Collecter les frais et compter les joueurs ») : le keeper du LP lock (lp-lock-keeper.js) : n appelle que
+ *   harvest(uint256[]) et markWeekBatch(uint256,address[]) sur TBlockLPLock ; son index des Locked/Unlocked sert aussi /api/lp-lock/positions */
+import { creerIndexLpLock, creerKeeperLpLock } from './lp-lock-keeper.js';
+import { LP_LOCK_DEPLOIEMENT } from './lp-lock-deploiement.js';
 import { LOCK_WEEKLY_DEPLOIEMENT as LOCK_WEEKLY_REC } from './lock-weekly-deploiement.js';
 import { BUYBACK_VAULT_DEPLOIEMENT } from './tblock-buyback-vault-deploiement.js';
 /* 2026-10-18 : TicketPot LIVE (0xf986…1df1, bloc 52 776 705) — la fiche notee, et la lecture PURE du jour (lireJour : aucune cle requise) */
@@ -5882,6 +5886,35 @@ const keeperClose = ESSAI_SRV.actif
     keeperAttendu: BUYBACK_VAULT_DEPLOIEMENT.parametres && BUYBACK_VAULT_DEPLOIEMENT.parametres.keeper, rpc: rpcServeur, journal: (t) => console.log(t), exclusif: verrouCleKeeper });
 if (keeperClose.demarrer()) console.log('[close-keeper] on, keeper ' + keeperClose.etat().adresse);
 else console.log('[close-keeper] off: ' + keeperClose.etat().pourquoi);
+/* 2026-11-15 : le LP lock. (1) SON INDEX : les Locked / Unlocked du lock depuis son bloc de deploiement (fiche lp-lock-deploiement.js), par
+ *   fenetres de 45 000 blocs (< 50 000), UNE adresse par filtre ; les fenetres profondes passent par lecteurLogs (publicnode, puis le noeud
+ *   d archive s il est pose). Il tourne meme sans cle (il sert /api/lp-lock/positions a la carte) ; garde sur le volume (lp-lock-index.json,
+ *   .tmp puis rename), jamais en mode essai ; un fichier d un autre lock / autre bloc est refuse (relu depuis le deploiement).
+ *   (2) LE KEEPER : meme cle gas-only, meme verrou ; compte la semaine finie (+ 1 h, dans ses 6 jours) et recolte les frais dans les 6
+ *   dernieres heures de la semaine ; jamais rien d autre (verifierEnvoi decode chaque calldata avant la signature). */
+const LP_LOCK_ADR = LP_LOCK_DEPLOIEMENT && LP_LOCK_DEPLOIEMENT.pret === true ? LP_LOCK_DEPLOIEMENT.adresse : null;
+const indexLpLock = creerIndexLpLock({ lock: LP_LOCK_ADR, bloc: LP_LOCK_DEPLOIEMENT ? LP_LOCK_DEPLOIEMENT.bloc : null,
+  rpcLogs: (m, p, tete) => lecteurLogs(tete).rpc(m, p), journal: (t) => console.log(t) });
+const FICHIER_LP_LOCK_INDEX = !ESSAI_SRV.actif && indexLpLock.actif && (process.env.RAILWAY_VOLUME_MOUNT_PATH || (existsSync('/data') ? '/data' : null))
+  ? join(process.env.RAILWAY_VOLUME_MOUNT_PATH || '/data', 'lp-lock-index.json') : null;
+try { if (FICHIER_LP_LOCK_INDEX && existsSync(FICHIER_LP_LOCK_INDEX)) indexLpLock.restaurer(JSON.parse(readFileSync(FICHIER_LP_LOCK_INDEX, 'utf8'))); } catch { /* unreadable: read again from the deploy block */ }
+let lpLockIndexSauve = indexLpLock.version();
+function sauverIndexLpLock() {
+  if (!FICHIER_LP_LOCK_INDEX || indexLpLock.version() === lpLockIndexSauve) return;
+  try { writeFileSync(FICHIER_LP_LOCK_INDEX + '.tmp', JSON.stringify(indexLpLock.exporter())); renameSync(FICHIER_LP_LOCK_INDEX + '.tmp', FICHIER_LP_LOCK_INDEX); lpLockIndexSauve = indexLpLock.version(); }
+  catch { /* the volume refused: read again later, nothing lost but time */ }
+}
+async function tourIndexLpLock() {
+  try { const tete = parseInt(await rpcServeur('eth_blockNumber', []), 16); await indexLpLock.avancer(tete); } catch { /* the next round reads again */ }
+  sauverIndexLpLock();
+}
+if (indexLpLock.actif) { setTimeout(() => { void tourIndexLpLock(); setInterval(() => { void tourIndexLpLock().catch(() => {}); }, 5 * 60000).unref(); }, 40000).unref(); }
+const keeperLpLock = ESSAI_SRV.actif
+  ? creerKeeperLpLock({ desactive: 'trial mode (ESSAI): the LP lock keeper never runs against a trial node', index: indexLpLock })
+  : creerKeeperLpLock({ cle: process.env.BUYBACK_KEEPER_KEY || null, lock: LP_LOCK_ADR, index: indexLpLock, chaine: LP_LOCK_DEPLOIEMENT && LP_LOCK_DEPLOIEMENT.chaine,
+    keeperAttendu: BUYBACK_VAULT_DEPLOIEMENT.parametres && BUYBACK_VAULT_DEPLOIEMENT.parametres.keeper, rpc: rpcServeur, journal: (t) => console.log(t), exclusif: verrouCleKeeper });
+if (keeperLpLock.demarrer()) console.log('[lp-lock-keeper] on, keeper ' + keeperLpLock.etat().adresse);
+else console.log('[lp-lock-keeper] off: ' + keeperLpLock.etat().pourquoi);
 
 /* ══ LE JOURNAL DU JOUR DU JEU (Phil 2026-10-18 : « les brains sont les occupants de la Map ») — journal-jeu.js, GET /api/jeu/journal.
  * ⛔ LU SUR UN MINUTEUR, JAMAIS PAR REQUETE : un tour toutes les JOURNAL_TOUR_MS, au plus JOURNAL_FENETRES_PAR_TOUR fenetres de
@@ -9290,6 +9323,19 @@ function traiterRequete(req, res) {
    *   JOURNAL_MAX. ⛔ AUCUNE LECTURE DE CHAINE ICI : la memoire du minuteur (lireJournalJeu) + les rolls practice (LECTURE de jeuRolls,
    *   dans la route du jeu) ; `block` = le block cree par ce wallet, lu dans l index des createurs (createurParBlock), null sinon. Perime
    *   possible : `lu` dit quand la chaine a ete lue pour la derniere fois, `couvreLaJournee` si la lecture remonte a minuit UTC. */
+  /* ══ 2026-11-15 — GET /api/lp-lock/positions/<wallet> : the LP lock positions held for this wallet PER THE SERVER INDEX (lp-lock-keeper.js),
+   *   so the card finds positions older than its own log window. ⛔ NO CHAIN READ HERE: memory only. A hint, never a proof: the card checks
+   *   every id on chain (positionOf, locker = the wallet). `aJour` = the index has read up to the last head it saw; `jusqua` = its cursor. */
+  if (chemin.startsWith('/api/lp-lock/positions/')) {
+    const rendreLp = (code, o) => { res.writeHead(code, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' }); res.end(req.method === 'HEAD' ? undefined : JSON.stringify(o)); };
+    if (req.method !== 'GET' && req.method !== 'HEAD') { rendreLp(405, { ok: false, pourquoi: 'GET only' }); return; }
+    const walletLp = chemin.slice('/api/lp-lock/positions/'.length).toLowerCase();
+    if (!/^0x[0-9a-f]{40}$/.test(walletLp)) { rendreLp(400, { ok: false, pourquoi: 'not a wallet address' }); return; }
+    const eLp = indexLpLock.etat();
+    if (!eLp.actif) { rendreLp(200, { ok: false, pourquoi: 'no LP lock recorded' }); return; }
+    rendreLp(200, { ok: true, lock: eLp.lock, depuis: eLp.depuis, jusqua: eLp.jusqua, aJour: eLp.aJour, lu: eLp.lu, ids: indexLpLock.positionsDe(walletLp) });
+    return;
+  }
   if (chemin === '/api/jeu/journal') {
     const rendreJl = (code, o) => { res.writeHead(code, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' }); res.end(req.method === 'HEAD' ? undefined : JSON.stringify(o)); };
     if (req.method !== 'GET' && req.method !== 'HEAD') { rendreJl(405, { ok: false, pourquoi: 'GET only' }); return; }
@@ -9486,6 +9532,8 @@ function traiterRequete(req, res) {
       buybackKeeper: keeperBuyback.etat(),
       spinDevKeeper: keeperSpinDev.etat(),
       closeKeeper: keeperClose.etat(),
+      /* 2026-11-15 : le keeper du LP lock (OFF et pourquoi / ON / ARRETE, compteurs, attente) et son index (curseur, a jour, positions) ; jamais la cle */
+      lpLockKeeper: keeperLpLock.etat(),
       mcpWidget: widgetHtml !== null, trousCreations: trousCreations.slice(-10), trousRelus: trousRelus.slice(-10), noeuds: etatNoeuds, ...(ok ? {} : { modulesManquants }),
       /* 2026-10-16 : le revenu VERIFIE par recu, par ligne et par devise (unites brutes), externe et interne separes — jamais les hashes.
        *   ⛔ BORNES dites : seules les transactions que le client poste sont vues ; l ETH natif (sans log) n est pas compte. */

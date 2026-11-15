@@ -9,6 +9,10 @@
  *   locks it, locker = holder, the planned liquidity; lireEtat finds it from the logs; extend moves the end by one week; unlock before the
  *   end reverts; after it, unlock simulated from the holder goes through, and both NFTs come back with their liquidity unchanged.
  *   WITNESS: step 2 on the guessed number is refused by the module (another liquidity); approve / lock of a number not owned revert.
+ * (c) 2026-11-15: a wallet holding ONLY TBLOCK: step 0 (planifierEchangePourAjout: exact approvals + the v4 swap TBLOCK -> wtCOIN on the
+ *   same pool through the Universal Router), step 1 re-planned from the balances read after it (cote 'deux'), step 2 on the receipt's
+ *   number; the swap takes exactly the TBLOCK planned and gives the quote; the leftovers of the TBLOCK chosen are printed and must be < 3%
+ *   a side. WITNESS: the same swap asking 1 wei above the quote reverts.
  * NE PROUVE PAS: a wallet's atomic batch (wallet_sendCalls) — here the calls go one by one; a week marked or paid (nobody plays here);
  *   the fees earned (no swaps on the fork); the wtCOIN / TBLOCK the holder lacked were moved to it from the PoolManager ON THE FORK ONLY. */
 import { spawn } from 'node:child_process';
@@ -147,5 +151,63 @@ try {
   E = await A.lireEtat({ rpc, moi: H, ...fenetreFork, candidats: [id1, id2] });
   t('after both exits: nothing locked', E.lockedCount === 0n && E.positions.length === 0);
   await rpc('anvil_stopImpersonatingAccount', [H]);
+
+  /* (c) 2026-11-15 step 0: a wallet holding ONLY TBLOCK. The card's own plans: swap part of it for wtCOIN on the same pool (Universal
+   *   Router + Permit2, exact approvals), then step 1 re-planned from the balances read after the swap (cote 'deux'), then step 2 on the
+   *   number read from step 1's receipt. The wallet is an anvil default account (eth_accounts, unlocked on the fork only). */
+  { /* its own scope: p1 / j / ... below are (c)'s */
+  const C = String((await rpc('eth_accounts'))[3]).toLowerCase();
+  const solde = async (j) => lit(A.VIEW.balanceOf(j, C));
+  const wt0 = await solde(A.WTCOIN);
+  if (wt0 > 0n) await envoyer(C, { to: A.WTCOIN, data: '0xa9059cbb' + A.wAddr(H) + A.wUint(wt0) }); /* any wtCOIN this account holds on Base goes away: TBLOCK only */
+  await rpc('anvil_impersonateAccount', [PMGR]);
+  const TOTAL = 3n * 10n ** 23n; /* 300,000 TBLOCK: about 1.4x the smallest position (about 108,000 TBLOCK a side) */
+  const rt = await envoyer(PMGR, { to: A.TBLOCK, data: '0xa9059cbb' + A.wAddr(C) + A.wUint(TOTAL) });
+  await rpc('anvil_stopImpersonatingAccount', [PMGR]);
+  t('(c) fork top-up: the wallet holds TBLOCK and 0 wtCOIN', rt && rt.status === '0x1' && (await solde(A.WTCOIN)) === 0n && (await solde(A.TBLOCK)) >= TOTAL, String(await solde(A.WTCOIN)));
+  const tb0 = await solde(A.TBLOCK);
+  const sansEchange = await A.planifierAjoutEtLock({ rpc, moi: C, cote: 'tblock', montant: TOTAL, semaines: 4 });
+  t('(c) witness: without step 0 the add is refused for the wtCOIN missing', sansEchange.etat === 'REFUSE' && sansEchange.manque && sansEchange.manque.wtcoin > 0n && !sansEchange.manque.tblock, sansEchange.pourquoi);
+  const p0 = await A.planifierEchangePourAjout({ rpc, moi: C, total: TOTAL });
+  const j = (x) => JSON.stringify(x, (k, v) => (typeof v === 'bigint' ? v.toString() : v));
+  t('(c) step 0 plan ready', p0.etat === 'PRET', j(p0).slice(0, 300));
+  if (p0.etat !== 'PRET') fin(1);
+  console.log('(c) step 0: swap', String(p0.echange), 'TBLOCK of', String(TOTAL), '· quote', String(p0.devis), 'wtCOIN · min', String(p0.sortieMin), '· under the pool price', String(p0.impactBps), 'bps (bound', String(A.IMPACT_MAX_BPS) + ')');
+  t('(c) step 0: approvals then the swap to the Universal Router, exact amount', p0.appels.length === 3 && p0.appels[2].to === A.ROUTEUR_ && p0.appels[0].data.endsWith(A.wUint(p0.echange)));
+  t('(c) step 0 impact read and under the bound', p0.impactBps > 0n && p0.impactBps <= A.IMPACT_MAX_BPS, p0.impactBps);
+  for (const [i, c] of p0.appels.slice(0, -1).entries()) { const r = await envoyer(C, c); t('(c) step 0 approval ' + i + ' (' + p0.etapes[i] + '): status 1', r && r.status === '0x1', r && (r.status || r.why)); }
+  /* WITNESS: the same swap asking 1 wei more than the pool gives reverts (the minimum is enforced on chain, from this wallet) */
+  let temoin = null;
+  try { await rpc('eth_call', [{ from: C, to: A.ROUTEUR_, data: A.echangeCall({ montant: p0.echange, sortieMin: p0.devis + 1n, deadline: p0.deadline }).data }, 'latest']); temoin = 'passed'; } catch (e) { temoin = String(e.message).slice(0, 120); }
+  t('(c) witness: the swap with a minimum 1 wei above the quote reverts', temoin !== 'passed', temoin);
+  const rs = await envoyer(C, p0.appels.at(-1));
+  t('(c) step 0 swap: status 1', rs && rs.status === '0x1', rs && (rs.status || rs.why));
+  const wt1 = await solde(A.WTCOIN), tb1 = await solde(A.TBLOCK);
+  t('(c) step 0 took exactly the TBLOCK planned', tb0 - tb1 === p0.echange, String(tb0 - tb1));
+  t('(c) step 0 gave at least the minimum (and the quote, same state)', wt1 >= p0.sortieMin && wt1 === p0.devis, wt1 + ' vs quote ' + p0.devis);
+  t('(c) step 0 left no allowance to the router (exact amounts consumed)', (await lit(A.VIEW.allowance(A.TBLOCK, C, A.PERMIT2_))) === 0n && A.word(await rpc('eth_call', [A.VIEW.permit2Routeur(C, A.TBLOCK), 'latest']), 0) === 0n);
+  /* step 1: planned AGAIN from the balances read now */
+  const caps = { wtcoin: wt1, tblock: (TOTAL - p0.echange) < tb1 ? TOTAL - p0.echange : tb1 };
+  const p1 = await A.planifierAjoutEtLock({ rpc, moi: C, cote: 'deux', montant: caps, semaines: 4 });
+  t('(c) step 1 re-planned from the balances after the swap: ready', p1.etat === 'PRET', j(p1).slice(0, 300));
+  if (p1.etat !== 'PRET') fin(1);
+  let recu1 = null;
+  for (const [i, c] of p1.appels.entries()) { const r = await envoyer(C, c); recu1 = r; t('(c) step 1 call ' + i + ' (' + p1.etapes[i] + '): status 1', r && r.status === '0x1', r && (r.status || r.why)); }
+  const wt2 = await solde(A.WTCOIN), tb2 = await solde(A.TBLOCK);
+  const lp1 = await A.lirePositionMintee({ rpc, hashes: [recu1 && recu1.transactionHash], moi: C });
+  t('(c) step 2: one number read from step 1\'s receipt', lp1.lus === 1 && lp1.ids.length === 1, j(lp1));
+  const idc = lp1.ids[0];
+  const p2c = A.planLockExistant({ moi: C, tokenId: idc, semaines: 4, nft: await A.lireNft({ rpc, tokenId: idc, moi: C }), liquiditeAttendue: p1.liquidite });
+  t('(c) step 2 plan ready', p2c.etat === 'PRET', p2c.pourquoi);
+  for (const c of p2c.appels) { const r = await envoyer(C, c); t('(c) step 2 call: status 1', r && r.status === '0x1', r && (r.status || r.why)); }
+  t('(c) the position is in the lock, with the planned liquidity >= MIN_L', (await proprio(idc)) === A.LP_LOCK && (await lit(A.VIEW.liquidite(idc))) === p1.liquidite && p1.liquidite >= (await lit(A.VIEW.MIN_L())));
+  /* the leftovers of the TBLOCK chosen: wtCOIN left in the wallet, TBLOCK of the TOTAL not put in */
+  const resteWt = wt2, resteTb = TOTAL - p0.echange - (tb1 - tb2);
+  const pctW = Number((resteWt * 100000n) / wt1) / 1000, pctT = Number((resteTb * 100000n) / TOTAL) / 1000;
+  const valeurReste = resteTb + A.tblockPourWtcoin(resteWt, (await A.lireAjout({ rpc, moi: C })).sqrtPrix);
+  console.log('(c) leftovers: ' + resteWt + ' wtCOIN (' + pctW + '% of the wtCOIN from the swap) + ' + resteTb + ' TBLOCK (' + pctT + '% of the 300,000 TBLOCK chosen); together worth '
+    + valeurReste + ' TBLOCK at the pool price (' + (Number((valeurReste * 100000n) / TOTAL) / 1000) + '% of the TBLOCK chosen)');
+  t('(c) leftovers small: each side under 3% (the 1% price margin and the swap\'s price move)', resteWt >= 0n && resteTb >= 0n && pctW < 3 && pctT < 3, pctW + '% / ' + pctT + '%');
+  }
   fin(ko ? 1 : 0);
 } catch (e) { console.log('KO thrown', e && e.message); ko++; fin(1); }
