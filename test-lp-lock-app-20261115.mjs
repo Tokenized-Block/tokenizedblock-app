@@ -450,7 +450,10 @@ t('the preview says it is reading while it reads', corps.includes("apercu.textCo
 /* game422 — sequential fallback for wallets that cannot batch (Phil 2026-11-15) */
 t('a wallet that cannot batch signs the same calls one by one (no more "nothing was sent")', corps.includes('r = await envoyerUnParUn(cs.map(') && !corps.includes('cannot send these calls as one all-or-nothing batch, so nothing was sent'));
 t('one by one, a step counts as sent only when its LAST call is (no "step 0 done" on an approval)', corps.includes('if (enAttente && derniereEnvoyee)') && corps.includes('>= suite.n - (r && r.etat === \'CONFIRME\' ? 0 : 1)'));
-t('stopped half-way: the message says what went through and the preview is dropped (not a repaint)', corps.includes("' went through first (approvals for this exact amount only, no tokens moved)") && corps.includes('if (faits) planVu = null;'));
+t('stopped half-way: the message says what went through and the preview is dropped (not a repaint)', corps.includes("for this exact amount only, no tokens moved. Preview again to finish.'") && corps.includes('if (faits) planVu = null;'));
+/* game423, found by the fork test (decline at signature 2 of 3): never "nothing was sent" next to "1 went through" */
+t('half-way, the stopped call\'s "nothing was sent" tail is dropped', corps.includes(".replace(/\\s*[—-]\\s*nothing was sent\\.?$/i, '')"));
+t('half-way, the message names the stopped signature (n of N)', corps.includes("'Not done: signature ' + (faits + 1) + ' of ' + suite.n + ' stopped ('"));
 /* the half-way message says "approvals only": true only if every plan puts its swap / add / lock LAST and nothing else moves tokens */
 t('step 0 plan: the swap is the last call', SRC.includes("appels.push(echangeCall({ montant: s, sortieMin: min, deadline })); etapes.push('Swap part of your TBLOCK"));
 t('step 1 plan: the add (mint) is the last call', SRC.includes("appels.push(fige(PM, mint)); etapes.push('Add the liquidity"));

@@ -3764,7 +3764,7 @@ details[open] > summary::before{transform:rotate(90deg)}
       <!-- ⛔ L EMPREINTE EST AFFICHEE, DONC ELLE EST DE L ANGLAIS. `20261001-pont-dans-lui` a fait
            rougir `test-texte-a-l-ecran.mjs` : le mot « dans » est de la prose francaise partie a
            l ecran anglais. La garde a fait son travail du premier coup. -->
-      <p class="note" data-build="20261109-game422" hidden>Build <code>20261109-game422</code> ·Contract labels say what they do, not our internal names.</p>
+      <p class="note" data-build="20261109-game423" hidden>Build <code>20261109-game423</code> ·Contract labels say what they do, not our internal names.</p>
       <p class="sous">Everything happening to blocks on Base, live.</p>
       <!-- tip 0013: sticky — Hooked chip = Dex fees; unhooked → Launch beside. No fee addr. -->
       <p class="note" id="sfHookedSticky" hidden>Blocks alive on TokenizedBlock pay their creator on every trade. Example:<button type="button" class="puce" id="sfStickyTbgas">Open TBGAS</button>.</p>
@@ -33385,8 +33385,14 @@ async function peindreLpLock(hote, { force = false } = {}) {
         } else {
           /* one by one and stopped half-way: say what went through (exact approvals only) and that the next click starts from the chain */
           const faits = suite && Array.isArray(r && r.hashes) ? r.hashes.length : 0;
-          const avant = faits ? ' ' + faits + ' of ' + suite.n + ' went through first (approvals for this exact amount only, no tokens moved); preview again to finish.' : '';
-          dire('Not done: ' + String((r && (r.pourquoi || r.etat)) || 'no answer').slice(0, 160) + avant, 'wKo'); b.disabled = false;
+          /* game423 (fork test, refusal at call 2 of 3): the reason of the STOPPED call ("you declined in your wallet — nothing was sent") was
+           *   glued to "1 of 3 went through", saying both nothing and something was sent. Half-way, the message names the stopped call and
+           *   drops that call's own "nothing was sent" tail. */
+          const raison = String((r && (r.pourquoi || r.etat)) || 'no answer').slice(0, 160);
+          if (faits) dire('Not done: signature ' + (faits + 1) + ' of ' + suite.n + ' stopped (' + raison.replace(/\s*[—-]\s*nothing was sent\.?$/i, '') + '). The '
+            + (faits === 1 ? 'first one' : 'first ' + faits) + ' went through: ' + (faits === 1 ? 'an approval' : 'approvals') + ' for this exact amount only, no tokens moved. Preview again to finish.', 'wKo');
+          else dire('Not done: ' + raison, 'wKo');
+          b.disabled = false;
           if (faits) planVu = null; /* not repainted (the message would vanish): the send buttons ask for a new preview, which reads the chain */
         }
       } catch (err) { dire('Not sent: ' + String((err && err.message) || err).slice(0, 160), 'wKo'); b.disabled = false; }
