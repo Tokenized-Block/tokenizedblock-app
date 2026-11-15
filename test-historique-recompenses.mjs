@@ -52,5 +52,15 @@ casser = (to, s) => to === H.HEARTS && s === H.SEL.currentEpoch;
 t('the vault clock not read: no weeks', (await H.lireVault(rpc)).semaines.length === 0);
 casser = null;
 t('texts: not read is said', H.tb(null) === 'not read' && H.jour(undefined) === 'not read');
+/* realized rate: a week that paid 7 TBLOCK on 100 TBLOCK of played weight = 7 % a week = 7 x 365/7 = 365 % a year at band 1x */
+const E = 10n ** 18n, prix = { tblockUsd: 0.000004, wtcoinUsd: 120 };
+const sem = { etat: 'FERMEE', pot: { tblock: 7n * E, wtcoin: 0n }, poidsJoue: 100n * E };
+t('rate: 7 % in a week = 365 % a year', H.aprRealise(sem, { jours: 7, ...prix }) === 365, H.aprRealise(sem, { jours: 7, ...prix }));
+/* wtCOIN in the pot counts at its own price: 0.000001 wtCOIN = 120e-6 USD = 30 TBLOCK at 0.000004 -> pot 37 TBLOCK-equivalent */
+t('rate: wtCOIN valued at its price', H.aprRealise({ ...sem, pot: { tblock: 7n * E, wtcoin: 10n ** 12n } }, { jours: 7, ...prix }) === 1929.29, H.aprRealise({ ...sem, pot: { tblock: 7n * E, wtcoin: 10n ** 12n } }, { jours: 7, ...prix }));
+t('rate: a running period has none', H.aprRealise({ ...sem, etat: 'EN_COURS' }, { jours: 7, ...prix }) === null);
+t('rate: nobody played -> none (no division by zero)', H.aprRealise({ ...sem, poidsJoue: 0n }, { jours: 7, ...prix }) === null);
+t('rate: a price not read -> none, never a guess', H.aprRealise(sem, { jours: 7, tblockUsd: null, wtcoinUsd: 120 }) === null);
+t('rate: monthly period = 30 days', H.JOURS_PERIODE.mensuel === 30 && H.aprRealise(sem, { jours: 30, ...prix }) === 85.17);
 console.log(ok + '/' + (ok + ko) + (ko ? ' — RED' : ' — green'));
 process.exit(ko ? 1 : 0);

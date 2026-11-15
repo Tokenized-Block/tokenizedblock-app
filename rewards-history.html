@@ -60,23 +60,33 @@ function table(entetes, lignes) {
 }
 const etat = (k) => mk('span', H.ETATS[k] || k, 'etat ' + k);
 const pct = (x) => (x === null ? H.NON_LU : x + '%');
-function peindreLock(box, d, unite) {
+/* today's prices from the app server (TBLOCK on its wtCOIN pool, wtCOIN on the wtCOIN/USDC pools): null if not read -> rate "not read" */
+let PRIX = null;
+async function lirePrix() { try { const j = await fetch('/api/tblock/hold', { cache: 'no-store', signal: AbortSignal.timeout(15000) }).then((x) => x.json()); if (j && j.ok && j.priceNow > 0 && j.wtcoinUsd > 0) PRIX = { tblockUsd: j.priceNow, wtcoinUsd: j.wtcoinUsd }; } catch (_) { PRIX = null; } }
+function taux(p, jours) {
+  if (!(p.etat === 'FERMEE' || p.etat === 'LIBEREE')) return '—';
+  if (!PRIX) return H.NON_LU;
+  const r = H.aprRealise(p, { jours, ...PRIX });
+  return r === null ? (p.poidsJoue === 0n ? 'nobody played' : H.NON_LU) : r + '% a year';
+}
+function peindreLock(box, d, unite, jours) {
   if (d.absent) { box.replaceChildren(mk('p', 'These rewards are not on this network.', 'note')); return; }
   if (!d.periodes.length) { box.replaceChildren(mk('p', 'Not read just now. Reload in a moment.', 'note')); return; }
-  box.replaceChildren(table([unite, 'ends', 'state', 'pot TBLOCK', 'pot wtCOIN', 'claimed TBLOCK', 'weight that played'],
+  box.replaceChildren(table([unite, 'ends', 'state', 'pot TBLOCK', 'pot wtCOIN', 'claimed TBLOCK', 'weight that played', 'paid rate, past'],
     d.periodes.map((p) => [unite + ' ' + p.k, H.jour(p.fin), etat(p.etat), p.pot ? H.tb(p.pot.tblock) : (p.etat === 'EN_COURS' ? 'set at the close' : '—'),
       p.pot ? H.wt(p.pot.wtcoin) : '—', p.reclame ? H.tb(p.reclame.tblock) : (p.etat === 'LIBEREE' ? 'not separable now' : '—'),
-      p.etat === 'EN_COURS' ? (p.poidsJoue === null ? H.NON_LU : 'counting') : pct(H.partJoue(p))])));
+      p.etat === 'EN_COURS' ? (p.poidsJoue === null ? H.NON_LU : 'counting') : pct(H.partJoue(p)), taux(p, jours)])));
+  if (PRIX) box.append(mk('p', 'Paid rate: what a closed ' + unite.toLowerCase() + ' paid to the locks that played, as a yearly rate, for a lock at band 1x (a higher band earns more), valued at today’s prices (1 TBLOCK = $' + PRIX.tblockUsd.toPrecision(3) + ', 1 wtCOIN = $' + PRIX.wtcoinUsd.toFixed(2) + ', read on the TBLOCK/wtCOIN and wtCOIN/USDC pools). It is what was paid, not a promise of the next one.', 'note'));
 }
 async function lire() {
-  const T = await H.lireTout(rpc);
+  const [T] = await Promise.all([H.lireTout(rpc), lirePrix()]);
   const v = T.v, bv = document.getElementById('v');
   if (v.absent) bv.replaceChildren(mk('p', 'The holders vault is not on this network.', 'note'));
   else if (!v.semaines.length) bv.replaceChildren(mk('p', 'Not read just now. Reload in a moment.', 'note'));
   else bv.replaceChildren(table(['week', 'ends', 'state', 'TBLOCK played', 'budget', 'paid'],
     v.semaines.map((s) => ['Week ' + s.e, H.jour(s.fin), etat(s.etat), H.tb(s.joue), s.ferme ? H.tb(s.budget) : (s.etat === 'EN_COURS' ? 'set at the close' : '—'), s.ferme ? H.tb(s.paye) : '—'])));
-  peindreLock(document.getElementById('h'), T.h, 'Week');
-  peindreLock(document.getElementById('r'), T.r, 'Month');
+  peindreLock(document.getElementById('h'), T.h, 'Week', H.JOURS_PERIODE.hebdo);
+  peindreLock(document.getElementById('r'), T.r, 'Month', H.JOURS_PERIODE.mensuel);
   document.getElementById('lu').textContent = 'Read on Base at ' + new Date().toISOString().slice(0, 16).replace('T', ' ') + ' UTC. Contracts: holders vault ' + H.V + ' · weekly ' + H.R2 + ' · monthly ' + H.R + '.';
 }
 lire();

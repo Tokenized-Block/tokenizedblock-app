@@ -86,3 +86,20 @@ export const tb = (x, d = 0) => (x === null || x === undefined ? NON_LU : EP.fmt
 export const wt = (x) => (x === null || x === undefined ? NON_LU : EP.fmt(x, 6) + ' wtCOIN');
 /** a share of the locks' weight that played, in % (one decimal), or null */
 export function partJoue(p) { if (p.poidsJoue === null || p.poidsTotal === null || p.poidsTotal === 0n) return null; return Number((p.poidsJoue * 1000n) / p.poidsTotal) / 10; }
+
+/* 2026-11-15 (Phil: "on sait pas faire de APY reel"): the REALIZED yearly rate of a CLOSED period, for a lock counted at band 1x.
+ *   The market already exists: TBLOCK trades against wtCOIN on its Uniswap v4 pool, wtCOIN against USDC on Aerodrome; the server
+ *   reads both (tblock-hold.js tblockUsdAt, median of the wtCOIN/USDC pools) at GET /api/tblock/hold. No pool to create.
+ *   rate = (pot in USD) / (played weight, in TBLOCK, in USD) x (365 / days of the period). Weight = locked x band, so a lock at band b
+ *   earned b times this. Prices are TODAY's (the period's own prices would need an archive read): said on the page.
+ *   PAST, never a promise. null when anything is missing, the period is not closed, or nobody played (no division by zero). */
+export const JOURS_PERIODE = Object.freeze({ hebdo: 7, mensuel: 30 });
+export function aprRealise(p, { jours, tblockUsd, wtcoinUsd }) {
+  if (!p || !(p.etat === 'FERMEE' || p.etat === 'LIBEREE') || !p.pot || p.poidsJoue === null || p.poidsJoue === undefined || p.poidsJoue <= 0n) return null;
+  if (!(tblockUsd > 0) || !(wtcoinUsd > 0) || !(jours > 0)) return null;
+  const e18 = (x) => Number(x) / 1e18;
+  const potUsd = e18(p.pot.tblock) * tblockUsd + e18(p.pot.wtcoin) * wtcoinUsd;
+  const baseUsd = e18(p.poidsJoue) * tblockUsd;
+  if (!(baseUsd > 0)) return null;
+  return Math.round((potUsd / baseUsd) * (365 / jours) * 10000) / 100;
+}
