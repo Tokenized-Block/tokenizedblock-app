@@ -35,6 +35,8 @@ const PAGES = ['pot.html', 'reclamer.html', 'app.html', 'deploy-v6.html', 'deplo
   'deployer-tblock-buyback-vault.html',
   /* game401: the weekly lock rewards deploy page (lock-weekly.js -> the same imports) */
   'deployer-lock-weekly.html',
+  /* 2026-11-15: the LP lock deploy page (lp-lock.js -> the lock-weekly.js imports + lock-weekly-deploiement.js, etat-naissance.js) */
+  'deployer-lp-lock.html',
   /* game386: the claim page (claim-vue.js -> economie-pack.js, lock.js, create-vault-tip.js, frais-creation.js; envoi.js; holders-vue.js) */
   'claim.html',
   /* game386 task B: the block contest page (block-contest.js, contest-vue.js -> caution-createur.js, hook-7030-descripteur.js, keccak.js; economie-pack.js;
