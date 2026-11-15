@@ -26,7 +26,9 @@ t('newest seed wins', newest([graine, { ...e, fin: { ...e.fin, bloc: e.fin.bloc 
 t('a malformed seed is skipped', newest([{ fin: { bloc: 9e9 } }, graine]) === graine);
 /* the 15/11 lists */
 const noms = new Set(CONTRATS.map((c) => c.nom));
-for (const n of ['Hearts', 'Holders vault', 'Monthly lock rewards', 'Weekly lock rewards', 'TBLOCK lock', 'TAM art', 'Skins mint', 'Skins spin', 'Block contest']) t('counted: ' + n, noms.has(n));
+for (const n of ['Hearts', 'Holders vault', 'Monthly lock rewards', 'Weekly lock rewards', 'TBLOCK lock', 'TAM art', 'Skins mint', 'Skins spin', 'Block contest', 'LP lock']) t('counted: ' + n, noms.has(n));
+/* 2026-11-15: the LP lock counts at its recorded address */
+{ const { LP_LOCK_DEPLOIEMENT: LPR } = await import('./lp-lock-deploiement.js'); const c = CONTRATS.find((x) => x.nom === 'LP lock'); t('LP lock = its deploy record address', !!c && c.adresse === String(LPR.adresse).toLowerCase() && c.jeu === true); }
 const team = new Set(EQUIPE.map((x) => x.adresse));
 for (const a of ['0x1f0eb43b99272e78de0077ff0e38787d6c2bd23c', '0x73f7d0b10a4fcaa75f0055b1a79a273555bdb2f6', '0xb30696174863cb719f5f13c3bffb2b9701f035cb']) t('team: ' + a.slice(0, 8), team.has(a));
 console.log(ok + '/' + (ok + ko) + (ko ? ' RED' : ' green'));

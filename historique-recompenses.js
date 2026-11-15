@@ -10,18 +10,24 @@
 import { selecteur } from './keccak.js';
 import * as EP from './economie-pack.js';
 import * as LW from './lock-weekly-app.js';
+/* 2026-11-15: the LP lock (TBlockLPLock), address from its deploy record (only once the record is final) */
+import { LP_LOCK_DEPLOIEMENT } from './lp-lock-deploiement.js';
 
 const S_ = (sig) => String(selecteur(sig)).replace(/^0x/, '');
 const u = (x) => BigInt(x).toString(16).padStart(64, '0');
 const ADR = /^0x[0-9a-f]{40}$/;
 const adr = (x) => (ADR.test(String(x || '').toLowerCase()) ? String(x).toLowerCase() : null);
 export const V = adr(EP.VAULT), HEARTS = adr(EP.HEARTS), R = adr(EP.REWARDS), R2 = adr(LW.WEEKLY);
+export const LPL = LP_LOCK_DEPLOIEMENT && LP_LOCK_DEPLOIEMENT.pret === true ? adr(LP_LOCK_DEPLOIEMENT.adresse) : null;
 export const MAX_PERIODES = 26;
+/* the LP lock's grace after a week ends (TBlockLPLock MARK_GRACE, 6 days; test-historique-recompenses reads it from the source) */
+export const LPL_GRACE_S = 518400n;
 
 const SEL = Object.freeze({
   epochs: S_('epochs(uint256)'), totalPlayIn: S_('totalPlayIn(uint256)'), currentEpoch: S_('currentEpoch()'), epochEnd: S_('epochEnd(uint256)'),
   pot: S_('pot(uint256)'), left: S_('left(uint256)'), cut: S_('cut(uint256)'), totalWeight: S_('totalWeight(uint256)'), playedWeight: S_('playedWeight(uint256)'),
   closedAt: S_('closedAt(uint256)'), nextEpochToClose: S_('nextEpochToClose()'), nextEpochToRelease: S_('nextEpochToRelease()'),
+  paid: S_('paid(uint256)'), rolledOver: S_('rolledOver(uint256)'), swept: S_('swept(uint256)'),
 });
 export { SEL };
 
@@ -74,13 +80,47 @@ export async function lireLock(rpc, contrat) {
   return { courant, prochain, aLiberer, periodes };
 }
 
+/** the LP lock's weeks, newest first: { courant, semaines: [{ k, fin, pot, paye, poids, reporte, balaye, etat }] }.
+ *   pot = harvested fees + deposits of week k (wtCOIN, TBLOCK); paye = what claims took out of it (paid(k)); poids = the weight that played
+ *   and was counted (totalWeight(k): sum of sqrt(liquidity) x TBLOCK played). A pot rolled to a later week (nobody counted) reads 0 here and
+ *   is said as rolled over. */
+export async function lireLpLock(rpc) {
+  if (!LPL) return { absent: true };
+  const L = lecteur(rpc);
+  const courant = await L.un(LPL, SEL.currentEpoch);
+  if (courant === null) return { courant: null, semaines: [] };
+  let maintenant = null;
+  try { const b = await rpc('eth_getBlockByNumber', ['latest', false]); maintenant = b && b.timestamp ? BigInt(b.timestamp) : null; } catch (_) { maintenant = null; }
+  const semaines = [];
+  for (let k = courant; k >= 0n && semaines.length < MAX_PERIODES; k--) {
+    const [fin, pot, paye, poids, ro, sw] = await Promise.all([L.un(LPL, SEL.epochEnd, u(k)), L.deux(LPL, SEL.pot, u(k)), L.deux(LPL, SEL.paid, u(k)), L.un(LPL, SEL.totalWeight, u(k)),
+      L.un(LPL, SEL.rolledOver, u(k)), L.un(LPL, SEL.swept, u(k))]);
+    const reporte = ro === null ? null : ro === 1n, balaye = sw === null ? null : sw === 1n;
+    let etat;
+    if (k === courant) etat = 'EN_COURS';
+    else if (maintenant === null || fin === null || reporte === null || balaye === null) etat = 'NON_LU';
+    else if (balaye) etat = 'BALAYEE';
+    else if (reporte) etat = 'REPORTEE';
+    else if (maintenant < fin + LPL_GRACE_S) etat = 'COMPTAGE';
+    else etat = 'OUVERTE';
+    semaines.push({ k, fin, pot, paye, poids, reporte, balaye, etat });
+    if (k === 0n) break;
+  }
+  return { courant, semaines };
+}
+
 export async function lireTout(rpc) {
-  const [v, r, h] = await Promise.all([lireVault(rpc), lireLock(rpc, R), lireLock(rpc, R2)]);
-  return { v, r, h };
+  const [v, r, h, lp] = await Promise.all([lireVault(rpc), lireLock(rpc, R), lireLock(rpc, R2), lireLpLock(rpc)]);
+  return { v, r, h, lp };
 }
 
 export const NON_LU = 'not read';
-export const ETATS = Object.freeze({ EN_COURS: 'running', A_FERMER: 'ended, not closed yet', FERMEE: 'closed', LIBEREE: 'closed, unclaimed part back in the stock', NON_LU: 'not read' });
+export const ETATS = Object.freeze({ EN_COURS: 'running', A_FERMER: 'ended, not closed yet', FERMEE: 'closed', LIBEREE: 'closed, unclaimed part back in the stock', NON_LU: 'not read',
+  /* the LP lock's weeks */
+  COMPTAGE: 'ended, counting players (6 days)', OUVERTE: 'claims open', REPORTEE: 'nobody counted: moved to a later week', BALAYEE: 'closed, unclaimed part sent on' });
+/** whether anyone was counted in an LP lock week (totalWeight > 0), or "not read". The raw weight (sqrt(liquidity) x TBLOCK played) means
+ *   nothing to a reader, so it is not shown (review 2026-11-15). A week still in its 6 counting days says "nobody yet", never "nobody". */
+export const poidsLp = (x, etat = null) => (x === null || x === undefined ? NON_LU : x > 0n ? 'yes' : etat === 'COMPTAGE' ? 'nobody yet' : 'nobody');
 export const jour = (s) => (s === null || s === undefined ? NON_LU : new Date(Number(s) * 1000).toISOString().slice(0, 10));
 export const tb = (x, d = 0) => (x === null || x === undefined ? NON_LU : EP.fmt(x, d) + ' TBLOCK');
 export const wt = (x) => (x === null || x === undefined ? NON_LU : EP.fmt(x, 6) + ' wtCOIN');

@@ -44,17 +44,19 @@ th,td{padding:7px 8px;border-bottom:1px solid var(--ligne);text-align:right;whit
 th:first-child,td:first-child{text-align:left}th{color:var(--doux);font-weight:600}
 .etat{font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:99px;border:1px solid var(--ligne);background:var(--fond2);color:var(--doux)}
 .etat.FERMEE{color:var(--vif);border-color:var(--vif)}.etat.EN_COURS{color:var(--accent2);border-color:var(--accent)}.etat.A_FERMER{color:var(--tiede);border-color:var(--tiede)}
+.etat.OUVERTE{color:var(--vif);border-color:var(--vif)}.etat.COMPTAGE{color:var(--tiede);border-color:var(--tiede)}
 </style>
 </head>
 <body>
 <main>
 <p class="note"><a href="/">← Back to the app</a> · <a href="/claim.html">Claim</a></p>
 <h1>Rewards history</h1>
-<p class="note">Every week and month of the three reward contracts, read on Base now. What each one set aside, what was played, what was
+<p class="note">Every week and month of the four reward contracts, read on Base now. What each one set aside, what was played, what was
 claimed. Past figures only: nothing here is a promise of what a later period pays.</p>
 <div class="card"><h2>Holders vault · weekly</h2><p class="note">Each closed week sets aside a budget for its players (read: budget, paid so far, TBLOCK played).</p><div id="v"><p class="note">Reading Base…</p></div></div>
 <div class="card"><h2>Weekly lock rewards</h2><p class="note">Each closed week sets a pot for the joined locks whose holder played and was counted.</p><div id="h"><p class="note">Reading Base…</p></div></div>
 <div class="card"><h2>Monthly lock rewards</h2><p class="note">Each closed month sets a pot for the locks that covered it whole and whose holder played.</p><div id="r"><p class="note">Reading Base…</p></div></div>
+<div class="card"><h2>Liquidity lock · weekly</h2><p class="note">Each week's pot is the trading fees earned by the locked wtCOIN/TBLOCK positions plus any deposit, shared by the lockers who played that week and were counted (each by the square root of their liquidity × TBLOCK played). A week nobody was counted in moves its pot to a later week.</p><div id="lp"><p class="note">Reading Base…</p></div></div>
 <p class="note" id="lu"></p>
 </main>
 <script type="module">
@@ -111,7 +113,14 @@ async function lire() {
     v.semaines.map((s) => ['Week ' + s.e, H.jour(s.fin), etat(s.etat), H.tb(s.joue), s.ferme ? H.tb(s.budget) : (s.etat === 'EN_COURS' ? 'set at the close' : '—'), s.ferme ? H.tb(s.paye) : '—'])));
   peindreLock(document.getElementById('h'), T.h, 'Week', H.JOURS_PERIODE.hebdo);
   peindreLock(document.getElementById('r'), T.r, 'Month', H.JOURS_PERIODE.mensuel);
-  document.getElementById('lu').textContent = 'Read on Base at ' + new Date().toISOString().slice(0, 16).replace('T', ' ') + ' UTC. Contracts: holders vault ' + H.V + ' · weekly ' + H.R2 + ' · monthly ' + H.R + '.';
+  /* 2026-11-15: the liquidity lock's weeks: pot TBLOCK, pot wtCOIN, claimed, weight that played (all read; "not read" otherwise) */
+  const lp = T.lp, blp = document.getElementById('lp');
+  if (lp.absent) blp.replaceChildren(mk('p', 'The liquidity lock is not on this network.', 'note'));
+  else if (!lp.semaines.length) blp.replaceChildren(mk('p', 'Not read just now. Reload in a moment.', 'note'));
+  else blp.replaceChildren(table(['week', 'ends', 'state', 'pot TBLOCK', 'pot wtCOIN', 'claimed TBLOCK', 'claimed wtCOIN', 'anyone counted'],
+    lp.semaines.map((s) => ['Week ' + s.k, H.jour(s.fin), etat(s.etat), s.pot ? H.tb(s.pot.tblock) : H.NON_LU, s.pot ? H.wt(s.pot.wtcoin) : H.NON_LU,
+      s.paye ? H.tb(s.paye.tblock) : H.NON_LU, s.paye ? H.wt(s.paye.wtcoin) : H.NON_LU, s.etat === 'EN_COURS' ? 'counted after the week' : H.poidsLp(s.poids, s.etat)])));
+  document.getElementById('lu').textContent = 'Read on Base at ' + new Date().toISOString().slice(0, 16).replace('T', ' ') + ' UTC. Contracts: holders vault ' + H.V + ' · weekly ' + H.R2 + ' · monthly ' + H.R + (H.LPL ? ' · liquidity lock ' + H.LPL : '') + '.';
 }
 lire();
 </script>

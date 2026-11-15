@@ -34,6 +34,7 @@ import { topic } from './keccak.js';
 import { ADRESSES_PACK_ECONOMIE_V2 } from './economie-v2-pack-deploye.js';
 import { LOCK_DEPLOIEMENT } from './lock-deploiement.js';
 import { LOCK_WEEKLY_DEPLOIEMENT } from './lock-weekly-deploiement.js';
+import { LP_LOCK_DEPLOIEMENT } from './lp-lock-deploiement.js'; /* 2026-11-15: the LP lock, so its lockers count */
 import { TAMART_DEPLOIEMENT } from './tamart-deploiement.js';
 import { SKINS_SPIN_DEPLOIEMENT } from './skins-spin-deploiement.js';
 import { CONTEST_DEPLOIEMENT } from './block-contest-deploiement.js';
@@ -92,6 +93,7 @@ export const CONTRATS = Object.freeze([
     .map(([k, nom]) => ({ nom, adresse: ADRESSES_PACK_ECONOMIE_V2[k], jeu: true })),
   { nom: 'TBLOCK lock', adresse: LOCK_DEPLOIEMENT.adresse, jeu: true },
   { nom: 'Weekly lock rewards', adresse: LOCK_WEEKLY_DEPLOIEMENT.adresse, jeu: true },
+  { nom: 'LP lock', adresse: LP_LOCK_DEPLOIEMENT.pret === true ? LP_LOCK_DEPLOIEMENT.adresse : null, jeu: true },
   { nom: 'TAM art', adresse: TAMART_DEPLOIEMENT.adresse, jeu: true },
   { nom: 'Skins mint', adresse: SKINS_SPIN_DEPLOIEMENT.etapes[0].adresse, jeu: true },
   { nom: 'Skins spin', adresse: SKINS_SPIN_DEPLOIEMENT.etapes[1].adresse, jeu: true },

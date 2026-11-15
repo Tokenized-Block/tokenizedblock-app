@@ -6507,6 +6507,9 @@ const SERVIS = [
   /* 2026-11-15: the LP lock (TBlockLPLock): its unsigned deployment (generated; pret:true after the final audit 2026-11-15, address null until deployed), its pure module (lock-weekly.js
    *   imports + lock-weekly-deploiement.js and etat-naissance.js), its deploy page */
   'deployer-lp-lock.html', 'lp-lock-deploiement.js', 'lp-lock.js',
+  /* 2026-11-15: the LP lock card of the app (pure: reads + unsigned calls; imports keccak.js, lp-lock-deploiement.js, etat-naissance.js,
+   *   pool.js), imported by app.html at the first paint of its card and by historique-recompenses.js */
+  'lp-lock-app.js',
   /* game325: the unsigned deployment of the block contest (generated) and its page */
   'deployer-block-contest.html', 'block-contest-deploiement.js',
   /* the block contest page for users (reads Base, builds unsigned calls for the wallet of the user) and its pure module */

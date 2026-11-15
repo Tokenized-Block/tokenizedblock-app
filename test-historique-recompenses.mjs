@@ -59,6 +59,49 @@ t('rate: 7 % in a week = 365 % a year', H.aprRealise(sem, { jours: 7, ...prix })
 /* wtCOIN in the pot counts at its own price: 0.000001 wtCOIN = 120e-6 USD = 30 TBLOCK at 0.000004 -> pot 37 TBLOCK-equivalent */
 t('rate: wtCOIN valued at its price', H.aprRealise({ ...sem, pot: { tblock: 7n * E, wtcoin: 10n ** 12n } }, { jours: 7, ...prix }) === 1929.29, H.aprRealise({ ...sem, pot: { tblock: 7n * E, wtcoin: 10n ** 12n } }, { jours: 7, ...prix }));
 t('rate: a running period has none', H.aprRealise({ ...sem, etat: 'EN_COURS' }, { jours: 7, ...prix }) === null);
+/* 2026-11-15: the LP lock's weeks (TBlockLPLock): selectors compiled, states from rolledOver / swept / the 6-day grace, a failed read null */
+{
+  const Li = ids('TBlockLPLock');
+  for (const k of ['pot', 'paid', 'totalWeight', 'rolledOver', 'swept', 'currentEpoch', 'epochEnd']) t('LP lock selector ' + k + ' compiled', Li.has(H.SEL[k]));
+  const src = readFileSync(new URL('./contracts/src/TBlockLPLock.sol', import.meta.url), 'utf8');
+  t('LP grace = MARK_GRACE of the source (6 days)', /MARK_GRACE = 6 days;/.test(src) && H.LPL_GRACE_S === 6n * 86400n);
+  const { LP_LOCK_DEPLOIEMENT: LPR } = await import('./lp-lock-deploiement.js');
+  t('LP lock address = its record', H.LPL === String(LPR.adresse).toLowerCase());
+  /* current week 4, now = 10_000_000; week k ends at 10_000_000 - (3 - k) * 604800 - 100: week 3 ended 100 s ago (counting), week 2 open,
+   *   week 1 rolled over, week 0 swept */
+  const NOW = 10_000_000n;
+  let casse = null;
+  const rpcL = async (m, params) => {
+    if (m === 'eth_getBlockByNumber') { if (casse === 'bloc') throw new Error('down'); return { timestamp: '0x' + NOW.toString(16) }; }
+    const c = params[0], s = c.data.slice(2, 10), k = c.data.length > 10 ? BigInt('0x' + c.data.slice(10, 74)) : null;
+    if (c.to !== H.LPL) throw new Error('not modelled');
+    if (casse === s) throw new Error('down');
+    if (s === H.SEL.currentEpoch) return '0x' + w(4);
+    if (s === H.SEL.epochEnd) return '0x' + w(NOW - (3n - k) * 604800n - 100n);
+    if (s === H.SEL.pot) return '0x' + w(k * 10n) + w(k * 1000n);
+    if (s === H.SEL.paid) return '0x' + w(k) + w(k * 100n);
+    if (s === H.SEL.totalWeight) return '0x' + w(k === 1n ? 0n : 5n * 10n ** 18n);
+    if (s === H.SEL.rolledOver) return '0x' + w(k === 1n ? 1 : 0);
+    if (s === H.SEL.swept) return '0x' + w(k === 0n ? 1 : 0);
+    throw new Error('not modelled');
+  };
+  const D = await H.lireLpLock(rpcL);
+  t('LP weeks newest first, 5', D.semaines.map((x) => String(x.k)).join() === '4,3,2,1,0');
+  t('LP states: running, counting, open, rolled over, swept', D.semaines.map((x) => x.etat).join() === 'EN_COURS,COMPTAGE,OUVERTE,REPORTEE,BALAYEE', D.semaines.map((x) => x.etat).join());
+  t('LP week 2: pot 20 wtCOIN-wei + 2000 TBLOCK-wei, claimed 2 + 200, weight 5', D.semaines[2].pot.wtcoin === 20n && D.semaines[2].pot.tblock === 2000n && D.semaines[2].paye.tblock === 200n && D.semaines[2].poids === 5n * 10n ** 18n);
+  t('LP counted texts', H.poidsLp(0n, 'OUVERTE') === 'nobody' && H.poidsLp(null) === 'not read' && H.poidsLp(5n * 10n ** 18n, 'OUVERTE') === 'yes');
+  t('LP: a week still counting with weight 0 says "nobody yet", never "nobody"', H.poidsLp(0n, 'COMPTAGE') === 'nobody yet');
+  t('LP states have English labels', ['COMPTAGE', 'OUVERTE', 'REPORTEE', 'BALAYEE'].every((k) => typeof H.ETATS[k] === 'string' && !/epoch/i.test(H.ETATS[k])));
+  casse = H.SEL.paid;
+  const D2 = await H.lireLpLock(rpcL);
+  t('LP paid() not read: null, never 0', D2.semaines.every((x) => x.paye === null));
+  casse = 'bloc';
+  const D3 = await H.lireLpLock(rpcL);
+  t('LP chain time not read: past weeks NON_LU, never guessed', D3.semaines.slice(1).every((x) => x.etat === 'NON_LU') && D3.semaines[0].etat === 'EN_COURS');
+  casse = H.SEL.currentEpoch;
+  t('LP current week not read: no weeks', (await H.lireLpLock(rpcL)).semaines.length === 0);
+  t('lireTout carries the LP weeks', 'lp' in (await H.lireTout(rpc)));
+}
 t('rate: nobody played -> none (no division by zero)', H.aprRealise({ ...sem, poidsJoue: 0n }, { jours: 7, ...prix }) === null);
 t('rate: a price not read -> none, never a guess', H.aprRealise(sem, { jours: 7, tblockUsd: null, wtcoinUsd: 120 }) === null);
 t('rate: monthly period = 30 days', H.JOURS_PERIODE.mensuel === 30 && H.aprRealise(sem, { jours: 30, ...prix }) === 85.17);
