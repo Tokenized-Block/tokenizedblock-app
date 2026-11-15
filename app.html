@@ -19,16 +19,16 @@
 <meta name="description" content="Make a living block on Base for $5 — born with its own face and brain, and its market opens.">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="TokenizedBlock">
-<meta property="og:title" content="TokenizedBlock — make a living block on Base">
-<meta property="og:description" content="$5: your block is born with its own face and brain, and its market opens.">
+<meta property="og:title" content="TokenizedBlock — a block game on Base">
+<meta property="og:description" content="Roll, run missions, give hearts to blocks, mint math art and lock TBLOCK for weekly rewards. Every move is on Base.">
 <meta property="og:url" content="https://tokenizedblock.space/">
 <meta property="og:image" content="https://tokenizedblock.space/embed.png">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="TokenizedBlock — make a living block on Base">
-<meta name="twitter:description" content="$5: your block is born with its own face and brain, and its market opens.">
+<meta name="twitter:title" content="TokenizedBlock — a block game on Base">
+<meta name="twitter:description" content="Roll, run missions, give hearts to blocks, mint math art and lock TBLOCK for weekly rewards. Every move is on Base.">
 <meta name="twitter:image" content="https://tokenizedblock.space/embed.png">
-<meta name="fc:miniapp" content="{&quot;version&quot;:&quot;1&quot;,&quot;imageUrl&quot;:&quot;https://tokenizedblock.space/embed.png&quot;,&quot;button&quot;:{&quot;title&quot;:&quot;Make a block · 0.001 ETH&quot;,&quot;action&quot;:{&quot;type&quot;:&quot;launch_miniapp&quot;,&quot;url&quot;:&quot;https://tokenizedblock.space/&quot;,&quot;name&quot;:&quot;TokenizedBlock&quot;,&quot;splashImageUrl&quot;:&quot;https://tokenizedblock.space/splash.png&quot;,&quot;splashBackgroundColor&quot;:&quot;#000000&quot;}}}">
-<meta name="fc:frame" content="{&quot;version&quot;:&quot;1&quot;,&quot;imageUrl&quot;:&quot;https://tokenizedblock.space/embed.png&quot;,&quot;button&quot;:{&quot;title&quot;:&quot;Make a block · 0.001 ETH&quot;,&quot;action&quot;:{&quot;type&quot;:&quot;launch_miniapp&quot;,&quot;url&quot;:&quot;https://tokenizedblock.space/&quot;,&quot;name&quot;:&quot;TokenizedBlock&quot;,&quot;splashImageUrl&quot;:&quot;https://tokenizedblock.space/splash.png&quot;,&quot;splashBackgroundColor&quot;:&quot;#000000&quot;}}}">
+<meta name="fc:miniapp" content="{&quot;version&quot;:&quot;1&quot;,&quot;imageUrl&quot;:&quot;https://tokenizedblock.space/embed.png&quot;,&quot;button&quot;:{&quot;title&quot;:&quot;Play&quot;,&quot;action&quot;:{&quot;type&quot;:&quot;launch_miniapp&quot;,&quot;url&quot;:&quot;https://tokenizedblock.space/&quot;,&quot;name&quot;:&quot;TokenizedBlock&quot;,&quot;splashImageUrl&quot;:&quot;https://tokenizedblock.space/splash.png&quot;,&quot;splashBackgroundColor&quot;:&quot;#000000&quot;}}}">
+<meta name="fc:frame" content="{&quot;version&quot;:&quot;1&quot;,&quot;imageUrl&quot;:&quot;https://tokenizedblock.space/embed.png&quot;,&quot;button&quot;:{&quot;title&quot;:&quot;Play&quot;,&quot;action&quot;:{&quot;type&quot;:&quot;launch_miniapp&quot;,&quot;url&quot;:&quot;https://tokenizedblock.space/&quot;,&quot;name&quot;:&quot;TokenizedBlock&quot;,&quot;splashImageUrl&quot;:&quot;https://tokenizedblock.space/splash.png&quot;,&quot;splashBackgroundColor&quot;:&quot;#000000&quot;}}}">
 <!--og:fin-->
 <!-- ══════════════════════════════════════════════════════════════════════════════════════════════
      COQUE NEUVE, MODULES INCHANGES. `index.html` fait 600 Ko et se lit comme un panneau
@@ -3757,7 +3757,7 @@ details[open] > summary::before{transform:rotate(90deg)}
       <!-- ⛔ L EMPREINTE EST AFFICHEE, DONC ELLE EST DE L ANGLAIS. `20261001-pont-dans-lui` a fait
            rougir `test-texte-a-l-ecran.mjs` : le mot « dans » est de la prose francaise partie a
            l ecran anglais. La garde a fait son travail du premier coup. -->
-      <p class="note" data-build="20261109-game411" hidden>Build <code>20261109-game411</code> ·Contract labels say what they do, not our internal names.</p>
+      <p class="note" data-build="20261109-game412" hidden>Build <code>20261109-game411</code> ·Contract labels say what they do, not our internal names.</p>
       <p class="sous">Everything happening to blocks on Base, live.</p>
       <!-- tip 0013: sticky — Hooked chip = Dex fees; unhooked → Launch beside. No fee addr. -->
       <p class="note" id="sfHookedSticky" hidden>Blocks alive on TokenizedBlock pay their creator on every trade. Example:<button type="button" class="puce" id="sfStickyTbgas">Open TBGAS</button>.</p>
@@ -5836,6 +5836,16 @@ function poserBoutonsRolls(t, c) {
   try { void peindrePayerAvec().catch(() => {}); } catch (_) { /* hors de la page (banc) */ }
 }
 async function envoyerAppels(appels, c) {
+  /* 2026-11-15 (growth): every game / economy signature goes through here (29 call sites: rolls, hearts, locks, vault, rewards, TAM,
+   *   skins...). Counted: proposed to the wallet, confirmed, or not confirmed (refused / failed). Counts only, no address. */
+  /* the count never blocks a payment: guarded (benches run this function alone, without etape) */
+  const compte = (nom) => { try { if (typeof etape === 'function') etape(nom); } catch (_) { /* counting is best effort */ } };
+  compte('jeu_sign_propos');
+  const r = await envoyerAppelsSansCompte(appels, c);
+  compte(r && r.etat === 'CONFIRME' ? 'jeu_sign_ok' : 'jeu_sign_refus');
+  return r;
+}
+async function envoyerAppelsSansCompte(appels, c) {
   /* un lot atomique si le wallet groupe (wallet_sendCalls 2.0), sinon chaque appel signe a la suite ; un echec arrete tout et est DIT */
   let r = null;
   try { r = await envoyerLotAtomique({ eth: window.ethereum, rpc, chaineAttendue: CHAINE, compte: c, calls: appels, sansRepliV1: true }); } catch (err) { r = { etat: 'ECHEC_ENVOI', pourquoi: String((err && err.message) || err) }; }
@@ -30237,7 +30247,11 @@ function bcBoutons(m, liste) {
   }
   m.append(d);
 }
+/* 2026-11-15 (growth: "where do visitors stop?"): a panel view opened counts once per session. Literal names, so test-etapes-comptees
+ *   sees each one in the server whitelist. */
+const VUES_COMPTEES = { chat: 'vue_chat', market: 'vue_market', trade: 'vue_trade', brain: 'vue_brain', bank: 'vue_bank' };
 function bcVue(nom) {
+  if (VUES_COMPTEES[nom]) etape(VUES_COMPTEES[nom], true);
   for (const b of document.querySelectorAll('#bcPanneau [data-bc]')) b.setAttribute('aria-selected', String(b.getAttribute('data-bc') === nom));
   for (const v of document.querySelectorAll('#bcPanneau .bcVue')) v.classList.toggle('on', v.id === 'bc-' + nom);
 }

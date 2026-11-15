@@ -63,7 +63,8 @@ export function blocPayer(t) {
   return t.slice(i, t.indexOf('\n', j) + 1);
 }
 const ligneConst = (t, debut) => { const i = t.indexOf('\n' + debut); return i < 0 ? '' : t.slice(i + 1, t.indexOf('\n', i + 1) + 1); };
-const FLUX = ['rollPaye', 'passPaye', 'autoRollLot', 'slotsAgir', 'envoyerAppels', 'envoyerUnParUn', 'recusLogs', 'phraseNonConfirme', 'phraseSettle'];
+/* 2026-11-15: envoyerAppels now counts and delegates to envoyerAppelsSansCompte (the former body): both are extracted */
+const FLUX = ['rollPaye', 'passPaye', 'autoRollLot', 'slotsAgir', 'envoyerAppels', 'envoyerAppelsSansCompte', 'envoyerUnParUn', 'recusLogs', 'phraseNonConfirme', 'phraseSettle'];
 
 /* setTimeout immediat pour les attentes d envoi.js / groupe-wallet.js (pause 1,5 s x N) : macrotache, donc une promesse deja resolue
  *   gagne toujours la course contre un delai (avecDelai) */

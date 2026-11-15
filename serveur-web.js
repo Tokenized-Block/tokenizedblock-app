@@ -1379,17 +1379,39 @@ async function rpcHistoire(methode, params) {
 let moteurUsageSrv = null;
 let usageGraineErreur = null;
 const USAGE_PAS_MS = 10 * 60 * 1000;
+/* 2026-11-15: the engine's progress is kept on the volume and the NEWEST valid seed wins (volume state, then the published measures).
+ *   Before, every deploy restarted from the 27/10 seed and the 20 000-blocks-per-10-min catch-up never reached the head (Base at
+ *   0.2 s per block): /api/usage still said 27/10 on 15/11. */
+const FICHIER_USAGE_ETAT = (process.env.RAILWAY_VOLUME_MOUNT_PATH || (existsSync('/data') ? '/data' : null))
+  ? join(process.env.RAILWAY_VOLUME_MOUNT_PATH || '/data', 'usage-etat.json') : null;
+const USAGE_GRAINES = ['usage-onchain-20261115.json', 'usage-onchain-20261027.json'];
+let usageSauveFin = 0;
+function graineUsage() {
+  const ok = (g) => g && Array.isArray(g.lignes) && g.fin && Number.isInteger(g.fin.bloc);
+  const candidats = [];
+  if (FICHIER_USAGE_ETAT && existsSync(FICHIER_USAGE_ETAT)) { try { const g = JSON.parse(readFileSync(FICHIER_USAGE_ETAT, 'utf8')); if (ok(g)) candidats.push(g); } catch (_) { /* a broken state file falls back to the published seeds */ } }
+  for (const f of USAGE_GRAINES) { try { const g = JSON.parse(readFileSync(join(ici, 'mesures', f) /* module-level `ici` (read at call time) */, 'utf8')); if (ok(g)) candidats.push(g); } catch (_) { /* absent seed: next one */ } }
+  if (!candidats.length) throw new Error('seed malformed or absent');
+  return candidats.sort((a, b) => b.fin.bloc - a.fin.bloc)[0];
+}
 function usageServeur() {
   if (!moteurUsageSrv && !usageGraineErreur) {
     try {
-      const graine = JSON.parse(readFileSync(join(ici, 'mesures', 'usage-onchain-20261027.json') /* module-level `ici` (read at call time): no import.meta here, benches eval this stretch as a script */, 'utf8'));
-      if (!graine || !Array.isArray(graine.lignes) || !graine.fin || !Number.isInteger(graine.fin.bloc)) throw new Error('seed malformed');
+      const graine = graineUsage();
       moteurUsageSrv = moteurUsage({ rpc: rpcServeur, graine,
         prixEth: async () => { try { const p = await prixEthUsd({ rpc: rpcServeur, stateView: STATE_VIEW_USAGE }); return p && p.etat === 'LU' ? p.usd : null; } catch (_) { return null; } } });
+      usageSauveFin = graine.fin.bloc;
     } catch (e) { usageGraineErreur = String((e && e.message) || e).slice(0, 120); }
   }
   if (!moteurUsageSrv) return { ok: false, pourquoi: 'usage seed not readable: ' + usageGraineErreur };
-  if (Date.now() - moteurUsageSrv.etat.lu > USAGE_PAS_MS && !moteurUsageSrv.etat.enCours) moteurUsageSrv.avancer();
+  if (Date.now() - moteurUsageSrv.etat.lu > USAGE_PAS_MS && !moteurUsageSrv.etat.enCours) {
+    moteurUsageSrv.avancer().then(() => {
+      /* save only real progress, atomically (tmp + rename): a half-written file must never become the next seed */
+      if (!FICHIER_USAGE_ETAT || moteurUsageSrv.etat.fin <= usageSauveFin) return;
+      try { const tmp = FICHIER_USAGE_ETAT + '.tmp'; writeFileSync(tmp, JSON.stringify(moteurUsageSrv.exporter())); renameSync(tmp, FICHIER_USAGE_ETAT); usageSauveFin = moteurUsageSrv.etat.fin; }
+      catch (_) { /* volume not writable: the counts stay correct, only the restart point is older */ }
+    });
+  }
   return moteurUsageSrv.resume();
 }
 /* BlockMissions : l etat lu par le verifier. rpcServeur d abord (base.org sert l etat a -24 h, sonde du 2026-10-17) ; un eth_call
@@ -5146,6 +5168,10 @@ const ETAPES_ENTONNOIR = [
   'message_clic', 'message_refus_wallet', 'message_refus_solde',
   'envoi_clic', 'envoi_refus_wallet', 'envoi_refus_solde',
   'envoi_sign_propos', 'envoi_ok', 'envoi_sign_refus',
+  /* 2026-11-15 (growth): the game had no step at all — visits were counted, then nothing until a chain tx (none outside the team
+   *   since 27/10). Panel views (once per session) and every game / economy signature (envoyerAppels). */
+  'vue_chat', 'vue_market', 'vue_trade', 'vue_brain', 'vue_bank',
+  'jeu_sign_propos', 'jeu_sign_ok', 'jeu_sign_refus',
 ];
 /* ⛔ PERSISTANT (Phil, 2026-09-19 : « oui cree le volume ») : mesure — les compteurs repartaient de zero a CHAQUE deploiement
  *    (10 deploiements ce jour-la : aucun chiffre ne survivait). Volume Railway monte sur /data : lu au demarrage, ecrit

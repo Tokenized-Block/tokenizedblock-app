@@ -14,6 +14,11 @@ t('no "Quote = B20 " chip left', !/'Quote = B20 '/.test(APP));
 t('review recap: $5, TBLOCK first, no 0.001 ETH line', /\? \['Price: \$5 in all, TBLOCK first — your wallet shows each exact request'\]\n\s+: \['Price: \$5 in all, TBLOCK first — your wallet shows each exact request'\]\)\] : \[\];/.test(APP)
   && !/'Create \+ 0\.001 ETH \(your wallet shows the exact request\)'/.test(APP) && !/'Instant Birth = create \+ open fee 0\.001 ETH/.test(APP));
 t('Create button: $5 (game365: the choice card that said "$5, TBLOCK first" is gone)', APP.includes('Connect wallet → review → Instant Birth · $5') && !/born and brought to life for \$5, TBLOCK first/.test(APP));
-t('share cards (meta, og, twitter) say $5', /name="description" content="Make a living block on Base for \$5 —/.test(APP) && /og:description" content="\$5: your block is born/.test(APP) && /twitter:description" content="\$5: your block is born/.test(APP));
+/* 2026-11-15 (Phil: "ok pour le jeu"): the social cards now present the GAME (og / twitter / Farcaster embed button "Play"); the page
+ *   description keeps the $5 creation price. What must never come back: the stale 0.001 ETH in any share card or embed button. */
+t('share cards: $5 in the page description, the game in og / twitter, no 0.001 ETH in any card or embed button',
+  /name="description" content="Make a living block on Base for \$5 —/.test(APP)
+  && /og:description" content="Roll, run missions/.test(APP) && /twitter:description" content="Roll, run missions/.test(APP)
+  && !/0\.001 ETH/.test((APP.match(/<meta[^>]+>/g) || []).join('\n')));
 console.log(ok + '/' + (ok + ko) + (ko ? ' — RED' : ' — green'));
 process.exit(ko ? 1 : 0);

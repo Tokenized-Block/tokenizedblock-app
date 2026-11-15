@@ -29,6 +29,14 @@ import { DESCRIPTEUR_7030 } from './hook-7030-descripteur.js';
 import { WETH_BASE } from './plan-eth-block.js';
 import { payeurDe, TOPICS_SWAP } from './revenu-externe.js';
 import { topic } from './keccak.js';
+/* 2026-11-15: the economy surface shipped after 27/10 (hearts, vault, lock rewards, lock, TAM art, skins mint / spin, block contest)
+ *   was missing from CONTRATS: its users were not counted at all (census of 15/11: 9 contracts, 35 txs since 27/10). */
+import { ADRESSES_PACK_ECONOMIE_V2 } from './economie-v2-pack-deploye.js';
+import { LOCK_DEPLOIEMENT } from './lock-deploiement.js';
+import { LOCK_WEEKLY_DEPLOIEMENT } from './lock-weekly-deploiement.js';
+import { TAMART_DEPLOIEMENT } from './tamart-deploiement.js';
+import { SKINS_SPIN_DEPLOIEMENT } from './skins-spin-deploiement.js';
+import { CONTEST_DEPLOIEMENT } from './block-contest-deploiement.js';
 
 const bas = (a) => String(a || '').toLowerCase();
 const ADR = /^0x[0-9a-f]{40}$/;
@@ -80,6 +88,14 @@ export const CONTRATS = Object.freeze([
   { nom: 'Missions rail', adresse: '0xc045c1f2eb5dd8cb976bbb31e84f99728b6b2514', jeu: true }, /* missions-deploiement.js, factory comment */
   { nom: 'CreateRouter', adresse: CREATE_ROUTER, jeu: true },
   ...ROUTEURS_ANCIENS.map((a, i) => ({ nom: 'CreateRouter old ' + (i + 1), adresse: a, jeu: true })),
+  ...Object.entries({ L: 'Hearts', P: 'Economy pack P', T: 'Economy pack T', S: 'Economy pack S', V: 'Holders vault', R: 'Monthly lock rewards' })
+    .map(([k, nom]) => ({ nom, adresse: ADRESSES_PACK_ECONOMIE_V2[k], jeu: true })),
+  { nom: 'TBLOCK lock', adresse: LOCK_DEPLOIEMENT.adresse, jeu: true },
+  { nom: 'Weekly lock rewards', adresse: LOCK_WEEKLY_DEPLOIEMENT.adresse, jeu: true },
+  { nom: 'TAM art', adresse: TAMART_DEPLOIEMENT.adresse, jeu: true },
+  { nom: 'Skins mint', adresse: SKINS_SPIN_DEPLOIEMENT.etapes[0].adresse, jeu: true },
+  { nom: 'Skins spin', adresse: SKINS_SPIN_DEPLOIEMENT.etapes[1].adresse, jeu: true },
+  { nom: 'Block contest', adresse: CONTEST_DEPLOIEMENT.adresse, jeu: true },
 ].filter((c) => ADR.test(bas(c.adresse))).map((c) => Object.freeze({ ...c, adresse: bas(c.adresse) })));
 
 /** Our hooks (tokenomics.js + the 7030 descriptor). A pool counts as ours iff its PoolKey.hooks is one of these. */
@@ -99,6 +115,12 @@ export const EQUIPE = Object.freeze([
   /* 2026-10-27, owner in chat: "oui a moi" — the Block 0 creator is the owner's own wallet (access lost after a bug). Address copied
    *   from mesures/usage-onchain-20261027.json, never typed from memory. */
   { nom: 'owner wallet (Block 0 creator, access lost)', adresse: '0xaf8e0a44496a6b90da03fbadd9daec875fc3e2a6' },
+  /* 2026-11-15: the gas-only keeper key (buyback, spin dev payout, close keeper): its 200 USD payout of 13/11 was counted as outside
+   *   volume. Address copied from /sante closeKeeper.adresse, never typed from memory. */
+  { nom: 'keeper key (gas only)', adresse: '0x1f0eb43b99272e78de0077ff0e38787d6c2bd23c' },
+  /* 2026-11-15, owner in chat: "oui c'est moi" for the two big lockers. Copied from tools/recensement-nouveaux.mjs --list output. */
+  { nom: 'owner wallet (locker 5.56 M)', adresse: '0x73f7d0b10a4fcaa75f0055b1a79a273555bdb2f6' },
+  { nom: 'owner wallet (locker 5 M)', adresse: '0xb30696174863cb719f5f13c3bffb2b9701f035cb' },
 ]);
 
 /** Stables priced at face value (USD). AUDF is an AUD stable: NOT converted, reported apart. */
@@ -356,6 +378,12 @@ export function moteurUsage({ rpc, graine, prixEth = async () => null, fenetre =
   }
   return {
     etat,
+    /** 2026-11-15: the engine's state as a seed (same shape the engine reads: lignes, fin, poolsSurNosHooks, nonLus), so the server
+     *  can keep its progress across deploys instead of restarting from the 27/10 seed every time (measured: stuck 19 days). */
+    exporter() {
+      return { mesure: 'usage-onchain.js engine state', fin: { bloc: etat.fin, ts: etat.finTs, iso: etat.finTs ? new Date(etat.finTs * 1000).toISOString() : null },
+        poolsSurNosHooks: [...etat.pools].map(([id, p]) => ({ id, c0: p.c0, c1: p.c1, hook: p.hook })), nonLus: etat.nonLus, lignes: [...etat.lignes.values()] };
+    },
     /** one catch-up step at a time (concurrent callers share it) */
     avancer() {
       if (!etat.enCours) {
