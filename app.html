@@ -10,7 +10,7 @@
      /?block=0x… (symbole + face gravee du block) ; ne pas renommer les marqueurs. -->
 <!-- ⛔ REFERENCEMENT (Phil, 2026-09-19 : « attrape ceux qui tapent juste tokenizedblock ») : alternateName associe les
      graphies que les gens tapent au site. Le canonical est DANS le bloc og (le serveur le reecrit pour /?block=). -->
-<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"WebSite","@id":"https://tokenizedblock.space/#site","url":"https://tokenizedblock.space/","name":"TokenizedBlock","alternateName":["Tokenized Block","tokenizedblock","Tokenized-Block","tokenized block app","TBLOCK"],"publisher":{"@id":"https://tokenizedblock.space/#org"}},{"@type":"Organization","@id":"https://tokenizedblock.space/#org","name":"TokenizedBlock","url":"https://tokenizedblock.space/","founder":{"@id":"https://tokenizedblock.space/#founder"},"sameAs":["https://x.com/Clansy314495853"]},{"@type":"Person","@id":"https://tokenizedblock.space/#founder","name":"Clansy","alternateName":"@Clansy314495853","url":"https://x.com/Clansy314495853","sameAs":["https://x.com/Clansy314495853"],"jobTitle":"Founder of TokenizedBlock"},{"@type":"WebApplication","@id":"https://tokenizedblock.space/#app","url":"https://tokenizedblock.space/","name":"TokenizedBlock","applicationCategory":"FinanceApplication","operatingSystem":"Web","isPartOf":{"@id":"https://tokenizedblock.space/#site"},"creator":{"@id":"https://tokenizedblock.space/#founder"},"publisher":{"@id":"https://tokenizedblock.space/#org"},"description":"Make a tokenized block on Base: its own face and a small brain, born for about $1, with its market open. Blocks can be paired with Coinbase tokenized stocks. Every block lives on a shared map. Founded by Clansy (@Clansy314495853)."}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"WebSite","@id":"https://tokenizedblock.space/#site","url":"https://tokenizedblock.space/","name":"TokenizedBlock","alternateName":["Tokenized Block","tokenizedblock","Tokenized-Block","tokenized block app","TBLOCK"],"publisher":{"@id":"https://tokenizedblock.space/#org"}},{"@type":"Organization","@id":"https://tokenizedblock.space/#org","name":"TokenizedBlock","url":"https://tokenizedblock.space/","founder":{"@id":"https://tokenizedblock.space/#founder"},"identifier":{"@type":"PropertyValue","propertyID":"Base Builder Code","value":"bc_yjpkqm2o"},"sameAs":["https://x.com/Clansy314495853"]},{"@type":"Person","@id":"https://tokenizedblock.space/#founder","name":"Clansy","alternateName":"@Clansy314495853","url":"https://x.com/Clansy314495853","sameAs":["https://x.com/Clansy314495853"],"jobTitle":"Founder of TokenizedBlock"},{"@type":"WebApplication","@id":"https://tokenizedblock.space/#app","url":"https://tokenizedblock.space/","name":"TokenizedBlock","applicationCategory":"FinanceApplication","operatingSystem":"Web","isPartOf":{"@id":"https://tokenizedblock.space/#site"},"creator":{"@id":"https://tokenizedblock.space/#founder"},"publisher":{"@id":"https://tokenizedblock.space/#org"},"description":"Make a tokenized block on Base: its own face and a small brain, born for about $1, with its market open. Blocks can be paired with Coinbase tokenized stocks. Every block lives on a shared map. Founded by Clansy (@Clansy314495853)."}]}</script>
 <meta name="author" content="Clansy (@Clansy314495853)">
 <meta name="twitter:creator" content="@Clansy314495853">
 <link rel="author" href="https://x.com/Clansy314495853">
@@ -3331,6 +3331,10 @@ details[open] > summary::before{transform:rotate(90deg)}
       <p class="sous">TokenizedBlock was founded by <b>Clansy</b> —
         <a href="https://x.com/Clansy314495853" target="_blank" rel="noopener author">@Clansy314495853 on X</a>.
         Blocks live on Base, and can be paired with Coinbase tokenized stocks.</p>
+      <!-- game422 (Phil 2026-11-15): the app's Base Builder Code next to the founder, so people find it. MUST equal envoi.js BUILDER_CODE
+           (test-builder-code-20261115.mjs checks it): every transaction this app prepares ends with it (ERC-8021). -->
+      <p class="sous" id="lBuilderCode">On Base, find us by our Builder Code <b><code>bc_yjpkqm2o</code></b>: every transaction this app prepares carries it,
+        so Base counts that activity for TokenizedBlock. <a href="https://docs.base.org/specifications/builder-codes/overview" target="_blank" rel="noopener">What is a Builder Code →</a></p>
     </div>
    </div>
   </section>
@@ -3760,7 +3764,7 @@ details[open] > summary::before{transform:rotate(90deg)}
       <!-- ⛔ L EMPREINTE EST AFFICHEE, DONC ELLE EST DE L ANGLAIS. `20261001-pont-dans-lui` a fait
            rougir `test-texte-a-l-ecran.mjs` : le mot « dans » est de la prose francaise partie a
            l ecran anglais. La garde a fait son travail du premier coup. -->
-      <p class="note" data-build="20261109-game421" hidden>Build <code>20261109-game421</code> ·Contract labels say what they do, not our internal names.</p>
+      <p class="note" data-build="20261109-game422" hidden>Build <code>20261109-game422</code> ·Contract labels say what they do, not our internal names.</p>
       <p class="sous">Everything happening to blocks on Base, live.</p>
       <!-- tip 0013: sticky — Hooked chip = Dex fees; unhooked → Launch beside. No fee addr. -->
       <p class="note" id="sfHookedSticky" hidden>Blocks alive on TokenizedBlock pay their creator on every trade. Example:<button type="button" class="puce" id="sfStickyTbgas">Open TBGAS</button>.</p>
@@ -33351,21 +33355,40 @@ async function peindreLpLock(hote, { force = false } = {}) {
       dire('Waiting for your wallet: ' + attente + '…');
       try {
         let r;
+        /* game422 (Phil 2026-11-15: "ajoute le repli sequentiel pour les wallets EOA"): a wallet that cannot batch signs the SAME calls one
+         *   after the other (envoyerUnParUn: stops at the first refusal or failure, keeps every confirmed hash). Each call stands alone:
+         *   approvals are for the exact amount (Permit2's for 1 hour), the swap has its minimum out, the add its 2% bound. A stop half-way
+         *   leaves at most an exact approval, never tokens away: the next click plans again from what the chain says. */
+        let suite = null;
         if (atomique) {
           compter('jeu_sign_propos');
           try { r = await envoyerLotAtomique({ eth: window.ethereum, rpc, chaineAttendue: CHAINE, compte, calls: cs.map((x) => ({ to: x.to, data: x.data, value: x.value })), sansRepliV1: true }); }
           catch (err) { r = { etat: 'ECHEC_ENVOI', pourquoi: String((err && err.message) || err) }; }
+          if (r && r.sendCallsUnsupported) {
+            suite = { n: cs.length };
+            dire('Your wallet signs one call at a time: ' + cs.length + (cs.length === 1 ? ' signature' : ' signatures, in order') + '. Keep this page open until the last one.');
+            r = await envoyerUnParUn(cs.map((x) => ({ to: x.to, data: x.data, value: x.value })), compte);
+          }
           compter(r && r.etat === 'CONFIRME' ? 'jeu_sign_ok' : 'jeu_sign_refus');
-          if (r && r.sendCallsUnsupported) { dire('Your wallet cannot send these calls as one all-or-nothing batch, so nothing was sent. A wallet that batches (for example a Base or Coinbase smart wallet) can do it in one signature.', 'wKo'); b.disabled = false; return; }
         } else r = await envoyerAppels(cs.map((x) => ({ to: x.to, data: x.data, value: x.value })), compte);
+        /* one by one, a step is DONE only when its LAST call is: an approval confirmed alone is not "step 0 done" (the swap never left) */
+        const derniereEnvoyee = !suite || (Array.isArray(r && r.hashes) ? r.hashes.length : 0) >= suite.n - (r && r.etat === 'CONFIRME' ? 0 : 1);
+        if (r && r.etat === 'CONFIRME' && suite && r.hashes.length < suite.n) r = { ...r, etat: 'PARTIEL' };
         if (r && r.etat === 'CONFIRME') { if (apres) { try { await apres(r); } catch (_) { /* the card is read again anyway */ } } dire(fait, 'wOk'); b.hidden = true; relire(); }
         else if (r && (r.etat === 'EN_ATTENTE' || r.etat === 'PARTIEL')) {
           /* sent (or partly applied): the button stays OFF — a second click would send it again */
           if (r.hash) lplEtat.enAttente = { pour: moi, hash: r.hash, jusqua: Date.now() + 30 * 60000 };
-          if (enAttente) { try { enAttente(r); } catch (_) { /* best effort */ } }
+          /* only the step's LAST call pending is recorded as the step sent; an approval pending half-way is not (re-planned at the next click) */
+          if (enAttente && derniereEnvoyee) { try { enAttente(r); } catch (_) { /* best effort */ } }
           dire(phraseNonConfirme(r, 'Not done'), 'wKo');
           setTimeout(() => { void peindreLpLock(hote, { force: true }); }, 60000);
-        } else { dire('Not done: ' + String((r && (r.pourquoi || r.etat)) || 'no answer').slice(0, 160), 'wKo'); b.disabled = false; }
+        } else {
+          /* one by one and stopped half-way: say what went through (exact approvals only) and that the next click starts from the chain */
+          const faits = suite && Array.isArray(r && r.hashes) ? r.hashes.length : 0;
+          const avant = faits ? ' ' + faits + ' of ' + suite.n + ' went through first (approvals for this exact amount only, no tokens moved); preview again to finish.' : '';
+          dire('Not done: ' + String((r && (r.pourquoi || r.etat)) || 'no answer').slice(0, 160) + avant, 'wKo'); b.disabled = false;
+          if (faits) planVu = null; /* not repainted (the message would vanish): the send buttons ask for a new preview, which reads the chain */
+        }
       } catch (err) { dire('Not sent: ' + String((err && err.message) || err).slice(0, 160), 'wKo'); b.disabled = false; }
     });
     box.append(b); return b;
@@ -33586,15 +33609,15 @@ async function peindreLpLock(hote, { force = false } = {}) {
       if (planVu.etape === 0) {
         apercu.textContent = 'Step 0 of 3 swaps ' + tb(planVu.echange) + ' of your ' + tb(planVu.total) + ' for at least ' + wt(planVu.sortieMin) + ' on the wtCOIN/TBLOCK pool (quoted ' + wt(planVu.devis) + ': '
           + pctBps(planVu.impactBps) + ' under the pool price, the pool fee and its hook’s cut included; this card refuses a swap more than ' + pctBps(planVu.impactMaxBps) + ' under it). '
-          + planVu.appels.length + (planVu.appels.length === 1 ? ' call' : ' calls') + ' in one signature: ' + planVu.etapes.join('; ') + '. Then step 1 adds about ' + wt(planVu.ajoutPrevu.besoin.wtcoin) + ' + ' + tb(planVu.ajoutPrevu.besoin.tblock)
-          + ' as a new position in your wallet (planned again once the swap is read), and step 2 locks it for ' + w + ' weeks: three signatures. About 1% of each token, and any wtCOIN the swap gives above its minimum, stays in your wallet.';
+          + planVu.appels.length + (planVu.appels.length === 1 ? ' call: ' : ' calls, one signature if your wallet batches them, else one each: ') + planVu.etapes.join('; ') + '. Then step 1 adds about ' + wt(planVu.ajoutPrevu.besoin.wtcoin) + ' + ' + tb(planVu.ajoutPrevu.besoin.tblock)
+          + ' as a new position in your wallet (planned again once the swap is read), and step 2 locks it for ' + w + ' weeks: three steps. About 1% of each token, and any wtCOIN the swap gives above its minimum, stays in your wallet.';
         envoiEchange.hidden = false; envoi.hidden = true;
       } else {
         const fenetre = planVu.premiereSemaine !== null && planVu.premiereSemaine !== undefined
           ? 'it counts ' + sem(planVu.premiereSemaine) + ' to ' + sem(planVu.premiereSemaine + w - 1n) + ' and comes back on about ' + quand(planVu.retourS)
           : 'its dates were not read';
         apercu.textContent = 'Step 1 puts in at most ' + wt(planVu.max.wtcoin) + ' + ' + tb(planVu.max.tblock) + ' (the pool takes what the price needs, about ' + wt(planVu.besoin.wtcoin) + ' + ' + tb(planVu.besoin.tblock)
-          + '; step 1 does not go through if the price moves more than about 2% before it lands). It becomes a new position in your wallet (' + planVu.appels.length + (planVu.appels.length === 1 ? ' call' : ' calls') + ' in one signature: ' + planVu.etapes.join('; ')
+          + '; step 1 does not go through if the price moves more than about 2% before it lands). It becomes a new position in your wallet (' + planVu.appels.length + (planVu.appels.length === 1 ? ' call: ' : ' calls, one signature if your wallet batches them, else one each: ') + planVu.etapes.join('; ')
           + '). Step 2 then locks it for ' + w + ' weeks: if locked this week, ' + fenetre + '.';
         envoi.hidden = false; envoiEchange.hidden = true;
       }

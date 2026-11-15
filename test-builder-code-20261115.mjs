@@ -40,5 +40,13 @@ await E.envoyerLotAtomique({ eth, rpc, chaineAttendue: 8453, compte: '0x' + 'ab'
 const lot = vu.find((x) => x.method === 'wallet_sendCalls');
 t('batch: a call with data carries the suffix, a plain ETH call does not', lot && lot.params[0].calls[0].data === D + E.suffixeBuilderCode() && lot.params[0].calls[1].data === '0x', lot && JSON.stringify(lot.params[0].calls));
 t('batch: no capability field added (old wallets could refuse an unknown one)', lot && !('capabilities' in lot.params[0]));
+/* game422: the code SHOWN in the app (Who made this, JSON-LD) is the code SENT — a shown code that differs would send people to the wrong project */
+const { readFileSync: lireApp } = await import('node:fs');
+const APP = lireApp(new URL('./app.html', import.meta.url), 'utf8');
+const montre = (APP.match(/id="lBuilderCode"[\s\S]*?<code>(bc_[a-z0-9]+)<\/code>/) || [])[1];
+const ld = (APP.match(/"propertyID":"Base Builder Code","value":"(bc_[a-z0-9]+)"/) || [])[1];
+t('the app shows its Builder Code next to the founder', !!montre && APP.indexOf('id="lBuilderCode"') > APP.indexOf('id="lFondateur"'));
+t('the code shown is the code every send carries (envoi.js BUILDER_CODE)', montre === E.BUILDER_CODE, montre);
+t('the JSON-LD names the same code', ld === E.BUILDER_CODE, ld);
 console.log(ok + '/' + (ok + ko) + (ko ? ' RED' : ' green'));
 process.exit(ko ? 1 : 0);

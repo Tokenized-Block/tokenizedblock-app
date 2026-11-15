@@ -447,5 +447,13 @@ t('each card replacement after a read resets the "being filled" mark (' + remisA
 t('the disconnected view forgets the wallet it was painted for', corps.includes("if (!compte) { lplEtat.pour = null; hote.dataset.compte = ''; hote.dataset.saisie = '';"));
 t('0 wtCOIN and some TBLOCK: the side starts on TBLOCK', corps.includes("if (E.soldes && E.soldes.wtcoin === 0n && E.soldes.tblock > 0n) cote.value = 'tblock';"));
 t('the preview says it is reading while it reads', corps.includes("apercu.textContent = 'Reading the pool'"));
+/* game422 — sequential fallback for wallets that cannot batch (Phil 2026-11-15) */
+t('a wallet that cannot batch signs the same calls one by one (no more "nothing was sent")', corps.includes('r = await envoyerUnParUn(cs.map(') && !corps.includes('cannot send these calls as one all-or-nothing batch, so nothing was sent'));
+t('one by one, a step counts as sent only when its LAST call is (no "step 0 done" on an approval)', corps.includes('if (enAttente && derniereEnvoyee)') && corps.includes('>= suite.n - (r && r.etat === \'CONFIRME\' ? 0 : 1)'));
+t('stopped half-way: the message says what went through and the preview is dropped (not a repaint)', corps.includes("' went through first (approvals for this exact amount only, no tokens moved)") && corps.includes('if (faits) planVu = null;'));
+/* the half-way message says "approvals only": true only if every plan puts its swap / add / lock LAST and nothing else moves tokens */
+t('step 0 plan: the swap is the last call', SRC.includes("appels.push(echangeCall({ montant: s, sortieMin: min, deadline })); etapes.push('Swap part of your TBLOCK"));
+t('step 1 plan: the add (mint) is the last call', SRC.includes("appels.push(fige(PM, mint)); etapes.push('Add the liquidity"));
+t('the preview no longer promises "one signature" to a wallet that signs one call at a time', !corps.includes("' in one signature: '") && (corps.match(/one signature if your wallet batches them, else one each/g) || []).length === 2);
 console.log(ok + '/' + (ok + ko) + (ko ? ' — RED' : ' — green'));
 process.exit(ko ? 1 : 0);
