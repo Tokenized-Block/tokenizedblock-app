@@ -62,5 +62,17 @@ t('rate: a running period has none', H.aprRealise({ ...sem, etat: 'EN_COURS' }, 
 t('rate: nobody played -> none (no division by zero)', H.aprRealise({ ...sem, poidsJoue: 0n }, { jours: 7, ...prix }) === null);
 t('rate: a price not read -> none, never a guess', H.aprRealise(sem, { jours: 7, tblockUsd: null, wtcoinUsd: 120 }) === null);
 t('rate: monthly period = 30 days', H.JOURS_PERIODE.mensuel === 30 && H.aprRealise(sem, { jours: 30, ...prix }) === 85.17);
+/* 2026-11-15 (Phil: the page follows the app's colours): same guard as claim.html (test-claim-386 A7-A9) */
+{
+  const app = readFileSync(new URL('./app.html', import.meta.url), 'utf8'), page = readFileSync(new URL('./rewards-history.html', import.meta.url), 'utf8');
+  const racine = (s) => { const m = /(?:^|\n):root\{([\s\S]*?)\n\}/.exec(s.replace(/\/\*[\s\S]*?\*\//g, '')); return m ? Object.fromEntries([...m[1].matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)].map((x) => [x[1], x[2].trim()])) : null; };
+  const ra = racine(app), rp = racine(page);
+  const ecarts = rp && ra ? Object.entries(rp).filter(([k, v]) => ra[k] !== v).map(([k, v]) => k + ' ' + v + ' vs ' + ra[k]) : ['not found'];
+  t('colours: rewards-history :root tokens equal app.html (' + (rp ? Object.keys(rp).length : 0) + ')', rp && Object.keys(rp).length >= 15 && ecarts.length === 0, ecarts.join('; '));
+  const variante = (s, k) => { const m = new RegExp(':root\\[data-teinte="' + k + '"\\]\\{([^}]*)\\}').exec(s); return m ? m[1].replace(/\s+/g, '') : null; };
+  t('colours: the three variants b, c, d equal app.html', ['b', 'c', 'd'].every((k) => variante(page, k) && variante(page, k) === variante(app, k)));
+  t('colours: reads the colour chosen in the app (tb.teinte)', /localStorage\.getItem\('tb\.teinte'\)/.test(page));
+  t('colours: no colour of the old page left', !/#050d24|#f7a318|--or\b/.test(page));
+}
 console.log(ok + '/' + (ok + ko) + (ko ? ' — RED' : ' — green'));
 process.exit(ko ? 1 : 0);
