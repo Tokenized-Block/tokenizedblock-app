@@ -5179,6 +5179,8 @@ const ETAPES_ENTONNOIR = [
    *   since 27/10). Panel views (once per session) and every game / economy signature (envoyerAppels). */
   'vue_chat', 'vue_market', 'vue_trade', 'vue_brain', 'vue_bank',
   'jeu_sign_propos', 'jeu_sign_ok', 'jeu_sign_refus',
+  /* 2026-11-16 (game426): the film of the "?" sheet — shown, watched to its end, skipped. Counts only, as every step here. */
+  'film_lance', 'film_fini', 'film_passe',
 ];
 /* ⛔ PERSISTANT (Phil, 2026-09-19 : « oui cree le volume ») : mesure — les compteurs repartaient de zero a CHAQUE deploiement
  *    (10 deploiements ce jour-la : aucun chiffre ne survivait). Volume Railway monte sur /data : lu au demarrage, ecrit

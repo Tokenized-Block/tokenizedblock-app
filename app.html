@@ -3804,7 +3804,7 @@ details[open] > summary::before{transform:rotate(90deg)}
       <!-- ⛔ L EMPREINTE EST AFFICHEE, DONC ELLE EST DE L ANGLAIS. `20261001-pont-dans-lui` a fait
            rougir `test-texte-a-l-ecran.mjs` : le mot « dans » est de la prose francaise partie a
            l ecran anglais. La garde a fait son travail du premier coup. -->
-      <p class="note" data-build="20261109-game425" hidden>Build <code>20261109-game425</code> ·Contract labels say what they do, not our internal names.</p>
+      <p class="note" data-build="20261109-game426" hidden>Build <code>20261109-game426</code> ·Contract labels say what they do, not our internal names.</p>
       <p class="sous">Everything happening to blocks on Base, live.</p>
       <!-- tip 0013: sticky — Hooked chip = Dex fees; unhooked → Launch beside. No fee addr. -->
       <p class="note" id="sfHookedSticky" hidden>Blocks alive on TokenizedBlock pay their creator on every trade. Example:<button type="button" class="puce" id="sfStickyTbgas">Open TBGAS</button>.</p>
@@ -36756,6 +36756,7 @@ function filmVu() { try { return localStorage.getItem(FILM_VU) === '1'; } catch 
 function montrerFilm() {
   const f = $('#v-learn'), bloc = $('#lFilm'), v = $('#lFilmVideo'); if (!bloc || !v) return;
   bloc.hidden = false; f.classList.add('lFilmSeul'); f.scrollTop = 0;
+  filmCompter('film_lance');
   if (!v.getAttribute('src')) v.setAttribute('src', 'film.mp4');
   try { v.currentTime = 0; } catch (_) { /* not loaded yet: it starts at 0 anyway */ }
   const avant = $('#lFilmAvant'), s = $('#lFilmPasser');
@@ -36807,8 +36808,11 @@ function arreterFilm(versGuide) {
   bloc.hidden = true; f.classList.remove('lFilmSeul'); f.scrollTop = 0;
   const x = $('#lFermer'); if (x) x.focus({ preventScroll: true });
 }
-$('#lFilmVideo').addEventListener('ended', () => arreterFilm(true));
-$('#lFilmPasser').addEventListener('click', () => arreterFilm(true));
+/* game426: is the film watched? Three counts (shown, watched to its end, skipped), no address, as every step of the funnel.
+ *   Guarded: counting never stops the film (benches run these functions without etape). */
+function filmCompter(nom) { try { if (typeof etape === 'function') etape(nom); } catch (_) { /* counting is best effort */ } }
+$('#lFilmVideo').addEventListener('ended', () => { filmCompter('film_fini'); arreterFilm(true); });
+$('#lFilmPasser').addEventListener('click', () => { filmCompter('film_passe'); arreterFilm(true); });
 $('#lFilmRevoir').addEventListener('click', montrerFilm);
 $('#pLearn').addEventListener('click', ouvrirLearn);
 $('#lFermer').addEventListener('click', fermerLearn);

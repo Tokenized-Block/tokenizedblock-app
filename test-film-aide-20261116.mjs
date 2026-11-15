@@ -23,7 +23,12 @@ const ouvrir = APP.slice(APP.indexOf('function ouvrirLearn()'), APP.indexOf('fun
 t('the first "?" shows the film, a seen film opens the guide', ouvrir.includes('if (!filmVu()) { montrerFilm(); return; }'));
 const fermer = APP.slice(APP.indexOf('function fermerLearn()'), APP.indexOf('const FILM_VU'));
 t('closing stops the film and puts the sheet back in order', fermer.includes('arreterFilm(false)') && fermer.includes("classList.remove('lFilmSeul')") && /b\.hidden = true/.test(fermer));
-t('the end of the film and Skip both lead to the guide', APP.includes("$('#lFilmVideo').addEventListener('ended', () => arreterFilm(true));") && APP.includes("$('#lFilmPasser').addEventListener('click', () => arreterFilm(true));"));
+t('the end of the film and Skip both lead to the guide', APP.includes("$('#lFilmVideo').addEventListener('ended', () => { filmCompter('film_fini'); arreterFilm(true); });") && APP.includes("$('#lFilmPasser').addEventListener('click', () => { filmCompter('film_passe'); arreterFilm(true); });"));
+/* game426: three counts, and each name the page sends is a name the server keeps (an unknown name is dropped in silence) */
+const envoyes = [...APP.matchAll(/filmCompter\('([a-z_]+)'\)/g)].map((m) => m[1]);
+t('the page counts shown / watched to the end / skipped', ['film_lance', 'film_fini', 'film_passe'].every((n) => envoyes.includes(n)) && envoyes.length === 3, envoyes.join(','));
+t('every film step sent is in the server list', envoyes.every((n) => SRV.includes("'" + n + "'")));
+t('counting cannot stop the film (guarded call)', APP.includes("function filmCompter(nom) { try { if (typeof etape === 'function') etape(nom); } catch (_) {"));
 const arreter = APP.slice(APP.indexOf('function arreterFilm('), APP.indexOf("$('#lFilmVideo').addEventListener('ended'"));
 t('only reaching the guide marks the film as seen', arreter.indexOf('if (!versGuide) return;') > 0 && arreter.indexOf('if (!versGuide) return;') < arreter.indexOf("localStorage.setItem(FILM_VU, '1')"));
 t('the file is set only when the film is shown', APP.includes("if (!v.getAttribute('src')) v.setAttribute('src', 'film.mp4');"));
