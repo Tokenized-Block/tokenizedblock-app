@@ -60,14 +60,18 @@ t('a changed byte is caught (sha256)', (await L.integrite(faux2)).some((x) => /s
 /* 2. pret:false -> refused before any read */
 /* 2026-11-15: the record is ready (final audit passed: 0 critical/high/medium, L-1/L-2 fixed; unit 57/57, fork 4/4) but not deployed.
  * The pret:false refusal is still proven, on a copy forced NOT ready in memory. */
-t('record is ready, not deployed yet', REC.pret === true && REC.adresse === null && REC.tx === null && REC.bloc === null);
+/* 2026-11-15 14:51 UTC: deployed on Base mainnet (block 57819604), noted from the receipt read on two nodes */
+t('record is deployed: the mainnet address, block and tx noted', REC.pret === true && REC.adresse === '0x05989a948507ef5b4d56ca6fd2c26502e0c5cd38'
+  && REC.bloc === 57819604 && REC.tx === '0xd4cfb26c35afd12789c4d5ecb20cc57e43d340eb43604fe0be054bafc11fdece');
+const deja = await L.planDeploiement(REC, async () => { throw new Error('no rpc expected'); }, REC.deployeur);
+t('a deployed record offers nothing more to sign', deja.pret === false && deja.fait === true && /already deployed/.test(deja.raison), deja.raison);
 let appels = [];
 const espion = (rep) => async (m, p) => { appels.push(m); if (m in rep) return typeof rep[m] === 'function' ? rep[m](p) : rep[m]; throw new Error('unexpected ' + m); };
 let r = await L.planDeploiement({ ...REC, pret: false }, espion({}), REC.deployeur);
 t('pret:false -> refused, no rpc call at all', r.pret === false && /not marked ready/.test(r.raison) && appels.length === 0, r.raison + ' ' + appels);
 
-/* 3. the chain guard: record forced ready IN MEMORY (the file stays pret:false) */
-const PRET = { ...REC, pret: true };
+/* 3. the pre-deploy guards: a copy of the record IN MEMORY, ready and NOT deployed (the file is deployed since 2026-11-15) */
+const PRET = { ...REC, pret: true, adresse: null, bloc: null, tx: null };
 for (const c of ['0x1', '0xa', '0x14a34', '0x89', null]) {
   appels = [];
   r = await L.planDeploiement(PRET, espion({ eth_chainId: () => { if (c === null) throw new Error('down'); return c; } }), REC.deployeur);
