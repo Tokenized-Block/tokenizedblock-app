@@ -30,6 +30,28 @@ import { lireStatutGroupe } from './groupe-wallet.js';
 
 const pause = (ms) => new Promise((r) => setTimeout(r, ms));
 
+/* 2026-11-15 (growth): the app's Base Builder Code, registered on dashboard.base.org (project "TokenizedBlock", code bc_yjpkqm2o).
+ *   ERC-8021: the code in ASCII, its 1-byte length, schema id 0x00, then the 16-byte marker 0x8021...8021, appended to the END of a
+ *   call's data. Contracts ignore trailing calldata; measured 15/11 by eth_call WITH and WITHOUT it (tools/sonde-builder-code.mjs):
+ *   TBLOCK (B20) approve / transfer, wtCOIN approve and a view answered the same. Base then attributes the activity to the app
+ *   (dashboard volume, rewards program, Base App store visibility). Never on a call with empty data (a plain ETH send to a contract
+ *   without fallback would revert) nor on a contract creation (it would change the deployed bytecode). */
+export const BUILDER_CODE = 'bc_yjpkqm2o';
+export function suffixeBuilderCode(code = BUILDER_CODE) {
+  if (!/^[\x20-\x7e]{1,255}$/.test(code)) return '';
+  let hex = '';
+  for (let i = 0; i < code.length; i++) hex += code.charCodeAt(i).toString(16).padStart(2, '0');
+  return hex + code.length.toString(16).padStart(2, '0') + '00' + '8021'.repeat(8);
+}
+const SUFFIXE_BC = suffixeBuilderCode();
+/** data with the builder-code suffix, or the data unchanged when it must not carry one (empty, creation, already suffixed) */
+export function avecBuilderCode(data, to) {
+  const d = String(data || '0x');
+  if (!SUFFIXE_BC || !to || !/^0x[0-9a-fA-F]{8,}$/.test(d) || d.length % 2) return data;
+  if (d.toLowerCase().endsWith('8021'.repeat(8))) return data; /* a code is already there (ours or another app's) */
+  return d + SUFFIXE_BC;
+}
+
 /** tip 2354: quiet unique wallet log for later airdrop scan — localStorage only, no PII UI. */
 const CLE_USED_WALLETS = 'tb-used-wallets';
 const MAX_USED_WALLETS = 500;
@@ -144,10 +166,10 @@ export async function envoyerViaSendCalls({ eth, chaineAttendue, compte, to, dat
   const lot = Array.isArray(calls) && calls.length
     ? calls.map((c) => ({
       to: c.to,
-      data: c.data || '0x',
+      data: avecBuilderCode(c.data || '0x', c.to),
       value: c.value || '0x0',
     }))
-    : [{ to, data: data || '0x', value: value || '0x0' }];
+    : [{ to, data: avecBuilderCode(data || '0x', to), value: value || '0x0' }];
   for (const c of lot) {
     if (!ADRESSE.test(String(c.to || ''))) {
       return { etat: 'DESTINATION_INVALIDE', pourquoi: 'a batch call destination is not an address — nothing was sent' };
@@ -351,6 +373,8 @@ export async function envoyerDepuisWallet({ eth, rpc, chaineAttendue, compte, to
   }
   const garde = await gardeChaineEtCompte({ eth, chaineAttendue, compteAttendu: compte });
   if (!garde.ok) return { etat: garde.etat, pourquoi: garde.pourquoi };
+  /* 2026-11-15: the Base Builder Code (see avecBuilderCode): estimated and sent with it, so the gas covers its 29 bytes */
+  data = avecBuilderCode(data, to);
 
   /* tip 2345: HARD BUG for "works for us, not others" — box Rabby still opens Sign when
    * node estimateGas/sim fails; old app returned ESTIMATION_IMPOSSIBLE and never opened the wallet.
