@@ -63,6 +63,12 @@
 .addList small{color:var(--doux)}
 .addPick{border:1px solid #1f5bff;border-radius:10px;padding:8px 10px;margin:6px 0}
 .liveTag{font-size:12px;font-weight:700;color:#3ddc97;vertical-align:4px;margin-left:6px;letter-spacing:.04em}
+.hud{position:fixed;left:50%;top:10px;transform:translateX(-50%);z-index:3;background:rgba(4,9,12,.82);border:1px solid var(--ligne);border-radius:12px;padding:6px 12px;font-size:12px;color:#f2fbff;white-space:nowrap;max-width:calc(100vw - 24px);overflow:hidden;text-overflow:ellipsis}
+.hud b{color:#ffd76a}.hud .open{color:#3ddc97}.hud .shut{color:#9cc3cf}
+.helpBtn{position:fixed;left:12px;bottom:12px;z-index:3;width:30px;height:30px;border-radius:50%;border:1px solid var(--ligne);background:var(--carte);color:#f2fbff;font-weight:700}
+.helpBox{position:fixed;left:12px;bottom:50px;z-index:4;max-width:300px;background:#081218;border:1px solid var(--ligne);border-radius:12px;padding:10px 12px;font-size:13px}
+.tip.locked{pointer-events:auto}.tip .tipBtns{display:flex;gap:6px;margin-top:6px}.tip .tipBtns button{padding:4px 8px;font-size:12px}
+@media (max-width:760px){.hud{top:auto;bottom:118px;font-size:11px}}
 .feed{position:fixed;right:12px;top:12px;z-index:3;list-style:none;margin:0;padding:0;width:min(300px,calc(100vw - 24px));pointer-events:none;display:flex;flex-direction:column;gap:4px}
 .feed li{background:rgba(4,9,12,.82);border:1px solid var(--ligne);border-left:3px solid var(--c,#9cc3cf);border-radius:8px;padding:5px 9px;font-size:12px;color:#f2fbff;animation:feedIn .25s ease-out;transition:opacity .6s}
 .feed li.old{opacity:0}.feed li{pointer-events:auto}.feed .xs{margin-left:8px;border:1px solid var(--ligne);border-radius:6px;padding:0 6px;color:#f2fbff;text-decoration:none;font-size:11px}.feed .xs:hover{background:#1f5bff;border-color:#1f5bff}.feed b{font-weight:700}.feed small{color:var(--doux);margin-left:6px}
@@ -190,6 +196,9 @@
 </dialog>
 <div id="tip" class="tip" hidden></div>
 <ol id="feed" class="feed" aria-live="polite" aria-label="Game events"></ol>
+<div id="hud" class="hud" aria-live="off"></div>
+<button id="helpBtn" class="helpBtn" title="How the game works" aria-expanded="false">?</button>
+<div id="helpBox" class="helpBox" hidden>Every tokenized stock is a colony living by Conway's Game of Life; its Brain AI reacts to that stock's trades on Base. The largest colony wears the crown 👑: bet on who wears it at the end of each 10-minute round. Enter a block for $2 of TBLOCK, revive one for $1: paid to the holders' vault.</div>
 <div class="legend"><span class="lk">👑 = the largest colony</span> <span class="lk"><i class="lkFlash"></i>small flash + word = a block just reacted</span> <span class="lk"><i class="lkSeed"></i>dot = where a block started</span><br>hover a colony to see its faction · click to lock and follow it · drag · scroll or pinch to zoom</div>
 
 <script type="module">
@@ -251,6 +260,15 @@ if (!live) {
 }
 /* chain time of a block: live = counted back from the last block read; replay = from the moment it was recorded */
 const when = (blk) => live ? new Date(live.at - (live.readTo - blk) * 200) : new Date(Date.parse(data.luLe) - (data.a - blk) * 200);
+/* the top bar (Grok's UX pass, 2026-11-16): season, generation, players, the crown and the market round's countdown */
+let cmInfo = null;
+function hud() {
+  if (!live) { $('#hud').hidden = true; return; }
+  const cr = world.crown >= 0 ? world.blocks[world.crown].sym : '—';
+  $('#hud').innerHTML = 'Live · gen ' + world.gen.toLocaleString('en-US') + ' · ' + world.blocks.length + ' blocks · 👑 <b></b>' + (cmInfo ? ' · Crown round ' + cmInfo.r + ': <span class="' + (cmInfo.open ? 'open' : 'shut') + '"></span>' : '');
+  $('#hud b').textContent = cr; if (cmInfo) $('#hud span').textContent = cmInfo.open ? 'bets open ' + cmInfo.min + ' min' : 'bets closed, ends in ' + cmInfo.min + ' min';
+}
+setInterval(() => { try { hud(); } catch (_) {} }, 1000);
 function headerLines() {
   if (live) {
     const S = live.season, left = Math.max(0, S.end - world.chainBlock) * 0.2, h = Math.floor(left / 3600), m = Math.floor(left % 3600 / 60);
@@ -289,6 +307,7 @@ function advance(n) {
     for (const l of fresh) ripples.push({ ...l, t: performance.now() });
     const evs = world.events.slice(world.events.length - Math.min(world.events.length, world.eventCount - ev0));
     if (world.blocks.length > colours.length) visuals(); /* a block joined */
+    for (const e of evs) if ((e.type === 'revive' || e.type === 'bonus' || e.type === 'join') && e.i >= 0) { const c = e.at || (cluster(e.i) || world.blocks[e.i].home); ripples.push({ i: e.i, at: c, g: e.type, t: performance.now(), gold: true }); }
     if (evs.length) killFeed(evs);
     directorWatch(fresh, evs);
     if (world.gen % 100 === 0) { snaps.push(E.snapshot(world)); if (snaps.length > 80) snaps.shift(); }
@@ -332,6 +351,7 @@ function shareUrl(e) {
   const url = 'https://tokenizedblock.space/life-block/' + (b ? '?focus=' + encodeURIComponent(b.sym) : '');
   return 'https://x.com/intent/post?text=' + encodeURIComponent(text) + '&url=' + encodeURIComponent(url);
 }
+function focusFromFeed(e) { if (e.i >= 0) { followI = e.i; lockI = e.i; $('#follow').value = String(e.i); view.z = Math.max(view.z, 5); } }
 function shareLink(e) { const a = document.createElement('a'); a.className = 'xs'; a.href = shareUrl(e); a.target = '_blank'; a.rel = 'noopener'; a.textContent = '𝕏 share'; a.title = 'Share this moment on X'; return a; }
 function killFeed(evs) {
   const ol = $('#feed');
@@ -340,14 +360,14 @@ function killFeed(evs) {
       const k = Math.min(e.i, e.v) + ':' + Math.max(e.i, e.v), p = pairSeen.get(k);
       if (p && e.block - p.block < 300) { p.n += e.n; if (p.li && p.li.isConnected) p.li.querySelector('.tot').textContent = ' · ' + p.n + ' cells traded so far'; continue; }
       const li = document.createElement('li'); li.style.setProperty('--c', colours[e.i]);
-      li.innerHTML = feedText(e) + '<small class="tot"></small><small>#' + e.block.toLocaleString('en-US') + '</small>'; li.append(shareLink(e)); ol.prepend(li);
+      li.innerHTML = feedText(e) + '<small class="tot"></small><small>#' + e.block.toLocaleString('en-US') + '</small>'; li.append(shareLink(e)); li.addEventListener('click', (ev) => { if (!ev.target.closest('a')) focusFromFeed(e); }); li.style.cursor = 'pointer'; ol.prepend(li);
       li.addEventListener('mouseenter', () => li.classList.add('hold')); li.addEventListener('mouseleave', () => li.classList.remove('hold'));
       pairSeen.set(k, { block: e.block, n: e.n, li });
       const fade = () => { if (li.classList.contains('hold')) { setTimeout(fade, 1500); return; } li.classList.add('old'); setTimeout(() => li.remove(), 700); }; setTimeout(fade, 7000);
       continue;
     }
     const li = document.createElement('li'); li.style.setProperty('--c', colours[e.type === 'feast' || e.type === 'crown' ? e.i : e.i]);
-    li.innerHTML = feedText(e) + '<small>#' + e.block.toLocaleString('en-US') + '</small>'; li.append(shareLink(e)); ol.prepend(li);
+    li.innerHTML = feedText(e) + '<small>#' + e.block.toLocaleString('en-US') + '</small>'; li.append(shareLink(e)); li.addEventListener('click', (ev) => { if (!ev.target.closest('a')) focusFromFeed(e); }); li.style.cursor = 'pointer'; ol.prepend(li);
     const fade = () => { if (li.classList.contains('hold')) { setTimeout(fade, 1500); return; } li.classList.add('old'); setTimeout(() => li.remove(), 700); }; setTimeout(fade, 7000);
   }
   while (ol.children.length > 6) ol.lastChild.remove();
@@ -368,16 +388,28 @@ function ownerAt(cx, cy) {
   for (let dx = -R; dx <= R; dx++) for (let dy = -R; dy <= R; dy++) { const o = world.cells.get(E.key(Math.floor(wx) + dx, Math.floor(wy) + dy)); if (o !== undefined && o >= 0) { const d = dx * dx + dy * dy; if (d < bd) { bd = d; best = o; } } }
   return best;
 }
+/* the locked card's buttons: Revive opens the dialog on this block; Bet selects it in the Crown market card */
+document.addEventListener('click', (ev) => {
+  const btn = ev.target.closest && ev.target.closest('#tip [data-act]'); if (!btn || lockI < 0) return;
+  const b = world.blocks[lockI];
+  if (btn.dataset.act === 'revive') { openAdd().then(() => pick({ adr: b.adr, sym: b.sym, nom: b.nom || '', action: !!b.action, trades: 0, inGame: true })); }
+  if (btn.dataset.act === 'bet') { setPanel(true); $('#cmPick').value = b.adr; $('#cmCard').scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+});
+let tipKey = '';
 function tooltip() {
   const tip = $('#tip'), i = lockI >= 0 ? lockI : hoverI;
   if (i < 0 || (!mouse && lockI < 0)) { tip.hidden = true; return; }
   const b = world.blocks[i], p = world.players[i], rk = centroid(i), n = rk ? rk[2] : 0, nv = p.vu && p.vu.nouveaux;
+  const kNow = i + ':' + n + ':' + p.mood + ':' + (p.last && p.last.block) + ':' + lockI + ':' + p.eaten + ':' + p.lost;
+  if (kNow === tipKey && !tip.hidden) { const x0 = lockI >= 0 && !mouse ? 12 : Math.min(innerWidth - 290, mouse.x + 16), y0 = lockI >= 0 && !mouse ? 64 : Math.min(innerHeight - 150, mouse.y + 16); tip.style.left = x0 + 'px'; tip.style.top = y0 + 'px'; return; }
+  tipKey = kNow;
   const last = p.last ? SAYS[p.last.g] + ' at block #' + p.last.block.toLocaleString('en-US') : 'no gesture yet';
   tip.innerHTML = '<img alt="" src="' + faces[i].src + '"><div><b>' + b.sym + '</b> <span class="mood ' + p.mood + '">' + (NOMS_HUMEUR[p.mood] || p.mood).split(' ')[0] + '</span><br><small>' + b.nom + '</small>'
     + '<div class="tipStat">' + n.toLocaleString('en-US') + ' cells · 👑 ' + p.crownBeats + ' beats crowned · ' + p.births.toLocaleString('en-US') + ' births</div>'
     + '<div class="tipStat">ate ' + p.eaten.toLocaleString('en-US') + ' rival cells · lost ' + p.lost.toLocaleString('en-US') + '</div>'
     + '<div class="tipStat">this beat on Base: ' + (nv ? nv.achats + ' buys · ' + nv.ventes + ' sells' : '—') + '</div>'
-    + '<div class="tipStat">last: ' + last + '</div>' + (lockI >= 0 ? '<div class="tipStat">locked — click empty space to release</div>' : '') + '</div>';
+    + '<div class="tipStat">last: ' + last + '</div>' + (lockI >= 0 ? '<div class="tipStat">locked — click empty space to release</div>' + (live ? '<div class="tipBtns">' + (LR ? '<button data-act="revive">Revive $1</button>' : '') + (CM ? '<button data-act="bet">Bet on it</button>' : '') + '</div>' : '') : '') + '</div>';
+  tip.classList.toggle('locked', lockI >= 0);
   const x = lockI >= 0 && !mouse ? 12 : Math.min(innerWidth - 290, mouse.x + 16), y = lockI >= 0 && !mouse ? 64 : Math.min(innerHeight - 150, mouse.y + 16); /* the top right belongs to the feed */
   tip.style.left = x + 'px'; tip.style.top = y + 'px'; tip.hidden = false;
 }
@@ -455,6 +487,7 @@ function draw(t) {
   for (let j = ripples.length - 1; j >= 0; j--) {
     const r = ripples[j], age = (now - r.t) / 900; if (age > 1) { ripples.splice(j, 1); continue; }
     if (focus >= 0 && r.i !== focus) continue;
+    if (r.gold) { const x = r.at[0] * z + ox, y = r.at[1] * z + oy; ctx.strokeStyle = '#ffd76a'; ctx.globalAlpha = 1 - age; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(x, y, 8 + age * 40, 0, 7); ctx.stroke(); ctx.globalAlpha = 1; continue; }
     /* a small flash where a block just reacted, with the name of the reaction (was a 36 px ring nobody could read) */
     const x = r.at[0] * z + ox, y = r.at[1] * z + oy; ctx.strokeStyle = colours[r.i]; ctx.globalAlpha = 0.8 * (1 - age); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(x, y, 4 + age * 10, 0, 7); ctx.stroke();
     ctx.fillStyle = colours[r.i]; ctx.font = '600 10px system-ui'; ctx.textAlign = 'center'; ctx.fillText(r.g, x, y - 8 - age * 10); ctx.globalAlpha = 1;
@@ -531,7 +564,7 @@ async function cmRefresh() {
     const R = await pubCall(CM, sel('rounds(uint256)') + w32(r)), pot = BigInt('0x' + R.slice(2, 66));
     const left = open ? (start + RB / 2 - head) * 0.2 : (start + RB - head) * 0.2;
     $('#cmLine').textContent = 'Round ' + r + ' · pot ' + tb(pot) + ' TBLOCK · ' + (open ? 'bets close in ' + Math.ceil(left / 60) + ' min' : 'bets closed, the round ends in ' + Math.ceil(left / 60) + ' min');
-    $('#cmBet').disabled = !open;
+    $('#cmBet').disabled = !open; cmInfo = { r, open, min: Math.max(0, Math.ceil(left / 60)) };
     if (!$('#cmPick').options.length || $('#cmPick').options.length !== world.blocks.length) $('#cmPick').innerHTML = world.blocks.map((b, i) => '<option value="' + b.adr + '">' + (i === world.crown ? '👑 ' : '') + b.sym + '</option>').join('');
     cmRefresh.r = r;
   } catch (e) { $('#cmLine').textContent = 'The market could not be read just now.'; }
@@ -569,6 +602,16 @@ const sel = (sig) => '0x' + keccak256Hex(new TextEncoder().encode(sig)).replace(
 const w32 = (x) => BigInt(x).toString(16).padStart(64, '0'), wa = (a) => String(a).toLowerCase().replace(/^0x/, '').padStart(64, '0');
 let picked = null;
 
+/* errors a person can read (Grok's UX pass): the wallet's refusal, a stale price, too little TBLOCK, the network */
+function lisible(e) {
+  const t = String(e && (e.shortMessage || e.message) || e);
+  if (estRefusUtilisateur(e)) return 'You declined in your wallet: nothing was sent.';
+  if (/StalePrice/i.test(t)) return 'The TBLOCK price is being refreshed on chain: try again in a few minutes. Nothing was sent.';
+  if (/AboveYourCap/i.test(t)) return 'The price moved while you signed: nothing was taken. Try again.';
+  if (/insufficient|exceeds balance|transfer amount/i.test(t)) return 'Not enough TBLOCK (or ETH for gas) in this wallet: nothing was sent.';
+  if (/network|fetch|timeout/i.test(t)) return 'The network did not answer: nothing was sent. Try again.';
+  return 'Not done: ' + t.slice(0, 120);
+}
 async function pay() {
   const msg = (t) => { $('#addMsg').textContent = t; };
   if (!picked) return msg('Pick a block first.');
@@ -596,9 +639,11 @@ async function pay() {
         if (!r || r.etat !== 'CONFIRME') { if (k === 1) return msg('Not done: the approval went through (this exact amount only, no token moved), the entry did not. Try again to finish.'); break; }
       }
     }
-    if (r && r.etat === 'CONFIRME') return msg(picked.inGame ? 'Paid. ' + picked.sym + ' gets a fresh colony and full gestures at the next read (about 10 s): watch the feed.' : 'Paid. ' + picked.sym + ' enters the live season at the next read (about 10 s): watch the feed.');
+    if (r && r.etat === 'CONFIRME') { $('#addPay').disabled = true; setTimeout(() => { $('#addPay').disabled = false; }, 30000);
+      const tx = r.hash || (r.hashes && r.hashes[0]); if (tx) setTimeout(() => { const a = document.createElement('a'); a.href = 'https://basescan.org/tx/' + tx; a.target = '_blank'; a.rel = 'noopener'; a.textContent = ' View the transaction'; $('#addMsg').append(a); }, 0); }
+    if (r && r.etat === 'CONFIRME') return msg('✓ ' + (picked.inGame ? 'Paid. ' + picked.sym + ' gets a fresh colony and full gestures at the next read (about 10 s): watch the feed.' : 'Paid. ' + picked.sym + ' enters the live season at the next read (about 10 s): watch the feed.'));
     return msg('Not done: ' + ((r && r.pourquoi) || 'the wallet did not confirm') + '.');
-  } catch (e) { return msg(estRefusUtilisateur(e) ? 'You declined in your wallet: nothing was sent.' : 'Not done: ' + String(e && e.message || e).slice(0, 120)); }
+  } catch (e) { return msg(lisible(e)); }
   finally { $('#addPay').disabled = false; }
 }
 function pick(c) {
@@ -607,10 +652,14 @@ function pick(c) {
   const h = document.createElement('div'); h.innerHTML = '<b></b> <small></small>'; h.querySelector('b').textContent = c.sym; h.querySelector('small').textContent = c.nom + (c.action ? ' · tokenized stock' : ' · app block');
   const p = document.createElement('div'); p.className = 'sub'; p.textContent = c.inGame ? 'In the game: a revive drops a fresh colony of its cells near it and refills all its gestures.' : c.trades ? c.trades + ' trades in the last 24 h: its brain will have something to react to.' : 'Quiet market for now: its brain reacts when its trades start.';
   box.append(h, p);
+  const C = c.inGame ? LR : LE;
+  if (C) { const q = document.createElement('div'); q.className = 'sub'; q.textContent = (c.inGame ? 'Revive: $1' : 'Enter: $2') + ' of TBLOCK = reading the price…'; box.append(q);
+    pubCall(C, sel('entryPrice()')).then((r) => { q.textContent = (c.inGame ? 'Revive: $1' : 'Enter: $2') + ' of TBLOCK = ' + tb(r) + ' TBLOCK now, to the holders\' vault.'; }, () => { q.textContent = 'The TBLOCK price is being refreshed on chain: try again in a few minutes.'; }); }
 }
 async function openAdd() { if (candidates && !candidates.length) candidates = null; /* an empty list is read again */ $('#addDlg').showModal(); $('#addQ').focus(); listCandidates(); await loadCandidates(); listCandidates(); }
 $('#addBlock').onclick = openAdd; $('#addBlock2').onclick = openAdd; $('#addBlock3').onclick = openAdd;
 if (CM) { $('#cmBet').onclick = cmBet; $('#cmClaim').onclick = cmClaim; cmRefresh(); setInterval(cmRefresh, 20000); }
+$('#helpBtn').onclick = () => { const h = $('#helpBox'); h.hidden = !h.hidden; $('#helpBtn').setAttribute('aria-expanded', String(!h.hidden)); };
 $('#addQ').oninput = listCandidates; $('#addPay').onclick = pay; $('#addClose').onclick = () => $('#addDlg').close();
 $('#speed').onchange = (e) => { perSecond = Number(e.target.value); };
 if (live) { $('#step').hidden = true; $('#speed').innerHTML = '<option value="5" selected>Chain speed · 5 blocks/s</option><option value="25">Catch up ×5</option><option value="100">Catch up ×20</option><option value="2000">Catch up max</option>'; $('#speed').title = 'Live: the game rides the chain at 5 blocks/s; after a rewind or a reload it catches up at this speed'; $('#verify').textContent = 'Verify: replay the public journal'; $('#verifyLine').textContent = 'The season\'s facts are public: replaying them with this engine from the season\'s first block must give the same fingerprint.'; }
