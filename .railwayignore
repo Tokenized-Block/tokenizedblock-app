@@ -12,3 +12,6 @@ test-*.mjs
 test-*.js
 tools/
 *.md
+# 2026-11-16 (game439): the film and its poster are served by jsDelivr (Tokenized-Block/tokenizedblock-media@v1), not by this server: 9 MB fewer
+film.mp4
+film-poster.jpg

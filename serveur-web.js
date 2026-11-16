@@ -6611,7 +6611,7 @@ const SERVIS = [
   'abi.json', 'known-bad.json', 'A-SIGNER-mainnet.json', 'brain-agent.json',
   'icon.png', 'splash.png', 'embed.png',
   /* game424: the product film of the "?" sheet (1280x720, about 9 MB, served with byte ranges) and its poster */
-  'film.mp4', 'film-poster.jpg',
+  /* game439: the film and its poster moved to jsDelivr (Tokenized-Block/tokenizedblock-media@v1); kept in the repo as the source */
   /* game428: Game of Life Block — the replay page, its engine and the recorded Base transfers it replays (read-only, nothing to sign) */
   'life-block/index.html', 'life-engine.js', 'life-block/donnees.json', 'life-entry-deploiement.js', 'life-entry-kit.js', 'deployer-lifeentry.html', 'crown-market-kit.js', 'crown-market-deploiement.js', 'deployer-crownmarket.html', 'life-revive-kit.js', 'life-revive-deploiement.js', 'deployer-liferevive.html',
 ];

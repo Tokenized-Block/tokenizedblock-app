@@ -15,7 +15,7 @@ const SRV = readFileSync(new URL('./serveur-web.js', import.meta.url), 'utf8');
 const bloc = (APP.match(/<div class="carte lFilm" id="lFilm"[^>]*>[\s\S]*?<\/div>\s*<\/div>/) || [''])[0];
 t('the film block exists, hidden by default', /id="lFilm" hidden>/.test(bloc));
 t('the video asks for nothing until shown: no src in the markup, preload none', /<video id="lFilmVideo"[^>]*preload="none"/.test(bloc) && !/<video[^>]*\ssrc=/.test(bloc));
-t('it plays inline with controls and a poster', /playsinline/.test(bloc) && /controls/.test(bloc) && /poster="film-poster\.jpg"/.test(bloc));
+t('it plays inline with controls and a poster', /playsinline/.test(bloc) && /controls/.test(bloc) && /poster="https:\/\/cdn\.jsdelivr\.net\/gh\/Tokenized-Block\/tokenizedblock-media@v1\/film-poster\.jpg"/.test(bloc));
 t('a Skip button and a replay button exist', /id="lFilmPasser"/.test(APP) && /id="lFilmRevoir"/.test(APP));
 t('the film block comes before the guide card', APP.indexOf('id="lFilm"') > 0 && APP.indexOf('id="lFilm"') < APP.indexOf('id="lTitre"'));
 
@@ -31,7 +31,7 @@ t('every film step sent is in the server list', envoyes.every((n) => SRV.include
 t('counting cannot stop the film (guarded call)', APP.includes("function filmCompter(nom) { try { if (typeof etape === 'function') etape(nom); } catch (_) {"));
 const arreter = APP.slice(APP.indexOf('function arreterFilm('), APP.indexOf("$('#lFilmVideo').addEventListener('ended'"));
 t('only reaching the guide marks the film as seen', arreter.indexOf('if (!versGuide) return;') > 0 && arreter.indexOf('if (!versGuide) return;') < arreter.indexOf("localStorage.setItem(FILM_VU, '1')"));
-t('the file is set only when the film is shown', APP.includes("if (!v.getAttribute('src')) v.setAttribute('src', 'film.mp4');"));
+t('the file is set only when the film is shown', APP.includes("if (!v.getAttribute('src')) v.setAttribute('src', 'https://cdn.jsdelivr.net/gh/Tokenized-Block/tokenizedblock-media@v1/film.mp4');"));
 t('while the film plays alone, the rest of the sheet is hidden by CSS', APP.includes('#v-learn.lFilmSeul .feuilleCorps>:not(#lFilm){display:none}'));
 
 /* game425: the "turn your phone" line — only on a phone held upright; sideways the film fills the screen and Skip stays reachable */
@@ -49,7 +49,7 @@ t('stopping the film (end, Skip or close) releases the orientation and leaves fu
 t('leaving full screen by hand also frees the orientation', APP.includes("document.addEventListener('fullscreenchange'"));
 t('the card exists, hidden by default', /<div class="lFilmAvant" id="lFilmAvant" hidden>/.test(APP));
 
-t('the server lists the film and its poster', /'film\.mp4', 'film-poster\.jpg',/.test(SRV));
+t('game439: the server no longer lists the film (jsDelivr serves it) and Railway does not upload it', !/'film\.mp4', 'film-poster\.jpg',/.test(SRV) && /^film\.mp4$/m.test(readFileSync(new URL('./.railwayignore', import.meta.url), 'utf8')));
 t('the server types them', SRV.includes("'.mp4': 'video/mp4'") && SRV.includes("'.jpg': 'image/jpeg'"));
 t('the server never gzips them', SRV.includes("nom.endsWith('.png') || nom.endsWith('.mp4') || nom.endsWith('.jpg')"));
 t('the server answers byte ranges: 206 with content-range, 416 outside the file', SRV.includes("res.writeHead(206, { ...base, 'content-range': 'bytes ' + debut + '-' + fin + '/' + taille") && SRV.includes("res.writeHead(416, { 'content-range': 'bytes */' + taille"));

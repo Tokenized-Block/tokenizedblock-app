@@ -3316,7 +3316,7 @@ details[open] > summary::before{transform:rotate(90deg)}
          the product film plays first, alone; when it ends (or is skipped) the guide below shows. Once seen, "?" opens on the guide
          and the film stays one tap away. The file is only asked for when the film is shown (no src here). -->
     <div class="carte lFilm" id="lFilm" hidden>
-      <video id="lFilmVideo" playsinline controls preload="none" poster="film-poster.jpg" aria-label="TokenizedBlock, the film"></video>
+      <video id="lFilmVideo" playsinline controls preload="none" poster="https://cdn.jsdelivr.net/gh/Tokenized-Block/tokenizedblock-media@v1/film-poster.jpg" aria-label="TokenizedBlock, the film"></video>
       <!-- game425: on a phone only, shown for under two seconds before the film starts sideways -->
       <div class="lFilmAvant" id="lFilmAvant" hidden><i aria-hidden="true"></i><b>Turn your phone sideways</b></div>
       <div class="lFilmBas"><span class="sous">TokenizedBlock in 1 min 50</span><button type="button" class="bouton sec" id="lFilmPasser">Skip the film</button></div>
@@ -3815,7 +3815,7 @@ details[open] > summary::before{transform:rotate(90deg)}
       <!-- ⛔ L EMPREINTE EST AFFICHEE, DONC ELLE EST DE L ANGLAIS. `20261001-pont-dans-lui` a fait
            rougir `test-texte-a-l-ecran.mjs` : le mot « dans » est de la prose francaise partie a
            l ecran anglais. La garde a fait son travail du premier coup. -->
-      <p class="note" data-build="20261109-game438" hidden>Build <code>20261109-game438</code> ·Contract labels say what they do, not our internal names.</p>
+      <p class="note" data-build="20261109-game439" hidden>Build <code>20261109-game439</code> ·Contract labels say what they do, not our internal names.</p>
       <p class="sous">Everything happening to blocks on Base, live.</p>
       <!-- tip 0013: sticky — Hooked chip = Dex fees; unhooked → Launch beside. No fee addr. -->
       <p class="note" id="sfHookedSticky" hidden>Blocks alive on TokenizedBlock pay their creator on every trade. Example:<button type="button" class="puce" id="sfStickyTbgas">Open TBGAS</button>.</p>
@@ -36783,7 +36783,9 @@ function montrerFilm() {
   const f = $('#v-learn'), bloc = $('#lFilm'), v = $('#lFilmVideo'); if (!bloc || !v) return;
   bloc.hidden = false; f.classList.add('lFilmSeul'); f.scrollTop = 0;
   filmCompter('film_lance');
-  if (!v.getAttribute('src')) v.setAttribute('src', 'film.mp4');
+  /* game439 (Phil 2026-11-16 "sors le film sur un hebergement"): served by jsDelivr from the public repo Tokenized-Block/tokenizedblock-media
+   *   (tag v1, same bytes: sha256 60fd4a0f...), so Railway uploads 9 MB less; checked in a browser: metadata 110 s, a seek to 60 s works. */
+  if (!v.getAttribute('src')) v.setAttribute('src', 'https://cdn.jsdelivr.net/gh/Tokenized-Block/tokenizedblock-media@v1/film.mp4');
   try { v.currentTime = 0; } catch (_) { /* not loaded yet: it starts at 0 anyway */ }
   const avant = $('#lFilmAvant'), s = $('#lFilmPasser');
   clearTimeout(filmMinuteur); filmTenu = false;
