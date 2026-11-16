@@ -278,6 +278,7 @@ function oneTypo(a, b) { /* edit distance <= 1 */
   while (i < a.length && j < b.length) { if (a[i] === b[j]) { i++; j++; continue; } if (++d > 1) return false; if (a.length > b.length) i++; else if (b.length > a.length) j++; else { i++; j++; } }
   return d + (a.length - i) + (b.length - j) <= 1;
 }
+const FILLER = new Set(['inc', 'corp', 'corporation', 'company', 'holdings', 'holding', 'group', 'limited', 'ltd', 'plc', 'the', 'and', 'technologies', 'technology', 'class', 'common', 'stock', 'shares', 'trust', 'international', 'systems', 'token']);
 function inOrder(q, t) { let k = 0; for (const ch of t) if (ch === q[k]) k++; return k === q.length; }
 function matchScore(c, raw) {
   const q = norm(raw); if (!q) return 1;
@@ -289,8 +290,12 @@ function matchScore(c, raw) {
   if (words.some((w) => w.startsWith(qs)) || nom.startsWith(q)) return 75;
   const toks = q.split(' '); if (toks.length > 1 && toks.every((t) => sym.includes(t) || words.some((w) => w.startsWith(t)))) return 65;
   if (sym.includes(qs) || nom.includes(q)) return 55;
-  if (qs.length >= 3 && (oneTypo(qs, base) || oneTypo(qs, sym) || words.some((w) => w.length >= 3 && (oneTypo(qs, w) || (w.length > qs.length && oneTypo(qs, w.slice(0, qs.length))))))) return 40;
-  if (qs.length >= 3 && (inOrder(qs, sym) || words.some((w) => inOrder(qs, w)))) return 20;
+  /* a typo on the symbol weighs more than one on the name; filler words of company names never match a typo
+     (property test on the real blocks: "snc" found METAc through "Inc", "gec" found SPCXc through "tec(hnologies)") */
+  if (qs.length >= 3 && (oneTypo(qs, base) || oneTypo(qs, sym))) return qs.length < sym.length ? 46 : 45; /* a letter left out is likelier than one added: "cbtc" means CBBTC before BTC */
+  const real = words.filter((w) => w.length >= 4 && !FILLER.has(w));
+  if (qs.length >= 3 && real.some((w) => oneTypo(qs, w) || (w.length > qs.length + 1 && qs.length >= 4 && oneTypo(qs, w.slice(0, qs.length))))) return 40;
+  if (qs.length >= 3 && (inOrder(qs, sym) || real.some((w) => inOrder(qs, w)))) return 20;
   return 0;
 }
 function smartFind(list, raw, max) {
