@@ -342,8 +342,8 @@ export function appendFacts(world, faits, upTo) {
   if (!Number.isSafeInteger(upTo) || upTo < world.data.a) throw new Error('appendFacts: upTo must not go back (' + upTo + ' < ' + world.data.a + ')');
   for (const f of faits) {
     if (f.bloc <= world.data.a || f.bloc > upTo) throw new Error('appendFacts: fact at block ' + f.bloc + ' outside (' + world.data.a + ', ' + upTo + ']');
-    if (f.join) { if (!world.joins.has(f.bloc)) world.joins.set(f.bloc, []); world.joins.get(f.bloc).push(f.join); continue; }
-    if (f.revive) { if (!world.joins.has(f.bloc)) world.joins.set(f.bloc, []); world.joins.get(f.bloc).push({ ...f.revive, revive: true }); continue; }
+    if (f.join) { if (!world.joins.has(f.bloc)) world.joins.set(f.bloc, []); world.joins.get(f.bloc).push({ ...f.join, _tx: f.tx || null, _payer: f.payer || null }); continue; }
+    if (f.revive) { if (!world.joins.has(f.bloc)) world.joins.set(f.bloc, []); world.joins.get(f.bloc).push({ ...f.revive, revive: true, _tx: f.tx || null, _payer: f.payer || null }); continue; }
     const k = beatOf(f.bloc, world.data.de); if (!world.perBeat.has(k)) world.perBeat.set(k, []); world.perBeat.get(k).push(f);
   }
   world.data.a = upTo; world.beats = Math.ceil((upTo - world.data.de + 1) / BEAT_BLOCKS);
@@ -351,7 +351,8 @@ export function appendFacts(world, faits, upTo) {
 }
 /** a new player drops into the game: a place drawn from keccak(address + the block it enters), anywhere on the map out to its
  *  current edge (not the centre: nobody chooses, and nobody is handed the middle), its starting soup written on EMPTY cells only */
-export function joinPlayer(world, b) {
+export function joinPlayer(world, b0) {
+  const { _tx = null, _payer = null, ...b } = b0; const paid = _tx ? { tx: _tx, payer: _payer } : {};
   const adr0 = String(b.adr).toLowerCase(), h = seedBits(adr0, 'join:' + world.chainBlock);
   let R = SPACING; for (const x of world.blocks) R = Math.max(R, Math.hypot(x.home[0], x.home[1]));
   const ang = parseInt(h.slice(2, 10), 16) / 2 ** 32 * 2 * Math.PI, rad = (0.35 + 0.65 * Math.sqrt(parseInt(h.slice(10, 18), 16) / 2 ** 32)) * (R + SPACING / 2);
@@ -362,30 +363,31 @@ export function joinPlayer(world, b) {
   const ex = world.blocks.findIndex((x) => x.adr === adr0);
   if (ex >= 0) {
     for (let y = 0; y < 12; y++) for (let x = 0; x < 6; x++) if (parseInt(s[2 + ((y * 6 + x) % 128)], 16) < 6) for (const X of [spot[0] - 6 + x, spot[0] + 5 - x]) { const k = key(X, spot[1] - 6 + y); if (!world.cells.has(k)) world.cells.set(k, ex); }
-    event(world, { type: 'reinforce', i: ex, at: spot });
+    event(world, { type: 'reinforce', i: ex, at: spot, ...paid });
     return ex;
   }
   const i = world.blocks.length;
   const nb = { ...b, adr: adr0, i, joinedAt: world.chainBlock, home: spot };
   world.blocks.push(nb); world.players.push(newPlayer(nb));
   for (let y = 0; y < 12; y++) for (let x = 0; x < 6; x++) if (parseInt(s[2 + ((y * 6 + x) % 128)], 16) < 6) for (const X of [nb.home[0] - 6 + x, nb.home[0] + 5 - x]) { const k = key(X, nb.home[1] - 6 + y); if (!world.cells.has(k)) world.cells.set(k, i); }
-  event(world, { type: 'join', i });
+  event(world, { type: 'join', i, ...paid });
   return i;
 }
 
 /** REVIVE (Phil 2026-11-16: "$1 de TBLOCK pour donner une nouvelle impulsion aux cellules qui stagnent"): a paid fact. The block gets a fresh
  *  soup of its own cells at a spot drawn from keccak(address + block) within 24 cells of its colony's centre (its home if it has no cell),
  *  empty cells only, and every gesture tank refilled. A block not in the game is let in (as a join). */
-export function revivePlayer(world, b) {
+export function revivePlayer(world, b0) {
+  const { _tx = null, _payer = null, ...b } = b0; const paid = _tx ? { tx: _tx, payer: _payer } : {};
   const adr0 = String(b.adr).toLowerCase(), i = world.blocks.findIndex((x) => x.adr === adr0);
-  if (i < 0) { const { revive, ...jb } = b; return joinPlayer(world, jb); }
+  if (i < 0) { const { revive, ...jb } = b; return joinPlayer(world, { ...jb, _tx, _payer }); }
   let sx = 0, sy = 0, sn = 0; for (const [k, o] of world.cells) if (o === i) { sx += kx(k); sy += ky(k); sn++; }
   const c = sn ? [Math.round(sx / sn), Math.round(sy / sn)] : world.blocks[i].home, h = seedBits(adr0, 'revive:' + world.chainBlock);
   const spot = [c[0] + (parseInt(h.slice(2, 6), 16) % 49) - 24, c[1] + (parseInt(h.slice(6, 10), 16) % 49) - 24];
   const s = seedBits(adr0, 'soup:revive:' + world.chainBlock) + seedBits(adr0, 'soup2:revive:' + world.chainBlock).slice(2);
   for (let y = 0; y < 12; y++) for (let x = 0; x < 6; x++) if (parseInt(s[2 + ((y * 6 + x) % 128)], 16) < 6) for (const X of [spot[0] - 6 + x, spot[0] + 5 - x]) { const k = key(X, spot[1] - 6 + y); if (!world.cells.has(k)) world.cells.set(k, i); }
   const p = world.players[i]; for (const g of Object.keys(GESTURES)) p.tank[g] = tankOf(g);
-  event(world, { type: 'revive', i, at: spot });
+  event(world, { type: 'revive', i, at: spot, ...paid });
   return i;
 }
 

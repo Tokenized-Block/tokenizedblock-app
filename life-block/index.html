@@ -65,7 +65,7 @@
 .liveTag{font-size:12px;font-weight:700;color:#3ddc97;vertical-align:4px;margin-left:6px;letter-spacing:.04em}
 /* the game bar (top centre): live, generation, the crown, the market round with its time gauge, Bet and "?" */
 .hud{position:fixed;left:50%;top:10px;transform:translateX(-50%);z-index:3;display:flex;align-items:center;gap:10px;background:rgba(4,9,12,.86);border:1px solid var(--ligne);border-radius:14px;padding:6px 8px 6px 12px;font-size:12px;color:var(--texte);max-width:calc(100vw - 24px)}
-.hud .hl{white-space:nowrap}.hud b{color:#ffd76a}.hud .open{color:#3ddc97}.hud .shut{color:var(--doux)}
+.hud .hl{white-space:nowrap;display:flex;gap:6px;align-items:center;flex-wrap:wrap}.hud .chip{border:1px solid var(--ligne);border-radius:9px;padding:2px 8px;color:var(--doux);font-size:11px;letter-spacing:.04em}.hud .chip strong{color:var(--texte);margin-left:4px}.hud .chip.round{border-color:rgba(255,215,106,.5)}.hud b{color:#ffd76a}.hud .open{color:#3ddc97}.hud .shut{color:var(--doux)}
 .hud .gauge{width:72px;height:6px;border-radius:3px;background:var(--ligne);overflow:hidden}.hud .gauge i{display:block;height:100%;background:var(--accent)}
 .hud button{padding:3px 10px;font-size:12px;border-radius:9px}.hud .betBtn{background:var(--bleu);border-color:var(--bleu);color:#fff;font-weight:700}
 .hud .helpBtn{width:26px;height:26px;padding:0;border-radius:50%;font-weight:700}
@@ -275,8 +275,10 @@ let cmInfo = null;
 function hud() {
   if (!world) return;
   const cr = world.crown >= 0 ? world.blocks[world.crown].sym : '—';
-  const l = $('#hudLine'); l.innerHTML = (live ? '<span class="open">● Live</span> · ' : 'Replay · ') + 'gen ' + world.gen.toLocaleString('en-US') + ' · ' + world.blocks.length + ' blocks · 👑 <b></b>' + (cmInfo ? ' · round ' + cmInfo.r + ': <span class="' + (cmInfo.open ? 'open' : 'shut') + '"></span>' : '');
-  l.querySelector('b').textContent = cr; if (cmInfo) l.querySelectorAll('span')[1].textContent = cmInfo.open ? 'bets open · ' + cmInfo.min + ' min' : 'bets closed · ends in ' + cmInfo.min + ' min';
+  const l = $('#hudLine');
+  l.innerHTML = (live ? '<span class="open">● LIVE</span>' : '<span class="shut">REPLAY</span>') + '<span class="chip">GEN<strong></strong></span><span class="chip">PLAYERS<strong></strong></span><span class="chip">👑<strong></strong></span>' + (cmInfo ? '<span class="chip round">ROUND <strong></strong> <span class="' + (cmInfo.open ? 'open' : 'shut') + '"></span></span>' : '');
+  const st = l.querySelectorAll('strong'); st[0].textContent = world.gen.toLocaleString('en-US'); st[1].textContent = world.blocks.length; st[2].textContent = cr;
+  if (cmInfo) { st[3].textContent = cmInfo.r; l.querySelector('.round span').textContent = cmInfo.open ? 'bets open · ' + cmInfo.min + ' min' : 'bets closed · ' + cmInfo.min + ' min'; }
   $('#hudGauge').hidden = !cmInfo; $('#hudBet').hidden = !(cmInfo && cmInfo.open);
   if (cmInfo) $('#hudGauge i').style.width = Math.round(100 * cmInfo.frac) + '%';
 }
@@ -296,6 +298,7 @@ headerLines();
 fitAll();
 $('#loading').hidden = true;
 try { panel(); } catch (_) {}
+if (live) void readPrices();
 setInterval(() => { try { panel(); } catch (_) {} }, 1000);
 { const fq = new URLSearchParams(location.search).get('focus'); if (fq) setTimeout(() => findBlock(fq), 300); }
 /* the live game: new facts every 4 s; a page too far behind (or a new season) reloads the state */
@@ -347,13 +350,14 @@ function feedText(e) {
   if (e.type === 'feast') return '🍽 ' + sym(e.i) + ' ate ' + e.n + ' cells of ' + sym(e.v);
   if (e.type === 'wiped') return '☠ ' + sym(e.i) + ' is wiped out';
   if (e.type === 'back') return '↺ ' + sym(e.i) + ' is back';
-  if (e.type === 'join') return '＋ ' + sym(e.i) + ' enters the game';
+  const by = e.payer ? ' by ' + e.payer.slice(0, 6) + '…' : '';
+  if (e.type === 'join') return '＋ ' + sym(e.i) + ' entered' + by;
   if (e.type === 'machine') return '⚙ ' + sym(e.i) + ' builds a glider gun';
-  if (e.type === 'revive') return '⚡ ' + sym(e.i) + ' is revived';
+  if (e.type === 'revive') return '⚡ ' + sym(e.i) + ' revived' + by;
   if (e.type === 'bonus') return '🎁 ' + sym(e.i) + ' gets a catch-up revive';
   if (e.type === 'boss') return '💀 ' + sym(e.i) + ' is the boss: it starts with a glider gun';
   if (e.type === 'rain') return '🌧 neutral seeds fall near the centre';
-  if (e.type === 'reinforce') return '＋ ' + sym(e.i) + ' is reinforced';
+  if (e.type === 'reinforce') return '＋ ' + sym(e.i) + ' reinforced' + by;
   return '';
 }
 /* a border that oscillates between two colonies makes them eat each other every beat (seen live 2026-11-16: AVGOc / SONYc, 6 lines in a
@@ -367,6 +371,7 @@ function shareUrl(e) {
   return 'https://x.com/intent/post?text=' + encodeURIComponent(text) + '&url=' + encodeURIComponent(url);
 }
 function focusFromFeed(e) { if (e.i >= 0) { followI = e.i; lockI = e.i; $('#follow').value = String(e.i); view.z = Math.max(view.z, 5); } }
+function txLink(e) { const a = document.createElement('a'); a.className = 'xs'; a.href = 'https://basescan.org/tx/' + e.tx; a.target = '_blank'; a.rel = 'noopener'; a.textContent = 'tx'; a.title = 'The payment on Basescan'; return a; }
 function shareLink(e) { const a = document.createElement('a'); a.className = 'xs'; a.href = shareUrl(e); a.target = '_blank'; a.rel = 'noopener'; a.textContent = '𝕏 share'; a.title = 'Share this moment on X'; return a; }
 function killFeed(evs) {
   const ol = $('#feed');
@@ -375,14 +380,14 @@ function killFeed(evs) {
       const k = Math.min(e.i, e.v) + ':' + Math.max(e.i, e.v), p = pairSeen.get(k);
       if (p && e.block - p.block < 300) { p.n += e.n; if (p.li && p.li.isConnected) p.li.querySelector('.tot').textContent = ' · ' + p.n + ' cells traded so far'; continue; }
       const li = document.createElement('li'); li.style.setProperty('--c', colours[e.i]);
-      li.innerHTML = feedText(e) + '<small class="tot"></small><small>#' + e.block.toLocaleString('en-US') + '</small>'; li.append(shareLink(e)); li.addEventListener('click', (ev) => { if (!ev.target.closest('a')) focusFromFeed(e); }); li.style.cursor = 'pointer'; ol.prepend(li);
+      li.innerHTML = feedText(e) + '<small class="tot"></small><small>#' + e.block.toLocaleString('en-US') + '</small>'; if (e.tx) li.append(txLink(e)); li.append(shareLink(e)); li.addEventListener('click', (ev) => { if (!ev.target.closest('a')) focusFromFeed(e); }); li.style.cursor = 'pointer'; ol.prepend(li);
       li.addEventListener('mouseenter', () => li.classList.add('hold')); li.addEventListener('mouseleave', () => li.classList.remove('hold'));
       pairSeen.set(k, { block: e.block, n: e.n, li });
       const fade = () => { if (li.classList.contains('hold')) { setTimeout(fade, 1500); return; } li.classList.add('old'); setTimeout(() => li.remove(), 700); }; setTimeout(fade, 12000); li.classList.add('flash'); setTimeout(() => li.classList.remove('flash'), 1500);
       continue;
     }
     const li = document.createElement('li'); li.style.setProperty('--c', colours[e.type === 'feast' || e.type === 'crown' ? e.i : e.i]);
-    li.innerHTML = feedText(e) + '<small>#' + e.block.toLocaleString('en-US') + '</small>'; li.append(shareLink(e)); li.addEventListener('click', (ev) => { if (!ev.target.closest('a')) focusFromFeed(e); }); li.style.cursor = 'pointer'; ol.prepend(li);
+    li.innerHTML = feedText(e) + '<small>#' + e.block.toLocaleString('en-US') + '</small>'; if (e.tx) li.append(txLink(e)); li.append(shareLink(e)); li.addEventListener('click', (ev) => { if (!ev.target.closest('a')) focusFromFeed(e); }); li.style.cursor = 'pointer'; ol.prepend(li);
     const fade = () => { if (li.classList.contains('hold')) { setTimeout(fade, 1500); return; } li.classList.add('old'); setTimeout(() => li.remove(), 700); }; setTimeout(fade, 12000); li.classList.add('flash'); setTimeout(() => li.classList.remove('flash'), 1500);
   }
   while (ol.children.length > 6) ol.lastChild.remove();
@@ -412,6 +417,7 @@ document.addEventListener('click', (ev) => {
   if (btn.dataset.act === 'bet') { setPanel(true); $('#cmPick').value = b.adr; $('#cmCard').scrollIntoView({ behavior: 'smooth', block: 'center' }); }
 });
 let tipKey = '';
+function rankOf(i) { const n = new Array(world.blocks.length).fill(0); for (const o of world.cells.values()) if (o >= 0) n[o]++; return 1 + n.filter((x, j) => x > n[i] || (x === n[i] && j < i)).length; }
 function tooltip() {
   const tip = $('#tip'), i = lockI >= 0 ? lockI : hoverI;
   if (i < 0 || (!mouse && lockI < 0)) { tip.hidden = true; tipKey = ''; return; }
@@ -421,6 +427,7 @@ function tooltip() {
   tipKey = kNow;
   const last = p.last ? SAYS[p.last.g] + ' at block #' + p.last.block.toLocaleString('en-US') : 'no gesture yet';
   tip.innerHTML = '<img alt="" src="' + faces[i].src + '"><div><b>' + b.sym + '</b> <span class="mood ' + p.mood + '">' + (NOMS_HUMEUR[p.mood] || p.mood).split(' ')[0] + '</span><br><small>' + b.nom + '</small>'
+    + (live ? '<div class="tipStat"><span class="open">in the game</span> · rank #' + rankOf(i) + (prices && prices.revive ? ' · revive $1 ≈ ' + prices.revive + ' TBLOCK' : '') + '</div>' : '')
     + '<div class="tipStat">' + n.toLocaleString('en-US') + ' cells · 👑 ' + p.crownBeats + ' beats crowned · ' + p.births.toLocaleString('en-US') + ' births</div>'
     + '<div class="tipStat">ate ' + p.eaten.toLocaleString('en-US') + ' rival cells · lost ' + p.lost.toLocaleString('en-US') + '</div>'
     + '<div class="tipStat">this beat on Base: ' + (nv ? nv.achats + ' buys · ' + nv.ventes + ' sells' : '—') + '</div>'
