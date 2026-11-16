@@ -160,11 +160,33 @@ export function createLifeLive({ rpc, dir = null, lignes, poolManager, log = () 
     }
   }
 
+  /* A SEASON CLOSED FOR A RULES CHANGE (not ended) keeps its PAID entries: they re-enter the running season at the next block read, as
+   *   join facts in its journal (so "Verify" still replays it). Read from the closed season's own journal on the volume; done once
+   *   (history[k].carried). Measured 2026-11-16: OUSD paid $2 at 58,259,553 in the season closed by engine v2. */
+  function carryPaidEntries() {
+    if (!dir || !S.season || !S.world) return;
+    for (const h of S.history) {
+      if (!h.closed || h.carried || h.id === S.season.id) continue;
+      h.carried = true;
+      let joins = [];
+      try { joins = readFileSync(f(journalName(h.id)), 'utf8').split('\n').filter(Boolean).map((x) => JSON.parse(x)).filter((x) => x.join && x.tx); } catch { joins = []; }
+      for (const j of joins) {
+        if (S.season.blocks.some((b) => b.adr === j.join.adr) || (S.pendingJoins || []).some((p) => p.join.adr === j.join.adr)) continue;
+        const last = Math.max(0, ...S.season.blocks.map((x) => x.joinedAt || 0), ...(S.pendingJoins || []).map((p) => p.bloc)), at = Math.max(S.readTo + 1, last + 1);
+        const nb = { ...j.join, joinedAt: at }; S.season.blocks.push(nb);
+        S.pendingJoins = (S.pendingJoins || []).concat({ bloc: at, join: j.join, tx: j.tx, payer: j.payer, carriedFrom: h.id });
+        log('[life] paid entry ' + j.join.sym + ' (tx ' + j.tx + ') carried from season ' + h.id);
+      }
+      writeJson('seasons.json', S.history); saveSeason();
+    }
+  }
+
   async function tick() {
     if (S.busy) return; S.busy = true; S.lastTickAt = Date.now();
     try {
       const h = await head();
       if (!S.season || S.readTo >= S.season.end - 1) { if (!startSeason(h)) return; }
+      carryPaidEntries();
       const to = Math.min(h, S.readTo + READ_MAX, S.season.end - 1);
       if (to > S.readTo) {
         const faits = await read(to);

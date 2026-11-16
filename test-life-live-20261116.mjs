@@ -7,7 +7,7 @@
  *   L5 the page's polls: facts after a block, or "reload" when too far behind / another season;
  *   L6 a season ends at its block count and the next one starts, the winner recorded.
  * DOES NOT PROVE: a real node's behaviour (limits, lags), or the page. */
-import { readFileSync, mkdtempSync, rmSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import * as E from './life-engine.js';
@@ -113,6 +113,29 @@ const replay = E.createWorld(data); for (let i = 0; i < G; i++) E.stepWorld(repl
   const live2 = createLifeLive({ rpc, lignes, poolManager: '0x0', lifeEntry: LE }); node.tip = data.de - 1 + 3;
   await live2.tick(); await play(live2, node, data.de + 1200); live2.stepFor(1e9);
   t('L7e two servers reading the same chain reach the same world (entries included)', live2._S.world.hash === W.hash, live2._S.world.hash + ' vs ' + W.hash); }
+
+{ /* L8: a season closed for a RULES change keeps its PAID entries: the next season re-adds them, once, as journal facts */
+  const dir = mkdtempSync(join(tmpdir(), 'life-carry-'));
+  try {
+    const node = { tip: data.de - 1 + 3 }; let live = createLifeLive({ rpc: fakeNode(node), lignes, poolManager: '0x0', dir });
+    await live.tick(); await play(live, node, data.de + 300); live.stepFor(1e9);
+    /* a paid entry, written as the server writes one (join fact WITH its tx) */
+    const paid = { adr: '0x' + '0e'.repeat(20), sym: 'OUSD', nom: 'OpenUSD', action: false, liquiditeUsd: 0, pools: [] };
+    live._S.season.blocks.push({ ...paid, joinedAt: data.de + 301 }); live._S.pendingJoins = [{ bloc: data.de + 301, join: paid, tx: '0x' + 'aa'.repeat(32), payer: '0x' + '31'.repeat(20) }];
+    await play(live, node, data.de + 600); live.stepFor(1e9);
+    /* the rules change: the saved season says engine 1 */
+    const sp = join(dir, 'season.json'); const sj = JSON.parse(readFileSync(sp, 'utf8')); sj.engine = 1; writeFileSync(sp, JSON.stringify(sj));
+    live = createLifeLive({ rpc: fakeNode(node), lignes, poolManager: '0x0', dir }); live.load();
+    node.tip = data.de + 900; await live.tick(); await play(live, node, data.de + 1200); live.stepFor(1e9);
+    const W = live._S.world;
+    t('L8a the old season is closed for the rules change and a new one runs', live._S.history[0] && /rules changed/.test(live._S.history[0].closed || '') && live._S.season.id !== sj.id);
+    t('L8b the paid block is in the new season, once', W.blocks.filter((b) => b.adr === paid.adr).length === 1 && W.events.some((e) => e.type === 'join'));
+    const lines = live.journal().split('\n').filter(Boolean).map((x) => JSON.parse(x));
+    const mine = E.createLiveWorld(live._S.season.blocks.filter((b) => !b.joinedAt), live._S.season.de); E.appendFacts(mine, lines, live._S.readTo); while (mine.chainBlock <= mine.data.a) E.stepWorld(mine);
+    t('L8c the new season\'s journal (carried join included) replays to the same hash', mine.hash === W.hash && lines.some((x) => x.join && x.carriedFrom === sj.id), mine.hash + ' vs ' + W.hash);
+    live = createLifeLive({ rpc: fakeNode(node), lignes, poolManager: '0x0', dir }); live.load(); await live.tick(); live.stepFor(1e9);
+    t('L8d a restart does not carry it twice', live._S.world.blocks.filter((b) => b.adr === paid.adr).length === 1);
+  } finally { rmSync(dir, { recursive: true, force: true }); } }
 
 console.log(ok + '/' + (ok + ko) + (ko ? ' — RED' : ' — green'));
 process.exit(ko ? 1 : 0);

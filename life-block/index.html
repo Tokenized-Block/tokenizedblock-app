@@ -97,6 +97,8 @@
       <button id="fold" title="Hide the panel to see the whole map">✕ Hide panel</button>
     </div>
     <div class="row" style="margin-top:8px">
+      <input id="find" list="findList" placeholder="Find a block: symbol, name or address" autocomplete="off" style="flex:1 1 100%;min-width:0;padding:8px 10px;border-radius:10px;border:1px solid var(--ligne);background:#04090c;color:#f2fbff;font-size:14px">
+      <datalist id="findList"></datalist>
       <select id="follow" title="Follow a block"><option value="-1">Follow: the whole map</option></select>
       <button id="trails" class="on" title="Fading trails behind dying cells (drawing only)">Trails</button>
       <button id="glow" class="on" title="A soft glow under the cells (drawing only)">Glow</button>
@@ -203,7 +205,18 @@ function visuals() {
     const img = new Image(); img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(logoSvg(paramsLogoDepuisApparence(a, (b.sym || '?')[0])));
     faces[i] = img;
     const o = document.createElement('option'); o.value = i; o.textContent = 'Follow: ' + b.sym; $('#follow').append(o);
+    const d = document.createElement('option'); d.value = b.sym; d.label = (b.nom || '') + (b.joinedAt ? ' · entered' : ''); $('#findList').append(d);
   }
+}
+/* Find a block (Grok's test, 2026-11-16: "OUSD est dans la partie mais hors de la zone visible"): symbol, name or address -> follow it */
+function findBlock(q) {
+  const v = String(q || '').trim().toLowerCase(); if (!v) return false;
+  const i = world.blocks.findIndex((b) => b.sym.toLowerCase() === v || b.adr === v) >= 0 ? world.blocks.findIndex((b) => b.sym.toLowerCase() === v || b.adr === v)
+    : world.blocks.findIndex((b) => b.sym.toLowerCase().startsWith(v) || (b.nom || '').toLowerCase().includes(v) || b.adr.startsWith(v));
+  if (i < 0) return false;
+  followI = i; lockI = i; $('#follow').value = String(i); view.z = Math.max(view.z, 5);
+  const c = centroid(i) || world.blocks[i].home; view.x = c[0]; view.y = c[1];
+  return true;
 }
 async function loadLive() {
   const r = await fetch('/api/life/live', { cache: 'no-store' }); const st = await r.json();
@@ -504,6 +517,8 @@ if (innerWidth < 760) setPanel(false);
 $('#director').onclick = () => { director = !director; shot = null; $('#director').classList.toggle('on', director); if (director) { followI = -1; lockI = -1; $('#follow').value = '-1'; } };
 $('#follow').addEventListener('change', () => { lockI = followI; });
 $('#follow').onchange = (e) => { followI = Number(e.target.value); if (followI < 0) fitAll(); else view.z = Math.max(view.z, 4); };
+$('#find').addEventListener('change', (e) => { if (!findBlock(e.target.value)) e.target.setCustomValidity('No block with that name in this game'); else e.target.setCustomValidity(''); e.target.reportValidity(); });
+$('#find').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); findBlock(e.target.value); } });
 $('#glow').onclick = () => { glow = !glow; $('#glow').classList.toggle('on', glow); };
 $('#trails').onclick = () => { showTrails = !showTrails; trails.clear(); $('#trails').classList.toggle('on', showTrails); };
 $('#verify').onclick = async () => {
