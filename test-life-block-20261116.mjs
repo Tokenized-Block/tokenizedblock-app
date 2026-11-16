@@ -71,7 +71,10 @@ t('C3b the spread budget keeps gestures coming late in the run (not all spent at
 const fromFacts = Object.entries(E.GESTURES).filter(([, d]) => d.fromFacts).map(([g]) => g);
 t('C4 a block with no fact never made a gesture that only market facts can trigger (' + fromFacts.join('/') + ')', r1.w.players.every((p, i) => data.faits.some((f) => f.b === i) || fromFacts.every((g) => p.counts[g] === 0)));
 { const M = new Map([[E.key(0, 0), 1], [E.key(1, 0), 1], [E.key(5, 5), 2], [E.key(6, 5), 2], [E.key(9, 9), 0], [E.key(8, 8), -1], [E.key(7, 7), -1], [E.key(6, 6), -1]]);
-  t('C9 the crown: most cells wins, a tie stays on the current head, neutral cells never wear it', E.crownOf(M, 3, 2)[0] === 2 && E.crownOf(M, 3, 1)[0] === 1 && E.crownOf(M, 3, -1)[0] === 1 && E.crownOf(new Map([[E.key(0, 0), 0], [E.key(1, 0), 0], [E.key(2, 0), 0]]), 3, 1)[0] === 0);
+  t('C9 the crown: no head -> the largest; a tie or a small lead stays on the head; neutral cells never wear it', E.crownOf(M, 3, 2)[0] === 2 && E.crownOf(M, 3, 1)[0] === 1 && E.crownOf(M, 3, -1)[0] === 1);
+  { /* the margin: 100 cells head vs 105 challenger stays; vs 106 changes (1 % = 1, at least 5) */
+    const mk = (a, b) => { const X = new Map(); for (let i = 0; i < a; i++) X.set(E.key(i, 0), 0); for (let i = 0; i < b; i++) X.set(E.key(i, 5), 1); return X; };
+    t('C9c a challenger needs more than head + max(5, 1 %): 105 vs 100 keeps the head, 106 takes it', E.crownOf(mk(100, 105), 2, 0)[0] === 0 && E.crownOf(mk(100, 106), 2, 0)[0] === 1 && E.crownOf(mk(0, 3), 2, 0)[0] === 1); }
   t('C9b in the replay, the crown changed heads and its holder logged crowned beats', r1.w.crown >= 0 && r1.w.players[r1.w.crown].crownBeats > 0 && r1.w.events.some((e) => e.type === 'crown' && e.from >= 0)); }
 { const types = new Set(r1.w.events.map((e) => e.type));
   t('C10 the kill feed has crown and feast events, every feast at least FEAST cells, every event dated inside the replay', types.has('crown') && types.has('feast') && r1.w.events.every((e) => (e.type !== 'feast' || e.n >= E.FEAST) && e.block >= data.de && e.block <= data.de + GENS), [...types].join(','));

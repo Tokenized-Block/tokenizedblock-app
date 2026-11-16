@@ -373,6 +373,78 @@ export const ACTIONS_COINBASE = [
   { symbole: 'XYZc', nom: 'Block', adr: '0xb20000000000000000000067c8c151f24e1c9924' },
 ];
 
+/* ══ DISPLAY-ONLY COINBASE TOKENIZED STOCKS (Phil's GOs, relayed by Grok Bot: 2026-11-10 19:20 and 2026-11-16 14:12, Brussels) ═══════
+ * Stocks the issuer lists, SHOWN in the app but NOT pairable and NOT tradable: DexScreener shows no pair on any of them, and on
+ *   chain their totalSupply was 0 (batch 2026-11-10: Base block 55 723 673; batch 2026-11-16: block 58 222 730). They stay out of
+ *   ACTIONS_COINBASE on purpose: that registry is what Create proposes as a pair and what the trade sheet accepts as a known currency.
+ * Source of each line: Grok Bot's GO message (symbol, address), the same addresses and symbols as his watch file
+ *   (canal/veille-actions/base.json), and on chain through mainnet.base.org (read-only): code === 0xef, symbol() equal, name() =
+ *   the name below, decimals() = 8 for all. `batch` = the date of the GO, so one batch can be dropped as a whole.
+ * The issuer API no longer gives NAV, supply or redeem_paused: the screen says « not read », never a number. No field here
+ *   stores one. A stock leaves this list (into ACTIONS_COINBASE) only by a later change, once a pool has liquidity.
+ * Enforced in: pairesProposees (filtered), qualifierPaire (a pasted address is refused), hookDeLancementPour (null on every
+ *   hook), app.html blocksDecouverts (never a « Live block » pair), and test-stocks-display-only-20261116.mjs. */
+export const DISPLAY_ONLY_STOCKS = Object.freeze([
+  { symbol: 'DOCNc', name: 'DigitalOcean Holdings', adr: '0xb20000000000000000000005befa57b9b871e737', decimals: 8, batch: '2026-11-10' },
+  { symbol: 'PINSc', name: 'Pinterest', adr: '0xb2000000000000000000001dfd8c413ecd6ec630', decimals: 8, batch: '2026-11-10' },
+  { symbol: 'TTMIc', name: 'TTM Technologies', adr: '0xb2000000000000000000007292d3d91c6b559058', decimals: 8, batch: '2026-11-10' },
+  { symbol: 'Sc', name: 'SentinelOne', adr: '0xb2000000000000000000008cae79b36e9269eb86', decimals: 8, batch: '2026-11-10' },
+  { symbol: 'KDc', name: 'Kyndryl Holdings', adr: '0xb200000000000000000000a8fff5b07c6c45a5d2', decimals: 8, batch: '2026-11-10' },
+  { symbol: 'RBRKc', name: 'Rubrik', adr: '0xb200000000000000000000b6354bc256dbcd93a8', decimals: 8, batch: '2026-11-10' },
+  { symbol: 'ENVXc', name: 'Enovix Corporation', adr: '0xb200000000000000000000bbc68170eb0b049e42', decimals: 8, batch: '2026-11-10' },
+  { symbol: 'ACMRc', name: 'ACM Research', adr: '0xb200000000000000000000bd0ea991ec5b5a8a03', decimals: 8, batch: '2026-11-10' },
+  { symbol: 'SPBc', name: 'Spectrum Brands Holdings', adr: '0xb200000000000000000000ec3cd781acad151fdc', decimals: 8, batch: '2026-11-10' },
+  { symbol: 'REALc', name: 'The RealReal, Inc.', adr: '0xb200000000000000000000211a2ed33fad95b0b3', decimals: 8, batch: '2026-11-16' },
+  { symbol: 'GTc', name: 'The Goodyear Tire & Rubber Company', adr: '0xb200000000000000000000264d3a9dea68aa6631', decimals: 8, batch: '2026-11-16' },
+  { symbol: 'WUc', name: 'The Western Union Company', adr: '0xb20000000000000000000033be01089cf02a2025', decimals: 8, batch: '2026-11-16' },
+  { symbol: 'CPNGc', name: 'Coupang, Inc.', adr: '0xb20000000000000000000038e9982fe875b7e066', decimals: 8, batch: '2026-11-16' },
+  { symbol: 'YOUc', name: 'CLEAR Secure, Inc.', adr: '0xb2000000000000000000003cdb2c0f94e4ebf605', decimals: 8, batch: '2026-11-16' },
+  { symbol: 'GRPNc', name: 'Groupon, Inc.', adr: '0xb2000000000000000000004637e5a787885c720d', decimals: 8, batch: '2026-11-16' },
+  { symbol: 'WHRc', name: 'Whirlpool Corporation', adr: '0xb2000000000000000000006448a906e8942850fa', decimals: 8, batch: '2026-11-16' },
+  { symbol: 'JBLUc', name: 'JetBlue Airways Corporation', adr: '0xb20000000000000000000064832d0d2d38e2f4fc', decimals: 8, batch: '2026-11-16' },
+  { symbol: 'DKSc', name: 'DICK\'S Sporting Goods, Inc.', adr: '0xb2000000000000000000008463bf2557b483abf9', decimals: 8, batch: '2026-11-16' },
+  { symbol: 'FOURc', name: 'Shift4 Payments, Inc.', adr: '0xb2000000000000000000008c02be39ba2cbda822', decimals: 8, batch: '2026-11-16' },
+  { symbol: 'OLLIc', name: 'Ollie\'s Bargain Outlet Holdings, Inc.', adr: '0xb20000000000000000000097ca7d4003399c67e6', decimals: 8, batch: '2026-11-16' },
+  { symbol: 'ALLc', name: 'The Allstate Corporation', adr: '0xb2000000000000000000009b05748ece723cc6a6', decimals: 8, batch: '2026-11-16' },
+  { symbol: 'AXPc', name: 'American Express Company', adr: '0xb2000000000000000000009cfe164a21cb5a11c5', decimals: 8, batch: '2026-11-16' },
+  { symbol: 'KMBc', name: 'Kimberly-Clark Corporation', adr: '0xb200000000000000000000a8f1c97d05a15e89e2', decimals: 8, batch: '2026-11-16' },
+  { symbol: 'EVERc', name: 'EverQuote, Inc.', adr: '0xb200000000000000000000ad4ca95ce451578243', decimals: 8, batch: '2026-11-16' },
+  { symbol: 'OWLc', name: 'Blue Owl Capital Inc.', adr: '0xb200000000000000000000b1e11478cdd89ef7b2', decimals: 8, batch: '2026-11-16' },
+  { symbol: 'DECKc', name: 'Deckers Outdoor Corporation', adr: '0xb200000000000000000000b85fff48d4a26c3145', decimals: 8, batch: '2026-11-16' },
+  { symbol: 'ETSYc', name: 'Etsy, Inc.', adr: '0xb200000000000000000000ba75b2046aad1c0a13', decimals: 8, batch: '2026-11-16' },
+  { symbol: 'PGc', name: 'The Procter & Gamble Company', adr: '0xb200000000000000000000c25611c4bda138d298', decimals: 8, batch: '2026-11-16' },
+  { symbol: 'UALc', name: 'United Airlines Holdings, Inc.', adr: '0xb200000000000000000000cdbf3e786ff34dbe51', decimals: 8, batch: '2026-11-16' },
+].map((s) => Object.freeze({ ...s, pairable: false, tradable: false })));
+const DISPLAY_ONLY_BY_ADR = new Map(DISPLAY_ONLY_STOCKS.map((s) => [s.adr, s]));
+/** The display-only entry for this address (any letter case), or null. */
+export function displayOnlyStock(adr) {
+  return DISPLAY_ONLY_BY_ADR.get(String(adr || '').trim().toLowerCase()) || null;
+}
+/** True = listed for display only: never a pair, never bought or sold here. */
+export function isDisplayOnlyStock(adr) {
+  return displayOnlyStock(adr) !== null;
+}
+/** What the screen says for the issuer facts the API no longer gives. Words only, never a number. */
+export const NOT_READ = 'not read';
+export function displayOnlyStockFacts() {
+  return Object.freeze({ nav: NOT_READ, supply: NOT_READ, redeem: NOT_READ });
+}
+/** The Market card rows. `escape` = the page's HTML escaper, `short` = its address shortener (app.html passes displayShort). */
+export function displayOnlyStocksHtml({ escape, short }) {
+  return DISPLAY_ONLY_STOCKS.map((s) => {
+    const f = displayOnlyStockFacts(s);
+    return '<li class="filL" data-display-only="' + escape(s.adr) + '"><p class="note" style="margin:0"><b>' + escape(s.symbol) + '</b> '
+      + escape(s.name) + ' · <span title="' + escape(s.adr) + '">' + escape(short(s.adr)) + '</span></p>'
+      + '<p class="note" style="margin:2px 0 0">NAV ' + escape(f.nav) + ' · Supply ' + escape(f.supply) + ' · Redeem status ' + escape(f.redeem)
+      + ' · No pool with liquidity yet: no pairing, no buy or sell here.</p></li>';
+  }).join('');
+}
+/** The Create pair list: one group, every option disabled (shown, never choosable). */
+export function displayOnlyPairOptionsHtml({ escape }) {
+  return '<optgroup label="Coinbase tokenized stocks — listed, no pool yet">' + DISPLAY_ONLY_STOCKS.map((s) =>
+    '<option value="' + escape(s.adr) + '" disabled>' + escape(s.symbol) + ' — no pool yet, can\'t be paired</option>').join('') + '</optgroup>';
+}
+
 const ADRESSE = /^0x[0-9a-fA-F]{40}$/;
 
 /**
@@ -394,7 +466,8 @@ export function pairesProposees(chaine) {
    *     PROPOSE, on ne supprime pas ce qu on CONNAIT. */
   const base = DEVISES_BASE.filter((d) => d.chaines.includes(c) && d.lancePubliquement !== false);
   const actions = c === 8453 ? ACTIONS_COINBASE.map((s) => ({ ...s, type: 'ACTION' })) : [];
-  return [...base, ...actions];
+  /* display-only stocks (above) are never proposed, even if someone adds one to a list above by mistake. */
+  return [...base, ...actions].filter((p) => !isDisplayOnlyStock(p && p.adr));
 }
 
 /**
@@ -407,6 +480,9 @@ export function qualifierPaire(adresse, chaine) {
   const a = String(adresse || '').trim();
   if (!ADRESSE.test(a)) return { etat: 'REFUSE', pourquoi: 'not an address — paste it whole, nothing is completed' };
   const bas = a.toLowerCase();
+  /* listed by Coinbase, no pool with liquidity: refused here, so a pasted address does not become a « typed » pair. */
+  const affiche = displayOnlyStock(bas);
+  if (affiche) return { etat: 'REFUSE', pourquoi: affiche.symbol + ' is listed by Coinbase but has no pool with liquidity yet — it can\'t be paired with a block here.' };
   const connue = pairesProposees(chaine).find((p) => p.adr.toLowerCase() === bas);
   if (connue) return { etat: 'OK', paire: { ...connue, verifiee: true } };
   if (Number(chaine) !== 8453 && ACTIONS_COINBASE.some((s) => s.adr.toLowerCase() === bas)) {
@@ -479,6 +555,8 @@ export const DEVISES_ADMISES_7030 = DEVISES_7030;
 export function hookDeLancementPour(adresse, chaine, { v9 = false, h7030 = false } = {}) {
   if (Number(chaine) !== 8453) return null;
   const a = String(adresse || '').trim().toLowerCase();
+  /* a display-only stock opens on no hook, whatever the flags. */
+  if (isDisplayOnlyStock(a)) return null;
   /* ⛔ hook 7030 (drapeau HOOK_7030_ACTIF, passe par l appelant) : ETH + sa liste fixe — 62 depuis le 2026-10-03 (descripteur). */
   if (h7030 === true && (a === ETH_NATIF || DEVISES_ADMISES_7030.includes(a))) return '7030';
   if (v9 === true && a.startsWith('0xb2') && DEVISES_ADMISES_V9.includes(a)) return 'V9';

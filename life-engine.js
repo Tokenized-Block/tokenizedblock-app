@@ -19,6 +19,9 @@
 import { etatInitial, pas } from './cerveau.js';
 import { keccak256Hex } from './keccak.js';
 
+/* the RULES' version: a season is replayed with the engine of its version only. 2 = the crown margin (2026-11-16). A server that loads
+ *   a season of another version closes it and starts a new one (life-live.js), so "Verify" never compares two rule sets. */
+export const ENGINE_VERSION = 2;
 export const BEAT_BLOCKS = 10;          /* the brain beats every 10 chain blocks = 2 s */
 export const BLOCKS_PER_HOUR = 18000;   /* 3600 s / 0.2 s */
 export const CELL_CAP = 24000;          /* above this, growth gestures pause (defence still allowed) */
@@ -201,10 +204,16 @@ function feedEvents(world, T) {
 }
 /** who wears the crown: the most live cells; a tie (or an empty world) leaves it on the current head. Returns [head, cells]. */
 export const GUN = P.gun;
+/* A MARGIN (Phil 2026-11-16, the crown jumped MSFTc <-> GOOGLc every beat at near-equal sizes): a challenger takes the crown only when it
+ *   has more than the head's cells + CROWN_MARGIN (1 %, at least 5 cells). With no head yet, the largest colony takes it. */
+export const crownMargin = (n) => Math.max(5, Math.ceil(n / 100));
 export function crownOf(cells, players, current) {
   const n = new Array(players).fill(0); for (const o of cells.values()) if (o >= 0) n[o]++;
-  let best = current, bn = best >= 0 ? n[best] : 0; for (let i = 0; i < n.length; i++) if (n[i] > bn) { bn = n[i]; best = i; }
-  return [bn > 0 ? best : current, bn];
+  const cur = current >= 0 ? n[current] : 0, bar = current >= 0 && cur > 0 ? cur + crownMargin(cur) : 0; /* a wiped-out head defends nothing */
+  let best = current, bn = cur;
+  for (let i = 0; i < n.length; i++) if (i !== current && n[i] > bar && n[i] > (best === current ? 0 : bn)) { bn = n[i]; best = i; }
+  if (best === current) bn = cur;
+  return [best >= 0 && (best !== current || cur > 0) ? best : current, bn];
 }
 function holdCrown(world) {
   const [best, bn] = crownOf(world.cells, world.players.length, world.crown);

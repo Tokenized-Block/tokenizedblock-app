@@ -3726,6 +3726,13 @@ details[open] > summary::before{transform:rotate(90deg)}
       <div class="stadeLigne" id="echelleLignes"></div>
       <p class="note" id="echelleNote">Reading the market…</p>
     </div>
+    <!-- Phil's GOs (2026-11-10 19:20, 2026-11-16 14:12): Coinbase tokenized stocks LISTED, display-only. No pool has liquidity, so no
+         pairing, no Buy, no Sell. The issuer API no longer gives NAV, supply or redeem status: « not read ». Rows: paires.js. -->
+    <div class="carte" id="stocksNoPool" hidden>
+      <p class="titre">Coinbase tokenized stocks — listed, no pool yet</p>
+      <p class="note" style="margin:0 0 8px">Issued by Coinbase on Base. None has a pool with liquidity yet, so they can't be paired with a block, bought or sold here.</p>
+      <ul class="fil" id="stocksNoPoolListe"></ul>
+    </div>
   </section>
 
   <section class="volet" id="v-social" aria-label="Social and collateral">
@@ -3808,7 +3815,7 @@ details[open] > summary::before{transform:rotate(90deg)}
       <!-- ⛔ L EMPREINTE EST AFFICHEE, DONC ELLE EST DE L ANGLAIS. `20261001-pont-dans-lui` a fait
            rougir `test-texte-a-l-ecran.mjs` : le mot « dans » est de la prose francaise partie a
            l ecran anglais. La garde a fait son travail du premier coup. -->
-      <p class="note" data-build="20261109-game432" hidden>Build <code>20261109-game432</code> ·Contract labels say what they do, not our internal names.</p>
+      <p class="note" data-build="20261109-game433" hidden>Build <code>20261109-game433</code> ·Contract labels say what they do, not our internal names.</p>
       <p class="sous">Everything happening to blocks on Base, live.</p>
       <!-- tip 0013: sticky — Hooked chip = Dex fees; unhooked → Launch beside. No fee addr. -->
       <p class="note" id="sfHookedSticky" hidden>Blocks alive on TokenizedBlock pay their creator on every trade. Example:<button type="button" class="puce" id="sfStickyTbgas">Open TBGAS</button>.</p>
@@ -5170,7 +5177,8 @@ import { ORBITES_CREATE as ORBITES, FACETTES_CREATE as FACETTES, MATIERES_CREATE
  *   a filtrer. `test-bridge-actifs-proposes.mjs` garde desormais le retour de cette liste : si les
  *   selecteurs reviennent, il rougit AVANT qu on ait oublie de rebrancher le filtre. */
 import { pairesProposees, qualifierPaire, etiquettePaire, ACTIONS_COINBASE, DEVISES_BASE, refusPrixNouveauBlock,
-  libellePuceCreation, blockApresDevise, choixBuyHere, v8BlockDevant, hookDeLancementPour, minimumCautionCreateur } from './paires.js';
+  libellePuceCreation, blockApresDevise, choixBuyHere, v8BlockDevant, hookDeLancementPour, minimumCautionCreateur,
+  isDisplayOnlyStock, displayOnlyStocksHtml, displayOnlyPairOptionsHtml } from './paires.js';
 /* 2026-10-04 : l etat des devises de paire, lu UNE fois par le serveur (GET /api/paires/etat), et LA regle qui grise une option de
  *   Create — seulement sur un « not_born » MESURE (voir `paireGrisee`, plus bas). */
 import { etatsDepuisReponse, estPasNeeMesuree, LIBELLE_PAS_NEE } from './etat-paires.js';
@@ -7350,6 +7358,16 @@ $('#missionForm').addEventListener('submit', async (e) => {
   void peindreMissions();
 });
 
+/* Phil's GOs (2026-11-10, 2026-11-16): the Market card of the display-only Coinbase stocks — symbol, name, address, NAV / supply /
+ *   redeem « not read ». Static rows from paires.js; no read, no button. Base mainnet only. Painted at start-up and on a network
+ *   switch, next to peindrePaires (CHAINE is declared further down: calling it here would hit its temporal dead zone). */
+function peindreActionsSansPool() {
+  const carte = $('#stocksNoPool'), liste = $('#stocksNoPoolListe');
+  if (!carte || !liste) return;
+  if (Number(CHAINE) !== 8453) { carte.hidden = true; return; }
+  liste.innerHTML = displayOnlyStocksHtml({ escape: enTexte, short: displayShort });
+  carte.hidden = false;
+}
 /* game357 (Phil 2026-11-11: "tu peux retirer l unit"): the Game card "Swap UNIT" is gone; UNIT still trades from its own profile. */
 /* ══ SKIN MARKET dans Game (Phil 23:45) — lit le contrat BlockSkins (lireSkins), montre les skins EN VENTE (prix fixe / enchere) et les
  *   miennes (vendre / mettre aux encheres), par les MEMES lignes que le panneau (bcLigneSkin) : un clic ouvre le panneau, qui dit le partage
@@ -13079,6 +13097,7 @@ $('#pReseau').addEventListener('click', () => {
   $('#profil').hidden = true;
   /* le frais, le recap ET les paires parlent du reseau : les actions Coinbase n existent que sur mainnet */
   peindrePaires();
+  try { peindreActionsSansPool(); } catch (_) { /* hidden off mainnet, or a card that cannot paint */ }
   majFraisEtRecap();
   /* ⛔ LE FIL LIVE PARLAIT DE L AUTRE CHAINE */
   liveEvts = []; liveDernier = null; livePlusAncien = null; liveRatees = 0; liveRateesParQuoi.clear(); liveTrou = 0;
@@ -23132,7 +23151,9 @@ function peindrePaires() {
   const s = $('#cPaire');
   const avant = s.value;
   const liste = pairesProposees(CHAINE);
-  const vivants = blocksDecouverts();
+  /* a display-only Coinbase stock (paires.js) is never offered as a « Live block » pair. Filtered here, not inside
+   *   blocksDecouverts: test-block-panel-376 runs that function's source alone. */
+  const vivants = blocksDecouverts().filter((b) => !isDisplayOnlyStock(b && b.adr));
   /* ⛔ UNE PAIRE N EST PROPOSEE QUE SI LA MISE EN VIE SAIT L OUVRIR. ETH : toujours. Le reste
    *    (USDC, cbBTC, actions) attend un hook devise (v3Pret = V3 ou V8 deploye). */
   /* Phil (2026-09-19) : « ne propose plus TBLOCK — aucune liquidite injectee, on fera plus tard ». */
@@ -23210,6 +23231,8 @@ function peindrePaires() {
      *     une fonction qui tourne.
      *   ⛔ LE LIBELLE DIT CE QUI SERA VERIFIE, pas une promesse : c est la chaine qui tranche, et
      *     un jeton qui n est pas un B20 natif est refuse avec sa raison. */
+    /* the display-only Coinbase stocks (paires.js) are SHOWN here, every option disabled — no pool has liquidity. */
+    + (Number(CHAINE) === 8453 ? displayOnlyPairOptionsHtml({ escape: enTexte }) : '')
     + '<option value="' + AUTRE_PAIRE + '">Another block — paste its address (checked on chain)</option>';
   /* ⛔⛔ PHIL (2026-09-18) : « regle bien la pool sur ETH par defaut, oublie le TBLOCK paired — gros probleme ». */
   const ethOption = [...s.options].find((o) => /^0x0{40}$/i.test(o.value) || /^ETH\b/.test(o.textContent));
@@ -29058,6 +29081,7 @@ if (/^0x[0-9a-fA-F]{40}$/.test(blockRetour)) {
 /* ── Create ─────────────────────────────────────────────────────────────────────────────────── */
 construireReglages();
 peindrePaires();
+try { peindreActionsSansPool(); } catch (_) { /* a card that cannot paint stays hidden */ }
 peindreRolesCreate();
 peindreApercuCreation();
 $('#cPaire').addEventListener('change', () => void majPaire());

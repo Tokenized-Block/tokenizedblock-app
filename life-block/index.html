@@ -283,9 +283,21 @@ function feedText(e) {
   if (e.type === 'machine') return '⚙ ' + sym(e.i) + ' builds a glider gun';
   return '';
 }
+/* a border that oscillates between two colonies makes them eat each other every beat (seen live 2026-11-16: AVGOc / SONYc, 6 lines in a
+ *   row). The feed shows ONE line per pair per 300 chain blocks (1 min), with the running total: drawing only, the engine is unchanged. */
+const pairSeen = new Map();
 function killFeed(evs) {
   const ol = $('#feed');
   for (const e of evs) {
+    if (e.type === 'feast') {
+      const k = Math.min(e.i, e.v) + ':' + Math.max(e.i, e.v), p = pairSeen.get(k);
+      if (p && e.block - p.block < 300) { p.n += e.n; if (p.li && p.li.isConnected) p.li.querySelector('.tot').textContent = ' · ' + p.n + ' cells traded so far'; continue; }
+      const li = document.createElement('li'); li.style.setProperty('--c', colours[e.i]);
+      li.innerHTML = feedText(e) + '<small class="tot"></small><small>#' + e.block.toLocaleString('en-US') + '</small>'; ol.prepend(li);
+      pairSeen.set(k, { block: e.block, n: e.n, li });
+      setTimeout(() => li.classList.add('old'), 7000); setTimeout(() => li.remove(), 7700);
+      continue;
+    }
     const li = document.createElement('li'); li.style.setProperty('--c', colours[e.type === 'feast' || e.type === 'crown' ? e.i : e.i]);
     li.innerHTML = feedText(e) + '<small>#' + e.block.toLocaleString('en-US') + '</small>'; ol.prepend(li);
     setTimeout(() => li.classList.add('old'), 7000); setTimeout(() => li.remove(), 7700);

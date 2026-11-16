@@ -41,7 +41,10 @@ export function factFromLog(l, index, blocks) {
   return { bloc: parseInt(l.blockNumber, 16), tx: l.transactionHash, log: parseInt(l.logIndex, 16), b: i, kind: P.includes(from) ? 'achat' : P.includes(to) ? 'vente' : 'transfert', vers: to };
 }
 
-export function createLifeLive({ rpc, dir = null, lignes, poolManager, log = () => {}, seasonBlocks = E.SEASON_BLOCKS, stepBudgetMs = 1200, lifeEntry = null }) {
+export function createLifeLive({ rpc, dir = null, lignes, poolManager, log = () => {}, seasonBlocks = E.SEASON_BLOCKS, stepBudgetMs = 1200, lifeEntry = null, crownRounds = null }) {
+  /* CrownMarket rounds (game433): who wears the crown at each round's LAST block, with the world's fingerprint there. crownRounds =
+   *   { genesis, roundBlocks } read from the deployed market. Kept in memory (the last 200 rounds) and in season.json. */
+  const CR = crownRounds && Number.isSafeInteger(crownRounds.genesis) && Number.isSafeInteger(crownRounds.roundBlocks) && crownRounds.roundBlocks > 0 ? crownRounds : null;
   const LIFE_ENTRY = /^0x[0-9a-fA-F]{40}$/.test(String(lifeEntry || '')) ? String(lifeEntry).toLowerCase() : null;
   const S = { season: null, world: null, readTo: 0, recent: [], busy: false, lastError: null, lastTickAt: 0, calls: 0, reads: 0, stateCache: null, history: [] };
   const f = (n) => (dir ? join(dir, n) : null);
@@ -57,7 +60,12 @@ export function createLifeLive({ rpc, dir = null, lignes, poolManager, log = () 
   function load() {
     S.history = readJson('seasons.json') || [];
     const s = readJson('season.json'); if (!s || !s.id || !Array.isArray(s.blocks)) return;
-    S.season = { id: s.id, de: s.de, end: s.end, blocks: s.blocks, hashes: s.hashes || [], startedAt: s.startedAt };
+    if ((s.engine || 1) !== E.ENGINE_VERSION) {
+      S.history.unshift({ id: s.id, de: s.de, end: s.end, winner: null, closed: 'the game rules changed (engine ' + (s.engine || 1) + ' -> ' + E.ENGINE_VERSION + '): a new season starts' });
+      S.history = S.history.slice(0, 60); writeJson('seasons.json', S.history);
+      log('[life] season ' + s.id + ' was played with engine ' + (s.engine || 1) + ': closed, a new season starts'); return;
+    }
+    S.season = { id: s.id, de: s.de, end: s.end, blocks: s.blocks, hashes: s.hashes || [], rounds: s.rounds || [], engine: s.engine, startedAt: s.startedAt };
     const readTo = Number(s.readTo) || s.de - 1;
     /* facts written past the saved readTo belong to a window whose readTo never got saved: dropped, that window is read again */
     let faits = [];
@@ -87,7 +95,7 @@ export function createLifeLive({ rpc, dir = null, lignes, poolManager, log = () 
       S.history = S.history.slice(0, 60); writeJson('seasons.json', S.history);
     }
     const id = 's' + h;
-    S.season = { id, de: h + 1, end: h + 1 + seasonBlocks, blocks, hashes: [], startedAt: new Date().toISOString() };
+    S.season = { id, de: h + 1, end: h + 1 + seasonBlocks, blocks, hashes: [], engine: E.ENGINE_VERSION, startedAt: new Date().toISOString() };
     S.world = E.createLiveWorld(blocks, h + 1); S.readTo = h; S.recent = [];
     saveSeason(); saveCheckpoint(); log('[life] season ' + id + ' starts at block ' + (h + 1) + ' with ' + blocks.length + ' players');
     return true;
@@ -144,6 +152,11 @@ export function createLifeLive({ rpc, dir = null, lignes, poolManager, log = () 
       E.stepWorld(w);
       if (w.gen % CP_EVERY === 0) saveCheckpoint();
       if (w.gen % HASH_EVERY === 0) { S.season.hashes.push({ gen: w.gen, block: w.chainBlock - 1, hash: w.hash }); saveSeason(); }
+      /* the block just played is a round's last block: note the crown there */
+      if (CR) { const b = w.chainBlock - 1; if (b >= CR.genesis && (b - CR.genesis + 1) % CR.roundBlocks === 0) {
+        const r = (b - CR.genesis + 1) / CR.roundBlocks - 1;
+        S.season.rounds = (S.season.rounds || []).filter((x) => x.r !== r).concat([{ r, block: b, winner: w.crown >= 0 ? w.blocks[w.crown].adr : null, sym: w.crown >= 0 ? w.blocks[w.crown].sym : null, hash: w.hash, gen: w.gen }]).slice(-200);
+        saveSeason(); } }
     }
   }
 
@@ -198,6 +211,8 @@ export function createLifeLive({ rpc, dir = null, lignes, poolManager, log = () 
     },
     /** the whole season journal, for anybody to replay and check the hashes */
     journal() { return S.season && dir && existsSync(f(journalName(S.season.id))) ? readFileSync(f(journalName(S.season.id)), 'utf8') : ''; },
+    /** the crown noted at round r's last block, or null (not played yet, or another season) */
+    roundCrown(r) { return S.season && (S.season.rounds || []).find((x) => x.r === r) || null; },
     status() { return { season: S.season && S.season.id, players: S.season && S.season.blocks.length, gen: S.world && S.world.gen, chainBlock: S.world && S.world.chainBlock, readTo: S.readTo, behind: S.world ? S.readTo - S.world.chainBlock + 1 : null, calls: S.calls, reads: S.reads, lastError: S.lastError, lastTickAt: S.lastTickAt }; },
     /** TEST ONLY until the TBLOCK entry exists: a block enters at the next block read (the server wires this only in test mode) */
     joinForTest(b) {
