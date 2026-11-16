@@ -347,7 +347,6 @@ fitAll();
 $('#loading').hidden = true;
 try { panel(); } catch (_) {}
 let prices = null;
-if (live) void readPrices();
 setInterval(() => { try { panel(); } catch (_) {} }, 1000);
 { const fq = new URLSearchParams(location.search).get('focus'); if (fq) setTimeout(() => findBlock(fq), 300); }
 /* the live game: new facts every 4 s; a page too far behind (or a new season) reloads the state */
@@ -698,6 +697,7 @@ async function cmClaim() {
 /* ── the payment (game431): approve exactly the entry, then LifeEntry.enter(block, that amount), from the visitor's own wallet ── */
 const LE = LIFE_ENTRY_DEPLOIEMENT.adresse, LR = LIFE_REVIVE_DEPLOIEMENT.adresse, TBLOCK_ADR = TBLOCK_ECO; /* from economie.js, never retyped */
 const sel = (sig) => '0x' + keccak256Hex(new TextEncoder().encode(sig)).replace(/^0x/, '').slice(0, 8);
+if (live) { void readPrices(); setInterval(() => void readPrices(), 600000); } /* after LE, LR, sel, pubCall and tb exist (a call above them died silently in their dead zone) */
 const w32 = (x) => BigInt(x).toString(16).padStart(64, '0'), wa = (a) => String(a).toLowerCase().replace(/^0x/, '').padStart(64, '0');
 let picked = null;
 
@@ -755,7 +755,7 @@ function pick(c) {
   if (C) { const q = document.createElement('div'); q.className = 'sub'; q.textContent = (c.inGame ? 'Revive: $1' : 'Enter: $2') + ' of TBLOCK = reading the price…'; box.append(q);
     pubCall(C, sel('entryPrice()')).then((r) => { q.textContent = (c.inGame ? 'Revive: $1' : 'Enter: $2') + ' of TBLOCK = ' + tb(r) + ' TBLOCK now, to the holders\' vault.'; }, () => { q.textContent = 'The TBLOCK price is being refreshed on chain: try again in a few minutes.'; }); }
 }
-async function readPrices() { try { const [e, r] = await Promise.all([LE ? pubCall(LE, sel('entryPrice()')) : null, LR ? pubCall(LR, sel('entryPrice()')) : null]); prices = { enter: e ? tb(e) : null, revive: r ? tb(r) : null }; } catch { prices = null; } }
+async function readPrices() { try { const [e, r] = await Promise.all([LE ? pubCall(LE, sel('entryPrice()')) : null, LR ? pubCall(LR, sel('entryPrice()')) : null]); prices = { enter: e ? tb(e) : null, revive: r ? tb(r) : null }; } catch (err) { console.warn("TBLOCK prices not read:", err && err.message); } }
 async function openAdd() { void readPrices().then(() => listCandidates()); if (candidates && !candidates.length) candidates = null; /* an empty list is read again */ $('#addDlg').showModal(); $('#addQ').focus(); listCandidates(); await loadCandidates(); listCandidates(); }
 $('#addBlock').onclick = openAdd; $('#addBlock2').onclick = openAdd; $('#addBlock3').onclick = openAdd;
 if (CM) { $('#cmBet').onclick = cmBet; $('#cmClaim').onclick = cmClaim; cmRefresh(); setInterval(cmRefresh, 20000); }
