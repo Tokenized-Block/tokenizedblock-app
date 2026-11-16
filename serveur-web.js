@@ -189,6 +189,7 @@ import { creerKeeperBuyback } from './buyback-keeper.js';
 import { creerKeeperSpinDev, creerExclusif } from './spin-dev-keeper.js';
 /* 2026-11-14 (Phil: « utilise deja le keeper qu'on a ») : le keeper des clotures (close-keeper.js) : n appelle que closeEpoch(uint256), sur V, R, R2 */
 import { creerKeeperClose } from './close-keeper.js';
+import { creerKeeperPrixHearts, prixDepuisDevis } from './hearts-price-keeper.js';
 /* 2026-11-15 (Phil: « Keeper hebdo. Collecter les frais et compter les joueurs ») : le keeper du LP lock (lp-lock-keeper.js) : n appelle que
  *   harvest(uint256[]) et markWeekBatch(uint256,address[]) sur TBlockLPLock ; son index des Locked/Unlocked sert aussi /api/lp-lock/positions */
 import { creerIndexLpLock, creerKeeperLpLock } from './lp-lock-keeper.js';
@@ -5893,6 +5894,16 @@ const keeperClose = ESSAI_SRV.actif
     keeperAttendu: BUYBACK_VAULT_DEPLOIEMENT.parametres && BUYBACK_VAULT_DEPLOIEMENT.parametres.keeper, rpc: rpcServeur, journal: (t) => console.log(t), exclusif: verrouCleKeeper });
 if (keeperClose.demarrer()) console.log('[close-keeper] on, keeper ' + keeperClose.etat().adresse);
 else console.log('[close-keeper] off: ' + keeperClose.etat().pourquoi);
+/* game430 (Phil 2026-11-16: "le prix doit etre a jour ... ca doit suivre le cours"): the hearts' TBLOCK price follows the market. Same
+ *   gas-only key, same lock; it only ever sends setPrice(uint256) to the hearts contract, and only if that key IS the hearts' keeper()
+ *   read on chain. The market = a fresh exact quote of $1 USDC -> TBLOCK on the pay router's route (the lowest of the last 15 min). */
+const keeperPrixHearts = ESSAI_SRV.actif
+  ? creerKeeperPrixHearts({ desactive: 'trial mode (ESSAI): the hearts price keeper never runs against a trial node' })
+  : creerKeeperPrixHearts({ cle: process.env.BUYBACK_KEEPER_KEY || null, hearts: EP_PACK.HEARTS, chaine: BUYBACK_VAULT_DEPLOIEMENT.chaine, rpc: rpcServeur,
+    lirePrixE18: async () => { const q = await devisUsdcVersTblock({ rpc: rpcRails, montant: 1000000n }); if (q.etat !== 'OK') throw new Error(q.pourquoi || q.etat); return prixDepuisDevis(q.devis); },
+    journal: (t) => console.log(t), exclusif: verrouCleKeeper });
+if (keeperPrixHearts.demarrer()) console.log('[hearts-price-keeper] on, keeper ' + keeperPrixHearts.etat().adresse);
+else console.log('[hearts-price-keeper] off: ' + keeperPrixHearts.etat().pourquoi);
 /* 2026-11-15 : le LP lock. (1) SON INDEX : les Locked / Unlocked du lock depuis son bloc de deploiement (fiche lp-lock-deploiement.js), par
  *   fenetres de 45 000 blocs (< 50 000), UNE adresse par filtre ; les fenetres profondes passent par lecteurLogs (publicnode, puis le noeud
  *   d archive s il est pose). Il tourne meme sans cle (il sert /api/lp-lock/positions a la carte) ; garde sur le volume (lp-lock-index.json,
@@ -9562,6 +9573,7 @@ function traiterRequete(req, res) {
       buybackKeeper: keeperBuyback.etat(),
       spinDevKeeper: keeperSpinDev.etat(),
       closeKeeper: keeperClose.etat(),
+      heartsPriceKeeper: keeperPrixHearts.etat(),
       /* 2026-11-15 : le keeper du LP lock (OFF et pourquoi / ON / ARRETE, compteurs, attente) et son index (curseur, a jour, positions) ; jamais la cle */
       lpLockKeeper: keeperLpLock.etat(),
       mcpWidget: widgetHtml !== null, trousCreations: trousCreations.slice(-10), trousRelus: trousRelus.slice(-10), noeuds: etatNoeuds, ...(ok ? {} : { modulesManquants }),
