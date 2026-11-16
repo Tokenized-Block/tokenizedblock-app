@@ -86,8 +86,8 @@
 @keyframes sk{from{background-position:200% 0}to{background-position:-200% 0}}
 .small{font-size:12px}.proof{margin-top:8px}.proof summary{font-weight:600}.hashRow{display:flex;gap:6px;align-items:center;margin-top:6px}.hashRow .hash{flex:1;min-width:0}
 .xsBtn{padding:2px 8px;font-size:11px;border-radius:7px}
-.nav{position:fixed;left:12px;top:50%;transform:translateY(-50%);z-index:3;display:none;flex-direction:column;gap:6px}.nav button{min-width:40px;height:36px;padding:0 8px;background:rgba(4,9,12,.86);font-size:13px}
-.navHint{position:fixed;left:50%;transform:translateX(-50%);top:27%;z-index:3;background:rgba(4,9,12,.9);border:1px solid var(--ligne);border-radius:99px;padding:6px 8px 6px 14px;font-size:12px;color:var(--texte);white-space:nowrap}.navHint[hidden]{display:none}.navHint button{margin-left:8px;padding:0 7px;border-radius:50%}
+.nav{position:fixed;left:12px;top:180px;z-index:3;display:none;flex-direction:row;gap:6px}.nav button{min-width:36px;height:32px;padding:0 9px;background:rgba(4,9,12,.86);font-size:13px}
+.navHint{position:fixed;left:50%;transform:translateX(-50%);top:45%;z-index:3;background:rgba(4,9,12,.9);border:1px solid var(--ligne);border-radius:99px;padding:6px 8px 6px 14px;font-size:12px;color:var(--texte);white-space:nowrap}.navHint[hidden]{display:none}.navHint button{margin-left:8px;padding:0 7px;border-radius:50%}
 @media (max-width:760px){.nav{display:flex}.hashRow .hash{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;word-break:normal}}
 .findSug{flex:1 1 100%;max-height:220px;border:1px solid var(--ligne);border-radius:10px;background:#04090c}.findSug li{font-size:13px}.findSug small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:60%}
 .feed li.flash{box-shadow:0 0 0 1px var(--accent),0 0 16px rgba(53,211,240,.45)}
@@ -330,7 +330,7 @@ function hud() {
   $('#hudGauge').hidden = !cmInfo; $('#hudBet').hidden = !(cmInfo && cmInfo.open);
   if (cmInfo) $('#hudGauge i').style.width = Math.round(100 * cmInfo.frac) + '%';
 }
-setInterval(() => { try { hud(); } catch (_) {} }, 1000);
+setInterval(() => { try { hud(); const r = $('#hud').getBoundingClientRect(); if (r.height) $('#nav').style.top = Math.round(r.bottom + 8) + 'px'; } catch (_) {} }, 1000);
 function headerLines() {
   if (live) {
     const S = live.season, left = Math.max(0, S.end - world.chainBlock) * 0.2, h = Math.floor(left / 3600), m = Math.floor(left % 3600 / 60);
@@ -804,7 +804,7 @@ $('#nav').addEventListener('click', (e) => { const b = e.target.closest('[data-n
 const HINT_KEY = 'lifeNavHint';
 function hintSeen() { try { return localStorage.getItem(HINT_KEY) === '1'; } catch (_) { return false; } }
 function hideHint() { $('#navHint').hidden = true; try { localStorage.setItem(HINT_KEY, '1'); } catch (_) {} }
-if (innerWidth < 760 && !hintSeen()) { $('#navHint').hidden = false; $('#navHintX').onclick = hideHint; cv.addEventListener('pointerdown', hideHint, { once: true }); }
+if (innerWidth < 760 && !hintSeen()) { $('#navHint').hidden = false; $('#navHintX').onclick = hideHint; cv.addEventListener('pointerdown', hideHint, { once: true }); setTimeout(hideHint, 6000); }
 $('#glow').onclick = () => { glow = !glow; $('#glow').classList.toggle('on', glow); };
 $('#trails').onclick = () => { showTrails = !showTrails; trails.clear(); $('#trails').classList.toggle('on', showTrails); };
 $('#verify').onclick = async () => {
