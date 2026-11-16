@@ -89,6 +89,7 @@
 .nav{position:fixed;left:12px;top:50%;transform:translateY(-50%);z-index:3;display:none;flex-direction:column;gap:6px}.nav button{min-width:40px;height:36px;padding:0 8px;background:rgba(4,9,12,.86);font-size:13px}
 .navHint{position:fixed;left:50%;transform:translateX(-50%);top:27%;z-index:3;background:rgba(4,9,12,.9);border:1px solid var(--ligne);border-radius:99px;padding:6px 8px 6px 14px;font-size:12px;color:var(--texte);white-space:nowrap}.navHint[hidden]{display:none}.navHint button{margin-left:8px;padding:0 7px;border-radius:50%}
 @media (max-width:760px){.nav{display:flex}.hashRow .hash{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;word-break:normal}}
+.findSug{flex:1 1 100%;max-height:220px;border:1px solid var(--ligne);border-radius:10px;background:#04090c}.findSug li{font-size:13px}.findSug small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:60%}
 .feed li.flash{box-shadow:0 0 0 1px var(--accent),0 0 16px rgba(53,211,240,.45)}
 @media (max-width:760px){.legend{display:none}.hud{top:62px;bottom:auto;flex-wrap:wrap;justify-content:center;gap:6px;font-size:11px;width:calc(100vw - 24px);box-sizing:border-box}.hud .hl{white-space:normal;text-align:center}
   .tip.locked{left:8px !important;right:8px;width:auto;transform:none;bottom:96px}.mini{display:none}.helpBox{top:130px;bottom:auto}}
@@ -130,8 +131,8 @@
       </select>
     </div>
     <div class="row" style="margin-top:8px">
-      <input id="find" type="search" list="findList" placeholder="Find / follow a block" title="Symbol, name or address: the map follows it. Clear it to see the whole map." autocomplete="off" style="flex:1 1 100%;min-width:0;padding:8px 10px;border-radius:10px;border:1px solid var(--ligne);background:#04090c;color:#f2fbff;font-size:14px">
-      <datalist id="findList"></datalist>
+      <input id="find" type="search" placeholder="Find / follow a block" title="Symbol, name or address: the map follows it. Clear it to see the whole map." autocomplete="off" style="flex:1 1 100%;min-width:0;padding:8px 10px;border-radius:10px;border:1px solid var(--ligne);background:#04090c;color:#f2fbff;font-size:14px">
+      <ul id="findSug" class="addList findSug" role="listbox" aria-label="Matching blocks" hidden></ul>
       <select id="follow" title="Follow a block" hidden><option value="-1">Follow: the whole map</option></select>
       <button id="trails" class="on" title="Fading trails behind dying cells (drawing only)">Trails</button>
       <button id="glow" class="on" title="A soft glow under the cells (drawing only)">Glow</button>
@@ -264,7 +265,7 @@ function visuals() {
     const img = new Image(); img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(logoSvg(paramsLogoDepuisApparence(a, (b.sym || '?')[0])));
     faces[i] = img;
     const o = document.createElement('option'); o.value = i; o.textContent = 'Follow: ' + b.sym; $('#follow').append(o);
-    const d = document.createElement('option'); d.value = b.sym; d.label = (b.nom || '') + (b.joinedAt ? ' · entered' : ''); $('#findList').append(d);
+
   }
 }
 /* Find a block (Grok's test, 2026-11-16: "OUSD est dans la partie mais hors de la zone visible"): symbol, name or address -> follow it */
@@ -475,6 +476,8 @@ function tooltip() {
   tipKey = kNow;
   const last = p.last ? SAYS[p.last.g] + ' at block #' + p.last.block.toLocaleString('en-US') : 'no gesture yet';
   tip.innerHTML = '<img alt="" src="' + faces[i].src + '"><div><b>' + b.sym + '</b> <span class="mood ' + p.mood + '">' + (NOMS_HUMEUR[p.mood] || p.mood).split(' ')[0] + '</span><br><small>' + b.nom + '</small>'
+    + (() => { const g0 = growth[0]; if (!g0 || world.gen - g0[0] < 100 || i >= g0[1].length) return ''; const d = n - g0[1][i], m = Math.max(1, Math.round((world.gen - g0[0]) * 0.2 / 60));
+        return '<div class="tipStat" style="color:' + (d > 0 ? '#3ddc97' : d < 0 ? '#ff8fa3' : 'var(--doux)') + '">' + (d > 0 ? '▲ +' : d < 0 ? '▼ ' : '= ') + d.toLocaleString('en-US') + ' cells in the last ' + m + ' min</div>'; })()
     + (live ? '<div class="tipStat"><span class="open">in the game</span> · rank #' + rankOf(i) + (prices && prices.revive ? ' · revive $1 ≈ ' + prices.revive + ' TBLOCK' : '') + '</div>' : '')
     + '<div class="tipStat">' + n.toLocaleString('en-US') + ' cells · 👑 ' + p.crownBeats + ' beats crowned · ' + p.births.toLocaleString('en-US') + ' births</div>'
     + '<div class="tipStat">ate ' + p.eaten.toLocaleString('en-US') + ' rival cells · lost ' + p.lost.toLocaleString('en-US') + '</div>'
@@ -595,10 +598,13 @@ function draw(t) {
 
 /* ── panel ── */
 const SAYS = { glider: 'launches a glider', rush: 'rushes a fast ship', colony: 'settles an outpost', hunt: 'hunts a rival', chase: 'goes for the crown', convert: 'converts rival cells', gun: 'builds a glider gun', revenge: 'strikes back', eater: 'lays an eater', spore: 'sends a spore away', bloom: 'blooms', scout: 'sends a scout ship', shield: 'sets a shield', wall: 'builds a wall', heartbeat: 'keeps a heartbeat' };
-let lastPanelGen = -1;
+let lastPanelGen = -1, growth = [];
 function panel() {
   if (lastPanelGen === world.gen && playing) return; lastPanelGen = world.gen;
   const rk = E.ranking(world);
+  if (!growth.length || world.gen - growth[growth.length - 1][0] >= 50 || world.gen < growth[growth.length - 1][0]) {
+    if (growth.length && world.gen < growth[growth.length - 1][0]) growth = []; /* a rewind: start again */
+    const m = new Array(world.blocks.length).fill(0); for (const r of rk.rows) m[r.i] = r.cells; growth.push([world.gen, m]); if (growth.length > 13) growth.shift(); }
   $('#sGen').textContent = world.gen.toLocaleString('en-US');
   $('#sBlock').textContent = world.chainBlock.toLocaleString('en-US');
   $('#sTime').textContent = when(world.chainBlock).toISOString().slice(11, 19) + ' UTC';
@@ -773,10 +779,22 @@ $('#director').onclick = () => { director = !director; shot = null; $('#director
 $('#follow').addEventListener('change', () => { lockI = followI; });
 $('#follow').onchange = (e) => { followI = Number(e.target.value); if (followI < 0) fitAll(); else view.z = Math.max(view.z, 4); };
 $('#find').addEventListener('change', (e) => { if (!findBlock(e.target.value)) e.target.setCustomValidity('No block with that name in this game'); else e.target.setCustomValidity(''); e.target.reportValidity(); });
-$('#find').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); findBlock(e.target.value); } });
+$('#find').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); findBlock(e.target.value); $('#findSug').hidden = true; } });
 $('#howLink').onclick = (e) => { e.preventDefault(); const b = $('#howBox'); b.hidden = !b.hidden; $('#howLink').setAttribute('aria-expanded', String(!b.hidden)); $('#howLink').textContent = b.hidden ? 'How it works' : 'Less'; };
 $('#copyHash').onclick = async () => { try { await navigator.clipboard.writeText(world.hash); $('#copyHash').textContent = 'Copied'; } catch (_) { $('#copyHash').textContent = 'Select it'; } setTimeout(() => { $('#copyHash').textContent = 'Copy'; }, 1500); };
-$('#find').addEventListener('input', (e) => { if (!e.target.value) { followI = -1; lockI = -1; $('#follow').value = '-1'; fitAll(); } });
+$('#find').addEventListener('input', (e) => { if (!e.target.value) { followI = -1; lockI = -1; $('#follow').value = '-1'; fitAll(); } showFindSug(); });
+function showFindSug() {
+  const q = $('#find').value, ul = $('#findSug'); ul.textContent = '';
+  if (!q.trim()) { ul.hidden = true; return; }
+  const rows = smartFind(world.blocks.map((b, i) => ({ ...b, i, inGame: true })), q, 6);
+  if (!rows.length) { const li = document.createElement('li'); li.textContent = 'No block matches.'; ul.append(li); }
+  for (const r of rows) { const li = document.createElement('li'); li.tabIndex = 0; li.setAttribute('role', 'option');
+    const a = document.createElement('b'), k = document.createElement('small'); a.textContent = r.sym; k.textContent = r.nom || ''; li.append(a, k);
+    li.onclick = li.onkeydown = (ev) => { if (ev.type === 'keydown' && ev.key !== 'Enter') return; $('#find').value = r.sym; findBlock(r.sym); ul.hidden = true; }; ul.append(li); }
+  ul.hidden = false;
+}
+$('#find').addEventListener('keydown', (e) => { if (e.key === 'Escape') $('#findSug').hidden = true; if (e.key === 'ArrowDown') { const li = $('#findSug li[tabindex]'); if (li) { e.preventDefault(); li.focus(); } } });
+$('#find').addEventListener('blur', () => setTimeout(() => { if (!document.activeElement || !document.activeElement.closest('#findSug')) $('#findSug').hidden = true; }, 150));
 function zoomBy(k) { view.z = Math.max(0.3, Math.min(40, view.z * k)); }
 $('#nav').addEventListener('click', (e) => { const b = e.target.closest('[data-nav]'); if (!b) return; const a = b.dataset.nav;
   if (a === 'in') zoomBy(1.5); if (a === 'out') zoomBy(1 / 1.5);
