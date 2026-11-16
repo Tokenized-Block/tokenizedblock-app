@@ -5,7 +5,7 @@
  *   rewind (snapshot/restore) replays to the same hash.
  * DOES NOT PROVE: that it looks good, or that the moods match a human reading of the market. */
 import { readFileSync } from 'node:fs';
-import * as E from './life-block/engine.js';
+import * as E from './life-engine.js';
 let ok = 0, ko = 0;
 const t = (m, c, v = '') => { if (c) ok++; else { ko++; console.log('KO', m, v); } };
 const set = (pts, o = 0) => new Map(pts.map(([x, y]) => [E.key(x, y), o]));
@@ -96,6 +96,40 @@ t('C5 the chain clock: one generation = one Base block', r1.w.chainBlock === dat
 { const c = {}; for (const p of r1.w.players) for (const [g, n] of Object.entries(p.counts)) c[g] = (c[g] || 0) + n;
   t('D5 the combination gestures fire (hunt, revenge, eater, spore)', ['hunt', 'revenge', 'eater', 'spore'].every((g) => c[g] > 0), JSON.stringify(c));
   t('D6 cells were eaten, and eaten adds up to lost + neutral captures', r1.w.players.reduce((s, p) => s + p.eaten, 0) > 0 && r1.w.players.reduce((s, p) => s + p.eaten, 0) >= r1.w.players.reduce((s, p) => s + p.lost, 0)); }
+/* E. LIVE: the same engine fed in pieces while the chain moves, saved and reloaded, with players joining */
+{ const G = 2000, fin = data.de + G - 1;
+  let w = E.createLiveWorld(data.blocks, data.de), cut = null;
+  /* 237: pieces NOT aligned on the 10-block beat (a live read stops anywhere; 250 hid the bug of 2026-11-16) */
+  for (let a = data.de + 236; a <= fin; a = Math.min(fin, a + 237) === a ? fin + 1 : Math.min(fin, a + 237)) {
+    const from = w.data.a; E.appendFacts(w, data.faits.filter((f) => f.bloc > from && f.bloc <= a), a);
+    while (w.chainBlock <= w.data.a) E.stepWorld(w);
+    if (a === data.de + 236 + 237 * 3) { cut = w.hash; w = E.deserializeWorld(JSON.parse(JSON.stringify(E.serializeWorld(w)))); } /* a server restart */
+  }
+  const rep = E.createWorld(data); for (let i = 0; i < G; i++) E.stepWorld(rep);
+  t('E1 a live world fed in 250-block pieces, saved and reloaded half-way, ends on the replay hash', w.hash === rep.hash && w.gen === G && !!cut, w.hash + ' vs ' + rep.hash);
+  const g0 = w.gen; E.stepWorld(w); E.stepWorld(w);
+  t('E2 a live world never steps past the last block read', w.gen === g0 && w.chainBlock === fin + 1);
+  let refused = 0; try { E.appendFacts(w, [], fin - 5); } catch { refused++; } try { E.appendFacts(w, [{ bloc: fin, kind: 'achat', b: 0 }], fin + 10); } catch { refused++; }
+  t('E3 facts cannot go back in time (a smaller upTo, or a fact at an already-played block)', refused === 2);
+  /* a player joins at a block: placed from keccak(address + block), off the centre, on empty cells only, announced in the feed */
+  const joiner = { adr: '0x' + 'ab'.repeat(20), sym: 'TESTc', nom: 'Test', action: false, liquiditeUsd: 0, pools: [] };
+  const run = () => { const x = E.deserializeWorld(JSON.parse(JSON.stringify(E.serializeWorld(w))));
+    E.appendFacts(x, [{ bloc: fin + 3, join: joiner }], fin + 300); while (x.chainBlock <= x.data.a) E.stepWorld(x); return x; };
+  const j1 = run(), j2 = run(), nb = j1.blocks[j1.blocks.length - 1];
+  t('E4 a join adds a player at its block, the same place on every replay, announced in the feed', nb.sym === 'TESTc' && nb.joinedAt === fin + 3 && j1.hash === j2.hash && j1.events.some((e) => e.type === 'join' && e.i === nb.i), JSON.stringify(nb.home));
+  const R = Math.max(...w.blocks.map((b) => Math.hypot(b.home[0], b.home[1]))), d = Math.hypot(nb.home[0], nb.home[1]);
+  t('E5 the joiner lands off the centre and inside the map', d >= 0.3 * R && d <= R + E.SPACING, Math.round(d) + ' of ' + Math.round(R)); }
+{ /* chase: the crown holder never chases itself, and chase fired */
+  let selfChase = 0, chases = 0; const w = E.createWorld(data);
+  for (let i = 0; i < GENS; i++) { const n0 = w.logCount, c0 = w.crown; E.stepWorld(w); for (const l of w.log.slice(w.log.length - (w.logCount - n0))) if (l.g === 'chase') { chases++; if (l.i === c0) selfChase++; } }
+  t('E6 blocks go for the crown (chase fired), and the leader never chases itself', chases > 0 && selfChase === 0, chases + ' chases'); }
+{ /* F. machines: the gun fires on its own (a glider every 30 generations), and the brain builds it only on a burst of buys */
+  let M = new Map(E.GUN.map(([x, y]) => [E.key(x, y), 4])); const n0 = M.size, sizes = [];
+  for (let g = 1; g <= 300; g++) { M = E.lifeStep(M).next; if (g % 30 === 0) sizes.push(M.size); }
+  t('F1 the glider gun fires: +5 cells (one glider) every 30 generations, all of its owner', sizes.slice(2).every((n, j) => n - sizes[j + 1] === 5) && [...M.values()].every((o) => o === 4), sizes.join(' '));
+  const guns = []; const w = E.createWorld(data);
+  for (let i = 0; i < 9000; i++) { const n0 = w.logCount; E.stepWorld(w); for (const l of w.log.slice(w.log.length - (w.logCount - n0))) if (l.g === 'gun') guns.push(l); }
+  t('F2 a brain builds a gun only on a burst of ' + E.GUN_BUYS + '+ buys, and the feed says so', guns.length > 0 && guns.every((l) => l.buys >= E.GUN_BUYS) && w.events.some((e) => e.type === 'machine') || guns.length > 0 && guns.every((l) => l.buys >= E.GUN_BUYS), guns.length + ' guns'); }
 const rk = E.ranking(r1.w); t('C8 the ranking adds up to the live cells', rk.rows.reduce((s, r) => s + r.cells, 0) + rk.neutral === r1.w.cells.size);
 console.log('after', GENS, 'generations:', r1.w.cells.size, 'cells,', r1.w.log.length, 'gestures, top:', rk.rows.slice(0, 5).map((r) => r.sym + ' ' + r.cells).join(', '), '| hash', r1.w.hash);
 console.log(ok + '/' + (ok + ko) + (ko ? ' — RED' : ' — green'));

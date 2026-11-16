@@ -53,6 +53,16 @@
 .back{display:inline-block;color:#9cc3cf;font-size:12px;text-decoration:none;margin-bottom:4px}.back:hover{color:#f2fbff}
 .lk{white-space:nowrap;margin-right:10px}.lk i{display:inline-block;vertical-align:-2px;margin-right:5px;border-radius:50%}
 .lkFlash{width:9px;height:9px;border:1.5px solid #f2fbff;opacity:.8}.lkSeed{width:6px;height:6px;background:#3ddc97;box-shadow:0 0 6px #3ddc97}
+.add{background:#1f5bff;color:#fff;border-color:#1f5bff;font-weight:700}
+.addDlg{background:#081218;color:#f2fbff;border:1px solid var(--ligne);border-radius:16px;width:min(440px,calc(100vw - 32px));padding:16px}
+.addDlg::backdrop{background:rgba(0,0,0,.6)}
+.addDlg input{width:100%;box-sizing:border-box;padding:9px 11px;border-radius:10px;border:1px solid var(--ligne);background:#04090c;color:#f2fbff;font-size:14px;margin:6px 0}
+.addList{list-style:none;margin:0;padding:0;max-height:240px;overflow:auto}
+.addList li{display:flex;justify-content:space-between;gap:8px;padding:7px 9px;border-radius:8px;cursor:pointer}
+.addList li:hover,.addList li:focus{background:rgba(31,91,255,.18);outline:none}
+.addList small{color:var(--doux)}
+.addPick{border:1px solid #1f5bff;border-radius:10px;padding:8px 10px;margin:6px 0}
+.liveTag{font-size:12px;font-weight:700;color:#3ddc97;vertical-align:4px;margin-left:6px;letter-spacing:.04em}
 .feed{position:fixed;right:12px;top:12px;z-index:3;list-style:none;margin:0;padding:0;width:min(300px,calc(100vw - 24px));pointer-events:none;display:flex;flex-direction:column;gap:4px}
 .feed li{background:rgba(4,9,12,.82);border:1px solid var(--ligne);border-left:3px solid var(--c,#9cc3cf);border-radius:8px;padding:5px 9px;font-size:12px;color:#f2fbff;animation:feedIn .25s ease-out;transition:opacity .6s}
 .feed li.old{opacity:0}.feed b{font-weight:700}.feed small{color:var(--doux);margin-left:6px}
@@ -66,14 +76,17 @@
 <div class="panel">
   <div class="card">
     <a class="back" href="/" title="Back to the TokenizedBlock map">← TokenizedBlock</a>
-    <h1>Game of Life <b>Block</b></h1>
-    <p class="sub">Every tokenized stock of the app plays Conway's Game of Life on one shared plane. Each block's brain reacts to its market on Base and answers with a gesture at the edge of its territory.</p>
-    <p class="sub" id="replayLine">Loading the recorded market…</p>
+    <h1>Game of Life <b>Block</b> <span class="liveTag" id="liveTag" hidden>● LIVE</span></h1>
+    <p class="sub">A battle map of the tokenized stocks on Base. Each stock is a colony of cells living by Conway's Game of Life. Its Brain AI watches that stock's own trades, block by block: buys push the colony out, sells make it dig in, new holders plant outposts. At the borders, colonies eat each other. The largest one wears the crown 👑.</p>
+    <p class="sub" id="goalLine">The goal: wear the crown for the longest time in the season.</p>
+    <p class="sub" id="replayLine">Reading the live game…</p>
+    <p class="sub" id="modeLine"></p>
   </div>
   <div class="card">
     <div class="row">
+      <button id="addBlock" class="add" title="Drop a block of your choice into the game">+1 block</button>
       <button id="play" class="on">❚❚ Pause</button>
-      <button id="step" title="One generation = one Base block">Step +1</button>
+      <button id="step" title="Add one generation (one Base block)">+1 gen</button>
       <button id="back" title="Back 100 generations">⏪ 100</button>
       <select id="speed" title="Speed">
         <option value="5">Chain speed · 5 blocks/s</option>
@@ -128,6 +141,8 @@
         <li>Curious (its own neurons busy, no news): it sends a scout ship. Calm and small: it keeps a heartbeat.</li>
         <li>Predation: a living cell with 2 neighbours of one rival block, and fewer of its own, is eaten: it takes that rival's colour. No cell appears or dies, so Conway's rule stays exact; only the owner changes.</li>
         <li>Combinations: excited with a rival in reach, it hunts (a glider aimed at the rival); curious with a rival in reach, it lays an eater in its path; worried and losing a fifth of its cells, it sends a spore away from danger; any block whose cells were eaten strikes back at the block that ate the most.</li>
+        <li>The crown is the goal: an excited block that does not wear it aims one more glider at the leader when the leader is within 80 cells. Everybody plays for the crown, so the leader is everybody's target.</li>
+        <li>Machines: on a burst of 8 buys in one beat, the brain builds a glider gun well outside its edge. Once built, the gun fires a glider every 30 generations on its own, until something breaks it.</li>
         <li>Asleep: nothing. A block whose market goes quiet stops answering, and Life erodes it.</li>
         <li>A gesture only writes empty cells. Budgets per hour cap every gesture; past 24,000 live cells, growth gestures wait.</li>
         <li>The crown: each beat, the block with the most live cells wears it (a tie leaves it where it was). The feed on the side tells who takes it, who eats whom, who is wiped out and who comes back.</li>
@@ -137,17 +152,27 @@
     </details>
   </div>
   <div class="card">
-    <h2>Enter your block</h2>
-    <p class="soon" style="margin:0">Planned: pay an entry in TBLOCK to drop your own block into the next game. Not in this prototype — nothing to sign here.</p>
+    <h2>+1 block: enter the game</h2>
+    <p class="soon" style="margin:0">Planned: drop a block into the live season (one you created in the app, or a tokenized stock) for $2 of TBLOCK, paid to the holders' vault. It lands at a spot drawn from its address and the block it enters, never handed the centre. Nothing to sign here yet.</p>
   </div>
 </div>
 <button id="openPanel" class="floating" hidden>☰ Game of Life Block</button>
+<button id="addBlock2" class="floating add" style="left:auto;right:12px;top:auto;bottom:12px" hidden>+1 block</button>
+<dialog id="addDlg" class="addDlg" aria-labelledby="addTitle">
+  <h2 id="addTitle">+1 block: enter the game</h2>
+  <p class="sub">Pick any block of the app: a tokenized stock or a block someone created. It drops into the live season at a spot drawn from its address and the block it enters (never the centre), with its own Brain AI reading its own market.</p>
+  <input id="addQ" type="search" placeholder="Search a block: name, symbol or address" autocomplete="off">
+  <ul id="addList" class="addList"></ul>
+  <div id="addPick" class="addPick" hidden></div>
+  <p class="soon" id="addPrice">Entry: $2 of TBLOCK, paid from your wallet to the holders' vault. Planned: the payment step is not open yet, so nothing is signed here.</p>
+  <div class="row"><button id="addClose">Close</button></div>
+</dialog>
 <div id="tip" class="tip" hidden></div>
 <ol id="feed" class="feed" aria-live="polite" aria-label="Game events"></ol>
 <div class="legend"><span class="lk">👑 = the largest colony</span> <span class="lk"><i class="lkFlash"></i>small flash + word = a block just reacted</span> <span class="lk"><i class="lkSeed"></i>dot = where a block started</span><br>hover a colony to see its faction · click to lock and follow it · drag · scroll or pinch to zoom</div>
 
 <script type="module">
-import * as E from './engine.js';
+import * as E from '../life-engine.js';
 import { NOMS_HUMEUR } from '../cerveau.js';
 import { apparenceDepuisAdresse } from '../apparence.js';
 import { logoSvg, paramsLogoDepuisApparence } from '../logo.js';
@@ -163,26 +188,60 @@ const faces = [], colours = [], ripples = [];
 function resize() { const d = devicePixelRatio || 1; cv.width = innerWidth * d; cv.height = innerHeight * d; ctx.setTransform(d, 0, 0, d, 0, 0); }
 addEventListener('resize', resize); resize();
 
-/* ── load the recorded market ── */
-data = await (await fetch('donnees.json')).json();
-world = E.createWorld(data);
-snaps.push(E.snapshot(world));
-world.blocks.forEach((b, i) => {
-  const a = apparenceDepuisAdresse(b.adr);
-  colours[i] = 'hsl(' + a.teinte + ' 80% 58%)';
-  const img = new Image(); img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(logoSvg(paramsLogoDepuisApparence(a, b.sym[0])));
-  faces[i] = img;
-  const o = document.createElement('option'); o.value = i; o.textContent = 'Follow: ' + b.sym; $('#follow').append(o);
-});
-const t0 = new Date(), when = (blk) => new Date(Date.parse(data.luLe) - (data.a - blk) * 200);
-$('#replayLine').textContent = 'Replay of ' + world.blocks.length + ' tokenized stocks on Base, blocks ' + data.de.toLocaleString('en-US') + ' → ' + data.a.toLocaleString('en-US')
-  + ' (2 hours, ' + data.faits.length.toLocaleString('en-US') + ' transfers read on chain).';
+/* ── load: the LIVE season (one game for everybody, served by the server), or the 2-hour replay (?replay, or when live is off) ── */
+let live = null;                                 /* { season, readTo, at } when watching the live game */
+function visuals() {
+  for (let i = colours.length; i < world.blocks.length; i++) {
+    const b = world.blocks[i], a = apparenceDepuisAdresse(b.adr);
+    colours[i] = 'hsl(' + a.teinte + ' 80% 58%)';
+    const img = new Image(); img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(logoSvg(paramsLogoDepuisApparence(a, (b.sym || '?')[0])));
+    faces[i] = img;
+    const o = document.createElement('option'); o.value = i; o.textContent = 'Follow: ' + b.sym; $('#follow').append(o);
+  }
+}
+async function loadLive() {
+  const r = await fetch('/api/life/live', { cache: 'no-store' }); const st = await r.json();
+  if (!st.ok) throw new Error(st.pourquoi || st.etat || 'live game not running');
+  world = E.deserializeWorld(st.world); live = { season: st.season, readTo: st.readTo, at: Date.now(), history: st.history || [] };
+  snaps.length = 0; snaps.push(E.snapshot(world)); trails.clear(); ripples.length = 0; visuals();
+}
+const wantReplay = new URLSearchParams(location.search).has('replay');
+if (!wantReplay) { try { await loadLive(); } catch (e) { live = null; $('#modeLine').textContent = 'The live game is not running right now (' + String(e.message || e).slice(0, 80) + '): showing the 2-hour replay.'; } }
+if (!live) {
+  data = await (await fetch('donnees.json')).json();
+  world = E.createWorld(data); snaps.push(E.snapshot(world)); visuals();
+}
+/* chain time of a block: live = counted back from the last block read; replay = from the moment it was recorded */
+const when = (blk) => live ? new Date(live.at - (live.readTo - blk) * 200) : new Date(Date.parse(data.luLe) - (data.a - blk) * 200);
+function headerLines() {
+  if (live) {
+    const S = live.season, left = Math.max(0, S.end - world.chainBlock) * 0.2, h = Math.floor(left / 3600), m = Math.floor(left % 3600 / 60);
+    $('#liveTag').hidden = false;
+    $('#replayLine').textContent = 'Live season · ' + world.blocks.length + ' blocks · started at Base block ' + S.de.toLocaleString('en-US') + ' · ends in ' + h + ' h ' + String(m).padStart(2, '0') + ' min.';
+    $('#modeLine').innerHTML = '<a href="?replay">Watch the 2-hour replay</a> · <a href="/api/life/journal" target="_blank" rel="noopener">public journal</a>' + (S.hashes && S.hashes.length ? ' · last hourly hash <span class="hash">' + S.hashes[S.hashes.length - 1].hash.slice(0, 16) + '</span>' : '');
+  } else {
+    $('#replayLine').textContent = 'Replay of ' + world.blocks.length + ' tokenized stocks on Base, blocks ' + data.de.toLocaleString('en-US') + ' → ' + data.a.toLocaleString('en-US') + ' (2 hours, ' + data.faits.length.toLocaleString('en-US') + ' transfers read on chain).';
+    if (wantReplay) $('#modeLine').innerHTML = '<a href="./">Back to the live game</a>';
+  }
+}
+headerLines();
 fitAll();
+/* the live game: new facts every 4 s; a page too far behind (or a new season) reloads the state */
+async function pollLive() {
+  if (!live) return;
+  try {
+    const j = await (await fetch('/api/life/faits?depuis=' + world.data.a + '&season=' + encodeURIComponent(live.season.id), { cache: 'no-store' })).json();
+    if (j.ok && j.reload) await loadLive();
+    else if (j.ok && Array.isArray(j.faits) && j.readTo >= world.data.a) { E.appendFacts(world, j.faits, j.readTo); live.readTo = j.readTo; live.at = Date.now(); }
+  } catch (e) { /* the next poll tries again; the world waits where the reads stopped */ }
+  headerLines();
+}
+if (live) setInterval(pollLive, 4000);
 
 /* ── stepping ── */
 function advance(n) {
   for (let i = 0; i < n; i++) {
-    if (world.chainBlock > world.data.a || world.stopped) { playing = false; $('#play').textContent = '▶ Play'; $('#play').classList.remove('on'); break; }
+    if (world.chainBlock > world.data.a || world.stopped) { if (!live) { playing = false; $('#play').textContent = '▶ Play'; $('#play').classList.remove('on'); } break; } /* live: wait for the next read */
     const before = world.cells, count0 = world.logCount, ev0 = world.eventCount;
     E.stepWorld(world);
     if (showTrails) { for (const [k, v] of trails) { v[1]++; if (v[1] > 10) trails.delete(k); } for (const [k, o] of before) if (!world.cells.has(k)) trails.set(k, [o, 0]); }
@@ -190,6 +249,7 @@ function advance(n) {
     const fresh = world.log.slice(world.log.length - Math.min(world.log.length, world.logCount - count0));
     for (const l of fresh) ripples.push({ ...l, t: performance.now() });
     const evs = world.events.slice(world.events.length - Math.min(world.events.length, world.eventCount - ev0));
+    if (world.blocks.length > colours.length) visuals(); /* a block joined */
     if (evs.length) killFeed(evs);
     directorWatch(fresh, evs);
     if (world.gen % 100 === 0) { snaps.push(E.snapshot(world)); if (snaps.length > 80) snaps.shift(); }
@@ -197,6 +257,8 @@ function advance(n) {
 }
 function loop(t) {
   const dt = Math.min(0.25, (t - lastT) / 1000); lastT = t;
+  /* live: chain speed, faster when the page is behind the last block read (it catches up, then rides the chain) */
+  if (live) { const behind = world.data.a - world.chainBlock + 1; perSecond = behind > 60 ? Math.min(2000, behind * 2) : 5; }
   if (playing) { acc += dt * perSecond; const n = Math.floor(acc); acc -= n; const t1 = performance.now(); let done = 0; while (done < n && performance.now() - t1 < 22) { advance(1); done++; } if (done < n) acc = 0;
     /* the speed shown is the one measured, not the one asked for */
     rateGens += done; if (t - rateT > 1000) { rate = rateGens * 1000 / (t - rateT); rateGens = 0; rateT = t; } }
@@ -211,6 +273,8 @@ function feedText(e) {
   if (e.type === 'feast') return '🍽 ' + sym(e.i) + ' ate ' + e.n + ' cells of ' + sym(e.v);
   if (e.type === 'wiped') return '☠ ' + sym(e.i) + ' is wiped out';
   if (e.type === 'back') return '↺ ' + sym(e.i) + ' is back';
+  if (e.type === 'join') return '＋ ' + sym(e.i) + ' enters the game';
+  if (e.type === 'machine') return '⚙ ' + sym(e.i) + ' builds a glider gun';
   return '';
 }
 function killFeed(evs) {
@@ -316,7 +380,7 @@ function draw(t) {
 }
 
 /* ── panel ── */
-const SAYS = { glider: 'launches a glider', rush: 'rushes a fast ship', colony: 'settles an outpost', hunt: 'hunts a rival', revenge: 'strikes back', eater: 'lays an eater', spore: 'sends a spore away', bloom: 'blooms', scout: 'sends a scout ship', shield: 'sets a shield', wall: 'builds a wall', heartbeat: 'keeps a heartbeat' };
+const SAYS = { glider: 'launches a glider', rush: 'rushes a fast ship', colony: 'settles an outpost', hunt: 'hunts a rival', chase: 'goes for the crown', gun: 'builds a glider gun', revenge: 'strikes back', eater: 'lays an eater', spore: 'sends a spore away', bloom: 'blooms', scout: 'sends a scout ship', shield: 'sets a shield', wall: 'builds a wall', heartbeat: 'keeps a heartbeat' };
 let lastPanelGen = -1;
 function panel() {
   if (lastPanelGen === world.gen && playing) return; lastPanelGen = world.gen;
@@ -332,7 +396,7 @@ function panel() {
   $('#ranks').innerHTML = rk.rows.slice(0, 12).map((r, n) => '<div class="rank" data-i="' + r.i + '"><span>' + (n + 1) + '</span><img alt="" src="' + faces[r.i].src + '"><span class="sym">' + r.sym
     + '<small>' + r.cells.toLocaleString('en-US') + ' cells' + (r.i === world.crown ? ' · 👑' : '') + '</small></span><span class="mood ' + r.mood + '">' + (NOMS_HUMEUR[r.mood] || r.mood).split(' ')[0] + '</span></div>').join('');
   $('#log').innerHTML = world.log.slice(-14).reverse().map((l) => {
-    const why = l.g === 'bloom' ? l.buys + ' buys' : l.g === 'wall' ? l.sells + ' sells' : l.g === 'glider' ? (l.buys ? l.buys + ' buy' + (l.buys > 1 ? 's' : '') : 'new holders') : l.g === 'rush' ? l.buys + ' buys vs ' + l.sells + ' sells' : l.g === 'hunt' || l.g === 'eater' ? 'a rival in reach' : l.g === 'spore' ? 'losing ground' : l.g === 'revenge' ? 'losing cells to a rival' : l.g === 'colony' ? l.holders + ' new holder' + (l.holders > 1 ? 's' : '') :l.g === 'shield' ? l.sells + ' sell' + (l.sells > 1 ? 's' : '') + ' vs ' + l.buys : '';
+    const why = l.g === 'bloom' ? l.buys + ' buys' : l.g === 'wall' ? l.sells + ' sells' : l.g === 'glider' ? (l.buys ? l.buys + ' buy' + (l.buys > 1 ? 's' : '') : 'new holders') : l.g === 'rush' ? l.buys + ' buys vs ' + l.sells + ' sells' : l.g === 'gun' ? l.buys + ' buys in one beat' : l.g === 'chase' ? 'the leader in reach' : l.g === 'hunt' || l.g === 'eater' ? 'a rival in reach' : l.g === 'spore' ? 'losing ground' : l.g === 'revenge' ? 'losing cells to a rival' : l.g === 'colony' ? l.holders + ' new holder' + (l.holders > 1 ? 's' : '') :l.g === 'shield' ? l.sells + ' sell' + (l.sells > 1 ? 's' : '') + ' vs ' + l.buys : '';
     return '<div>#' + l.block.toLocaleString('en-US') + ' <b>' + world.blocks[l.i].sym + '</b> reacts' + (why ? ' to ' + why : '') + ': ' + SAYS[l.g] + '</div>';
   }).join('');
 }
@@ -345,9 +409,40 @@ $('#back').onclick = () => {
   const target = world.gen - 100; let s = null; for (let j = snaps.length - 1; j >= 0; j--) if (snaps[j].gen <= target) { s = snaps[j]; break; }
   if (!s) return; E.restore(world, s); trails.clear(); ripples.length = 0; while (snaps.length && snaps[snaps.length - 1].gen > s.gen) snaps.pop(); advance(target - s.gen); panel();
 };
+/* ── +1 BLOCK (Phil 2026-11-16: "on peut ajouter le block de son choix et payer en TBLOCK") — the choice; the payment is not built ── */
+let candidates = null;
+async function loadCandidates() {
+  if (candidates) return candidates;
+  try { const t = await (await fetch('/api/trending', { cache: 'no-store' })).json(); const inGame = new Set(world.blocks.map((b) => b.adr));
+    candidates = (t.lignes || []).filter((x) => x && /^0x[0-9a-fA-F]{40}$/.test(x.adr || '') && !inGame.has(String(x.adr).toLowerCase()) && !/xhamster|porn|sex/i.test((x.nom || '') + ' ' + (x.sym || '')))
+      .map((x) => ({ adr: String(x.adr).toLowerCase(), sym: x.sym || '?', nom: x.nom || '', action: !!x.emetteur, trades: Number(x.trades24h) || 0 })).sort((a, b) => b.trades - a.trades);
+  } catch { candidates = []; }
+  return candidates;
+}
+function listCandidates() {
+  const q = $('#addQ').value.trim().toLowerCase(), ul = $('#addList'); ul.textContent = '';
+  const rows = (candidates || []).filter((c) => !q || c.sym.toLowerCase().includes(q) || c.nom.toLowerCase().includes(q) || c.adr.startsWith(q)).slice(0, 40);
+  if (!rows.length) { const li = document.createElement('li'); li.textContent = candidates === null ? 'Reading the app\'s blocks…' : candidates.length ? 'No block matches.' : 'The app\'s block list is not read yet: try again in a minute.'; ul.append(li); return; }
+  for (const c of rows) {
+    const li = document.createElement('li'); li.tabIndex = 0;
+    const a = document.createElement('span'); a.innerHTML = '<b></b> <small></small>'; a.querySelector('b').textContent = c.sym; a.querySelector('small').textContent = c.nom;
+    const k = document.createElement('small'); k.textContent = c.action ? 'tokenized stock' : 'app block';
+    li.append(a, k); li.onclick = li.onkeydown = (e) => { if (e.type === 'keydown' && e.key !== 'Enter') return; pick(c); }; ul.append(li);
+  }
+}
+function pick(c) {
+  const box = $('#addPick'); box.hidden = false; box.textContent = '';
+  const h = document.createElement('div'); h.innerHTML = '<b></b> <small></small>'; h.querySelector('b').textContent = c.sym; h.querySelector('small').textContent = c.nom + (c.action ? ' · tokenized stock' : ' · app block');
+  const p = document.createElement('div'); p.className = 'sub'; p.textContent = c.trades ? c.trades + ' trades in the last 24 h: its brain will have something to react to.' : 'Quiet market for now: its brain reacts when its trades start.';
+  box.append(h, p);
+}
+async function openAdd() { if (candidates && !candidates.length) candidates = null; /* an empty list is read again */ $('#addDlg').showModal(); $('#addQ').focus(); listCandidates(); await loadCandidates(); listCandidates(); }
+$('#addBlock').onclick = openAdd; $('#addBlock2').onclick = openAdd;
+$('#addQ').oninput = listCandidates; $('#addClose').onclick = () => $('#addDlg').close();
 $('#speed').onchange = (e) => { perSecond = Number(e.target.value); };
+if (live) { $('#speed').hidden = true; $('#verify').textContent = 'Verify: replay the public journal'; $('#verifyLine').textContent = 'The season\'s facts are public: replaying them with this engine from the season\'s first block must give the same fingerprint.'; }
 /* the whole panel folds away behind one floating button, on every screen */
-function setPanel(open) { document.querySelector('.panel').hidden = !open; $('#openPanel').hidden = open; }
+function setPanel(open) { document.querySelector('.panel').hidden = !open; $('#openPanel').hidden = open; $('#addBlock2').hidden = open; }
 $('#fold').onclick = () => setPanel(false);
 $('#openPanel').onclick = () => setPanel(true);
 if (innerWidth < 760) setPanel(false);
@@ -357,8 +452,17 @@ $('#follow').onchange = (e) => { followI = Number(e.target.value); if (followI <
 $('#glow').onclick = () => { glow = !glow; $('#glow').classList.toggle('on', glow); };
 $('#trails').onclick = () => { showTrails = !showTrails; trails.clear(); $('#trails').classList.toggle('on', showTrails); };
 $('#verify').onclick = async () => {
-  const goal = world.gen, want = world.hash, w2 = E.createWorld(data), bar = $('#progress i'); $('#verify').disabled = true;
-  while (w2.gen < goal) { const t1 = performance.now(); while (w2.gen < goal && performance.now() - t1 < 30) E.stepWorld(w2); bar.style.width = (100 * w2.gen / goal).toFixed(1) + '%'; $('#verifyLine').textContent = 'Replaying from block ' + data.de.toLocaleString('en-US') + '… ' + w2.gen.toLocaleString('en-US') + ' / ' + goal.toLocaleString('en-US'); await new Promise((r) => setTimeout(r, 0)); }
+  const goal = world.gen, want = world.hash, bar = $('#progress i'); $('#verify').disabled = true;
+  let w2;
+  if (live) {
+    /* the live check: the season's first players + the public journal, replayed here from the season's first block */
+    $('#verifyLine').textContent = 'Reading the public journal…';
+    const lines = (await (await fetch('/api/life/journal', { cache: 'no-store' })).text()).split('\n').filter(Boolean).map((x) => JSON.parse(x));
+    w2 = E.createLiveWorld(world.blocks.filter((b) => !b.joinedAt).map(({ i, home, ...b }) => b), live.season.de);
+    const upTo = live.season.de + goal - 1; E.appendFacts(w2, lines.filter((x) => x.bloc <= upTo), upTo);
+  } else w2 = E.createWorld(data);
+  const de = live ? live.season.de : data.de;
+  while (w2.gen < goal) { const t1 = performance.now(); while (w2.gen < goal && performance.now() - t1 < 30) E.stepWorld(w2); bar.style.width = (100 * w2.gen / goal).toFixed(1) + '%'; $('#verifyLine').textContent = 'Replaying from block ' + de.toLocaleString('en-US') + '… ' + w2.gen.toLocaleString('en-US') + ' / ' + goal.toLocaleString('en-US'); await new Promise((r) => setTimeout(r, 0)); }
   $('#verifyLine').textContent = w2.hash === want ? '✓ Same world: replayed from block 0 to generation ' + goal.toLocaleString('en-US') + ', fingerprint ' + want : '✗ Different fingerprint: ' + w2.hash + ' vs ' + want;
   $('#verify').disabled = false;
 };

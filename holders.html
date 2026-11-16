@@ -2,7 +2,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>TBLOCK holders</title>
 <!-- game350: the colour the person chose in the app, applied before the first paint (no flash) -->
-<script>try { const t = localStorage.getItem('tb.teinte'); if (/^[bcd]$/.test(t || '')) document.documentElement.setAttribute('data-teinte', t); } catch (_) {}</script>
+<script>try { const t = localStorage.getItem('tb.teinte') || 'd'; if (/^[bcd]$/.test(t)) document.documentElement.setAttribute('data-teinte', t); } catch (_) {}</script>
 <!--
   2026-11-09 — PROOF OF HOLD for TBLOCK (tblock-hold.js, /api/tblock/hold, /api/tblock/telegram-invite).
   game345 (Phil 2026-11-10): rebuilt — live price on top, what each amount of TBLOCK unlocks (the REAL thresholds: on chain for the heart and

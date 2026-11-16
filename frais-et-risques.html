@@ -74,7 +74,7 @@
 <script type="module">
 import { CHIFFRES, rendre } from './frais-risques.js';
 /* le coloris choisi dans l app (meme cle), s il existe : la page a la meme couleur que l ecran d ou l on vient */
-try { const t = localStorage.getItem('tb.teinte'); if (t && t !== 'a') document.documentElement.setAttribute('data-teinte', t); } catch (_) { /* prive : coloris par defaut */ }
+try { const t = localStorage.getItem('tb.teinte') || 'd'; if (t && t !== 'a') document.documentElement.setAttribute('data-teinte', t); } catch (_) { /* prive : coloris par defaut */ }
 const contenu = document.getElementById('contenu');
 contenu.innerHTML = rendre(CHIFFRES, null);
 /* le pot des rolls et le mode du tirage, LUS par notre serveur ; un echec laisse « not read », jamais un zero.

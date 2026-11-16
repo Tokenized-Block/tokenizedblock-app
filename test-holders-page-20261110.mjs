@@ -8,7 +8,7 @@ const SRV = readFileSync(new URL('./serveur-web.js', import.meta.url), 'utf8');
 let ok = 0, ko = 0;
 const t = (m, c) => { if (c) ok++; else { ko++; console.log('KO', m); } };
 
-t('the theme is applied before the first paint, from the app\'s own key', /<script>try \{ const t = localStorage\.getItem\('tb\.teinte'\); if \(\/\^\[bcd\]\$\/\.test\(t \|\| ''\)\) document\.documentElement\.setAttribute\('data-teinte', t\); \} catch \(_\) \{\}<\/script>/.test(H));
+t('the theme is applied before the first paint, from the app\'s own key (Base app by default, Phil 2026-11-16)', /<script>try \{ const t = localStorage\.getItem\('tb\.teinte'\) \|\| 'd'; if \(\/\^\[bcd\]\$\/\.test\(t\)\) document\.documentElement\.setAttribute\('data-teinte', t\); \} catch \(_\) \{\}<\/script>/.test(H));
 for (const k of ['b', 'c', 'd']) t('palette ' + k + ' defined', new RegExp(':root\\[data-teinte="' + k + '"\\]\\{[^}]*--acc:').test(H));
 t('no hard-coded purple left on the buttons or the hero', !/#9560f0|#bd51ec|rgb\(167 139 250 \/ \.18\)/.test(H));
 t('buy = ONE link to OUR token on BaseStonk, by address', /<a class="btn" id="achatBaseStonk" href="https:\/\/basestonk\.io\/tokens\/0xb200000000000000000000ba9bf8330307f8830e" target="_blank" rel="noopener">/.test(H));

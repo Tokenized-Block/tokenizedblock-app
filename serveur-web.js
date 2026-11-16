@@ -328,6 +328,8 @@ import { creerEtatPaires } from './etat-paires.js';
 import { randomBytes } from 'node:crypto';
 /* 2026-10-04 : le mode essai (fork local + wallet simule) — la regle qui decide, pure, la meme que celle de la page */
 import { essaiServeur, urlLocale } from './mode-essai.js';
+import { createLifeLive } from './life-live.js';
+import { POOL_MANAGER as LIFE_POOL_MANAGER } from './usage-onchain.js';
 /* tip 20260923-map-trending: rotate public Base RPCs — mainnet.base.org alone 413/rate-limits eth_getLogs (Map soleils die). */
 /* tip 20260923-map-trending: only mainnet.base.org still serves free eth_getLogs (≤1k blocs). Others 413/HTML/plan. */
 /* ⛔⛔ DEUX ENDPOINTS OFFICIELS PAR DEFAUT, ET PAS PLUS. Mesure du 2026-09-29 :
@@ -6596,7 +6598,7 @@ const SERVIS = [
   /* game424: the product film of the "?" sheet (1280x720, about 9 MB, served with byte ranges) and its poster */
   'film.mp4', 'film-poster.jpg',
   /* game428: Game of Life Block — the replay page, its engine and the recorded Base transfers it replays (read-only, nothing to sign) */
-  'life-block/index.html', 'life-block/engine.js', 'life-block/donnees.json',
+  'life-block/index.html', 'life-engine.js', 'life-block/donnees.json',
 ];
 
 /* ⛔ L APP NEUVE EST LA RACINE. L ancien ecran reste atteignable a son nom, mais ce n est plus lui
@@ -9378,6 +9380,21 @@ function traiterRequete(req, res) {
    *   Le prix, la part du pot et la table viennent de la FICHE (constructeur), jamais tapes ici. */
   /* ══ LES JETONS MISABLES (2026-10-24) — GET /api/misables : la liste des jetons qui peuvent payer un jeu (swap exact-output en USDC),
    *   leurs ecarts mesures a 0,50 / 5 / 10 USDC et la regle ; LECTURE SEULE, cache 60 s (misables()). */
+  /* game429: GAME OF LIFE BLOCK, LIVE — one game for everybody, read at the head of Base (life-live.js). Read-only. */
+  if (chemin === '/api/life/live' || chemin === '/api/life/faits' || chemin === '/api/life/journal' || chemin === '/api/life/seasons') {
+    const gz = /gzip/.test(String(req.headers['accept-encoding'] || ''));
+    const rendreL = (corps, type = 'application/json; charset=utf-8', code = 200) => {
+      const h = { 'content-type': type, 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', vary: 'accept-encoding' };
+      if (gz && corps.length > 2048) { h['content-encoding'] = 'gzip'; res.writeHead(code, h); res.end(gzipSync(corps)); } else { res.writeHead(code, h); res.end(corps); }
+    };
+    if (req.method !== 'GET' && req.method !== 'HEAD') { rendreL(JSON.stringify({ ok: false, pourquoi: 'GET only' }), undefined, 405); return; }
+    if (!LIFE) { rendreL(JSON.stringify({ ok: false, etat: 'OFF', pourquoi: 'the live game is not running on this server' })); return; }
+    if (chemin === '/api/life/live') { rendreL(LIFE.state()); return; }
+    if (chemin === '/api/life/faits') { const q = new URL(req.url, 'http://x').searchParams; rendreL(JSON.stringify(LIFE.faits(Number(q.get('depuis')), String(q.get('season') || '')))); return; }
+    if (chemin === '/api/life/journal') { rendreL(LIFE.journal(), 'application/x-ndjson; charset=utf-8'); return; }
+    rendreL(JSON.stringify({ ok: true, seasons: LIFE._S.history })); return;
+  }
+
   if (chemin === '/api/misables') {
     const rendreMi = (o) => { res.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' }); res.end(o); };
     if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405, { 'content-type': 'application/json; charset=utf-8' }); res.end(JSON.stringify({ ok: false, pourquoi: 'GET only' })); return; }
@@ -9533,7 +9550,7 @@ function traiterRequete(req, res) {
      * fichier SERVI, jamais recopie a la main. */
     /* `naissance` : le verdict de la sonde qui simule une naissance entiere contre le hook deploye (voir sonderNaissance). Il ne
      *   change PAS `ok` (un 503 ferait redemarrer le conteneur pour une panne de noeud) — il se LIT : etat PRET, ou la raison. */
-    res.end(JSON.stringify({ ok, servis: cache.size, racine: RACINE, build: buildServi(), rails: railsCompteurs,
+    res.end(JSON.stringify({ ok, servis: cache.size, racine: RACINE, build: buildServi(), life: LIFE ? LIFE.status() : null, rails: railsCompteurs,
       naissance: { sonde: naissanceSonde, ...naissanceCompteurs },
       /* les quatre sondes cote a cote : naissance, marche, echange, cerveau — chacune PRET, ou sa raison */
       sondes: { naissance: naissanceSonde.etat, marche: autresSondes.marche, echange: autresSondes.echange, cerveau: autresSondes.cerveau, block: BLOCK_SONDE },
@@ -9635,6 +9652,25 @@ function traiterRequete(req, res) {
   res.end(req.method === 'HEAD' ? undefined : e.corps);
 }
 /* chaque requete s execute sous l etiquette de sa route : le compteur d archive dit QUI depense (parQui / refusParQui) */
+/* game429: GAME OF LIFE BLOCK, LIVE. Its own reader: publicnode first (10 addresses per getLogs, measured), then the server's
+ *   general reader. Every call is counted under "life". Its season, journal and checkpoints live on the volume (a deploy resumes). */
+const lecteurLifePrincipal = lecteurUrl('https://base-rpc.publicnode.com');
+async function rpcLife(methode, params) {
+  compterAppel('life', methode);
+  try { return await lecteurLifePrincipal(methode, params); } catch (e) { return rpcServeur(methode, params); }
+}
+/* off in the benches (TB_REPLIS=0: a fake node, counted calls) and in wallet test mode, unless LIFE_LIVE=on asks for it */
+const LIFE = process.env.LIFE_LIVE === 'off' || (process.env.LIFE_LIVE !== 'on' && (process.env.NODE_ENV === 'test' || REPLIS_PUBLICS_COUPES || ESSAI_SRV.actif)) ? null : createLifeLive({
+  rpc: rpcLife, poolManager: LIFE_POOL_MANAGER, log: (m) => console.log(m),
+  dir: process.env.RAILWAY_VOLUME_MOUNT_PATH ? join(process.env.RAILWAY_VOLUME_MOUNT_PATH, 'life') : (process.env.TB_LIFE_DIR || null),
+  lignes: () => {
+    try { const x = trCache.corps ? JSON.parse(trCache.corps) : null; if (x && Array.isArray(x.lignes) && x.lignes.some((l) => l && l.emetteur)) return x.lignes; } catch { /* below */ }
+    /* trending not read yet (a cold start): the tokenized stocks of the recorded replay, same addresses and pools — said in the log */
+    try { const d = JSON.parse(readFileSync(join(ici, 'life-block', 'donnees.json'), 'utf8')); console.log('[life] trending not read yet: players from the recorded list (' + d.blocks.length + ')');
+      return d.blocks.map((b, k) => ({ adr: b.adr, sym: b.sym, nom: b.nom, emetteur: 'recorded', liquiditeUsd: b.liquiditeUsd, trades24h: d.blocks.length - k, poolAdr: b.pools[0], routeAction: b.pools[1] ? { pool: b.pools[1] } : null })); } catch { return []; }
+  },
+});
+
 createServer((req, res) => consommateurArchive.run(etiquetteRequete(req), () => traiterRequete(req, res))).listen(PORT, '0.0.0.0', () => {
   console.log('tokenized-block sert ' + cache.size + ' fichier(s) sur le port ' + PORT);
   console.log('racine -> ' + RACINE + '  ·  HTML et JS en no-cache, images 24 h');
@@ -9643,6 +9679,8 @@ createServer((req, res) => consommateurArchive.run(etiquetteRequete(req), () => 
   consommateurArchive.run('fond mouche', () => demarrerMoucheServeur());
   /* 2026-11-09 TBLOCK holders bot: register the webhook once the real server listens, only if the three env values exist */
   tbRegisterWebhook().then((r) => console.log('telegram webhook: ' + r)).catch(() => console.log('telegram webhook: not registered'));
+  /* game429: the live Game of Life Block starts with the real server only */
+  if (LIFE) consommateurArchive.run('fond life', () => LIFE.start(10000));
 });
 
 /* ── ⛔⛔ POURQUOI UN PRECHAUFFAGE, ET PAS UNE LECTURE A L OUVERTURE DE LA PAGE ──────────────────
