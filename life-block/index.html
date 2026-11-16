@@ -156,6 +156,14 @@
       </ul>
     </details>
   </div>
+  <div class="card" id="cmCard" hidden>
+    <h2>Crown market</h2>
+    <p class="sub" id="cmLine">Who wears the crown at the end of this round? Bets in TBLOCK, open in the first half of each 10-minute round.</p>
+    <div class="row" style="margin-top:6px"><select id="cmPick" title="The block you bet on"></select><input id="cmAmt" type="number" min="1" step="1" value="1" title="How many minimum bets" style="width:64px"><button id="cmBet" class="add">Bet</button></div>
+    <div class="row" style="margin-top:6px"><button id="cmClaim">Claim my rounds</button></div>
+    <p class="sub" id="cmMsg" aria-live="polite"></p>
+    <p class="sub">Winners share the pot, 5 % goes to the holders' vault. A result can be challenged for 6 min (bond: the larger of $5 or 10 % of the pot): a challenged round is refunded. No result in time: refunded. Bets can be lost.</p>
+  </div>
   <div class="card">
     <h2>Add your block</h2>
     <p class="soon" style="margin:0">Planned: drop a block into the live season (one you created in the app, or a tokenized stock) for $2 of TBLOCK, paid to the holders' vault. It lands at a spot drawn from its address and the block it enters, never handed the centre. Nothing to sign here yet.</p>
@@ -185,6 +193,7 @@ import { apparenceDepuisAdresse } from '../apparence.js';
 import { logoSvg, paramsLogoDepuisApparence } from '../logo.js';
 import { LIFE_ENTRY_DEPLOIEMENT } from '../life-entry-deploiement.js';
 import { LIFE_REVIVE_DEPLOIEMENT } from '../life-revive-deploiement.js';
+import { CROWN_MARKET_DEPLOIEMENT } from '../crown-market-deploiement.js';
 import { envoyerLotAtomique, envoyerDepuisWallet, estRefusUtilisateur } from '../envoi.js';
 import { keccak256Hex } from '../keccak.js';
 import { TBLOCK as TBLOCK_ECO } from '../economie.js';
@@ -474,6 +483,52 @@ function listCandidates() {
     li.append(a, k); li.onclick = li.onkeydown = (e) => { if (e.type === 'keydown' && e.key !== 'Enter') return; pick(c); }; ul.append(li);
   }
 }
+/* ── CROWN MARKET (game437): read the round from Base, bet (approve exact + bet), claim; the visitor's wallet signs ── */
+const CM = CROWN_MARKET_DEPLOIEMENT.adresse;
+const pubCall = async (to, data) => { const r = await (await fetch('https://mainnet.base.org', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_call', params: [{ to, data }, 'latest'] }) })).json(); if (r.error) throw new Error(r.error.message || 'call failed'); return r.result; };
+const pubHead = async () => parseInt((await (await fetch('https://mainnet.base.org', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_blockNumber', params: [] }) })).json()).result, 16);
+const tb = (raw) => (Number(BigInt(raw) / 10n ** 14n) / 1e4).toLocaleString('en-US', { maximumFractionDigits: 0 });
+async function cmRefresh() {
+  if (!CM || !live) return;
+  $('#cmCard').hidden = false;
+  try {
+    const head = await pubHead(), G = CROWN_MARKET_DEPLOIEMENT.genesis, RB = CROWN_MARKET_DEPLOIEMENT.roundBlocks;
+    const r = Math.floor((head - G) / RB), start = G + r * RB, open = head < start + RB / 2;
+    const R = await pubCall(CM, sel('rounds(uint256)') + w32(r)), pot = BigInt('0x' + R.slice(2, 66));
+    const left = open ? (start + RB / 2 - head) * 0.2 : (start + RB - head) * 0.2;
+    $('#cmLine').textContent = 'Round ' + r + ' · pot ' + tb(pot) + ' TBLOCK · ' + (open ? 'bets close in ' + Math.ceil(left / 60) + ' min' : 'bets closed, the round ends in ' + Math.ceil(left / 60) + ' min');
+    $('#cmBet').disabled = !open;
+    if (!$('#cmPick').options.length || $('#cmPick').options.length !== world.blocks.length) $('#cmPick').innerHTML = world.blocks.map((b, i) => '<option value="' + b.adr + '">' + (i === world.crown ? '👑 ' : '') + b.sym + '</option>').join('');
+    cmRefresh.r = r;
+  } catch (e) { $('#cmLine').textContent = 'The market could not be read just now.'; }
+}
+async function cmSend(calls, what) {
+  const msg = (t) => { $('#cmMsg').textContent = t; };
+  const eth = window.ethereum; if (!eth) return msg('No wallet in this browser: open this page in the Base app or a wallet browser.');
+  const [compte] = await eth.request({ method: 'eth_requestAccounts' }); const rpc = (m, p) => eth.request({ method: m, params: p });
+  msg('Check your wallet: ' + what + '.');
+  let r = await envoyerLotAtomique({ eth, rpc, chaineAttendue: 8453, compte, calls });
+  if (r && r.sendCallsUnsupported) for (const c of calls) { r = await envoyerDepuisWallet({ eth, rpc, chaineAttendue: 8453, compte, to: c.to, data: c.data }); if (!r || r.etat !== 'CONFIRME') break; }
+  msg(r && r.etat === 'CONFIRME' ? 'Done: ' + what + '.' : 'Not done: ' + ((r && r.pourquoi) || 'the wallet did not confirm') + '.');
+  return compte;
+}
+async function cmBet() {
+  try {
+    const min = BigInt(await pubCall(CM, sel('minBet()'))), k = BigInt(Math.max(1, Math.floor(Number($('#cmAmt').value) || 1))), amt = min * k, blk = $('#cmPick').value, r = cmRefresh.r;
+    await cmSend([{ to: TBLOCK_ADR, data: sel('approve(address,uint256)') + wa(CM) + w32(amt), value: '0x0' }, { to: CM, data: sel('bet(uint256,address,uint256)') + w32(r) + wa(blk) + w32(amt), value: '0x0' }],
+      'one approval of exactly ' + tb(amt) + ' TBLOCK, then the bet on ' + (world.blocks.find((b) => b.adr === blk) || {}).sym + ' for round ' + r);
+    cmRefresh();
+  } catch (e) { $('#cmMsg').textContent = estRefusUtilisateur(e) ? 'You declined in your wallet: nothing was sent.' : (/StalePrice|revert/i.test(String(e && e.message)) ? 'The TBLOCK price is being refreshed on chain: try again in a few minutes. Nothing was sent.' : 'Not done: ' + String(e && e.message || e).slice(0, 120)); }
+}
+async function cmClaim() {
+  try {
+    const eth = window.ethereum; if (!eth) { $('#cmMsg').textContent = 'No wallet in this browser.'; return; }
+    const [me] = await eth.request({ method: 'eth_requestAccounts' }); const calls = [];
+    for (let r = Math.max(0, (cmRefresh.r || 0) - 12); r <= (cmRefresh.r || 0); r++) { const p = await pubCall(CM, sel('payable_(uint256,address)') + w32(r) + wa(me)); if (BigInt('0x' + p.slice(2, 66)) > 0n) calls.push({ to: CM, data: sel('claim(uint256)') + w32(r), value: '0x0' }); }
+    if (!calls.length) { $('#cmMsg').textContent = 'Nothing to claim in the last 12 rounds (a result can still be in its challenge window).'; return; }
+    await cmSend(calls, 'claim ' + calls.length + ' round' + (calls.length > 1 ? 's' : ''));
+  } catch (e) { $('#cmMsg').textContent = estRefusUtilisateur(e) ? 'You declined in your wallet: nothing was sent.' : 'Not done: ' + String(e && e.message || e).slice(0, 120); }
+}
 /* ── the payment (game431): approve exactly the entry, then LifeEntry.enter(block, that amount), from the visitor's own wallet ── */
 const LE = LIFE_ENTRY_DEPLOIEMENT.adresse, LR = LIFE_REVIVE_DEPLOIEMENT.adresse, TBLOCK_ADR = TBLOCK_ECO; /* from economie.js, never retyped */
 const sel = (sig) => '0x' + keccak256Hex(new TextEncoder().encode(sig)).replace(/^0x/, '').slice(0, 8);
@@ -521,6 +576,7 @@ function pick(c) {
 }
 async function openAdd() { if (candidates && !candidates.length) candidates = null; /* an empty list is read again */ $('#addDlg').showModal(); $('#addQ').focus(); listCandidates(); await loadCandidates(); listCandidates(); }
 $('#addBlock').onclick = openAdd; $('#addBlock2').onclick = openAdd;
+if (CM) { $('#cmBet').onclick = cmBet; $('#cmClaim').onclick = cmClaim; cmRefresh(); setInterval(cmRefresh, 20000); }
 $('#addQ').oninput = listCandidates; $('#addPay').onclick = pay; $('#addClose').onclick = () => $('#addDlg').close();
 $('#speed').onchange = (e) => { perSecond = Number(e.target.value); };
 if (live) { $('#speed').hidden = true; $('#verify').textContent = 'Verify: replay the public journal'; $('#verifyLine').textContent = 'The season\'s facts are public: replaying them with this engine from the season\'s first block must give the same fingerprint.'; }
