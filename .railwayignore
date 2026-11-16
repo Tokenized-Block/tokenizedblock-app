@@ -6,3 +6,9 @@
 # ⛔ `--no-gitignore` reste necessaire (le fichier XMTP vendore est ignore par git et doit partir) : ce fichier-ci ne fait
 #    qu AJOUTER des exclusions.
 contracts/
+# 2026-11-16 (game433 and game435: three uploads of 44 MB timed out, Railway FAILED): the benches, tools and notes are never served nor
+# imported by serveur-web.js (checked: none of the 375 served files starts with test- or tools/, none is .md). 10.9 MB fewer per upload.
+test-*.mjs
+test-*.js
+tools/
+*.md
