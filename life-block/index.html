@@ -84,7 +84,7 @@
   </div>
   <div class="card">
     <div class="row">
-      <button id="addBlock" class="add" title="Drop a block of your choice into the game">+1 block</button>
+      <button id="addBlock" class="add" title="Drop a block of your choice into the game">Add your block</button>
       <button id="play" class="on">❚❚ Pause</button>
       <button id="step" title="Add one generation (one Base block)">+1 gen</button>
       <button id="back" title="Back 100 generations">⏪ 100</button>
@@ -152,19 +152,21 @@
     </details>
   </div>
   <div class="card">
-    <h2>+1 block: enter the game</h2>
+    <h2>Add your block</h2>
     <p class="soon" style="margin:0">Planned: drop a block into the live season (one you created in the app, or a tokenized stock) for $2 of TBLOCK, paid to the holders' vault. It lands at a spot drawn from its address and the block it enters, never handed the centre. Nothing to sign here yet.</p>
   </div>
 </div>
 <button id="openPanel" class="floating" hidden>☰ Game of Life Block</button>
-<button id="addBlock2" class="floating add" style="left:auto;right:12px;top:auto;bottom:12px" hidden>+1 block</button>
+<button id="addBlock2" class="floating add" style="left:auto;right:12px;top:auto;bottom:12px" hidden>Add your block</button>
 <dialog id="addDlg" class="addDlg" aria-labelledby="addTitle">
-  <h2 id="addTitle">+1 block: enter the game</h2>
+  <h2 id="addTitle">Add your block</h2>
   <p class="sub">Pick any block of the app: a tokenized stock or a block someone created. It drops into the live season at a spot drawn from its address and the block it enters (never the centre), with its own Brain AI reading its own market.</p>
   <input id="addQ" type="search" placeholder="Search a block: name, symbol or address" autocomplete="off">
   <ul id="addList" class="addList"></ul>
   <div id="addPick" class="addPick" hidden></div>
   <p class="soon" id="addPrice">Entry: $2 of TBLOCK, paid from your wallet to the holders' vault. Planned: the payment step is not open yet, so nothing is signed here.</p>
+  <div class="row" id="addPayRow" hidden><button id="addPay" class="add">Pay $2 of TBLOCK and enter</button></div>
+  <p class="sub" id="addMsg" aria-live="polite"></p>
   <div class="row"><button id="addClose">Close</button></div>
 </dialog>
 <div id="tip" class="tip" hidden></div>
@@ -176,6 +178,10 @@ import * as E from '../life-engine.js';
 import { NOMS_HUMEUR } from '../cerveau.js';
 import { apparenceDepuisAdresse } from '../apparence.js';
 import { logoSvg, paramsLogoDepuisApparence } from '../logo.js';
+import { LIFE_ENTRY_DEPLOIEMENT } from '../life-entry-deploiement.js';
+import { envoyerLotAtomique, envoyerDepuisWallet, estRefusUtilisateur } from '../envoi.js';
+import { keccak256Hex } from '../keccak.js';
+import { TBLOCK as TBLOCK_ECO } from '../economie.js';
 
 const $ = (s) => document.querySelector(s);
 const cv = $('#c'), ctx = cv.getContext('2d');
@@ -430,7 +436,44 @@ function listCandidates() {
     li.append(a, k); li.onclick = li.onkeydown = (e) => { if (e.type === 'keydown' && e.key !== 'Enter') return; pick(c); }; ul.append(li);
   }
 }
+/* ── the payment (game431): approve exactly the entry, then LifeEntry.enter(block, that amount), from the visitor's own wallet ── */
+const LE = LIFE_ENTRY_DEPLOIEMENT.adresse, TBLOCK_ADR = TBLOCK_ECO; /* from economie.js, never retyped */
+const sel = (sig) => '0x' + keccak256Hex(new TextEncoder().encode(sig)).replace(/^0x/, '').slice(0, 8);
+const w32 = (x) => BigInt(x).toString(16).padStart(64, '0'), wa = (a) => String(a).toLowerCase().replace(/^0x/, '').padStart(64, '0');
+let picked = null;
+if (LE) { $('#addPrice').textContent = 'Entry: $2 of TBLOCK at the price the hearts contract keeps on the market, paid from your wallet straight to the holders\' vault. It is not refunded: your block plays the season.'; }
+async function pay() {
+  const msg = (t) => { $('#addMsg').textContent = t; };
+  if (!picked) return msg('Pick a block first.');
+  const eth = window.ethereum;
+  if (!eth || typeof eth.request !== 'function') return msg('No wallet in this browser: open this page in the Base app or a wallet browser.');
+  $('#addPay').disabled = true;
+  try {
+    const [compte] = await eth.request({ method: 'eth_requestAccounts' });
+    const rpc = (m, p) => eth.request({ method: m, params: p });
+    let due;
+    try { due = BigInt(await rpc('eth_call', [{ to: LE, data: sel('entryPrice()') }, 'latest'])); }
+    catch (e) { return msg('The TBLOCK price is being refreshed on chain: try again in a few minutes. Nothing was sent.'); }
+    const bal = BigInt(await rpc('eth_call', [{ to: TBLOCK_ADR, data: sel('balanceOf(address)') + wa(compte) }, 'latest']));
+    if (bal < due) return msg('This entry costs ' + (Number(due / 10n ** 14n) / 1e4).toLocaleString('en-US') + ' TBLOCK; this wallet holds less. Nothing was sent.');
+    const calls = [{ to: TBLOCK_ADR, data: sel('approve(address,uint256)') + wa(LE) + w32(due), value: '0x0' },
+      { to: LE, data: sel('enter(address,uint256)') + wa(picked.adr) + w32(due), value: '0x0' }];
+    msg('Check your wallet: one approval of exactly this entry, then the entry.');
+    let r = await envoyerLotAtomique({ eth, rpc, chaineAttendue: 8453, compte, calls });
+    if (r && r.sendCallsUnsupported) {
+      for (const [k, c] of calls.entries()) {
+        msg('Signature ' + (k + 1) + ' of 2 in your wallet…');
+        r = await envoyerDepuisWallet({ eth, rpc, chaineAttendue: 8453, compte, to: c.to, data: c.data });
+        if (!r || r.etat !== 'CONFIRME') { if (k === 1) return msg('Not done: the approval went through (this exact amount only, no token moved), the entry did not. Try again to finish.'); break; }
+      }
+    }
+    if (r && r.etat === 'CONFIRME') return msg('Paid. ' + picked.sym + ' enters the live season at the next read (about 10 s): watch the feed.');
+    return msg('Not done: ' + ((r && r.pourquoi) || 'the wallet did not confirm') + '.');
+  } catch (e) { return msg(estRefusUtilisateur(e) ? 'You declined in your wallet: nothing was sent.' : 'Not done: ' + String(e && e.message || e).slice(0, 120)); }
+  finally { $('#addPay').disabled = false; }
+}
 function pick(c) {
+  picked = c; if (LE && live) $('#addPayRow').hidden = false;
   const box = $('#addPick'); box.hidden = false; box.textContent = '';
   const h = document.createElement('div'); h.innerHTML = '<b></b> <small></small>'; h.querySelector('b').textContent = c.sym; h.querySelector('small').textContent = c.nom + (c.action ? ' · tokenized stock' : ' · app block');
   const p = document.createElement('div'); p.className = 'sub'; p.textContent = c.trades ? c.trades + ' trades in the last 24 h: its brain will have something to react to.' : 'Quiet market for now: its brain reacts when its trades start.';
@@ -438,7 +481,7 @@ function pick(c) {
 }
 async function openAdd() { if (candidates && !candidates.length) candidates = null; /* an empty list is read again */ $('#addDlg').showModal(); $('#addQ').focus(); listCandidates(); await loadCandidates(); listCandidates(); }
 $('#addBlock').onclick = openAdd; $('#addBlock2').onclick = openAdd;
-$('#addQ').oninput = listCandidates; $('#addClose').onclick = () => $('#addDlg').close();
+$('#addQ').oninput = listCandidates; $('#addPay').onclick = pay; $('#addClose').onclick = () => $('#addDlg').close();
 $('#speed').onchange = (e) => { perSecond = Number(e.target.value); };
 if (live) { $('#speed').hidden = true; $('#verify').textContent = 'Verify: replay the public journal'; $('#verifyLine').textContent = 'The season\'s facts are public: replaying them with this engine from the season\'s first block must give the same fingerprint.'; }
 /* the whole panel folds away behind one floating button, on every screen */

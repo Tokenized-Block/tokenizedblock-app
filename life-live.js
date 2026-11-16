@@ -9,8 +9,17 @@
 import { readFileSync, writeFileSync, appendFileSync, existsSync, mkdirSync, renameSync } from 'node:fs';
 import { join } from 'node:path';
 import * as E from './life-engine.js';
+import { keccak256Hex } from './keccak.js';
 
 export const TRANSFER = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
+/** LifeEntry's event: Entered(address indexed payer, address indexed blockToken, uint256 tblockPaid, uint256 priceUsdE18) */
+export const ENTERED = '0x' + keccak256Hex(new TextEncoder().encode('Entered(address,address,uint256,uint256)')).replace(/^0x/, '');
+const SEL_SYMBOL = '0x' + keccak256Hex(new TextEncoder().encode('symbol()')).replace(/^0x/, '').slice(0, 8);
+/** an ABI-encoded string answer (symbol(), name()) -> text, or '' */
+export function texteAbi(hex) {
+  try { const h = String(hex || '').replace(/^0x/, ''); if (h.length < 128) return ''; const n = Number(BigInt('0x' + h.slice(64, 128))); if (n > 64) return '';
+    const b = h.slice(128, 128 + n * 2); let t = ''; for (let i = 0; i < b.length; i += 2) t += String.fromCharCode(parseInt(b.slice(i, i + 2), 16)); return t.replace(/[^\x20-\x7e]/g, '').slice(0, 24); } catch { return ''; }
+}
 const bas = (a) => String(a || '').toLowerCase();
 const READ_MAX = 600;          /* blocks read per tick at most (2 min of chain): a long outage catches up in steps */
 const ADDR_PER_CALL = 10;      /* publicnode: "A maximum of 10 addresses is allowed" (measured 2026-11-16) */
@@ -32,7 +41,8 @@ export function factFromLog(l, index, blocks) {
   return { bloc: parseInt(l.blockNumber, 16), tx: l.transactionHash, log: parseInt(l.logIndex, 16), b: i, kind: P.includes(from) ? 'achat' : P.includes(to) ? 'vente' : 'transfert', vers: to };
 }
 
-export function createLifeLive({ rpc, dir = null, lignes, poolManager, log = () => {}, seasonBlocks = E.SEASON_BLOCKS, stepBudgetMs = 1200 }) {
+export function createLifeLive({ rpc, dir = null, lignes, poolManager, log = () => {}, seasonBlocks = E.SEASON_BLOCKS, stepBudgetMs = 1200, lifeEntry = null }) {
+  const LIFE_ENTRY = /^0x[0-9a-fA-F]{40}$/.test(String(lifeEntry || '')) ? String(lifeEntry).toLowerCase() : null;
   const S = { season: null, world: null, readTo: 0, recent: [], busy: false, lastError: null, lastTickAt: 0, calls: 0, reads: 0, stateCache: null, history: [] };
   const f = (n) => (dir ? join(dir, n) : null);
   if (dir) mkdirSync(dir, { recursive: true });
@@ -84,7 +94,36 @@ export function createLifeLive({ rpc, dir = null, lignes, poolManager, log = () 
   }
 
   /* read every player's Transfer logs in (readTo, to]; all-or-nothing */
+  /* "Add your block": the Entered logs of LifeEntry in (from, to], each from THAT contract's address and from a transaction whose receipt
+   *   says status 1 (an event is not a transaction: the receipt is read). A block already in the season is reinforced, never duplicated.
+   *   New players are listed in (block, address) order: the engine adds them in that same order, so a fact's index means one block. */
+  async function readEntries(from, to) {
+    if (!LIFE_ENTRY) return [];
+    const r = await call('eth_getLogs', [{ fromBlock: '0x' + from.toString(16), toBlock: '0x' + to.toString(16), address: LIFE_ENTRY, topics: [ENTERED] }]);
+    if (!Array.isArray(r)) throw new Error('eth_getLogs (entries) did not answer a list');
+    const out = [];
+    for (const l of r) {
+      if (String(l.address).toLowerCase() !== LIFE_ENTRY || !l.topics || l.topics[0] !== ENTERED || l.topics.length < 3) continue;
+      const rc = await call('eth_getTransactionReceipt', [l.transactionHash]);
+      if (!rc || rc.status !== '0x1' || !(rc.logs || []).some((x) => String(x.address).toLowerCase() === LIFE_ENTRY && x.logIndex === l.logIndex)) continue;
+      out.push({ bloc: parseInt(l.blockNumber, 16), log: parseInt(l.logIndex, 16), tx: l.transactionHash, adr: ('0x' + l.topics[2].slice(26)).toLowerCase(), payer: ('0x' + l.topics[1].slice(26)).toLowerCase() });
+    }
+    out.sort((x, y) => x.bloc - y.bloc || (x.adr < y.adr ? -1 : x.adr > y.adr ? 1 : 0));
+    const facts = [];
+    for (const e of out) {
+      const line = (lignes() || []).find((x) => x && String(x.adr || '').toLowerCase() === e.adr);
+      let sym = line && line.sym ? String(line.sym).slice(0, 16) : '', nom = line && line.nom ? String(line.nom).slice(0, 60) : '';
+      if (!sym) { try { sym = texteAbi(await call('eth_call', [{ to: e.adr, data: SEL_SYMBOL }, 'latest'])); } catch { sym = ''; } } 
+      const b = { adr: e.adr, sym: sym || e.adr.slice(0, 6), nom, action: !!(line && line.emetteur), liquiditeUsd: Math.round(Number(line && line.liquiditeUsd) || 0),
+        pools: line ? [...new Set([line.poolAdr, line.routeAction && line.routeAction.pool, line.emetteur ? null : poolManager].filter(Boolean).map((x) => String(x).toLowerCase()))] : [] };
+      if (!S.season.blocks.some((x) => x.adr === b.adr)) S.season.blocks.push({ ...b, joinedAt: e.bloc });
+      facts.push({ bloc: e.bloc, join: b, tx: e.tx, payer: e.payer });
+    }
+    return facts;
+  }
+
   async function read(to) {
+    const entries = await readEntries(S.readTo + 1, to);
     const from = S.readTo + 1, idx = index(), B = S.season.blocks, logs = [];
     /* a joined block is read from its join block only */
     const active = B.filter((b) => !b.joinedAt || b.joinedAt <= to);
@@ -94,7 +133,8 @@ export function createLifeLive({ rpc, dir = null, lignes, poolManager, log = () 
       logs.push(...r);
     }
     const faits = logs.map((l) => factFromLog(l, idx, B)).filter((x) => x && x.bloc >= from && x.bloc <= to && (!B[x.b].joinedAt || x.bloc >= B[x.b].joinedAt));
-    faits.sort((x, y) => x.bloc - y.bloc || x.log - y.log || (x.tx < y.tx ? -1 : 1));
+    faits.push(...entries);
+    faits.sort((x, y) => x.bloc - y.bloc || (x.join ? 0 : 1) - (y.join ? 0 : 1) || (x.log || 0) - (y.log || 0) || (x.tx < y.tx ? -1 : 1));
     return faits;
   }
 

@@ -298,12 +298,22 @@ export function appendFacts(world, faits, upTo) {
 /** a new player drops into the game: a place drawn from keccak(address + the block it enters), anywhere on the map out to its
  *  current edge (not the centre: nobody chooses, and nobody is handed the middle), its starting soup written on EMPTY cells only */
 export function joinPlayer(world, b) {
-  const i = world.blocks.length, h = seedBits(b.adr, 'join:' + world.chainBlock);
+  const adr0 = String(b.adr).toLowerCase(), h = seedBits(adr0, 'join:' + world.chainBlock);
   let R = SPACING; for (const x of world.blocks) R = Math.max(R, Math.hypot(x.home[0], x.home[1]));
   const ang = parseInt(h.slice(2, 10), 16) / 2 ** 32 * 2 * Math.PI, rad = (0.35 + 0.65 * Math.sqrt(parseInt(h.slice(10, 18), 16) / 2 ** 32)) * (R + SPACING / 2);
-  const nb = { ...b, adr: String(b.adr).toLowerCase(), i, joinedAt: world.chainBlock, home: [Math.round(Math.cos(ang) * rad), Math.round(Math.sin(ang) * rad)] };
+  const spot = [Math.round(Math.cos(ang) * rad), Math.round(Math.sin(ang) * rad)];
+  const s = seedBits(adr0, 'soup') + seedBits(adr0, 'soup2').slice(2);
+  /* A BLOCK ALREADY IN THE SEASON is not a second player: its entry REINFORCES it — a fresh soup of its own cells at a new drawn spot
+   *   (empty cells only), announced in the feed. One address = one colour, whatever the number of entries. */
+  const ex = world.blocks.findIndex((x) => x.adr === adr0);
+  if (ex >= 0) {
+    for (let y = 0; y < 12; y++) for (let x = 0; x < 6; x++) if (parseInt(s[2 + ((y * 6 + x) % 128)], 16) < 6) for (const X of [spot[0] - 6 + x, spot[0] + 5 - x]) { const k = key(X, spot[1] - 6 + y); if (!world.cells.has(k)) world.cells.set(k, ex); }
+    event(world, { type: 'reinforce', i: ex, at: spot });
+    return ex;
+  }
+  const i = world.blocks.length;
+  const nb = { ...b, adr: adr0, i, joinedAt: world.chainBlock, home: spot };
   world.blocks.push(nb); world.players.push(newPlayer(nb));
-  const s = seedBits(nb.adr, 'soup') + seedBits(nb.adr, 'soup2').slice(2);
   for (let y = 0; y < 12; y++) for (let x = 0; x < 6; x++) if (parseInt(s[2 + ((y * 6 + x) % 128)], 16) < 6) for (const X of [nb.home[0] - 6 + x, nb.home[0] + 5 - x]) { const k = key(X, nb.home[1] - 6 + y); if (!world.cells.has(k)) world.cells.set(k, i); }
   event(world, { type: 'join', i });
   return i;

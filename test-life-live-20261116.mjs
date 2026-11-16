@@ -11,7 +11,7 @@ import { readFileSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import * as E from './life-engine.js';
-import { createLifeLive, TRANSFER, playersFromTrending } from './life-live.js';
+import { createLifeLive, TRANSFER, ENTERED, playersFromTrending } from './life-live.js';
 let ok = 0, ko = 0; const t = (m, c, v = '') => { if (c) ok++; else { ko++; console.log('KO', m, v); } };
 const data = JSON.parse(readFileSync(new URL('./life-block/donnees.json', import.meta.url), 'utf8'));
 const pad = (a) => '0x' + '0'.repeat(24) + a.slice(2);
@@ -82,6 +82,37 @@ const replay = E.createWorld(data); for (let i = 0; i < G; i++) E.stepWorld(repl
   await live.tick(); await play(live, node, data.de + 499); live.stepFor(1e9);
   node.tip = data.de + 520; await live.tick();
   t('L6 a season ends at its block count, the next starts, the winner is recorded', live._S.season.de === data.de + 518 && live._S.history.length === 1 && !!live._S.history[0].winner, JSON.stringify(live._S.history[0])); }
+
+{ /* L7: "Add your block" — Entered logs of LifeEntry become joins, only from LifeEntry's address and from a status-1 transaction */
+  const LE = '0x' + 'e7'.repeat(20), NEW = '0x' + 'cd'.repeat(20), OTHER = '0x' + '99'.repeat(20), at = data.de + 700, at2 = data.de + 900;
+  const symHex = '0x' + (32).toString(16).padStart(64, '0') + (5).toString(16).padStart(64, '0') + Buffer.from('NEWc1').toString('hex').padEnd(64, '0');
+  const ent = (adrLog, blk, li, payer, tok, txh) => ({ address: adrLog, blockNumber: '0x' + blk.toString(16), transactionHash: txh, logIndex: '0x' + li.toString(16), topics: [ENTERED, pad(payer), pad(tok)], data: '0x' });
+  const LOGS_E = [ent(LE, at, 1, '0x' + 'aa'.repeat(20), NEW, '0x' + '01'.repeat(32)), ent(LE, at2, 2, '0x' + 'aa'.repeat(20), data.blocks[0].adr, '0x' + '02'.repeat(32)),
+    ent(OTHER, at, 3, '0x' + 'aa'.repeat(20), '0x' + 'ee'.repeat(20), '0x' + '03'.repeat(32)), ent(LE, at, 4, '0x' + 'aa'.repeat(20), '0x' + 'ef'.repeat(20), '0x' + '04'.repeat(32))];
+  /* the new block trades right after it entered: 3 transfers out of a wallet */
+  const NEWT = [at + 5, at + 50, at + 120].map((b, k) => ({ address: NEW, blockNumber: '0x' + b.toString(16), transactionHash: '0x' + (k + 10).toString(16).padStart(64, '0'), logIndex: '0x0', topics: [TRANSFER, pad('0x' + '11'.repeat(20)), pad('0x' + (k + 20).toString(16).padStart(40, '0'))] }));
+  const base = fakeNode({ tip: 0 }), node = { tip: data.de - 1 + 3 };
+  const rpc = async (m, p) => {
+    if (m === 'eth_blockNumber') return '0x' + node.tip.toString(16);
+    if (m === 'eth_getLogs') { const q = p[0], de = parseInt(q.fromBlock, 16), a = parseInt(q.toBlock, 16);
+      if (q.topics && q.topics[0] === ENTERED) return LOGS_E.filter((l) => l.address === q.address && parseInt(l.blockNumber, 16) >= de && parseInt(l.blockNumber, 16) <= a);
+      const A = new Set(q.address); if (q.address.length > 10) throw new Error('A maximum of 10 addresses is allowed');
+      return [...LOGS, ...NEWT].filter((l) => A.has(l.address) && parseInt(l.blockNumber, 16) >= de && parseInt(l.blockNumber, 16) <= a); }
+    if (m === 'eth_getTransactionReceipt') { const l = LOGS_E.find((x) => x.transactionHash === p[0]); return l ? { status: l.logIndex === '0x4' ? '0x0' : '0x1', logs: [l] } : null; }
+    if (m === 'eth_call') return symHex;
+    throw new Error('unexpected ' + m);
+  };
+  const live = createLifeLive({ rpc, lignes, poolManager: '0x0', lifeEntry: LE });
+  await live.tick(); await play(live, node, data.de + 1200); live.stepFor(1e9);
+  const W = live._S.world, nb = W.blocks.find((b) => b.adr === NEW);
+  t('L7a a paid entry from LifeEntry adds the block at its block, with its symbol read on chain', !!nb && nb.joinedAt === at && nb.sym === 'NEWc1' && W.blocks.length === data.blocks.length + 1, JSON.stringify(nb && { s: nb.sym, j: nb.joinedAt }));
+  t('L7b an Entered log from another address, or from a failed transaction, is NOT a join', !W.blocks.some((b) => b.adr === '0x' + 'ee'.repeat(20) || b.adr === '0x' + 'ef'.repeat(20)));
+  t('L7c an entry for a block already in the season reinforces it (no second player), the feed says so', W.events.some((e) => e.type === 'reinforce' && e.i === 0) && W.blocks.filter((b) => b.adr === data.blocks[0].adr).length === 1);
+  t('L7d the new block\'s own trades after its entry are read (its brain has facts)', W.players[nb.i].cum.detenteurs >= 3, String(W.players[nb.i].cum.detenteurs));
+  /* a second server reading the same chain from scratch */
+  const live2 = createLifeLive({ rpc, lignes, poolManager: '0x0', lifeEntry: LE }); node.tip = data.de - 1 + 3;
+  await live2.tick(); await play(live2, node, data.de + 1200); live2.stepFor(1e9);
+  t('L7e two servers reading the same chain reach the same world (entries included)', live2._S.world.hash === W.hash, live2._S.world.hash + ' vs ' + W.hash); }
 
 console.log(ok + '/' + (ok + ko) + (ko ? ' — RED' : ' — green'));
 process.exit(ko ? 1 : 0);

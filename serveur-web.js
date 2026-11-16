@@ -330,6 +330,7 @@ import { randomBytes } from 'node:crypto';
 /* 2026-10-04 : le mode essai (fork local + wallet simule) — la regle qui decide, pure, la meme que celle de la page */
 import { essaiServeur, urlLocale } from './mode-essai.js';
 import { createLifeLive } from './life-live.js';
+import { LIFE_ENTRY_DEPLOIEMENT } from './life-entry-deploiement.js';
 import { POOL_MANAGER as LIFE_POOL_MANAGER } from './usage-onchain.js';
 /* tip 20260923-map-trending: rotate public Base RPCs — mainnet.base.org alone 413/rate-limits eth_getLogs (Map soleils die). */
 /* tip 20260923-map-trending: only mainnet.base.org still serves free eth_getLogs (≤1k blocs). Others 413/HTML/plan. */
@@ -6609,7 +6610,7 @@ const SERVIS = [
   /* game424: the product film of the "?" sheet (1280x720, about 9 MB, served with byte ranges) and its poster */
   'film.mp4', 'film-poster.jpg',
   /* game428: Game of Life Block — the replay page, its engine and the recorded Base transfers it replays (read-only, nothing to sign) */
-  'life-block/index.html', 'life-engine.js', 'life-block/donnees.json',
+  'life-block/index.html', 'life-engine.js', 'life-block/donnees.json', 'life-entry-deploiement.js', 'life-entry-kit.js', 'deployer-lifeentry.html',
 ];
 
 /* ⛔ L APP NEUVE EST LA RACINE. L ancien ecran reste atteignable a son nom, mais ce n est plus lui
@@ -9673,7 +9674,7 @@ async function rpcLife(methode, params) {
 }
 /* off in the benches (TB_REPLIS=0: a fake node, counted calls) and in wallet test mode, unless LIFE_LIVE=on asks for it */
 const LIFE = process.env.LIFE_LIVE === 'off' || (process.env.LIFE_LIVE !== 'on' && (process.env.NODE_ENV === 'test' || REPLIS_PUBLICS_COUPES || ESSAI_SRV.actif)) ? null : createLifeLive({
-  rpc: rpcLife, poolManager: LIFE_POOL_MANAGER, log: (m) => console.log(m),
+  rpc: rpcLife, poolManager: LIFE_POOL_MANAGER, log: (m) => console.log(m), lifeEntry: LIFE_ENTRY_DEPLOIEMENT.adresse, /* game431: "Add your block" entries */
   dir: process.env.RAILWAY_VOLUME_MOUNT_PATH ? join(process.env.RAILWAY_VOLUME_MOUNT_PATH, 'life') : (process.env.TB_LIFE_DIR || null),
   lignes: () => {
     try { const x = trCache.corps ? JSON.parse(trCache.corps) : null; if (x && Array.isArray(x.lignes) && x.lignes.some((l) => l && l.emetteur)) return x.lignes; } catch { /* below */ }
