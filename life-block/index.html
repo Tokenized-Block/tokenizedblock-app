@@ -57,7 +57,8 @@
 .addDlg{background:#081218;color:#f2fbff;border:1px solid var(--ligne);border-radius:16px;width:min(440px,calc(100vw - 32px));padding:16px}
 .addDlg::backdrop{background:rgba(0,0,0,.6)}
 .addDlg input{width:100%;box-sizing:border-box;padding:9px 11px;border-radius:10px;border:1px solid var(--ligne);background:#04090c;color:#f2fbff;font-size:14px;margin:6px 0}
-.addList{list-style:none;margin:0;padding:0;max-height:240px;overflow:auto}
+.addList{list-style:none;margin:0;padding:0;max-height:240px;overflow:auto;padding-bottom:6px}
+@media (max-width:760px){.addList{max-height:46vh}}
 .addList li{display:flex;justify-content:space-between;gap:8px;padding:7px 9px;border-radius:8px;cursor:pointer}
 .addList li:hover,.addList li:focus{background:rgba(31,91,255,.18);outline:none}
 .addList small{color:var(--doux)}
@@ -298,6 +299,7 @@ headerLines();
 fitAll();
 $('#loading').hidden = true;
 try { panel(); } catch (_) {}
+let prices = null;
 if (live) void readPrices();
 setInterval(() => { try { panel(); } catch (_) {} }, 1000);
 { const fq = new URLSearchParams(location.search).get('focus'); if (fq) setTimeout(() => findBlock(fq), 300); }
@@ -692,7 +694,6 @@ function pick(c) {
   if (C) { const q = document.createElement('div'); q.className = 'sub'; q.textContent = (c.inGame ? 'Revive: $1' : 'Enter: $2') + ' of TBLOCK = reading the price…'; box.append(q);
     pubCall(C, sel('entryPrice()')).then((r) => { q.textContent = (c.inGame ? 'Revive: $1' : 'Enter: $2') + ' of TBLOCK = ' + tb(r) + ' TBLOCK now, to the holders\' vault.'; }, () => { q.textContent = 'The TBLOCK price is being refreshed on chain: try again in a few minutes.'; }); }
 }
-let prices = null;
 async function readPrices() { try { const [e, r] = await Promise.all([LE ? pubCall(LE, sel('entryPrice()')) : null, LR ? pubCall(LR, sel('entryPrice()')) : null]); prices = { enter: e ? tb(e) : null, revive: r ? tb(r) : null }; } catch { prices = null; } }
 async function openAdd() { void readPrices().then(() => listCandidates()); if (candidates && !candidates.length) candidates = null; /* an empty list is read again */ $('#addDlg').showModal(); $('#addQ').focus(); listCandidates(); await loadCandidates(); listCandidates(); }
 $('#addBlock').onclick = openAdd; $('#addBlock2').onclick = openAdd; $('#addBlock3').onclick = openAdd;
