@@ -234,7 +234,7 @@ function findBlock(q) {
     : world.blocks.findIndex((b) => b.sym.toLowerCase().startsWith(v) || (b.nom || '').toLowerCase().includes(v) || b.adr.startsWith(v));
   if (i < 0) return false;
   followI = i; lockI = i; $('#follow').value = String(i); view.z = Math.max(view.z, 5);
-  const c = centroid(i) || world.blocks[i].home; view.x = c[0]; view.y = c[1];
+  const c = cluster(i) || world.blocks[i].home; view.x = c[0]; view.y = c[1];
   return true;
 }
 async function loadLive() {
@@ -297,11 +297,11 @@ function advance(n) {
 function loop(t) {
   const dt = Math.min(0.25, (t - lastT) / 1000); lastT = t;
   /* live: chain speed, faster when the page is behind the last block read (it catches up, then rides the chain) */
-  if (live) { const behind = world.data.a - world.chainBlock + 1; perSecond = behind > 60 ? Math.min(2000, behind * 2) : 5; }
+  if (live) { const behind = world.data.a - world.chainBlock + 1, chosen = Number($('#speed').value) || 5; perSecond = behind > 60 ? Math.max(chosen, Math.min(2000, behind * 2)) : behind > 1 ? Math.max(5, chosen) : 5; }
   if (playing) { acc += dt * perSecond; const n = Math.floor(acc); acc -= n; const t1 = performance.now(); let done = 0; while (done < n && performance.now() - t1 < 22) { advance(1); done++; } if (done < n) acc = 0;
     /* the speed shown is the one measured, not the one asked for */
     rateGens += done; if (t - rateT > 1000) { rate = rateGens * 1000 / (t - rateT); rateGens = 0; rateT = t; } }
-  if (followI >= 0) { const c = centroid(followI); if (c) { view.x += (c[0] - view.x) * 0.08; view.y += (c[1] - view.y) * 0.08; } }
+  if (followI >= 0) { const c = cluster(followI); if (c) { view.x += (c[0] - view.x) * 0.08; view.y += (c[1] - view.y) * 0.08; } }
   else if (director && shot) { view.x += (shot.x - view.x) * 0.06; view.y += (shot.y - view.y) * 0.06; view.z += (shot.z - view.z) * 0.05; if (t > shot.until) shot = null; }
   draw(t); tooltip(); requestAnimationFrame(loop);
 }
@@ -358,7 +358,7 @@ function directorWatch(entries, evs) {
   if (!director || followI >= 0) return;
   const now = performance.now(), busy = shot && now < shot.until - 1200;
   for (const l of entries) if ((l.g === 'bloom' || l.g === 'wall') && !busy) { shot = { x: l.at[0], y: l.at[1], z: 7, until: now + 3500, why: world.blocks[l.i].sym + (l.g === 'bloom' ? ' blooms' : ' builds a wall') }; return; }
-  for (const e of evs) if ((e.type === 'crown' || e.type === 'feast') && !busy) { const c = centroid(e.type === 'feast' ? e.v : e.i); if (c) { shot = { x: c[0], y: c[1], z: 5, until: now + 3500, why: feedText(e).replace(/<[^>]+>/g, '') }; return; } }
+  for (const e of evs) if ((e.type === 'crown' || e.type === 'feast') && !busy) { const c = cluster(e.type === 'feast' ? e.v : e.i); if (c) { shot = { x: c[0], y: c[1], z: 5, until: now + 3500, why: feedText(e).replace(/<[^>]+>/g, '') }; return; } }
 }
 /* ── hover: the faction under the cursor, read from the cells around it ── */
 let hoverI = -1, lockI = -1, mouse = null;
@@ -382,6 +382,21 @@ function tooltip() {
   tip.style.left = x + 'px'; tip.style.top = y + 'px'; tip.hidden = false;
 }
 let centroidCache = { gen: -1, v: [] };
+/* THE TRACKER (Phil 2026-11-16 "le traker a du mal"): the colony's DENSEST cluster — the 16x16 tile holding most of its cells, then the
+ *   mean of that tile and its 8 neighbours. Its centre of mass sat in empty space as soon as gliders flew off. Cached per generation. */
+let clusterCache = { gen: -1, v: [] };
+function cluster(i) {
+  if (clusterCache.gen !== world.gen) {
+    const tiles = world.blocks.map(() => new Map());
+    for (const [k, o] of world.cells) if (o >= 0) { const t = (Math.floor(E.kx(k) / 16) + 2048) * 4096 + (Math.floor(E.ky(k) / 16) + 2048); const m = tiles[o]; m.set(t, (m.get(t) || 0) + 1); }
+    const best = tiles.map((m) => { let bt = -1, bn = 0; for (const [t, n] of m) if (n > bn || (n === bn && t < bt)) { bt = t; bn = n; } return bt; });
+    const sums = world.blocks.map(() => [0, 0, 0]);
+    for (const [k, o] of world.cells) if (o >= 0 && best[o] >= 0) { const tx = Math.floor(E.kx(k) / 16) + 2048, ty = Math.floor(E.ky(k) / 16) + 2048, bx = Math.floor(best[o] / 4096), by = best[o] % 4096;
+      if (Math.abs(tx - bx) <= 1 && Math.abs(ty - by) <= 1) { const q = sums[o]; q[0] += E.kx(k); q[1] += E.ky(k); q[2]++; } }
+    clusterCache = { gen: world.gen, v: sums.map((q) => (q[2] ? [q[0] / q[2], q[1] / q[2], q[2]] : null)) };
+  }
+  return clusterCache.v[i];
+}
 function centroid(i) {
   if (centroidCache.gen !== world.gen) { const s = world.blocks.map(() => [0, 0, 0]); for (const [k, o] of world.cells) if (o >= 0) { const q = s[o]; q[0] += E.kx(k); q[1] += E.ky(k); q[2]++; } centroidCache = { gen: world.gen, v: s.map((q, j) => (q[2] ? [q[0] / q[2], q[1] / q[2], q[2]] : [...world.blocks[j].home, 0])) }; }
   return centroidCache.v[i];
@@ -425,12 +440,12 @@ function draw(t) {
     for (const [k, o] of world.cells) if (o === focus) { const x = E.kx(k) * z + ox + s / 2, y = E.ky(k) * z + oy + s / 2; if (x < -r || y < -r || x > W + r || y > H + r) continue; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill(); }
     ctx.restore();
     const b = world.blocks[focus], hx = b.home[0] * z + ox, hy = b.home[1] * z + oy, fs = 30;
-    if (fn) { ctx.strokeStyle = colours[focus]; ctx.globalAlpha = 0.6; ctx.setLineDash([4, 5]); ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(fx / fn, fy / fn); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1; }
+    if (fn) { ctx.strokeStyle = colours[focus]; ctx.globalAlpha = 0.6; ctx.setLineDash([4, 5]); ctx.beginPath(); const cl = cluster(focus); if (cl) { ctx.moveTo(hx, hy); ctx.lineTo(cl[0] * z + ox, cl[1] * z + oy); } ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1; }
     if (faces[focus].complete) { ctx.save(); ctx.shadowColor = colours[focus]; ctx.shadowBlur = 18; ctx.drawImage(faces[focus], hx - fs / 2, hy - fs * 0.55, fs, fs * 1.1); ctx.restore(); }
     ctx.fillStyle = '#f2fbff'; ctx.font = '700 12px system-ui'; ctx.textAlign = 'center'; ctx.fillText(b.sym + ' · home', hx, hy + fs * 0.62 + 12);
   }
   /* THE CROWN: over the centre of the largest colony (it follows the colony, unlike the old fixed hills) */
-  if (world.crown >= 0) { const c0 = centroid(world.crown); if (c0) {
+  if (world.crown >= 0) { const c0 = cluster(world.crown); if (c0) {
     /* Phil 2026-11-16 "le tracking de la couronne bug": it glides toward the colony's centre instead of jumping (drawing only) */
     if (!crownPos || crownPos.i !== world.crown) crownPos = { i: world.crown, x: c0[0], y: c0[1] }; else { crownPos.x += (c0[0] - crownPos.x) * 0.08; crownPos.y += (c0[1] - crownPos.y) * 0.08; }
     const c = [crownPos.x, crownPos.y], x = c[0] * z + ox, y = c[1] * z + oy; ctx.save(); ctx.shadowColor = '#ffd76a'; ctx.shadowBlur = 14; ctx.font = '20px system-ui'; ctx.textAlign = 'center'; ctx.fillText('👑', x, y - 10); ctx.restore();
@@ -598,7 +613,7 @@ $('#addBlock').onclick = openAdd; $('#addBlock2').onclick = openAdd; $('#addBloc
 if (CM) { $('#cmBet').onclick = cmBet; $('#cmClaim').onclick = cmClaim; cmRefresh(); setInterval(cmRefresh, 20000); }
 $('#addQ').oninput = listCandidates; $('#addPay').onclick = pay; $('#addClose').onclick = () => $('#addDlg').close();
 $('#speed').onchange = (e) => { perSecond = Number(e.target.value); };
-if (live) { $('#speed').hidden = true; $('#verify').textContent = 'Verify: replay the public journal'; $('#verifyLine').textContent = 'The season\'s facts are public: replaying them with this engine from the season\'s first block must give the same fingerprint.'; }
+if (live) { $('#step').hidden = true; $('#speed').innerHTML = '<option value="5" selected>Chain speed · 5 blocks/s</option><option value="25">Catch up ×5</option><option value="100">Catch up ×20</option><option value="2000">Catch up max</option>'; $('#speed').title = 'Live: the game rides the chain at 5 blocks/s; after a rewind or a reload it catches up at this speed'; $('#verify').textContent = 'Verify: replay the public journal'; $('#verifyLine').textContent = 'The season\'s facts are public: replaying them with this engine from the season\'s first block must give the same fingerprint.'; }
 /* the whole panel folds away behind one floating button, on every screen */
 function setPanel(open) { document.querySelector('.panel').hidden = !open; $('#openPanel').hidden = open; $('#addBlock2').hidden = open; }
 $('#fold').onclick = () => setPanel(false);

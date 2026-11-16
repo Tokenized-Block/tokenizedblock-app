@@ -21,7 +21,7 @@ import { keccak256Hex } from './keccak.js';
 
 /* the RULES' version: a season is replayed with the engine of its version only. 2 = the crown margin (2026-11-16). A server that loads
  *   a season of another version closes it and starts a new one (life-live.js), so "Verify" never compares two rule sets. */
-export const ENGINE_VERSION = 4; /* 3 = convert, revive, a seed per season; 4 = rain, wear, alliances, boss, catch-up (2026-11-16) */
+export const ENGINE_VERSION = 5; /* 3 = convert, revive, a seed per season; 4 = rain, wear, alliances, boss, catch-up (2026-11-16) */
 /* Phil 2026-11-16 ("j'adore tes idees 1 2 3 4 5"): the game must never freeze.
  *   RAIN: every hour of chain, neutral seeds fall near the centre; colonies absorb them (a neutral cell can be eaten).
  *   WEAR: every WEAR_EVERY generations, one in WEAR_DIV of the cells that did not change (same place, same owner) since the last check dies.
@@ -29,7 +29,9 @@ export const ENGINE_VERSION = 4; /* 3 = convert, revive, a seed per season; 4 = 
  *     receives many is not a person) do not eat or convert each other.
  *   BOSS: the largest colony of the season before starts with a glider gun already built.
  *   CATCH-UP: at mid-season, the 5 smallest colonies get a free revive. */
-export const WEAR_EVERY = 600, WEAR_DIV = 6, RAIN_EVERY = 18000;
+/* v5 (2026-11-16, Phil's screenshot: the map turned to dust): wear was 1 in 6 every 600 generations (9,000 gens: 25.7k -> 14k cells);
+ *   1 in 8 every 1,800 keeps 20k cells and still melts frozen borders (1,806 cells worn). */
+export const WEAR_EVERY = 1800, WEAR_DIV = 8, RAIN_EVERY = 18000;
 export const BEAT_BLOCKS = 10;          /* the brain beats every 10 chain blocks = 2 s */
 export const BLOCKS_PER_HOUR = 18000;   /* 3600 s / 0.2 s */
 export const CELL_CAP = 24000;          /* above this, growth gestures pause (defence still allowed) */
