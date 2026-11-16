@@ -8,6 +8,9 @@ pragma solidity ^0.8.24;
 ///   - THE PRICE is the one the hearts contract stores (LIKES.price(): USD per whole TBLOCK * 1e18, written by a bounded keeper, floor
 ///     and ceiling engraved there). No pool is read here: a pool read can be pushed for one block. `maxTblock` is the caller's own cap
 ///     (the page quotes, the wallet signs): if the stored price moved against the payer, the call reverts instead of taking more.
+///   - A STALE PRICE IS REFUSED (review Grok lot 21, 2026-11-16, measured: the hearts' price was 100 h old, set 2026-11-12 09:31 UTC):
+///     an entry reverts with StalePrice when LIKES.priceSetAt() is older than MAX_PRICE_AGE. Without it, a market that fell while the
+///     keeper slept would let an entry pay much less than $2. No keeper running = no entry, never a cheap one.
 ///   - this contract HOLDS NOTHING and pays nobody: the TBLOCK goes from the payer to VAULT in one transferFrom, measured by VAULT's
 ///     balance before/after (a token that delivered less than asked would revert, not under-pay silently).
 ///   - no owner, no admin, no setter, no upgrade, no withdraw: there is nothing to steal and nothing anybody can change.
@@ -19,13 +22,14 @@ interface IERC20Min {
     function transferFrom(address from, address to, uint256 v) external returns (bool);
     function balanceOf(address a) external view returns (uint256);
 }
-interface IPriceSource { function price() external view returns (uint256); }
+interface IPriceSource { function price() external view returns (uint256); function priceSetAt() external view returns (uint256); }
 
 contract LifeEntry {
     address public immutable TBLOCK;
     address public immutable VAULT;
     address public immutable LIKES;          // the price source (BlockLikesV2)
     uint256 public immutable ENTRY_USD_E18;  // $2 = 2e18
+    uint256 public immutable MAX_PRICE_AGE;  // seconds: an older stored price refuses the entry
 
     event Entered(address indexed payer, address indexed blockToken, uint256 tblockPaid, uint256 priceUsdE18);
 
@@ -33,17 +37,22 @@ contract LifeEntry {
     error NoPrice();
     error AboveYourCap(uint256 due, uint256 cap);
     error NotDelivered(uint256 got, uint256 due);
+    error StalePrice(uint256 age, uint256 maxAge);
 
-    constructor(address tblock, address vault, address likes, uint256 entryUsdE18) {
+    constructor(address tblock, address vault, address likes, uint256 entryUsdE18, uint256 maxPriceAge) {
         if (tblock == address(0) || vault == address(0) || likes == address(0) || entryUsdE18 == 0) revert BadParams();
+        if (maxPriceAge == 0 || maxPriceAge > 2 days) revert BadParams();
         if (tblock.code.length == 0 || likes.code.length == 0) revert BadParams();
-        TBLOCK = tblock; VAULT = vault; LIKES = likes; ENTRY_USD_E18 = entryUsdE18;
+        TBLOCK = tblock; VAULT = vault; LIKES = likes; ENTRY_USD_E18 = entryUsdE18; MAX_PRICE_AGE = maxPriceAge;
     }
 
-    /// @notice the TBLOCK an entry costs right now (rounded up), from the hearts' stored price
+    /// @notice the TBLOCK an entry costs right now (rounded up), from the hearts' stored price; reverts if that price is too old
     function entryPrice() public view returns (uint256) {
         uint256 p = IPriceSource(LIKES).price();
         if (p == 0) revert NoPrice();
+        uint256 at = IPriceSource(LIKES).priceSetAt();
+        uint256 age = block.timestamp > at ? block.timestamp - at : 0;
+        if (age > MAX_PRICE_AGE) revert StalePrice(age, MAX_PRICE_AGE);
         return (ENTRY_USD_E18 * 1e18 + p - 1) / p;
     }
 

@@ -31,12 +31,21 @@ const payer = PM; await rpc('anvil_impersonateAccount', [payer]); await rpc('anv
 t('F0 the payer holds TBLOCK on the fork', (await bal(payer)) > 0n, String(await bal(payer)));
 /* deploy LifeEntry(TBLOCK, V, L, $2) from a fork account */
 const deployer = (await rpc('eth_accounts'))[0];
-const ctor = enc(TBLOCK) + enc(V) + enc(L) + num(2n * 10n ** 18n);
+const ctor = enc(TBLOCK) + enc(V) + enc(L) + num(2n * 10n ** 18n) + num(6n * 3600n);
 const dr = await (async () => { const h = await rpc('eth_sendTransaction', [{ from: deployer, data: art.bytecode.object + ctor, gas: '0x' + (2000000).toString(16) }]); for (let k = 0; k < 50; k++) { const r = await rpc('eth_getTransactionReceipt', [h]); if (r) return r; await new Promise((o) => setTimeout(o, 200)); } })();
 t('F1 LifeEntry deploys against the real TBLOCK, vault and hearts', dr && dr.status === '0x1' && !!dr.contractAddress);
 const E = dr.contractAddress;
 const sel = async (sig) => { const { keccak256Hex } = await import('../keccak.js'); return keccak256Hex(new TextEncoder().encode(sig)).slice(0, 10); };
 const price = BigInt(await call(L, await sel('price()')));
+/* the REAL stored price is old (measured 100 h on 2026-11-16): the entry must be refused, not sold cheap */
+const setAt = Number(BigInt(await call(L, await sel('priceSetAt()')))), now = Number(BigInt((await rpc('eth_getBlockByNumber', ['latest', false])).timestamp));
+const stale = await rpc('eth_call', [{ to: E, data: await sel('entryPrice()') }, 'latest']).then(() => false, (e) => /revert|StalePrice|execution/i.test(String(e.message)));
+t('F1b with the real price ' + ((now - setAt) / 3600).toFixed(1) + ' h old, entryPrice refuses (StalePrice)', now - setAt <= 6 * 3600 || stale);
+/* the keeper writes again (impersonated ON THE LOCAL FORK ONLY): the same price, now fresh */
+const keeper = '0x' + (await call(L, await sel('keeper()'))).slice(26);
+await rpc('anvil_impersonateAccount', [keeper]); await rpc('anvil_setBalance', [keeper, '0x56BC75E2D63100000']);
+const kr = await send(keeper, L, (await sel('setPrice(uint256)')) + num(price));
+t('F1c the hearts keeper writes the price again (fork only)', kr.status === '0x1');
 const dueNow = BigInt(await call(E, await sel('entryPrice()')));
 t('F2 entryPrice = $2 at the hearts\' stored price (rounded up)', price > 0n && dueNow === (2n * 10n ** 36n + price - 1n) / price, 'price ' + price + ' -> ' + dueNow + ' TBLOCK raw');
 /* approve exactly, then enter for a block */

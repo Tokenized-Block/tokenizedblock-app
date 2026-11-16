@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import "forge-std/Test.sol";
 import "../src/LifeEntry.sol";
 
-contract PriceStub { uint256 public price; function set(uint256 p) external { price = p; } }
+contract PriceStub { uint256 public price; uint256 public priceSetAt; function set(uint256 p) external { price = p; priceSetAt = block.timestamp; } function setAt(uint256 t) external { priceSetAt = t; } }
 contract Tok {
     mapping(address => uint256) public balanceOf; mapping(address => mapping(address => uint256)) public allowance; uint8 public mode; /* 0 normal, 1 short by 1 wei, 2 returns false */
     function setMode(uint8 m) external { mode = m; }
@@ -25,7 +25,7 @@ contract LifeEntryTest is Test {
 
     function setUp() public {
         t = new Tok(); ps = new PriceStub(); ps.set(P0); /* $0.00000436 per TBLOCK, the price shown on 16/11 */
-        e = new LifeEntry(address(t), vault, address(ps), 2e18);
+        e = new LifeEntry(address(t), vault, address(ps), 2e18, 6 hours);
         t.mint(alice, 1e30);
     }
 
@@ -57,6 +57,19 @@ contract LifeEntryTest is Test {
         vm.expectRevert(); e.enter(blk, quoted); vm.stopPrank();
     }
 
+    /// review Grok lot 21: a price older than MAX_PRICE_AGE refuses the entry (the hearts' price was 100 h old on 2026-11-16)
+    function test_stalePrice_refusesTheEntry() public {
+        vm.warp(block.timestamp + 6 hours + 1);
+        vm.startPrank(alice); t.approve(address(e), type(uint256).max);
+        vm.expectRevert(abi.encodeWithSelector(LifeEntry.StalePrice.selector, 6 hours + 1, 6 hours)); e.enter(blk, type(uint256).max); vm.stopPrank();
+        assertEq(t.balanceOf(vault), 0);
+        ps.set(P0); /* the keeper writes again: entries open again */
+        vm.startPrank(alice); e.enter(blk, type(uint256).max); vm.stopPrank(); assertGt(t.balanceOf(vault), 0);
+    }
+    function test_constructor_refusesNoOrHugeMaxAge() public {
+        vm.expectRevert(LifeEntry.BadParams.selector); new LifeEntry(address(t), vault, address(ps), 2e18, 0);
+        vm.expectRevert(LifeEntry.BadParams.selector); new LifeEntry(address(t), vault, address(ps), 2e18, 2 days + 1);
+    }
     function test_noPrice_reverts() public { ps.set(0); vm.expectRevert(LifeEntry.NoPrice.selector); e.entryPrice(); }
     function test_zeroBlock_reverts() public { vm.prank(alice); vm.expectRevert(LifeEntry.BadParams.selector); e.enter(address(0), type(uint256).max); }
     function test_noAllowance_reverts() public { vm.prank(alice); vm.expectRevert(); e.enter(blk, type(uint256).max); }
@@ -69,10 +82,10 @@ contract LifeEntryTest is Test {
         t.setMode(2); vm.startPrank(alice); t.approve(address(e), type(uint256).max); vm.expectRevert(); e.enter(blk, type(uint256).max); vm.stopPrank();
     }
     function test_constructor_refusesBadParams() public {
-        vm.expectRevert(LifeEntry.BadParams.selector); new LifeEntry(address(0), vault, address(ps), 2e18);
-        vm.expectRevert(LifeEntry.BadParams.selector); new LifeEntry(address(t), address(0), address(ps), 2e18);
-        vm.expectRevert(LifeEntry.BadParams.selector); new LifeEntry(address(t), vault, address(0xdead1), 2e18); /* no code */
-        vm.expectRevert(LifeEntry.BadParams.selector); new LifeEntry(address(t), vault, address(ps), 0);
+        vm.expectRevert(LifeEntry.BadParams.selector); new LifeEntry(address(0), vault, address(ps), 2e18, 6 hours);
+        vm.expectRevert(LifeEntry.BadParams.selector); new LifeEntry(address(t), address(0), address(ps), 2e18, 6 hours);
+        vm.expectRevert(LifeEntry.BadParams.selector); new LifeEntry(address(t), vault, address(0xdead1), 2e18, 6 hours); /* no code */
+        vm.expectRevert(LifeEntry.BadParams.selector); new LifeEntry(address(t), vault, address(ps), 0, 6 hours);
     }
     /// fuzz: whatever the stored price, an entry is never under $2 and never takes more than the cap
     function testFuzz_neverUnderTwoDollars(uint96 p, uint256 cap) public {
