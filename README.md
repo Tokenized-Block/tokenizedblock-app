@@ -109,6 +109,42 @@ itself. The effect will be measured — creations before and after — and publi
 
 </details>
 
+## For AI agents: the MCP server
+
+The app serves a [Model Context Protocol](https://modelcontextprotocol.io) server, so an agent can plan
+the same actions a person does in the app. **It never signs, holds or sends anything**: the planning
+tools return *unsigned* calls for the user's own wallet to sign, and each plan says whether it is ready
+(`etat`: `PRET`, `APPROBATIONS`, `REFUSE`, `NON_MESURE`) and why (`pourquoi`) before anything is signed.
+
+- Endpoint: `https://tokenizedblock.space/mcp` — streamable HTTP, stateless (one POST, one JSON answer).
+- Code: [`mcp-tblock.js`](mcp-tblock.js) (the protocol only; the planners it calls decide), with its
+  tests `test-mcp-naissance-20261004.mjs` and `test-mcp-game-20261018.mjs`.
+
+Add it to an MCP client (for example Claude Code's `.mcp.json`):
+
+```json
+{ "mcpServers": { "tokenizedblock": { "type": "http", "url": "https://tokenizedblock.space/mcp" } } }
+```
+
+The 12 tools, as `tools/list` answers today:
+
+| Tool | What it does |
+|---|---|
+| `tblock_pairs` | the currencies a new block can be paired with at birth (read only) |
+| `tblock_plan_birth` | the unsigned calls that create a block (a B-20 token with its face and brain) and open its market |
+| `tblock_plan_swap` | the unsigned calls for a swap routed by TokenizedBlock |
+| `tblock_creator_minimum` | reads the creator minimum deposited for a block's market |
+| `tblock_panel_open` | opens a remote-control session and returns the link of the control panel |
+| `tblock_command` | proposes one command to that panel; the block's brain accepts or refuses it, the user's wallet signs |
+| `tblock_panel_state` | reads the control panel |
+| `tblock_game_state` | reads the Game tab |
+| `tblock_plan_roll` | the unsigned calls for 1 to 10 BlockRolls rolls |
+| `tblock_plan_settle` | says which rolls can be settled, and the calls to do it |
+| `tblock_plan_task` | the unsigned calls that post a mission for a block |
+| `tblock_missions` | reads the Block Missions board |
+
+Clients that support MCP Apps also get a small panel inside the chat; the others read the same answer as text.
+
 ## Where the fees go if you fork this
 
 The hook declares `address public immutable feeWallet`. Written once, in the constructor. **No
