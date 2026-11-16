@@ -63,12 +63,21 @@
 .addList small{color:var(--doux)}
 .addPick{border:1px solid #1f5bff;border-radius:10px;padding:8px 10px;margin:6px 0}
 .liveTag{font-size:12px;font-weight:700;color:#3ddc97;vertical-align:4px;margin-left:6px;letter-spacing:.04em}
-.hud{position:fixed;left:50%;top:10px;transform:translateX(-50%);z-index:3;background:rgba(4,9,12,.82);border:1px solid var(--ligne);border-radius:12px;padding:6px 12px;font-size:12px;color:#f2fbff;white-space:nowrap;max-width:calc(100vw - 24px);overflow:hidden;text-overflow:ellipsis}
-.hud b{color:#ffd76a}.hud .open{color:#3ddc97}.hud .shut{color:#9cc3cf}
-.helpBtn{position:fixed;left:12px;bottom:12px;z-index:3;width:30px;height:30px;border-radius:50%;border:1px solid var(--ligne);background:var(--carte);color:#f2fbff;font-weight:700}
-.helpBox{position:fixed;left:12px;bottom:50px;z-index:4;max-width:300px;background:#081218;border:1px solid var(--ligne);border-radius:12px;padding:10px 12px;font-size:13px}
-.tip.locked{pointer-events:auto}.tip .tipBtns{display:flex;gap:6px;margin-top:6px}.tip .tipBtns button{padding:4px 8px;font-size:12px}
-@media (max-width:760px){.hud{top:auto;bottom:118px;font-size:11px}}
+/* the game bar (top centre): live, generation, the crown, the market round with its time gauge, Bet and "?" */
+.hud{position:fixed;left:50%;top:10px;transform:translateX(-50%);z-index:3;display:flex;align-items:center;gap:10px;background:rgba(4,9,12,.86);border:1px solid var(--ligne);border-radius:14px;padding:6px 8px 6px 12px;font-size:12px;color:var(--texte);max-width:calc(100vw - 24px)}
+.hud .hl{white-space:nowrap}.hud b{color:#ffd76a}.hud .open{color:#3ddc97}.hud .shut{color:var(--doux)}
+.hud .gauge{width:72px;height:6px;border-radius:3px;background:var(--ligne);overflow:hidden}.hud .gauge i{display:block;height:100%;background:var(--accent)}
+.hud button{padding:3px 10px;font-size:12px;border-radius:9px}.hud .betBtn{background:var(--bleu);border-color:var(--bleu);color:#fff;font-weight:700}
+.hud .helpBtn{width:26px;height:26px;padding:0;border-radius:50%;font-weight:700}
+.helpBox{position:fixed;left:50%;transform:translateX(-50%);top:52px;z-index:4;width:min(340px,calc(100vw - 24px));box-sizing:border-box;background:#081218;border:1px solid var(--ligne);border-radius:12px;padding:10px 12px;font-size:13px}
+/* a locked block card is DOCKED (its buttons stay reachable): bottom centre on a computer, a bottom sheet on a phone */
+.tip.locked{pointer-events:auto;left:50% !important;top:auto !important;bottom:16px;transform:translateX(-50%)}
+.tip .tipBtns{display:flex;gap:6px;margin-top:6px}.tip .tipBtns button{padding:5px 10px;font-size:12px}.tip .tipBtns .primary{background:var(--bleu);border-color:var(--bleu);color:#fff}
+.mini{position:fixed;right:12px;bottom:64px;z-index:2;border:1px solid var(--ligne);border-radius:10px;background:rgba(4,9,12,.86);cursor:pointer}
+.loading{position:fixed;inset:0;display:grid;place-items:center;z-index:5;color:var(--doux);font-size:14px;background:var(--fond)}.loading[hidden],.helpBox[hidden],.hud [hidden]{display:none}
+.feed li.flash{box-shadow:0 0 0 1px var(--accent),0 0 16px rgba(53,211,240,.45)}
+@media (max-width:760px){.legend{display:none}.hud{top:62px;bottom:auto;flex-wrap:wrap;justify-content:center;gap:6px;font-size:11px;width:calc(100vw - 24px);box-sizing:border-box}.hud .hl{white-space:normal;text-align:center}
+  .tip.locked{left:8px !important;right:8px;width:auto;transform:none;bottom:96px}.mini{display:none}.helpBox{top:130px;bottom:auto}}
 .feed{position:fixed;right:12px;top:12px;z-index:3;list-style:none;margin:0;padding:0;width:min(300px,calc(100vw - 24px));pointer-events:none;display:flex;flex-direction:column;gap:4px}
 .feed li{background:rgba(4,9,12,.82);border:1px solid var(--ligne);border-left:3px solid var(--c,#9cc3cf);border-radius:8px;padding:5px 9px;font-size:12px;color:#f2fbff;animation:feedIn .25s ease-out;transition:opacity .6s}
 .feed li.old{opacity:0}.feed li{pointer-events:auto}.feed .xs{margin-left:8px;border:1px solid var(--ligne);border-radius:6px;padding:0 6px;color:#f2fbff;text-decoration:none;font-size:11px}.feed .xs:hover{background:#1f5bff;border-color:#1f5bff}.feed b{font-weight:700}.feed small{color:var(--doux);margin-left:6px}
@@ -196,8 +205,9 @@
 </dialog>
 <div id="tip" class="tip" hidden></div>
 <ol id="feed" class="feed" aria-live="polite" aria-label="Game events"></ol>
-<div id="hud" class="hud" aria-live="off"></div>
-<button id="helpBtn" class="helpBtn" title="How the game works" aria-expanded="false">?</button>
+<div id="hud" class="hud" aria-live="off"><span class="hl" id="hudLine">Reading the live game…</span><span class="gauge" id="hudGauge" hidden><i></i></span><button id="hudBet" class="betBtn" hidden>Bet</button><button id="helpBtn" class="helpBtn" title="How the game works" aria-expanded="false">?</button></div>
+<canvas id="mini" class="mini" width="150" height="150" title="The whole map: click to go there"></canvas>
+<div id="loading" class="loading">Reading the live game…</div>
 <div id="helpBox" class="helpBox" hidden>Every tokenized stock is a colony living by Conway's Game of Life; its Brain AI reacts to that stock's trades on Base. The largest colony wears the crown 👑: bet on who wears it at the end of each 10-minute round. Enter a block for $2 of TBLOCK, revive one for $1: paid to the holders' vault.</div>
 <div class="legend"><span class="lk">👑 = the largest colony</span> <span class="lk"><i class="lkFlash"></i>small flash + word = a block just reacted</span> <span class="lk"><i class="lkSeed"></i>dot = where a block started</span><br>hover a colony to see its faction · click to lock and follow it · drag · scroll or pinch to zoom</div>
 
@@ -263,10 +273,12 @@ const when = (blk) => live ? new Date(live.at - (live.readTo - blk) * 200) : new
 /* the top bar (Grok's UX pass, 2026-11-16): season, generation, players, the crown and the market round's countdown */
 let cmInfo = null;
 function hud() {
-  if (!live) { $('#hud').hidden = true; return; }
+  if (!world) return;
   const cr = world.crown >= 0 ? world.blocks[world.crown].sym : '—';
-  $('#hud').innerHTML = 'Live · gen ' + world.gen.toLocaleString('en-US') + ' · ' + world.blocks.length + ' blocks · 👑 <b></b>' + (cmInfo ? ' · Crown round ' + cmInfo.r + ': <span class="' + (cmInfo.open ? 'open' : 'shut') + '"></span>' : '');
-  $('#hud b').textContent = cr; if (cmInfo) $('#hud span').textContent = cmInfo.open ? 'bets open ' + cmInfo.min + ' min' : 'bets closed, ends in ' + cmInfo.min + ' min';
+  const l = $('#hudLine'); l.innerHTML = (live ? '<span class="open">● Live</span> · ' : 'Replay · ') + 'gen ' + world.gen.toLocaleString('en-US') + ' · ' + world.blocks.length + ' blocks · 👑 <b></b>' + (cmInfo ? ' · round ' + cmInfo.r + ': <span class="' + (cmInfo.open ? 'open' : 'shut') + '"></span>' : '');
+  l.querySelector('b').textContent = cr; if (cmInfo) l.querySelectorAll('span')[1].textContent = cmInfo.open ? 'bets open · ' + cmInfo.min + ' min' : 'bets closed · ends in ' + cmInfo.min + ' min';
+  $('#hudGauge').hidden = !cmInfo; $('#hudBet').hidden = !(cmInfo && cmInfo.open);
+  if (cmInfo) $('#hudGauge i').style.width = Math.round(100 * cmInfo.frac) + '%';
 }
 setInterval(() => { try { hud(); } catch (_) {} }, 1000);
 function headerLines() {
@@ -282,6 +294,9 @@ function headerLines() {
 }
 headerLines();
 fitAll();
+$('#loading').hidden = true;
+try { panel(); } catch (_) {}
+setInterval(() => { try { panel(); } catch (_) {} }, 1000);
 { const fq = new URLSearchParams(location.search).get('focus'); if (fq) setTimeout(() => findBlock(fq), 300); }
 /* the live game: new facts every 4 s; a page too far behind (or a new season) reloads the state */
 async function pollLive() {
@@ -363,12 +378,12 @@ function killFeed(evs) {
       li.innerHTML = feedText(e) + '<small class="tot"></small><small>#' + e.block.toLocaleString('en-US') + '</small>'; li.append(shareLink(e)); li.addEventListener('click', (ev) => { if (!ev.target.closest('a')) focusFromFeed(e); }); li.style.cursor = 'pointer'; ol.prepend(li);
       li.addEventListener('mouseenter', () => li.classList.add('hold')); li.addEventListener('mouseleave', () => li.classList.remove('hold'));
       pairSeen.set(k, { block: e.block, n: e.n, li });
-      const fade = () => { if (li.classList.contains('hold')) { setTimeout(fade, 1500); return; } li.classList.add('old'); setTimeout(() => li.remove(), 700); }; setTimeout(fade, 7000);
+      const fade = () => { if (li.classList.contains('hold')) { setTimeout(fade, 1500); return; } li.classList.add('old'); setTimeout(() => li.remove(), 700); }; setTimeout(fade, 12000); li.classList.add('flash'); setTimeout(() => li.classList.remove('flash'), 1500);
       continue;
     }
     const li = document.createElement('li'); li.style.setProperty('--c', colours[e.type === 'feast' || e.type === 'crown' ? e.i : e.i]);
     li.innerHTML = feedText(e) + '<small>#' + e.block.toLocaleString('en-US') + '</small>'; li.append(shareLink(e)); li.addEventListener('click', (ev) => { if (!ev.target.closest('a')) focusFromFeed(e); }); li.style.cursor = 'pointer'; ol.prepend(li);
-    const fade = () => { if (li.classList.contains('hold')) { setTimeout(fade, 1500); return; } li.classList.add('old'); setTimeout(() => li.remove(), 700); }; setTimeout(fade, 7000);
+    const fade = () => { if (li.classList.contains('hold')) { setTimeout(fade, 1500); return; } li.classList.add('old'); setTimeout(() => li.remove(), 700); }; setTimeout(fade, 12000); li.classList.add('flash'); setTimeout(() => li.classList.remove('flash'), 1500);
   }
   while (ol.children.length > 6) ol.lastChild.remove();
 }
@@ -393,25 +408,26 @@ document.addEventListener('click', (ev) => {
   const btn = ev.target.closest && ev.target.closest('#tip [data-act]'); if (!btn || lockI < 0) return;
   const b = world.blocks[lockI];
   if (btn.dataset.act === 'revive') { openAdd().then(() => pick({ adr: b.adr, sym: b.sym, nom: b.nom || '', action: !!b.action, trades: 0, inGame: true })); }
+  if (btn.dataset.act === 'close') { lockI = -1; followI = -1; $('#follow').value = '-1'; tipKey = ''; return; }
   if (btn.dataset.act === 'bet') { setPanel(true); $('#cmPick').value = b.adr; $('#cmCard').scrollIntoView({ behavior: 'smooth', block: 'center' }); }
 });
 let tipKey = '';
 function tooltip() {
   const tip = $('#tip'), i = lockI >= 0 ? lockI : hoverI;
-  if (i < 0 || (!mouse && lockI < 0)) { tip.hidden = true; return; }
+  if (i < 0 || (!mouse && lockI < 0)) { tip.hidden = true; tipKey = ''; return; }
   const b = world.blocks[i], p = world.players[i], rk = centroid(i), n = rk ? rk[2] : 0, nv = p.vu && p.vu.nouveaux;
   const kNow = i + ':' + n + ':' + p.mood + ':' + (p.last && p.last.block) + ':' + lockI + ':' + p.eaten + ':' + p.lost;
-  if (kNow === tipKey && !tip.hidden) { const x0 = lockI >= 0 && !mouse ? 12 : Math.min(innerWidth - 290, mouse.x + 16), y0 = lockI >= 0 && !mouse ? 64 : Math.min(innerHeight - 150, mouse.y + 16); tip.style.left = x0 + 'px'; tip.style.top = y0 + 'px'; return; }
+  if (kNow === tipKey && !tip.hidden) { if (lockI < 0 && mouse) { tip.style.left = Math.min(innerWidth - 290, mouse.x + 16) + 'px'; tip.style.top = Math.min(innerHeight - 170, mouse.y + 16) + 'px'; } return; }
   tipKey = kNow;
   const last = p.last ? SAYS[p.last.g] + ' at block #' + p.last.block.toLocaleString('en-US') : 'no gesture yet';
   tip.innerHTML = '<img alt="" src="' + faces[i].src + '"><div><b>' + b.sym + '</b> <span class="mood ' + p.mood + '">' + (NOMS_HUMEUR[p.mood] || p.mood).split(' ')[0] + '</span><br><small>' + b.nom + '</small>'
     + '<div class="tipStat">' + n.toLocaleString('en-US') + ' cells · 👑 ' + p.crownBeats + ' beats crowned · ' + p.births.toLocaleString('en-US') + ' births</div>'
     + '<div class="tipStat">ate ' + p.eaten.toLocaleString('en-US') + ' rival cells · lost ' + p.lost.toLocaleString('en-US') + '</div>'
     + '<div class="tipStat">this beat on Base: ' + (nv ? nv.achats + ' buys · ' + nv.ventes + ' sells' : '—') + '</div>'
-    + '<div class="tipStat">last: ' + last + '</div>' + (lockI >= 0 ? '<div class="tipStat">locked — click empty space to release</div>' + (live ? '<div class="tipBtns">' + (LR ? '<button data-act="revive">Revive $1</button>' : '') + (CM ? '<button data-act="bet">Bet on it</button>' : '') + '</div>' : '') : '') + '</div>';
+    + '<div class="tipStat">last: ' + last + '</div>' + (lockI >= 0 ? (live ? '<div class="tipBtns">' + (LR ? '<button class="primary" data-act="revive">Revive $1</button>' : '') + (CM ? '<button data-act="bet">Bet on it</button>' : '') + '<button data-act="close">✕</button></div>' : '<div class="tipStat">click empty space to release</div>') : '<div class="tipStat">click to follow it</div>') + '</div>';
   tip.classList.toggle('locked', lockI >= 0);
-  const x = lockI >= 0 && !mouse ? 12 : Math.min(innerWidth - 290, mouse.x + 16), y = lockI >= 0 && !mouse ? 64 : Math.min(innerHeight - 150, mouse.y + 16); /* the top right belongs to the feed */
-  tip.style.left = x + 'px'; tip.style.top = y + 'px'; tip.hidden = false;
+  if (lockI < 0 && mouse) { tip.style.left = Math.min(innerWidth - 290, mouse.x + 16) + 'px'; tip.style.top = Math.min(innerHeight - 170, mouse.y + 16) + 'px'; } else { tip.style.left = ''; tip.style.top = ''; }
+  tip.hidden = false;
 }
 let centroidCache = { gen: -1, v: [] };
 /* THE TRACKER (Phil 2026-11-16 "le traker a du mal"): the colony's DENSEST cluster — the 16x16 tile holding most of its cells, then the
@@ -434,6 +450,18 @@ function centroid(i) {
   return centroidCache.v[i];
 }
 
+/* ── MINIMAP (video-game style): the whole map at a glance; the frame is what the screen shows ── */
+const mini = $('#mini'), mctx = mini.getContext('2d'); let miniScale = 1, miniLast = 0;
+function drawMini(W, H, z, ox, oy) {
+  const now = performance.now(); if (now - miniLast < 250 || !mini.clientWidth) return; /* position:fixed has no offsetParent: the width tells if it is shown */ miniLast = now;
+  let R = 60; for (const b of world.blocks) R = Math.max(R, Math.hypot(b.home[0], b.home[1]) + 40);
+  const S = mini.width, k = S / (2 * R); miniScale = k; mctx.clearRect(0, 0, S, S);
+  for (const [key, o] of world.cells) { const x = (E.kx(key) + R) * k, y = (E.ky(key) + R) * k; if (x < 0 || y < 0 || x > S || y > S) continue; mctx.fillStyle = o >= 0 ? colours[o] : '#7fa3ae'; mctx.fillRect(x, y, 1.5, 1.5); }
+  if (world.crown >= 0) { const c = cluster(world.crown); if (c) { mctx.fillStyle = '#ffd76a'; mctx.beginPath(); mctx.arc((c[0] + R) * k, (c[1] + R) * k, 3, 0, 7); mctx.fill(); } }
+  const x0 = (-ox / z + R) * k, y0 = (-oy / z + R) * k; mctx.strokeStyle = '#35d3f0'; mctx.lineWidth = 1; mctx.strokeRect(x0, y0, (W / z) * k, (H / z) * k);
+}
+mini.addEventListener('click', (e) => { const r = mini.getBoundingClientRect(); let R = 60; for (const b of world.blocks) R = Math.max(R, Math.hypot(b.home[0], b.home[1]) + 40);
+  view.x = (e.clientX - r.left) / miniScale - R; view.y = (e.clientY - r.top) / miniScale - R; followI = -1; lockI = -1; $('#follow').value = '-1'; });
 /* ── drawing ── */
 function draw(t) {
   const W = innerWidth, H = innerHeight, z = view.z, ox = W / 2 - view.x * z, oy = H / 2 - view.y * z;
@@ -482,6 +510,7 @@ function draw(t) {
     if (!crownPos || crownPos.i !== world.crown) crownPos = { i: world.crown, x: c0[0], y: c0[1] }; else { crownPos.x += (c0[0] - crownPos.x) * 0.08; crownPos.y += (c0[1] - crownPos.y) * 0.08; }
     const c = [crownPos.x, crownPos.y], x = c[0] * z + ox, y = c[1] * z + oy; ctx.save(); ctx.shadowColor = '#ffd76a'; ctx.shadowBlur = 14; ctx.font = '20px system-ui'; ctx.textAlign = 'center'; ctx.fillText('👑', x, y - 10); ctx.restore();
     ctx.fillStyle = colours[world.crown]; ctx.font = '700 11px system-ui'; ctx.textAlign = 'center'; ctx.fillText(world.blocks[world.crown].sym, x, y + 6); } }
+  drawMini(W, H, z, ox, oy);
   /* ripples where a gesture just landed */
   const now = performance.now();
   for (let j = ripples.length - 1; j >= 0; j--) {
@@ -546,7 +575,7 @@ function listCandidates() {
   for (const c of rows) {
     const li = document.createElement('li'); li.tabIndex = 0;
     const a = document.createElement('span'); a.innerHTML = '<b></b> <small></small>'; a.querySelector('b').textContent = c.sym; a.querySelector('small').textContent = c.nom;
-    const k = document.createElement('small'); k.textContent = c.inGame ? 'in the game · revive $1' : (c.action ? 'tokenized stock' : 'app block') + ' · enter $2';
+    const k = document.createElement('small'); k.textContent = c.inGame ? 'in the game · revive $1' + (prices && prices.revive ? ' = ' + prices.revive + ' TBLOCK' : '') : (c.action ? 'tokenized stock' : 'app block') + ' · enter $2' + (prices && prices.enter ? ' = ' + prices.enter + ' TBLOCK' : '');
     li.append(a, k); li.onclick = li.onkeydown = (e) => { if (e.type === 'keydown' && e.key !== 'Enter') return; pick(c); }; ul.append(li);
   }
 }
@@ -564,7 +593,7 @@ async function cmRefresh() {
     const R = await pubCall(CM, sel('rounds(uint256)') + w32(r)), pot = BigInt('0x' + R.slice(2, 66));
     const left = open ? (start + RB / 2 - head) * 0.2 : (start + RB - head) * 0.2;
     $('#cmLine').textContent = 'Round ' + r + ' · pot ' + tb(pot) + ' TBLOCK · ' + (open ? 'bets close in ' + Math.ceil(left / 60) + ' min' : 'bets closed, the round ends in ' + Math.ceil(left / 60) + ' min');
-    $('#cmBet').disabled = !open; cmInfo = { r, open, min: Math.max(0, Math.ceil(left / 60)) };
+    $('#cmBet').disabled = !open; cmInfo = { r, open, min: Math.max(0, Math.ceil(left / 60)), frac: Math.min(1, Math.max(0, (head - start) / RB)) };
     if (!$('#cmPick').options.length || $('#cmPick').options.length !== world.blocks.length) $('#cmPick').innerHTML = world.blocks.map((b, i) => '<option value="' + b.adr + '">' + (i === world.crown ? '👑 ' : '') + b.sym + '</option>').join('');
     cmRefresh.r = r;
   } catch (e) { $('#cmLine').textContent = 'The market could not be read just now.'; }
@@ -647,7 +676,7 @@ async function pay() {
   finally { $('#addPay').disabled = false; }
 }
 function pick(c) {
-  picked = c; if ((c.inGame ? LR : LE) && live) { $('#addPayRow').hidden = false; $('#addPay').textContent = c.inGame ? 'Pay $1 of TBLOCK and revive' : 'Pay $2 of TBLOCK and enter'; }
+  $('#addPayRow').hidden = true; picked = c; if ((c.inGame ? LR : LE) && live) { $('#addPayRow').hidden = false; $('#addPay').textContent = c.inGame ? 'Pay $1 of TBLOCK and revive' : 'Pay $2 of TBLOCK and enter'; }
   const box = $('#addPick'); box.hidden = false; box.textContent = '';
   const h = document.createElement('div'); h.innerHTML = '<b></b> <small></small>'; h.querySelector('b').textContent = c.sym; h.querySelector('small').textContent = c.nom + (c.action ? ' · tokenized stock' : ' · app block');
   const p = document.createElement('div'); p.className = 'sub'; p.textContent = c.inGame ? 'In the game: a revive drops a fresh colony of its cells near it and refills all its gestures.' : c.trades ? c.trades + ' trades in the last 24 h: its brain will have something to react to.' : 'Quiet market for now: its brain reacts when its trades start.';
@@ -656,9 +685,12 @@ function pick(c) {
   if (C) { const q = document.createElement('div'); q.className = 'sub'; q.textContent = (c.inGame ? 'Revive: $1' : 'Enter: $2') + ' of TBLOCK = reading the price…'; box.append(q);
     pubCall(C, sel('entryPrice()')).then((r) => { q.textContent = (c.inGame ? 'Revive: $1' : 'Enter: $2') + ' of TBLOCK = ' + tb(r) + ' TBLOCK now, to the holders\' vault.'; }, () => { q.textContent = 'The TBLOCK price is being refreshed on chain: try again in a few minutes.'; }); }
 }
-async function openAdd() { if (candidates && !candidates.length) candidates = null; /* an empty list is read again */ $('#addDlg').showModal(); $('#addQ').focus(); listCandidates(); await loadCandidates(); listCandidates(); }
+let prices = null;
+async function readPrices() { try { const [e, r] = await Promise.all([LE ? pubCall(LE, sel('entryPrice()')) : null, LR ? pubCall(LR, sel('entryPrice()')) : null]); prices = { enter: e ? tb(e) : null, revive: r ? tb(r) : null }; } catch { prices = null; } }
+async function openAdd() { void readPrices().then(() => listCandidates()); if (candidates && !candidates.length) candidates = null; /* an empty list is read again */ $('#addDlg').showModal(); $('#addQ').focus(); listCandidates(); await loadCandidates(); listCandidates(); }
 $('#addBlock').onclick = openAdd; $('#addBlock2').onclick = openAdd; $('#addBlock3').onclick = openAdd;
 if (CM) { $('#cmBet').onclick = cmBet; $('#cmClaim').onclick = cmClaim; cmRefresh(); setInterval(cmRefresh, 20000); }
+$('#hudBet').onclick = () => { setPanel(true); const c = $('#cmCard'); if (c) c.scrollIntoView({ behavior: 'smooth', block: 'center' }); };
 $('#helpBtn').onclick = () => { const h = $('#helpBox'); h.hidden = !h.hidden; $('#helpBtn').setAttribute('aria-expanded', String(!h.hidden)); };
 $('#addQ').oninput = listCandidates; $('#addPay').onclick = pay; $('#addClose').onclick = () => $('#addDlg').close();
 $('#speed').onchange = (e) => { perSecond = Number(e.target.value); };
