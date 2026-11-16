@@ -65,7 +65,7 @@
 .liveTag{font-size:12px;font-weight:700;color:#3ddc97;vertical-align:4px;margin-left:6px;letter-spacing:.04em}
 .feed{position:fixed;right:12px;top:12px;z-index:3;list-style:none;margin:0;padding:0;width:min(300px,calc(100vw - 24px));pointer-events:none;display:flex;flex-direction:column;gap:4px}
 .feed li{background:rgba(4,9,12,.82);border:1px solid var(--ligne);border-left:3px solid var(--c,#9cc3cf);border-radius:8px;padding:5px 9px;font-size:12px;color:#f2fbff;animation:feedIn .25s ease-out;transition:opacity .6s}
-.feed li.old{opacity:0}.feed b{font-weight:700}.feed small{color:var(--doux);margin-left:6px}
+.feed li.old{opacity:0}.feed li{pointer-events:auto}.feed .xs{margin-left:8px;border:1px solid var(--ligne);border-radius:6px;padding:0 6px;color:#f2fbff;text-decoration:none;font-size:11px}.feed .xs:hover{background:#1f5bff;border-color:#1f5bff}.feed b{font-weight:700}.feed small{color:var(--doux);margin-left:6px}
 @keyframes feedIn{from{transform:translateX(30px);opacity:0}to{transform:none;opacity:1}}
 @media (prefers-reduced-motion:reduce){.feed li{animation:none}}
 @media (max-width:760px){.feed{top:auto;bottom:64px;width:calc(100vw - 24px)}.feed li:nth-child(n+4){display:none}}
@@ -263,6 +263,7 @@ function headerLines() {
 }
 headerLines();
 fitAll();
+{ const fq = new URLSearchParams(location.search).get('focus'); if (fq) setTimeout(() => findBlock(fq), 300); }
 /* the live game: new facts every 4 s; a page too far behind (or a new season) reloads the state */
 async function pollLive() {
   if (!live) return;
@@ -323,6 +324,14 @@ function feedText(e) {
 /* a border that oscillates between two colonies makes them eat each other every beat (seen live 2026-11-16: AVGOc / SONYc, 6 lines in a
  *   row). The feed shows ONE line per pair per 300 chain blocks (1 min), with the running total: drawing only, the engine is unchanged. */
 const pairSeen = new Map();
+/* SHARE THIS MOMENT on X (Phil's idea, 2026-11-16): a feed line opens a prefilled post; the link reopens the map on that block */
+function shareUrl(e) {
+  const b = e.i >= 0 ? world.blocks[e.i] : null;
+  const text = feedText(e).replace(/<[^>]+>/g, '') + ' — Game of Life Block, live on Base (block #' + e.block.toLocaleString('en-US') + ').';
+  const url = 'https://tokenizedblock.space/life-block/' + (b ? '?focus=' + encodeURIComponent(b.sym) : '');
+  return 'https://x.com/intent/post?text=' + encodeURIComponent(text) + '&url=' + encodeURIComponent(url);
+}
+function shareLink(e) { const a = document.createElement('a'); a.className = 'xs'; a.href = shareUrl(e); a.target = '_blank'; a.rel = 'noopener'; a.textContent = '𝕏 share'; a.title = 'Share this moment on X'; return a; }
 function killFeed(evs) {
   const ol = $('#feed');
   for (const e of evs) {
@@ -330,14 +339,15 @@ function killFeed(evs) {
       const k = Math.min(e.i, e.v) + ':' + Math.max(e.i, e.v), p = pairSeen.get(k);
       if (p && e.block - p.block < 300) { p.n += e.n; if (p.li && p.li.isConnected) p.li.querySelector('.tot').textContent = ' · ' + p.n + ' cells traded so far'; continue; }
       const li = document.createElement('li'); li.style.setProperty('--c', colours[e.i]);
-      li.innerHTML = feedText(e) + '<small class="tot"></small><small>#' + e.block.toLocaleString('en-US') + '</small>'; ol.prepend(li);
+      li.innerHTML = feedText(e) + '<small class="tot"></small><small>#' + e.block.toLocaleString('en-US') + '</small>'; li.append(shareLink(e)); ol.prepend(li);
+      li.addEventListener('mouseenter', () => li.classList.add('hold')); li.addEventListener('mouseleave', () => li.classList.remove('hold'));
       pairSeen.set(k, { block: e.block, n: e.n, li });
-      setTimeout(() => li.classList.add('old'), 7000); setTimeout(() => li.remove(), 7700);
+      const fade = () => { if (li.classList.contains('hold')) { setTimeout(fade, 1500); return; } li.classList.add('old'); setTimeout(() => li.remove(), 700); }; setTimeout(fade, 7000);
       continue;
     }
     const li = document.createElement('li'); li.style.setProperty('--c', colours[e.type === 'feast' || e.type === 'crown' ? e.i : e.i]);
-    li.innerHTML = feedText(e) + '<small>#' + e.block.toLocaleString('en-US') + '</small>'; ol.prepend(li);
-    setTimeout(() => li.classList.add('old'), 7000); setTimeout(() => li.remove(), 7700);
+    li.innerHTML = feedText(e) + '<small>#' + e.block.toLocaleString('en-US') + '</small>'; li.append(shareLink(e)); ol.prepend(li);
+    const fade = () => { if (li.classList.contains('hold')) { setTimeout(fade, 1500); return; } li.classList.add('old'); setTimeout(() => li.remove(), 700); }; setTimeout(fade, 7000);
   }
   while (ol.children.length > 6) ol.lastChild.remove();
 }
