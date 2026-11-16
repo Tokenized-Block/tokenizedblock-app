@@ -331,6 +331,8 @@ import { randomBytes } from 'node:crypto';
 import { essaiServeur, urlLocale } from './mode-essai.js';
 import { createLifeLive } from './life-live.js';
 import { LIFE_ENTRY_DEPLOIEMENT } from './life-entry-deploiement.js';
+import { CROWN_MARKET_DEPLOIEMENT } from './crown-market-deploiement.js';
+import { creerResolverCouronne } from './crown-resolver.js';
 import { POOL_MANAGER as LIFE_POOL_MANAGER } from './usage-onchain.js';
 /* tip 20260923-map-trending: rotate public Base RPCs — mainnet.base.org alone 413/rate-limits eth_getLogs (Map soleils die). */
 /* tip 20260923-map-trending: only mainnet.base.org still serves free eth_getLogs (≤1k blocs). Others 413/HTML/plan. */
@@ -6610,7 +6612,7 @@ const SERVIS = [
   /* game424: the product film of the "?" sheet (1280x720, about 9 MB, served with byte ranges) and its poster */
   'film.mp4', 'film-poster.jpg',
   /* game428: Game of Life Block — the replay page, its engine and the recorded Base transfers it replays (read-only, nothing to sign) */
-  'life-block/index.html', 'life-engine.js', 'life-block/donnees.json', 'life-entry-deploiement.js', 'life-entry-kit.js', 'deployer-lifeentry.html',
+  'life-block/index.html', 'life-engine.js', 'life-block/donnees.json', 'life-entry-deploiement.js', 'life-entry-kit.js', 'deployer-lifeentry.html', 'crown-market-kit.js', 'crown-market-deploiement.js', 'deployer-crownmarket.html',
 ];
 
 /* ⛔ L APP NEUVE EST LA RACINE. L ancien ecran reste atteignable a son nom, mais ce n est plus lui
@@ -9575,6 +9577,7 @@ function traiterRequete(req, res) {
       spinDevKeeper: keeperSpinDev.etat(),
       closeKeeper: keeperClose.etat(),
       heartsPriceKeeper: keeperPrixHearts.etat(),
+      crownResolver: keeperCouronne.etat(),
       /* 2026-11-15 : le keeper du LP lock (OFF et pourquoi / ON / ARRETE, compteurs, attente) et son index (curseur, a jour, positions) ; jamais la cle */
       lpLockKeeper: keeperLpLock.etat(),
       mcpWidget: widgetHtml !== null, trousCreations: trousCreations.slice(-10), trousRelus: trousRelus.slice(-10), noeuds: etatNoeuds, ...(ok ? {} : { modulesManquants }),
@@ -9673,8 +9676,13 @@ async function rpcLife(methode, params) {
   try { return await lecteurLifePrincipal(methode, params); } catch (e) { return rpcServeur(methode, params); }
 }
 /* off in the benches (TB_REPLIS=0: a fake node, counted calls) and in wallet test mode, unless LIFE_LIVE=on asks for it */
+const keeperCouronne = ESSAI_SRV.actif
+  ? creerResolverCouronne({ desactive: 'trial mode (ESSAI): the crown resolver never runs against a trial node' })
+  : creerResolverCouronne({ cle: process.env.BUYBACK_KEEPER_KEY || null, marche: CROWN_MARKET_DEPLOIEMENT.adresse, chaine: CROWN_MARKET_DEPLOIEMENT.chaine, rpc: rpcServeur,
+    crownOf: (r) => (LIFE ? LIFE.roundCrown(r) : null), journal: (t) => console.log(t), exclusif: verrouCleKeeper });
 const LIFE = process.env.LIFE_LIVE === 'off' || (process.env.LIFE_LIVE !== 'on' && (process.env.NODE_ENV === 'test' || REPLIS_PUBLICS_COUPES || ESSAI_SRV.actif)) ? null : createLifeLive({
   rpc: rpcLife, poolManager: LIFE_POOL_MANAGER, log: (m) => console.log(m), lifeEntry: LIFE_ENTRY_DEPLOIEMENT.adresse, /* game431: "Add your block" entries */
+  crownRounds: CROWN_MARKET_DEPLOIEMENT.adresse ? { genesis: CROWN_MARKET_DEPLOIEMENT.genesis, roundBlocks: CROWN_MARKET_DEPLOIEMENT.roundBlocks } : null, /* game435 */
   dir: process.env.RAILWAY_VOLUME_MOUNT_PATH ? join(process.env.RAILWAY_VOLUME_MOUNT_PATH, 'life') : (process.env.TB_LIFE_DIR || null),
   lignes: () => {
     try { const x = trCache.corps ? JSON.parse(trCache.corps) : null; if (x && Array.isArray(x.lignes) && x.lignes.some((l) => l && l.emetteur)) return x.lignes; } catch { /* below */ }
@@ -9694,6 +9702,9 @@ createServer((req, res) => consommateurArchive.run(etiquetteRequete(req), () => 
   tbRegisterWebhook().then((r) => console.log('telegram webhook: ' + r)).catch(() => console.log('telegram webhook: not registered'));
   /* game429: the live Game of Life Block starts with the real server only */
   if (LIFE) consommateurArchive.run('fond life', () => LIFE.start(10000));
+  /* game435: the CrownMarket resolver (Phil 2026-11-16: "garde la cle actuelle du keeper"), only once the market is noted from its receipt */
+  if (keeperCouronne.demarrer()) console.log('[crown-resolver] on, keeper ' + keeperCouronne.etat().adresse);
+  else console.log('[crown-resolver] off: ' + keeperCouronne.etat().pourquoi);
 });
 
 /* ── ⛔⛔ POURQUOI UN PRECHAUFFAGE, ET PAS UNE LECTURE A L OUVERTURE DE LA PAGE ──────────────────

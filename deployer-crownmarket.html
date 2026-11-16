@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en" data-teinte="d">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Deploy CrownMarket</title>
+<meta name="robots" content="noindex">
+<style>
+  :root { --fond:#04090c; --carte:#081218; --ligne:#16323c; --texte:#f2fbff; --doux:#9cc3cf; --bleu:#1f5bff; --vert:#3ddc97; --rouge:#ff6b6b; }
+  body { margin:0; background:var(--fond); color:var(--texte); font:15px/1.5 system-ui, sans-serif; }
+  main { max-width:640px; margin:0 auto; padding:24px 16px; }
+  .carte { background:var(--carte); border:1px solid var(--ligne); border-radius:16px; padding:16px; margin:12px 0; }
+  h1 { font-size:22px; margin:0 0 4px; } .doux { color:var(--doux); font-size:13px; }
+  code { word-break:break-all; font-size:12px; color:var(--doux); }
+  button { background:var(--bleu); color:#fff; border:0; border-radius:10px; padding:10px 16px; font-weight:700; font-size:15px; cursor:pointer; }
+  button:disabled { opacity:.45; cursor:default; }
+  .ok { color:var(--vert); } .ko { color:var(--rouge); }
+  li { margin:3px 0; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Deploy CrownMarket</h1>
+  <p class="doux">"Who wears the crown at the end of this round?" on the live Game of Life Block season: bets in TBLOCK, winners share the pot, 5 % to the holders' vault, a challenge window, refunds when no result is posted. Your connected wallet signs ONE contract creation on Base; this page never signs.</p>
+  <div class="carte">
+    <div><b>Constructor (copied from the app's own files)</b></div>
+    <ul id="args"></ul>
+    <div class="doux">Code sha256 <code id="sha"></code></div>
+  </div>
+  <div class="carte">
+    <ol id="checks"></ol>
+    <button id="go" disabled>Connect wallet</button>
+    <p id="msg" aria-live="polite"></p>
+  </div>
+</main>
+<script type="module">
+import { CROWN_MARKET_KIT as K } from './crown-market-kit.js';
+import { keccak256Hex } from './keccak.js';
+const $ = (s) => document.querySelector(s);
+const sel = (sig) => '0x' + keccak256Hex(new TextEncoder().encode(sig)).replace(/^0x/, '').slice(0, 8);
+const li = (t, ok) => { const e = document.createElement('li'); e.textContent = t; if (ok !== undefined) e.className = ok ? 'ok' : 'ko'; $('#checks').append(e); return ok; };
+for (const [k, v] of Object.entries(K.args)) { const e = document.createElement('li'); e.innerHTML = '<b></b> <code></code>'; e.querySelector('b').textContent = k; e.querySelector('code').textContent = String(v); $('#args').append(e); }
+$('#sha').textContent = K.sha256;
+/* the code sent is the code shown: its sha256 recomputed here */
+const h = [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(K.data)))].map((b) => b.toString(16).padStart(2, '0')).join('');
+const shaOk = li('Code sha256 recomputed in this page: ' + h.slice(0, 16) + '…', h === K.sha256);
+const eth = window.ethereum;
+if (!eth) { $('#msg').textContent = 'No wallet in this browser.'; }
+else if (shaOk) { $('#go').disabled = false; }
+let compte = null;
+$('#go').onclick = async () => {
+  $('#go').disabled = true;
+  try {
+    if (!compte) {
+      [compte] = await eth.request({ method: 'eth_requestAccounts' });
+      const id = parseInt(await eth.request({ method: 'eth_chainId' }), 16);
+      li('Wallet ' + compte, true);
+      if (!li('Chain ' + id + (id === K.chaine ? ' (Base)' : ' — switch your wallet to Base (8453)'), id === K.chaine)) { $('#go').disabled = false; compte = null; return; }
+      $('#go').textContent = 'Deploy CrownMarket on Base'; $('#go').disabled = false; return;
+    }
+    const id = parseInt(await eth.request({ method: 'eth_chainId' }), 16);
+    if (id !== K.chaine) { $('#msg').textContent = 'Your wallet is not on Base (8453): nothing was sent.'; $('#go').disabled = false; return; }
+    const gas = BigInt(await eth.request({ method: 'eth_estimateGas', params: [{ from: compte, data: K.data }] }));
+    if (!li('Gas estimated: ' + gas, gas < 4000000n)) { $('#msg').textContent = 'Gas above 4,000,000: refused, nothing was sent.'; return; }
+    $('#msg').textContent = 'Check your wallet: one contract creation, value 0.';
+    const tx = await eth.request({ method: 'eth_sendTransaction', params: [{ from: compte, data: K.data, value: '0x0' }] });
+    li('Sent: ' + tx, true); $('#msg').textContent = 'Waiting for the receipt…';
+    let r = null; for (let i = 0; i < 90 && !r; i++) { await new Promise((o) => setTimeout(o, 2000)); r = await eth.request({ method: 'eth_getTransactionReceipt', params: [tx] }); }
+    if (!r) { $('#msg').textContent = 'Not confirmed yet: do NOT send again. Tx ' + tx; return; }
+    if (!li('Receipt status ' + r.status, r.status === '0x1')) { $('#msg').textContent = 'The creation reverted: tx ' + tx; return; }
+    const a = r.contractAddress; li('CrownMarket at ' + a + ', block ' + parseInt(r.blockNumber, 16), true);
+    const read = async (sig) => eth.request({ method: 'eth_call', params: [{ to: a, data: sel(sig) }, 'latest'] });
+    for (const [f, k] of [['TBLOCK', 'tblock'], ['VAULT', 'vault'], ['LIKES', 'likes'], ['resolver', 'resolver'], ['DEV', 'dev'], ['DEV2', 'dev2']]) { const v = '0x' + (await read(f + '()')).slice(26); li(f + '() = ' + v, v.toLowerCase() === K.args[k].toLowerCase()); }
+    for (const [f, k] of [['GENESIS_BLOCK', 'genesisBlock'], ['ROUND_BLOCKS', 'roundBlocks'], ['RESOLVE_DEADLINE', 'resolveDeadline'], ['CHALLENGE_BLOCKS', 'challengeBlocks'], ['FEE_BPS', 'feeBps'], ['MIN_BET_USD_E18', 'minBetUsdE18'], ['CHALLENGE_BOND_USD_E18', 'challengeBondUsdE18'], ['MAX_PRICE_AGE', 'maxPriceAge']]) { const v = BigInt(await read(f + '()')); li(f + '() = ' + v, v === BigInt(K.args[k])); }
+    $('#msg').innerHTML = 'Done. Give this tx to Claude: <code></code>'; $('#msg code').textContent = tx;
+  } catch (e) { $('#msg').textContent = (e && e.code === 4001) ? 'You declined in your wallet: nothing was sent.' : 'Not done: ' + String(e && e.message || e).slice(0, 160); $('#go').disabled = false; }
+};
+</script>
+</body>
+</html>
