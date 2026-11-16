@@ -66,8 +66,7 @@ input{width:100%;background:var(--bg2);color:var(--fg);border:1px solid var(--li
   <h2>What your TBLOCK unlocks</h2>
   <div id="perks"><span class="note">reading the thresholds…</span></div>
   <p class="note">Hearts, the holders vault and the monthly lock rewards are enforced by their contracts: nobody can pass them, from this app or any other.
-  Their dollar rules use a TBLOCK price the hearts contract keeps within fixed bounds. The holders' channel is checked by our server before the invite,
-  at the pool price read now. Every number on this card is read from Base or from our server just now.</p>
+  Their dollar rules use a TBLOCK price the hearts contract keeps within fixed bounds. Every number on this card is read from Base or from our server just now.</p>
 </div>
 
 <div class="card">
@@ -94,11 +93,10 @@ input{width:100%;background:var(--bg2);color:var(--fg);border:1px solid var(--li
   Each heart is read from the heart contract itself, never from a claim.</p>
 </div>
 
-<!-- game370: the invite answered TELEGRAM_NOT_CONFIGURED on prod. The button only shows once the server says telegramReady === true
-     (GET /api/tblock/hold); until then, and while that flag is not read, the card says "opening soon" and offers nothing to press. -->
-<div class="card" id="tgCarte">
-  <h2 id="tgTitre">Holders' channel: opening soon</h2>
-  <p class="note" id="tgBientot">The Telegram bot is not switched on yet. This card opens by itself when it is; nothing to sign until then.</p>
+<!-- game427 (Phil 2026-11-16: "supprime ca"): the holders' channel is not shown at all while its bot is off — no teaser line.
+     The card exists only for the day the server says telegramReady === true (GET /api/tblock/hold); until then it stays hidden. -->
+<div class="card" id="tgCarte" hidden>
+  <h2 id="tgTitre">Join the holders' channel</h2>
   <div id="tgOuvert" hidden>
   <p class="note" style="margin-top:0">In the TokenizedBlock Telegram group, send <b>/hold</b> to @TblockHoldersBot, or connect here. Then sign a <b>message</b>
   (not a transaction: no funds move, no gas) to prove the wallet is yours.</p>
@@ -153,13 +151,12 @@ let prix = { usd: null, t: 0, seuil: 15 };
 const TG = (() => { try { const c = new URLSearchParams(location.search).get('tg') || ''; return /^[0-9a-f]{24}$/.test(c) ? c : ''; } catch (_) { return ''; } })();
 async function api(path, init) { const r = await fetch(path, init); return r.json(); }
 /* game370: the holders' channel opens only when the server says its bot is configured (telegramReady === true, a boolean from
- *   /api/tblock/hold). Not read, false or anything else = closed: "opening soon", no button. */
+ *   /api/tblock/hold). Not read, false or anything else = closed. game427: closed = the card is not shown at all. */
 const TGP = { pret: false };
 function peindreTg(pret) {
   TGP.pret = pret === true;
+  $('#tgCarte').hidden = !TGP.pret;
   $('#tgOuvert').hidden = !TGP.pret;
-  $('#tgBientot').hidden = TGP.pret;
-  $('#tgTitre').textContent = TGP.pret ? "Join the holders' channel" : "Holders' channel: opening soon";
   if (!TGP.pret) $('#signer').disabled = true;
 }
 
@@ -233,7 +230,8 @@ function peindrePerks() {
   const jour = (s) => new Date(Number(s) * 1000).toISOString().slice(0, 10);
   const p = [
     ['🔒', 'Lock TBLOCK', 'locked in a contract with no owner, for 7 days or more; to leave, there is a 7-day withdrawal period. It earns community points and monthly lock rewards, and it is what hearts and holders vault claims count', 'any amount', null, false, lockPret ? '<a class="st ok" href="/#wallet">LOCK IN THE APP →</a>' : VENIR()],
-    ['💬', 'Holders\' channel on Telegram', 'checked by our server before the invite: $' + prix.seuil + ' of TBLOCK held in your wallet (a lock does not count for it)', '$' + prix.seuil + ' of TBLOCK', etat.holder === true, etat.holder != null, TGP.pret ? null : VENIR()],
+    /* game427 (Phil 2026-11-16): the holders' channel row is listed only once its bot is on — never as "coming soon" */
+    ...(TGP.pret ? [['💬', 'Holders\' channel on Telegram', 'checked by our server before the invite: $' + prix.seuil + ' of TBLOCK held in your wallet (a lock does not count for it)', '$' + prix.seuil + ' of TBLOCK', etat.holder === true, etat.holder != null, null]] : []),
     R ? ['♥', 'Heart a block', 'burns ' + EP.usd(R.likeUsd) + ' of TBLOCK from your wallet (' + tok(R.likePrice) + ' TBLOCK at the contract price) and needs ' + EP.usd(R.holdUsd) + ' of TBLOCK locked; counts as play for the holders vault and the lock rewards',
       besoin(R), l != null && b != null && l >= R.minHold && b >= R.likePrice, l != null && b != null, null]
       : ['♥', 'Heart a block', 'its price and its minimum are read from the hearts contract', '—', null, false, NONLU],

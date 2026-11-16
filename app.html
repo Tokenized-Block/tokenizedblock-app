@@ -2491,7 +2491,7 @@ details[open] > summary::before{transform:rotate(90deg)}
       <p class="note" id="cReviewDisclosure">Before your wallet opens, review your name, symbol, engraved face and brain, selected pair, and the price: $5 in all, TBLOCK first. Step 1, only if you lack TBLOCK: the app buys it with your ETH (no app fee). Step 2, the birth: 0.001 ETH (inside the total above), signed in two parts: 0.0007 ETH when you create, then 0.0003 ETH plus your creator deposit (not a fee: it stays yours) when its market opens. Step 3: your block is paid in TBLOCK to the holders vault. Your wallet shows the exact transaction(s) before you approve; nothing is sent until you confirm.</p>
       <!-- game326 (Phil 2026-11-09): the app recommends holding TBLOCK; the birth path itself is unchanged (the deployed contracts take ETH) -->
       <p class="note" id="cTblockReco">Recommended: hold TBLOCK, the app's own token. About $5 of it can be bought in the app in one batch
-        (<a href="holders.html" target="_blank" rel="noopener">Buy TBLOCK</a>); $15 opens the holders' channel. Each buy goes through its pool, whose hook sends
+        (<a href="holders.html" target="_blank" rel="noopener">Buy TBLOCK</a>). Each buy goes through its pool, whose hook sends
         part of every trade to the dead address. Once your block is alive, you can add the rest up to $5 in TBLOCK to the holders vault
         (optional, one more signature). Creators can also enter their block in the
         <a href="contest.html" target="_blank" rel="noopener">block contest</a>, where entries and votes are paid in TBLOCK.</p>
@@ -3804,7 +3804,7 @@ details[open] > summary::before{transform:rotate(90deg)}
       <!-- ⛔ L EMPREINTE EST AFFICHEE, DONC ELLE EST DE L ANGLAIS. `20261001-pont-dans-lui` a fait
            rougir `test-texte-a-l-ecran.mjs` : le mot « dans » est de la prose francaise partie a
            l ecran anglais. La garde a fait son travail du premier coup. -->
-      <p class="note" data-build="20261109-game426" hidden>Build <code>20261109-game426</code> ·Contract labels say what they do, not our internal names.</p>
+      <p class="note" data-build="20261109-game427" hidden>Build <code>20261109-game427</code> ·Contract labels say what they do, not our internal names.</p>
       <p class="sous">Everything happening to blocks on Base, live.</p>
       <!-- tip 0013: sticky — Hooked chip = Dex fees; unhooked → Launch beside. No fee addr. -->
       <p class="note" id="sfHookedSticky" hidden>Blocks alive on TokenizedBlock pay their creator on every trade. Example:<button type="button" class="puce" id="sfStickyTbgas">Open TBGAS</button>.</p>
@@ -32967,7 +32967,7 @@ async function peindreLock(hote, { offre = false } = {}) {
     const pli = el('details', 'wPli hvPli', null); pli.append(el('summary', 'note', 'How it works'));
     /* 2026-11-12: the live Hearts and holders vault read the LOCK (activeLockedOf); the holders' channel still reads the wallet balance
      *   (/api/tblock/hold). The monthly lock rewards (EP.REWARDS) pay the whole months a lock covers, for the months its holder played. */
-    pli.append(el('p', 'sous', 'Locking earns community points, and monthly lock rewards for each whole month your lock covers and you play in. Hearts ♥ and holders vault claims count your lock; the holders’ channel counts your wallet balance. To leave: request the withdrawal (points and rewards stop at once); you take it all back ' + LK.RETRAIT_JOURS + ' days after the request, or at the lock date if that is later.'));
+    pli.append(el('p', 'sous', 'Locking earns community points, and monthly lock rewards for each whole month your lock covers and you play in. Hearts ♥ and holders vault claims count your lock. To leave: request the withdrawal (points and rewards stop at once); you take it all back ' + LK.RETRAIT_JOURS + ' days after the request, or at the lock date if that is later.'));
     pli.append(el('p', 'note', 'Locked TBLOCK cannot be sold until the date, then the ' + LK.RETRAIT_JOURS + '-day withdrawal period.'),
       el('p', 'note', 'Community points: 1 a day per 100,000 TBLOCK, ×1.25 from 30 days, ×1.5 from 90, ×2 from 1 year. Points decide your share of the community drop, a separate distribution coming soon; the weekly player budget follows what you put in.'
         + (EP.REWARDS ? ' Monthly lock rewards are paid for the months you play in (a heart or a TAM art mint).' : '') + ' No rate is promised.'));
@@ -34109,15 +34109,13 @@ async function peindreVaultWallet() {
         if (h && h.ok) {
           const d = document.createElement('div'); d.className = 'stadeLigne';
           /* game370: the link only once the server says the holders' bot is configured (telegramReady, a boolean); before that the
-           *   invite could only answer TELEGRAM_NOT_CONFIGURED, so the line says "opening soon" and links nowhere */
+           *   invite could only answer TELEGRAM_NOT_CONFIGURED. game427 (Phil 2026-11-16: "supprime ca"): before that, no line at all */
           if (h.telegramReady === true) {
             const a = document.createElement('a'); a.href = 'holders.html'; a.target = '_blank'; a.rel = 'noopener';
             a.textContent = 'You hold $' + Number(h.usd).toFixed(2) + ' of TBLOCK — join the holders’ channel →';
             d.append(a);
-          } else {
-            d.textContent = 'You hold $' + Number(h.usd).toFixed(2) + ' of TBLOCK · Holders’ channel: opening soon';
+            neuf.push(d);
           }
-          neuf.push(d);
         }
       } catch (_) { /* not read: no link, never a wrong one */ }
     }

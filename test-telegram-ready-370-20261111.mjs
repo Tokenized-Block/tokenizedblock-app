@@ -90,31 +90,33 @@ for (const d of tmp) { try { rmSync(d, { recursive: true, force: true }); } catc
 const H = readFileSync(new URL('./holders.html', import.meta.url), 'utf8');
 t('C1 holders.html is LF only', !H.includes('\r'));
 {
-  const carte = (H.match(/<div class="card" id="tgCarte">[\s\S]*?\n<\/div>/) || [''])[0];
-  t('C2 the channel card opens CLOSED in the HTML, titled with the exact words "Holders\' channel: opening soon"', /<h2 id="tgTitre">Holders' channel: opening soon<\/h2>/.test(carte) && /id="tgBientot"/.test(carte), carte.slice(0, 200));
+  /* game427 (Phil 2026-11-16: "supprime ca"): while the bot is off the channel is not shown at all — no "opening soon" anywhere */
+  const carte = (H.match(/<div class="card" id="tgCarte" hidden>[\s\S]*?\n<\/div>/) || [''])[0];
+  t('C2 the channel card is HIDDEN in the HTML, and nothing in the page says "opening soon"', !!carte && !/opening soon/i.test(H), carte.slice(0, 200));
   t('C3 the button lives in a block that is HIDDEN in the HTML (no flash of a dead button before the flag is read)', /<div id="tgOuvert" hidden>[\s\S]*<button id="signer" disabled>Sign and get my Telegram invite<\/button>[\s\S]*<\/div>/.test(carte));
-  t('C4 the closed state is visible in the HTML by default', /<p class="note" id="tgBientot">/.test(carte));
+  t('C4 the card has no "not switched on yet" text left', !/id="tgBientot"/.test(H) && !/not switched on yet/.test(H));
   /* run the page's own painter on stubs */
   const src = (H.match(/function peindreTg\(pret\) \{[\s\S]*?\n\}/) || [''])[0];
   t('C5 peindreTg is in the page', !!src);
   if (src) {
-    const els = { '#tgOuvert': { hidden: true }, '#tgBientot': { hidden: false }, '#tgTitre': { textContent: '' }, '#signer': { disabled: true } };
+    const els = { '#tgCarte': { hidden: true }, '#tgOuvert': { hidden: true }, '#signer': { disabled: true } };
     const $ = (s) => els[s];
     let etatTg = { pret: false };
     const run = (v) => new Function('$', 'TGP', src + '\npeindreTg(' + JSON.stringify(v) + '); return TGP;')($, etatTg);
     for (const v of [false, undefined, null, 'true', 1]) {
       run(v);
-      t('C6 telegramReady=' + JSON.stringify(v) + ' -> button block hidden, "opening soon" shown', els['#tgOuvert'].hidden === true && els['#tgBientot'].hidden === false && /opening soon/.test(els['#tgTitre'].textContent));
+      t('C6 telegramReady=' + JSON.stringify(v) + ' -> the whole card hidden, button disabled', els['#tgCarte'].hidden === true && els['#tgOuvert'].hidden === true && els['#signer'].disabled === true);
     }
     run(true);
-    t('C7 telegramReady === true -> button block shown, "opening soon" hidden', els['#tgOuvert'].hidden === false && els['#tgBientot'].hidden === true && els['#tgTitre'].textContent === "Join the holders' channel");
+    t('C7 telegramReady === true -> the card and its button block shown', els['#tgCarte'].hidden === false && els['#tgOuvert'].hidden === false);
     run(false);
-    t('C8 back to false hides it again', els['#tgOuvert'].hidden === true && els['#tgBientot'].hidden === false);
+    t('C8 back to false hides it again', els['#tgCarte'].hidden === true && els['#tgOuvert'].hidden === true);
   }
   t('C9 the flag is read from the price read (every 30 s) and from the wallet read', /lirePrix\(\) \{[\s\S]*?peindreTg\(p\.telegramReady\)/.test(H) && /h = await api\('\/api\/tblock\/hold\?wallet=' \+ w\);[\s\S]*?peindreTg\(h\.telegramReady\)/.test(H));
   t('C10 the sign button is enabled only when the channel is open', /\$\('#signer'\)\.disabled = !\(h\.ok && h\.challenge && TGP\.pret\);/.test(H));
   /* 2026-11-12 (UI copy rule, Phil): the badge says "coming soon", one wording for everything not live yet */
-  t('C11 the perk row says "coming soon" while the bot is not configured', /TGP\.pret \? null : VENIR\(\)\]/.test(H) && H.includes("const VENIR = () => '<span class=\"st na\">coming soon</span>';"));
+  t('C11 the perk row is listed only once the bot is configured (no "coming soon" row)', H.includes("...(TGP.pret ? [['💬', 'Holders\\' channel on Telegram'") && !/Holders\\' channel on Telegram'[^\n]*VENIR\(\)/.test(H));
+  t('C12 the perks note no longer speaks of the channel', !/The holders' channel is checked by our server before the invite/.test(H));
 }
 
 /* ── D. app.html (Wallet > Holders vault card): the link to the channel only when telegramReady === true ── */
@@ -123,8 +125,9 @@ t('D1 app.html is LF only', !A.includes('\r'));
 {
   const bloc = (A.match(/\/\* game345 \(Phil\): a visible link to the holders' channel[\s\S]*?catch \(_\) \{ \/\* not read: no link, never a wrong one \*\/ \}/) || [''])[0];
   t('D2 the block is found', !!bloc);
-  t('D3 the link is created only under telegramReady === true', /if \(h\.telegramReady === true\) \{[\s\S]*?a\.href = 'holders\.html'[\s\S]*?\} else \{/.test(bloc));
-  t('D4 otherwise the exact words, no link', /d\.textContent = 'You hold \$' \+ Number\(h\.usd\)\.toFixed\(2\) \+ ' of TBLOCK · Holders’ channel: opening soon';/.test(bloc));
+  t('D3 the link is created and listed only under telegramReady === true', /if \(h\.telegramReady === true\) \{[\s\S]*?a\.href = 'holders\.html'[\s\S]*?neuf\.push\(d\);\s*\}/.test(bloc));
+  t('D4 otherwise no line at all (game427): no else branch, no "opening soon"', !/\} else \{/.test(bloc) && !/opening soon/.test(bloc));
+  t('D6 the app no longer advertises the channel in Create or in the lock card', !A.includes("$15 opens the holders' channel") && !A.includes('the holders’ channel counts your wallet balance'));
   /* D5 removed at commit time (game370): a test must not pin the build stamp, it goes red on every release */
 }
 
