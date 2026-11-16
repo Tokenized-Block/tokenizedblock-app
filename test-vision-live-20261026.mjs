@@ -179,7 +179,7 @@ function verifier(L, app, serveur) {
   /* ══ G. APP.HTML ══ */
   essai(() => {
     const vmap = app.slice(app.indexOf('<section class="volet on" id="v-map"'), app.indexOf('</section>', app.indexOf('id="v-map"')));
-    ok(/<button[^>]*id="bLiveMap"[^>]*aria-controls="bvPop"[^>]*>[\s\S]{0,80}Live<\/button>/.test(vmap), 'G: le bouton Live est sur la Map');
+    ok(/<button[^>]*id="bLiveMap"[^>]*aria-controls="bvPop"[^>]*>[\s\S]{0,80}Inside Block<\/button>/.test(vmap), 'G: le bouton Inside Block (ex-Live, renomme par Phil 2026-11-16) est sur la Map');
     /* 2026-10-27 (Phil) : le Live de la Map ouvre « View inside the brain » (#bvPop) sur le block cible, plus l ancien panneau */
     ok(/\$\('#bLiveMap'\)\.addEventListener\('click', ouvrirLiveVision\)/.test(app)
       && /function ouvrirLiveVision\(\) \{[\s\S]{0,1600}ouvrirVision\('brain'\)/.test(app)

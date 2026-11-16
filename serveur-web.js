@@ -6595,6 +6595,8 @@ const SERVIS = [
   'icon.png', 'splash.png', 'embed.png',
   /* game424: the product film of the "?" sheet (1280x720, about 9 MB, served with byte ranges) and its poster */
   'film.mp4', 'film-poster.jpg',
+  /* game428: Game of Life Block — the replay page, its engine and the recorded Base transfers it replays (read-only, nothing to sign) */
+  'life-block/index.html', 'life-block/engine.js', 'life-block/donnees.json',
 ];
 
 /* ⛔ L APP NEUVE EST LA RACINE. L ancien ecran reste atteignable a son nom, mais ce n est plus lui
@@ -6713,6 +6715,9 @@ for (const nom of SERVIS) {
     image,
   });
 }
+/* game428: /life-block/ is the page itself (its relative imports and data resolve from that folder) */
+if (cache.has('/life-block/index.html')) cache.set('/life-block/', cache.get('/life-block/index.html'));
+
 
 /* 2026-11-08: @noble/curves + @noble/hashes for the fly's in-browser wallet, served ONLY if each file's sha256 matches
  *   lib/noble/manifeste.json (the bytes of the npm tarballs, sha512-checked when vendored). A mismatch is logged and that file is not

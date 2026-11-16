@@ -1,0 +1,392 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Game of Life Block</title>
+<style>
+  :root { --fond: #04090c; --fond2: #0a1b22; --carte: rgba(8,24,31,.88); --ligne: #16323c; --texte: #f2fbff; --doux: #9cc3cf; --accent: #35d3f0; --bleu: #1f5bff; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--fond); color: var(--texte); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; overflow: hidden; }
+  #c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; }
+  #c:active { cursor: grabbing; }
+  .panel { position: fixed; top: 12px; left: 12px; bottom: 12px; width: 340px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; scrollbar-width: thin; z-index: 2; }
+  .card { background: var(--carte); border: 1px solid var(--ligne); border-radius: 16px; padding: 12px 14px; backdrop-filter: blur(6px); }
+  h1 { margin: 0; font-size: 21px; letter-spacing: .2px; }
+  h1 b { color: var(--accent); }
+  h2 { margin: 0 0 6px; font-size: 14px; color: var(--doux); text-transform: uppercase; letter-spacing: .6px; font-weight: 700; }
+  .sub { color: var(--doux); margin: 4px 0 0; }
+  .row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  button, select { background: #0c2530; color: var(--texte); border: 1px solid var(--ligne); border-radius: 10px; padding: 7px 10px; font: inherit; cursor: pointer; }
+  button:hover, select:hover { border-color: var(--accent); }
+  button.on { background: var(--bleu); border-color: var(--bleu); }
+  .stat { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; font-variant-numeric: tabular-nums; }
+  .stat span:nth-child(odd) { color: var(--doux); }
+  .hash { font-family: ui-monospace, Consolas, monospace; font-size: 12px; word-break: break-all; color: var(--accent); }
+  .rank { display: grid; grid-template-columns: 22px 30px 1fr auto; gap: 6px; align-items: center; padding: 3px 0; cursor: pointer; border-radius: 8px; }
+  .rank:hover { background: rgba(53,211,240,.08); }
+  .rank img { width: 28px; height: 30px; border-radius: 6px; }
+  .rank .sym { font-weight: 700; }
+  .rank small { display: block; color: var(--doux); font-weight: 400; }
+  .mood { font-size: 11px; padding: 1px 7px; border-radius: 99px; border: 1px solid var(--ligne); color: var(--doux); white-space: nowrap; }
+  .mood.EXCITE { color: #7cffb0; border-color: #2a7a52; } .mood.INQUIET { color: #ff8fa3; border-color: #7a2a3a; } .mood.CURIEUX { color: #ffd27a; border-color: #7a5a2a; }
+  .log { font-size: 12.5px; color: var(--doux); max-height: 160px; overflow-y: auto; }
+  .log div { padding: 2px 0; border-bottom: 1px solid rgba(22,50,60,.6); }
+  .log b { color: var(--texte); }
+  details summary { cursor: pointer; color: var(--doux); font-weight: 700; }
+  ul.rules { margin: 6px 0 0; padding-left: 18px; color: var(--doux); }
+  ul.rules li { margin: 3px 0; }
+  .soon { color: var(--doux); }
+  .chip { display: inline-block; padding: 2px 8px; border-radius: 99px; background: #0c2530; border: 1px solid var(--ligne); font-size: 12px; }
+  #progress { height: 4px; background: #0c2530; border-radius: 4px; overflow: hidden; margin-top: 6px; }
+  #progress i { display: block; height: 100%; width: 0; background: var(--accent); }
+  .legend { position: fixed; right: 12px; bottom: 12px; z-index: 2; font-size: 12px; line-height: 1.7; color: var(--doux); text-align: right; max-width: calc(100vw - 24px); background: rgba(4,9,12,.6); padding: 4px 8px; border-radius: 8px; }
+  @media (max-width: 760px) { .legend { font-size: 11px; } .lk { white-space: normal; } }
+  @media (max-width: 760px) { .panel { width: auto; right: 12px; top: auto; max-height: 46vh; } }
+  .panel[hidden] { display: none; }
+  .floating { position: fixed; top: 12px; left: 12px; z-index: 3; background: var(--carte); border: 1px solid var(--ligne); border-radius: 12px; padding: 9px 13px; font-weight: 700; }
+  .tip { position: fixed; z-index: 4; width: 274px; display: flex; gap: 10px; padding: 10px 12px; background: rgba(4,9,12,.94); border: 1px solid var(--ligne); border-radius: 14px; pointer-events: none; box-shadow: 0 10px 30px rgba(0,0,0,.45); }
+  .tip[hidden] { display: none; }
+  .tip img { width: 48px; height: 53px; border-radius: 8px; flex: 0 0 auto; }
+  .tip small { color: var(--doux); }
+  .tipStat { color: var(--doux); font-size: 12px; margin-top: 3px; }
+.back{display:inline-block;color:#9cc3cf;font-size:12px;text-decoration:none;margin-bottom:4px}.back:hover{color:#f2fbff}
+.lk{white-space:nowrap;margin-right:10px}.lk i{display:inline-block;vertical-align:-2px;margin-right:5px;border-radius:50%}
+.lkFlash{width:9px;height:9px;border:1.5px solid #f2fbff;opacity:.8}.lkSeed{width:6px;height:6px;background:#3ddc97;box-shadow:0 0 6px #3ddc97}
+.feed{position:fixed;right:12px;top:12px;z-index:3;list-style:none;margin:0;padding:0;width:min(300px,calc(100vw - 24px));pointer-events:none;display:flex;flex-direction:column;gap:4px}
+.feed li{background:rgba(4,9,12,.82);border:1px solid var(--ligne);border-left:3px solid var(--c,#9cc3cf);border-radius:8px;padding:5px 9px;font-size:12px;color:#f2fbff;animation:feedIn .25s ease-out;transition:opacity .6s}
+.feed li.old{opacity:0}.feed b{font-weight:700}.feed small{color:var(--doux);margin-left:6px}
+@keyframes feedIn{from{transform:translateX(30px);opacity:0}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){.feed li{animation:none}}
+@media (max-width:760px){.feed{top:auto;bottom:64px;width:calc(100vw - 24px)}.feed li:nth-child(n+4){display:none}}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="panel">
+  <div class="card">
+    <a class="back" href="/" title="Back to the TokenizedBlock map">← TokenizedBlock</a>
+    <h1>Game of Life <b>Block</b></h1>
+    <p class="sub">Every tokenized stock of the app plays Conway's Game of Life on one shared plane. Each block's brain reacts to its market on Base and answers with a gesture at the edge of its territory.</p>
+    <p class="sub" id="replayLine">Loading the recorded market…</p>
+  </div>
+  <div class="card">
+    <div class="row">
+      <button id="play" class="on">❚❚ Pause</button>
+      <button id="step" title="One generation = one Base block">Step +1</button>
+      <button id="back" title="Back 100 generations">⏪ 100</button>
+      <select id="speed" title="Speed">
+        <option value="5">Chain speed · 5 blocks/s</option>
+        <option value="25" selected>×5</option>
+        <option value="100">×20</option>
+        <option value="2000">Max speed</option>
+      </select>
+      <button id="fold" title="Hide the panel to see the whole map">✕ Hide panel</button>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <select id="follow" title="Follow a block"><option value="-1">Follow: the whole map</option></select>
+      <button id="trails" class="on" title="Fading trails behind dying cells (drawing only)">Trails</button>
+      <button id="glow" class="on" title="A soft glow under the cells (drawing only)">Glow</button>
+      <button id="director" title="An automatic camera that goes where the game turns: a bloom, a wall, the crown changing heads, a feast">🎥 Director</button>
+    </div>
+  </div>
+  <div class="card">
+    <h2>World</h2>
+    <div class="stat">
+      <span>Generation</span><span id="sGen">0</span>
+      <span>Base block</span><span id="sBlock">–</span>
+      <span>Chain time</span><span id="sTime">–</span>
+      <span>Speed (measured)</span><span id="sRate">–</span>
+      <span>Live cells</span><span id="sCells">–</span>
+      <span>Neutral cells</span><span id="sNeutral">–</span>
+    </div>
+    <p class="sub" id="capLine"></p>
+    <div style="margin-top:6px">World fingerprint <span class="hash" id="sHash">–</span></div>
+    <div class="row" style="margin-top:8px"><button id="verify">Verify: replay from block 0</button></div>
+    <div id="progress"><i></i></div>
+    <p class="sub" id="verifyLine">Anyone with the same Base logs rebuilds the same world: same block, same fingerprint.</p>
+  </div>
+  <div class="card">
+    <h2>Territory</h2>
+    <div id="ranks"></div>
+  </div>
+  <div class="card">
+    <h2>Reactions</h2>
+    <div class="log" id="log"></div>
+  </div>
+  <div class="card">
+    <details>
+      <summary>The rules</summary>
+      <ul class="rules">
+        <li>Conway's rule: a cell is born with exactly 3 live neighbours and survives with 2 or 3.</li>
+        <li>A newborn cell takes the block that owns at least 2 of its 3 parents; three different parents give a neutral cell.</li>
+        <li>One generation is one Base block (0.2 s). The brain of each block beats every 10 blocks.</li>
+        <li>Excited (buys, new holders): it launches gliders, one per 3 buys (up to 3, fanned out); on a burst of 5 buys or more, it blooms.</li>
+        <li>The market sets the speed: when buys run at least twice the sells (3 buys or more), the block rushes a fast ship, twice a glider's speed.</li>
+        <li>Each new holder, whatever the mood, settles an outpost (a beehive) beyond the edge: the colony spreads where its holders arrive.</li>
+        <li>Worried (more sells than buys): it sets a still shield toward its nearest rival; on a burst of 5 sells, a wall.</li>
+        <li>Curious (its own neurons busy, no news): it sends a scout ship. Calm and small: it keeps a heartbeat.</li>
+        <li>Predation: a living cell with 2 neighbours of one rival block, and fewer of its own, is eaten: it takes that rival's colour. No cell appears or dies, so Conway's rule stays exact; only the owner changes.</li>
+        <li>Combinations: excited with a rival in reach, it hunts (a glider aimed at the rival); curious with a rival in reach, it lays an eater in its path; worried and losing a fifth of its cells, it sends a spore away from danger; any block whose cells were eaten strikes back at the block that ate the most.</li>
+        <li>Asleep: nothing. A block whose market goes quiet stops answering, and Life erodes it.</li>
+        <li>A gesture only writes empty cells. Budgets per hour cap every gesture; past 24,000 live cells, growth gestures wait.</li>
+        <li>The crown: each beat, the block with the most live cells wears it (a tie leaves it where it was). The feed on the side tells who takes it, who eats whom, who is wiped out and who comes back.</li>
+        <li>Start places come from each address's keccak hash, on a spiral: nobody picks a spot.</li>
+        <li>The brain reacts by fixed rules from its mood. It does not plan.</li>
+      </ul>
+    </details>
+  </div>
+  <div class="card">
+    <h2>Enter your block</h2>
+    <p class="soon" style="margin:0">Planned: pay an entry in TBLOCK to drop your own block into the next game. Not in this prototype — nothing to sign here.</p>
+  </div>
+</div>
+<button id="openPanel" class="floating" hidden>☰ Game of Life Block</button>
+<div id="tip" class="tip" hidden></div>
+<ol id="feed" class="feed" aria-live="polite" aria-label="Game events"></ol>
+<div class="legend"><span class="lk">👑 = the largest colony</span> <span class="lk"><i class="lkFlash"></i>small flash + word = a block just reacted</span> <span class="lk"><i class="lkSeed"></i>dot = where a block started</span><br>hover a colony to see its faction · click to lock and follow it · drag · scroll or pinch to zoom</div>
+
+<script type="module">
+import * as E from './engine.js';
+import { NOMS_HUMEUR } from '../cerveau.js';
+import { apparenceDepuisAdresse } from '../apparence.js';
+import { logoSvg, paramsLogoDepuisApparence } from '../logo.js';
+
+const $ = (s) => document.querySelector(s);
+const cv = $('#c'), ctx = cv.getContext('2d');
+let world = null, data = null, playing = true, perSecond = 25, acc = 0, lastT = performance.now(), showTrails = true, glow = true, followI = -1, rate = 0, rateGens = 0, rateT = performance.now();
+const view = { x: 0, y: 0, z: 3 };               /* centre in cells, pixels per cell */
+const trails = new Map();                        /* key -> [owner, age] : drawing only */
+const snaps = [];                                /* rewind: a snapshot every 100 generations, the last 80 */
+const faces = [], colours = [], ripples = [];
+
+function resize() { const d = devicePixelRatio || 1; cv.width = innerWidth * d; cv.height = innerHeight * d; ctx.setTransform(d, 0, 0, d, 0, 0); }
+addEventListener('resize', resize); resize();
+
+/* ── load the recorded market ── */
+data = await (await fetch('donnees.json')).json();
+world = E.createWorld(data);
+snaps.push(E.snapshot(world));
+world.blocks.forEach((b, i) => {
+  const a = apparenceDepuisAdresse(b.adr);
+  colours[i] = 'hsl(' + a.teinte + ' 80% 58%)';
+  const img = new Image(); img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(logoSvg(paramsLogoDepuisApparence(a, b.sym[0])));
+  faces[i] = img;
+  const o = document.createElement('option'); o.value = i; o.textContent = 'Follow: ' + b.sym; $('#follow').append(o);
+});
+const t0 = new Date(), when = (blk) => new Date(Date.parse(data.luLe) - (data.a - blk) * 200);
+$('#replayLine').textContent = 'Replay of ' + world.blocks.length + ' tokenized stocks on Base, blocks ' + data.de.toLocaleString('en-US') + ' → ' + data.a.toLocaleString('en-US')
+  + ' (2 hours, ' + data.faits.length.toLocaleString('en-US') + ' transfers read on chain).';
+fitAll();
+
+/* ── stepping ── */
+function advance(n) {
+  for (let i = 0; i < n; i++) {
+    if (world.chainBlock > world.data.a || world.stopped) { playing = false; $('#play').textContent = '▶ Play'; $('#play').classList.remove('on'); break; }
+    const before = world.cells, count0 = world.logCount, ev0 = world.eventCount;
+    E.stepWorld(world);
+    if (showTrails) { for (const [k, v] of trails) { v[1]++; if (v[1] > 10) trails.delete(k); } for (const [k, o] of before) if (!world.cells.has(k)) trails.set(k, [o, 0]); }
+    /* the log keeps the last 400 gestures: the new ones are the last (count - count0), read from the count that never stops */
+    const fresh = world.log.slice(world.log.length - Math.min(world.log.length, world.logCount - count0));
+    for (const l of fresh) ripples.push({ ...l, t: performance.now() });
+    const evs = world.events.slice(world.events.length - Math.min(world.events.length, world.eventCount - ev0));
+    if (evs.length) killFeed(evs);
+    directorWatch(fresh, evs);
+    if (world.gen % 100 === 0) { snaps.push(E.snapshot(world)); if (snaps.length > 80) snaps.shift(); }
+  }
+}
+function loop(t) {
+  const dt = Math.min(0.25, (t - lastT) / 1000); lastT = t;
+  if (playing) { acc += dt * perSecond; const n = Math.floor(acc); acc -= n; const t1 = performance.now(); let done = 0; while (done < n && performance.now() - t1 < 22) { advance(1); done++; } if (done < n) acc = 0;
+    /* the speed shown is the one measured, not the one asked for */
+    rateGens += done; if (t - rateT > 1000) { rate = rateGens * 1000 / (t - rateT); rateGens = 0; rateT = t; } }
+  if (followI >= 0) { const c = centroid(followI); if (c) { view.x += (c[0] - view.x) * 0.08; view.y += (c[1] - view.y) * 0.08; } }
+  else if (director && shot) { view.x += (shot.x - view.x) * 0.06; view.y += (shot.y - view.y) * 0.06; view.z += (shot.z - view.z) * 0.05; if (t > shot.until) shot = null; }
+  draw(t); tooltip(); requestAnimationFrame(loop);
+}
+/* ── KILL FEED (Phil 2026-11-16: "un feed kill comme dans les jeux video"): the engine's events, newest on top, each fades after 7 s ── */
+const sym = (i) => '<b style="color:' + colours[i] + '">' + world.blocks[i].sym + '</b>';
+function feedText(e) {
+  if (e.type === 'crown') return '👑 ' + sym(e.i) + (e.from >= 0 ? ' takes the crown from ' + sym(e.from) : ' takes the crown');
+  if (e.type === 'feast') return '🍽 ' + sym(e.i) + ' ate ' + e.n + ' cells of ' + sym(e.v);
+  if (e.type === 'wiped') return '☠ ' + sym(e.i) + ' is wiped out';
+  if (e.type === 'back') return '↺ ' + sym(e.i) + ' is back';
+  return '';
+}
+function killFeed(evs) {
+  const ol = $('#feed');
+  for (const e of evs) {
+    const li = document.createElement('li'); li.style.setProperty('--c', colours[e.type === 'feast' || e.type === 'crown' ? e.i : e.i]);
+    li.innerHTML = feedText(e) + '<small>#' + e.block.toLocaleString('en-US') + '</small>'; ol.prepend(li);
+    setTimeout(() => li.classList.add('old'), 7000); setTimeout(() => li.remove(), 7700);
+  }
+  while (ol.children.length > 6) ol.lastChild.remove();
+}
+/* ── Director: an automatic camera that goes where the game turns (a bloom, a wall, the crown changing heads, a feast) ── */
+let director = false, shot = null;
+function directorWatch(entries, evs) {
+  if (!director || followI >= 0) return;
+  const now = performance.now(), busy = shot && now < shot.until - 1200;
+  for (const l of entries) if ((l.g === 'bloom' || l.g === 'wall') && !busy) { shot = { x: l.at[0], y: l.at[1], z: 7, until: now + 3500, why: world.blocks[l.i].sym + (l.g === 'bloom' ? ' blooms' : ' builds a wall') }; return; }
+  for (const e of evs) if ((e.type === 'crown' || e.type === 'feast') && !busy) { const c = centroid(e.type === 'feast' ? e.v : e.i); if (c) { shot = { x: c[0], y: c[1], z: 5, until: now + 3500, why: feedText(e).replace(/<[^>]+>/g, '') }; return; } }
+}
+/* ── hover: the faction under the cursor, read from the cells around it ── */
+let hoverI = -1, lockI = -1, mouse = null;
+function ownerAt(cx, cy) {
+  const W = innerWidth, H = innerHeight, wx = view.x + (cx - W / 2) / view.z, wy = view.y + (cy - H / 2) / view.z, R = Math.max(1, Math.ceil(6 / view.z));
+  let best = -1, bd = Infinity;
+  for (let dx = -R; dx <= R; dx++) for (let dy = -R; dy <= R; dy++) { const o = world.cells.get(E.key(Math.floor(wx) + dx, Math.floor(wy) + dy)); if (o !== undefined && o >= 0) { const d = dx * dx + dy * dy; if (d < bd) { bd = d; best = o; } } }
+  return best;
+}
+function tooltip() {
+  const tip = $('#tip'), i = lockI >= 0 ? lockI : hoverI;
+  if (i < 0 || (!mouse && lockI < 0)) { tip.hidden = true; return; }
+  const b = world.blocks[i], p = world.players[i], rk = centroid(i), n = rk ? rk[2] : 0, nv = p.vu && p.vu.nouveaux;
+  const last = p.last ? SAYS[p.last.g] + ' at block #' + p.last.block.toLocaleString('en-US') : 'no gesture yet';
+  tip.innerHTML = '<img alt="" src="' + faces[i].src + '"><div><b>' + b.sym + '</b> <span class="mood ' + p.mood + '">' + (NOMS_HUMEUR[p.mood] || p.mood).split(' ')[0] + '</span><br><small>' + b.nom + '</small>'
+    + '<div class="tipStat">' + n.toLocaleString('en-US') + ' cells · 👑 ' + p.crownBeats + ' beats crowned · ' + p.births.toLocaleString('en-US') + ' births</div>'
+    + '<div class="tipStat">ate ' + p.eaten.toLocaleString('en-US') + ' rival cells · lost ' + p.lost.toLocaleString('en-US') + '</div>'
+    + '<div class="tipStat">this beat on Base: ' + (nv ? nv.achats + ' buys · ' + nv.ventes + ' sells' : '—') + '</div>'
+    + '<div class="tipStat">last: ' + last + '</div>' + (lockI >= 0 ? '<div class="tipStat">locked — click empty space to release</div>' : '') + '</div>';
+  const x = lockI >= 0 && !mouse ? 12 : Math.min(innerWidth - 290, mouse.x + 16), y = lockI >= 0 && !mouse ? 64 : Math.min(innerHeight - 150, mouse.y + 16); /* the top right belongs to the feed */
+  tip.style.left = x + 'px'; tip.style.top = y + 'px'; tip.hidden = false;
+}
+let centroidCache = { gen: -1, v: [] };
+function centroid(i) {
+  if (centroidCache.gen !== world.gen) { const s = world.blocks.map(() => [0, 0, 0]); for (const [k, o] of world.cells) if (o >= 0) { const q = s[o]; q[0] += E.kx(k); q[1] += E.ky(k); q[2]++; } centroidCache = { gen: world.gen, v: s.map((q, j) => (q[2] ? [q[0] / q[2], q[1] / q[2], q[2]] : [...world.blocks[j].home, 0])) }; }
+  return centroidCache.v[i];
+}
+
+/* ── drawing ── */
+function draw(t) {
+  const W = innerWidth, H = innerHeight, z = view.z, ox = W / 2 - view.x * z, oy = H / 2 - view.y * z;
+  ctx.fillStyle = '#04090c'; ctx.fillRect(0, 0, W, H);
+  /* a faint grid when zoomed in */
+  if (z >= 6) { ctx.strokeStyle = 'rgba(22,50,60,.55)'; ctx.lineWidth = 1; ctx.beginPath(); const x0 = Math.floor(-ox / z), y0 = Math.floor(-oy / z); for (let x = x0; x * z + ox < W; x++) { ctx.moveTo(x * z + ox + .5, 0); ctx.lineTo(x * z + ox + .5, H); } for (let y = y0; y * z + oy < H; y++) { ctx.moveTo(0, y * z + oy + .5); ctx.lineTo(W, y * z + oy + .5); } ctx.stroke(); }
+  /* trails (drawing only) */
+  const s = Math.max(1, z - (z > 3 ? 1 : 0));
+  /* one faction in focus (hovered, or locked by a click): the others fade, it glows */
+  const focus = lockI >= 0 ? lockI : hoverI, dimA = 0.16;
+  if (showTrails) for (const [k, [o, age]] of trails) { const x = E.kx(k) * z + ox, y = E.ky(k) * z + oy; if (x < -z || y < -z || x > W || y > H) continue; ctx.globalAlpha = 0.32 * (1 - age / 11) * (focus >= 0 && o !== focus ? dimA : 1); ctx.fillStyle = o >= 0 ? colours[o] : '#7fa3ae'; ctx.fillRect(x, y, s, s); }
+  ctx.globalAlpha = 1;
+  /* live cells */
+  let fx = 0, fy = 0, fn = 0;
+  for (const [k, o] of world.cells) {
+    const x = E.kx(k) * z + ox, y = E.ky(k) * z + oy;
+    if (o === focus) { fx += x; fy += y; fn++; }
+    if (x < -z || y < -z || x > W || y > H) continue;
+    ctx.globalAlpha = focus >= 0 && o !== focus ? dimA : 1; ctx.fillStyle = o >= 0 ? colours[o] : '#7fa3ae'; ctx.fillRect(x, y, s, s);
+  }
+  ctx.globalAlpha = 1;
+  /* GLOW (Phil 2026-11-16 "glow up"): a soft bloom under every live cell, drawn additively, plus a small glowing seed at each
+   *   block's home instead of a face (faces covered the view: only the focused block shows its face, and smaller). */
+  if (glow) {
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; const g = Math.max(3, s * 3), gh = (g - s) / 2;
+    for (const [k, o] of world.cells) { const x = E.kx(k) * z + ox - gh, y = E.ky(k) * z + oy - gh; if (x < -g || y < -g || x > W || y > H) continue;
+      ctx.globalAlpha = (focus >= 0 && o !== focus ? 0.02 : 0.11); ctx.fillStyle = o >= 0 ? colours[o] : '#7fa3ae'; ctx.fillRect(x, y, g, g); }
+    ctx.restore();
+  }
+  for (let i = 0; i < world.blocks.length; i++) { if (i === focus) continue; const b = world.blocks[i], x = b.home[0] * z + ox, y = b.home[1] * z + oy; if (x < -8 || y < -8 || x > W + 8 || y > H + 8) continue;
+    ctx.save(); ctx.globalAlpha = focus >= 0 ? 0.25 : 0.9; ctx.shadowColor = colours[i]; ctx.shadowBlur = 10; ctx.fillStyle = colours[i]; ctx.beginPath(); ctx.arc(x, y, 3.2, 0, 7); ctx.fill(); ctx.restore(); }
+  /* the focused faction: a halo on each of its cells, its face where it started, a line from there to its centre of mass */
+  if (focus >= 0) {
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = colours[focus]; ctx.globalAlpha = 0.28;
+    const r = Math.max(2, z * 1.4);
+    for (const [k, o] of world.cells) if (o === focus) { const x = E.kx(k) * z + ox + s / 2, y = E.ky(k) * z + oy + s / 2; if (x < -r || y < -r || x > W + r || y > H + r) continue; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill(); }
+    ctx.restore();
+    const b = world.blocks[focus], hx = b.home[0] * z + ox, hy = b.home[1] * z + oy, fs = 30;
+    if (fn) { ctx.strokeStyle = colours[focus]; ctx.globalAlpha = 0.6; ctx.setLineDash([4, 5]); ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(fx / fn, fy / fn); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1; }
+    if (faces[focus].complete) { ctx.save(); ctx.shadowColor = colours[focus]; ctx.shadowBlur = 18; ctx.drawImage(faces[focus], hx - fs / 2, hy - fs * 0.55, fs, fs * 1.1); ctx.restore(); }
+    ctx.fillStyle = '#f2fbff'; ctx.font = '700 12px system-ui'; ctx.textAlign = 'center'; ctx.fillText(b.sym + ' · home', hx, hy + fs * 0.62 + 12);
+  }
+  /* THE CROWN: over the centre of the largest colony (it follows the colony, unlike the old fixed hills) */
+  if (world.crown >= 0) { const c = centroid(world.crown); if (c) { const x = c[0] * z + ox, y = c[1] * z + oy; ctx.save(); ctx.shadowColor = '#ffd76a'; ctx.shadowBlur = 14; ctx.font = '20px system-ui'; ctx.textAlign = 'center'; ctx.fillText('👑', x, y - 10); ctx.restore();
+    ctx.fillStyle = colours[world.crown]; ctx.font = '700 11px system-ui'; ctx.textAlign = 'center'; ctx.fillText(world.blocks[world.crown].sym, x, y + 6); } }
+  /* ripples where a gesture just landed */
+  const now = performance.now();
+  for (let j = ripples.length - 1; j >= 0; j--) {
+    const r = ripples[j], age = (now - r.t) / 900; if (age > 1) { ripples.splice(j, 1); continue; }
+    if (focus >= 0 && r.i !== focus) continue;
+    /* a small flash where a block just reacted, with the name of the reaction (was a 36 px ring nobody could read) */
+    const x = r.at[0] * z + ox, y = r.at[1] * z + oy; ctx.strokeStyle = colours[r.i]; ctx.globalAlpha = 0.8 * (1 - age); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(x, y, 4 + age * 10, 0, 7); ctx.stroke();
+    ctx.fillStyle = colours[r.i]; ctx.font = '600 10px system-ui'; ctx.textAlign = 'center'; ctx.fillText(r.g, x, y - 8 - age * 10); ctx.globalAlpha = 1;
+  }
+  if (ripples.length > 300) ripples.splice(0, ripples.length - 300);
+  if (world.gen % 3 === 0 || !playing) panel();
+}
+
+/* ── panel ── */
+const SAYS = { glider: 'launches a glider', rush: 'rushes a fast ship', colony: 'settles an outpost', hunt: 'hunts a rival', revenge: 'strikes back', eater: 'lays an eater', spore: 'sends a spore away', bloom: 'blooms', scout: 'sends a scout ship', shield: 'sets a shield', wall: 'builds a wall', heartbeat: 'keeps a heartbeat' };
+let lastPanelGen = -1;
+function panel() {
+  if (lastPanelGen === world.gen && playing) return; lastPanelGen = world.gen;
+  const rk = E.ranking(world);
+  $('#sGen').textContent = world.gen.toLocaleString('en-US');
+  $('#sBlock').textContent = world.chainBlock.toLocaleString('en-US');
+  $('#sTime').textContent = when(world.chainBlock).toISOString().slice(11, 19) + ' UTC';
+  $('#sCells').textContent = world.cells.size.toLocaleString('en-US');
+  $('#sRate').textContent = playing ? rate.toFixed(0) + ' blocks/s (×' + (rate / 5).toFixed(1) + ')' : 'paused';
+  $('#sNeutral').textContent = rk.neutral.toLocaleString('en-US');
+  $('#sHash').textContent = world.hash;
+  $('#capLine').textContent = world.stopped ? 'Stopped: ' + world.stopped + '.' : world.capped ? 'Past ' + E.CELL_CAP.toLocaleString('en-US') + ' live cells: growth gestures wait, shields go on.' : '';
+  $('#ranks').innerHTML = rk.rows.slice(0, 12).map((r, n) => '<div class="rank" data-i="' + r.i + '"><span>' + (n + 1) + '</span><img alt="" src="' + faces[r.i].src + '"><span class="sym">' + r.sym
+    + '<small>' + r.cells.toLocaleString('en-US') + ' cells' + (r.i === world.crown ? ' · 👑' : '') + '</small></span><span class="mood ' + r.mood + '">' + (NOMS_HUMEUR[r.mood] || r.mood).split(' ')[0] + '</span></div>').join('');
+  $('#log').innerHTML = world.log.slice(-14).reverse().map((l) => {
+    const why = l.g === 'bloom' ? l.buys + ' buys' : l.g === 'wall' ? l.sells + ' sells' : l.g === 'glider' ? (l.buys ? l.buys + ' buy' + (l.buys > 1 ? 's' : '') : 'new holders') : l.g === 'rush' ? l.buys + ' buys vs ' + l.sells + ' sells' : l.g === 'hunt' || l.g === 'eater' ? 'a rival in reach' : l.g === 'spore' ? 'losing ground' : l.g === 'revenge' ? 'losing cells to a rival' : l.g === 'colony' ? l.holders + ' new holder' + (l.holders > 1 ? 's' : '') :l.g === 'shield' ? l.sells + ' sell' + (l.sells > 1 ? 's' : '') + ' vs ' + l.buys : '';
+    return '<div>#' + l.block.toLocaleString('en-US') + ' <b>' + world.blocks[l.i].sym + '</b> reacts' + (why ? ' to ' + why : '') + ': ' + SAYS[l.g] + '</div>';
+  }).join('');
+}
+$('#ranks').addEventListener('click', (e) => { const r = e.target.closest('.rank'); if (!r) return; followI = Number(r.dataset.i); $('#follow').value = String(followI); view.z = Math.max(view.z, 4); });
+
+/* ── controls ── */
+$('#play').onclick = () => { playing = !playing; $('#play').textContent = playing ? '❚❚ Pause' : '▶ Play'; $('#play').classList.toggle('on', playing); };
+$('#step').onclick = () => { playing = false; $('#play').textContent = '▶ Play'; $('#play').classList.remove('on'); advance(1); panel(); };
+$('#back').onclick = () => {
+  const target = world.gen - 100; let s = null; for (let j = snaps.length - 1; j >= 0; j--) if (snaps[j].gen <= target) { s = snaps[j]; break; }
+  if (!s) return; E.restore(world, s); trails.clear(); ripples.length = 0; while (snaps.length && snaps[snaps.length - 1].gen > s.gen) snaps.pop(); advance(target - s.gen); panel();
+};
+$('#speed').onchange = (e) => { perSecond = Number(e.target.value); };
+/* the whole panel folds away behind one floating button, on every screen */
+function setPanel(open) { document.querySelector('.panel').hidden = !open; $('#openPanel').hidden = open; }
+$('#fold').onclick = () => setPanel(false);
+$('#openPanel').onclick = () => setPanel(true);
+if (innerWidth < 760) setPanel(false);
+$('#director').onclick = () => { director = !director; shot = null; $('#director').classList.toggle('on', director); if (director) { followI = -1; lockI = -1; $('#follow').value = '-1'; } };
+$('#follow').addEventListener('change', () => { lockI = followI; });
+$('#follow').onchange = (e) => { followI = Number(e.target.value); if (followI < 0) fitAll(); else view.z = Math.max(view.z, 4); };
+$('#glow').onclick = () => { glow = !glow; $('#glow').classList.toggle('on', glow); };
+$('#trails').onclick = () => { showTrails = !showTrails; trails.clear(); $('#trails').classList.toggle('on', showTrails); };
+$('#verify').onclick = async () => {
+  const goal = world.gen, want = world.hash, w2 = E.createWorld(data), bar = $('#progress i'); $('#verify').disabled = true;
+  while (w2.gen < goal) { const t1 = performance.now(); while (w2.gen < goal && performance.now() - t1 < 30) E.stepWorld(w2); bar.style.width = (100 * w2.gen / goal).toFixed(1) + '%'; $('#verifyLine').textContent = 'Replaying from block ' + data.de.toLocaleString('en-US') + '… ' + w2.gen.toLocaleString('en-US') + ' / ' + goal.toLocaleString('en-US'); await new Promise((r) => setTimeout(r, 0)); }
+  $('#verifyLine').textContent = w2.hash === want ? '✓ Same world: replayed from block 0 to generation ' + goal.toLocaleString('en-US') + ', fingerprint ' + want : '✗ Different fingerprint: ' + w2.hash + ' vs ' + want;
+  $('#verify').disabled = false;
+};
+
+/* ── pan, zoom ── */
+function fitAll() { let r = 0; for (const b of world.blocks) r = Math.max(r, Math.hypot(b.home[0], b.home[1])); view.x = 0; view.y = 0; view.z = Math.max(0.6, Math.min(innerWidth, innerHeight) / (2 * r + 120)); }
+let drag = null; const pts = new Map();
+cv.addEventListener('pointerdown', (e) => { cv.setPointerCapture(e.pointerId); pts.set(e.pointerId, [e.clientX, e.clientY]); drag = { x: e.clientX, y: e.clientY, vx: view.x, vy: view.y, d: null, moved: false }; });
+cv.addEventListener('pointermove', (e) => {
+  /* hover: the faction under the cursor (mouse only; on touch the tap does it) */
+  if (e.pointerType === 'mouse' && !pts.size) { mouse = { x: e.clientX, y: e.clientY }; hoverI = ownerAt(e.clientX, e.clientY); return; }
+  if (!pts.has(e.pointerId)) return; pts.set(e.pointerId, [e.clientX, e.clientY]);
+  if (pts.size === 2) { const [a, b] = [...pts.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]); if (drag.d) view.z = Math.max(0.3, Math.min(40, view.z * d / drag.d)); drag.d = d; drag.moved = true; return; }
+  if (drag) { if (Math.hypot(e.clientX - drag.x, e.clientY - drag.y) > 4) { drag.moved = true; followI = -1; $('#follow').value = '-1'; shot = null; } view.x = drag.vx - (e.clientX - drag.x) / view.z; view.y = drag.vy - (e.clientY - drag.y) / view.z; }
+});
+cv.addEventListener('pointerup', (e) => {
+  /* a click (no drag): lock the faction under it and follow it; a click on empty space releases */
+  if (drag && !drag.moved && pts.size === 1) { const o = ownerAt(e.clientX, e.clientY); lockI = o; followI = o; $('#follow').value = String(o); if (o >= 0) view.z = Math.max(view.z, 3); }
+  pts.delete(e.pointerId); if (!pts.size) drag = null;
+});
+cv.addEventListener('pointerleave', () => { mouse = null; hoverI = -1; });
+cv.addEventListener('wheel', (e) => { e.preventDefault(); const f = Math.exp(-e.deltaY * 0.0015), mx = e.clientX - innerWidth / 2, my = e.clientY - innerHeight / 2;
+  const wx = view.x + mx / view.z, wy = view.y + my / view.z; view.z = Math.max(0.3, Math.min(40, view.z * f)); view.x = wx - mx / view.z; view.y = wy - my / view.z; }, { passive: false });
+cv.addEventListener('dblclick', (e) => { view.x += (e.clientX - innerWidth / 2) / view.z; view.y += (e.clientY - innerHeight / 2) / view.z; view.z = Math.min(40, view.z * 1.6); });
+
+/* debugging hooks for the checks */
+window.__life = { world: () => world, E, advance, view };
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
