@@ -66,7 +66,7 @@ export function createLifeLive({ rpc, dir = null, lignes, poolManager, log = () 
       S.history = S.history.slice(0, 60); writeJson('seasons.json', S.history);
       log('[life] season ' + s.id + ' was played with engine ' + (s.engine || 1) + ': closed, a new season starts'); return;
     }
-    S.season = { id: s.id, de: s.de, end: s.end, blocks: s.blocks, hashes: s.hashes || [], rounds: s.rounds || [], late: s.late || [], engine: s.engine, salt: s.salt || '', startedAt: s.startedAt };
+    S.season = { id: s.id, de: s.de, end: s.end, blocks: s.blocks, hashes: s.hashes || [], rounds: s.rounds || [], late: s.late || [], engine: s.engine, salt: s.salt || '', boss: s.boss || null, startedAt: s.startedAt };
     const readTo = Number(s.readTo) || s.de - 1;
     /* facts written past the saved readTo belong to a window whose readTo never got saved: dropped, that window is read again */
     let faits = [];
@@ -76,7 +76,7 @@ export function createLifeLive({ rpc, dir = null, lignes, poolManager, log = () 
       if (faits.length !== lines.length) writeFileSync(f(journalName(s.id)), faits.map((x) => JSON.stringify(x) + '\n').join(''));
     }
     const cp = readJson('cp-' + s.id + '.json');
-    try { S.world = cp ? E.deserializeWorld(cp) : E.createLiveWorld(s.blocks.filter((b) => !b.joinedAt), s.de, s.salt || ''); } catch (e) { log('[life] checkpoint refused, replaying the journal: ' + e.message); S.world = E.createLiveWorld(s.blocks.filter((b) => !b.joinedAt), s.de, s.salt || ''); }
+    try { S.world = cp ? E.deserializeWorld(cp) : E.createLiveWorld(s.blocks.filter((b) => !b.joinedAt), s.de, s.salt || '', s.boss || null); } catch (e) { log('[life] checkpoint refused, replaying the journal: ' + e.message); S.world = E.createLiveWorld(s.blocks.filter((b) => !b.joinedAt), s.de, s.salt || '', s.boss || null); }
     const after = faits.filter((x) => x.bloc > S.world.data.a);
     if (readTo > S.world.data.a) E.appendFacts(S.world, after, readTo);
     S.readTo = readTo; S.recent = faits.filter((x) => x.bloc > readTo - RECENT_BLOCKS);
@@ -99,9 +99,11 @@ export function createLifeLive({ rpc, dir = null, lignes, poolManager, log = () 
     /* Phil 2026-11-16: "ca refait une partie avec les blocks de la partie precedente qui reviennent ... jouabilite infinie": every block of
      *   the season that ends (paid entries included) starts the next one, with the stocks of the moment; a new seed (the season id)
      *   redraws the whole map. */
+    /* BOSS (engine v4): the largest colony of the season that ends starts the next one with a glider gun */
+    const boss = S.world ? (E.ranking(S.world).rows[0] || {}).i : undefined, bossAdr = boss !== undefined && S.world.blocks[boss] ? S.world.blocks[boss].adr : null;
     if (S.season && Array.isArray(S.season.blocks)) for (const b of S.season.blocks) if (!blocks.some((x) => x.adr === b.adr)) { const { joinedAt, i, home, ...rest } = b; blocks.push(rest); }
-    S.season = { id, de: h + 1, end: h + 1 + seasonBlocks, blocks, hashes: [], engine: E.ENGINE_VERSION, salt: id, startedAt: new Date().toISOString() };
-    S.world = E.createLiveWorld(blocks, h + 1, id); S.readTo = h; S.recent = [];
+    S.season = { id, de: h + 1, end: h + 1 + seasonBlocks, blocks, hashes: [], engine: E.ENGINE_VERSION, salt: id, boss: bossAdr, startedAt: new Date().toISOString() };
+    S.world = E.createLiveWorld(blocks, h + 1, id, bossAdr); S.readTo = h; S.recent = [];
     saveSeason(); saveCheckpoint(); log('[life] season ' + id + ' starts at block ' + (h + 1) + ' with ' + blocks.length + ' players');
     return true;
   }
@@ -242,7 +244,7 @@ export function createLifeLive({ rpc, dir = null, lignes, poolManager, log = () 
     state() {
       if (!S.world) return JSON.stringify({ ok: false, etat: 'NOT_STARTED', pourquoi: S.lastError });
       const now = Date.now(); if (S.stateCache && now - S.stateCache.at < 3000) return S.stateCache.v;
-      const v = JSON.stringify({ ok: true, season: { id: S.season.id, de: S.season.de, end: S.season.end, players: S.season.blocks.length, hashes: S.season.hashes, startedAt: S.season.startedAt },
+      const v = JSON.stringify({ ok: true, season: { id: S.season.id, de: S.season.de, end: S.season.end, players: S.season.blocks.length, hashes: S.season.hashes, salt: S.season.salt || '', boss: S.season.boss || null, startedAt: S.season.startedAt },
         readTo: S.readTo, world: E.serializeWorld(S.world), history: S.history.slice(0, 5) });
       S.stateCache = { at: now, v }; return v;
     },

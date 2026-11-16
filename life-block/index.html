@@ -148,6 +148,11 @@
         <li>Convert: on a beat with 3 buys or more, a block that touches a rival turns a 3x3 patch of the rival's cells into its own. It is the only gesture that writes over a rival, and it is what breaks frozen borders.</li>
         <li>Revive: anyone can pay $1 of TBLOCK (to the holders' vault) to give a block in the game a fresh colony near its own and refill all its gestures.</li>
         <li>Seasons: a season lasts 24 h of chain. When it ends, every block of it starts the next one on a new map drawn from the new season's seed: the game never stops.</li>
+        <li>Rain: every hour of chain, neutral seeds fall near the centre. Any colony can absorb them.</li>
+        <li>Wear: every 2 minutes of chain, one in six of the cells that did not change since the last check (same place, same block) dies. A colony that stops moving melts.</li>
+        <li>Alliances: two blocks that share a holder (an address that received exactly these two blocks, not a router that receives many) do not eat or convert each other.</li>
+        <li>Boss: the largest colony of the season before starts the next one with a glider gun already built. Everybody hunts it.</li>
+        <li>Catch-up: at mid-season, the five smallest colonies get a free revive.</li>
         <li>Asleep: nothing. A block whose market goes quiet stops answering, and Life erodes it.</li>
         <li>A gesture only writes empty cells. Budgets per hour cap every gesture; past 24,000 live cells, growth gestures wait.</li>
         <li>The crown: each beat, the block with the most live cells wears it (a tie leaves it where it was). The feed on the side tells who takes it, who eats whom, who is wiped out and who comes back.</li>
@@ -309,6 +314,9 @@ function feedText(e) {
   if (e.type === 'join') return '＋ ' + sym(e.i) + ' enters the game';
   if (e.type === 'machine') return '⚙ ' + sym(e.i) + ' builds a glider gun';
   if (e.type === 'revive') return '⚡ ' + sym(e.i) + ' is revived';
+  if (e.type === 'bonus') return '🎁 ' + sym(e.i) + ' gets a catch-up revive';
+  if (e.type === 'boss') return '💀 ' + sym(e.i) + ' is the boss: it starts with a glider gun';
+  if (e.type === 'rain') return '🌧 neutral seeds fall near the centre';
   if (e.type === 'reinforce') return '＋ ' + sym(e.i) + ' is reinforced';
   return '';
 }
@@ -599,7 +607,7 @@ $('#verify').onclick = async () => {
     /* the live check: the season's first players + the public journal, replayed here from the season's first block */
     $('#verifyLine').textContent = 'Reading the public journal…';
     const lines = (await (await fetch('/api/life/journal', { cache: 'no-store' })).text()).split('\n').filter(Boolean).map((x) => JSON.parse(x));
-    w2 = E.createLiveWorld(world.blocks.filter((b) => !b.joinedAt).map(({ i, home, ...b }) => b), live.season.de, live.season.salt || '');
+    w2 = E.createLiveWorld(world.blocks.filter((b) => !b.joinedAt).map(({ i, home, ...b }) => b), live.season.de, live.season.salt || '', live.season.boss || null);
     const upTo = live.season.de + goal - 1; E.appendFacts(w2, lines.filter((x) => x.bloc <= upTo), upTo);
   } else w2 = E.createWorld(data);
   const de = live ? live.season.de : data.de;

@@ -21,7 +21,15 @@ import { keccak256Hex } from './keccak.js';
 
 /* the RULES' version: a season is replayed with the engine of its version only. 2 = the crown margin (2026-11-16). A server that loads
  *   a season of another version closes it and starts a new one (life-live.js), so "Verify" never compares two rule sets. */
-export const ENGINE_VERSION = 3; /* 3 = convert, revive, a seed per season (2026-11-16) */
+export const ENGINE_VERSION = 4; /* 3 = convert, revive, a seed per season; 4 = rain, wear, alliances, boss, catch-up (2026-11-16) */
+/* Phil 2026-11-16 ("j'adore tes idees 1 2 3 4 5"): the game must never freeze.
+ *   RAIN: every hour of chain, neutral seeds fall near the centre; colonies absorb them (a neutral cell can be eaten).
+ *   WEAR: every WEAR_EVERY generations, one in WEAR_DIV of the cells that did not change (same place, same owner) since the last check dies.
+ *   ALLIANCES: two blocks that share a holder (an address that received exactly these two blocks' tokens, never more: a router that
+ *     receives many is not a person) do not eat or convert each other.
+ *   BOSS: the largest colony of the season before starts with a glider gun already built.
+ *   CATCH-UP: at mid-season, the 5 smallest colonies get a free revive. */
+export const WEAR_EVERY = 600, WEAR_DIV = 6, RAIN_EVERY = 18000;
 export const BEAT_BLOCKS = 10;          /* the brain beats every 10 chain blocks = 2 s */
 export const BLOCKS_PER_HOUR = 18000;   /* 3600 s / 0.2 s */
 export const CELL_CAP = 24000;          /* above this, growth gestures pause (defence still allowed) */
@@ -74,7 +82,7 @@ function mix(k, o) { let h = (k ^ Math.imul(o + 2, 0x9e3779b1)) >>> 0; h = Math.
 const hex8 = (n) => ('00000000' + (n >>> 0).toString(16)).slice(-8);
 
 /** one Life generation (B3/S23 with owners): { next, births, hash } */
-export function lifeStep(cells) {
+export function lifeStep(cells, allies = null) {
   if (cells.size * 9 > CAP * 0.6) throw new Error('world too large for the table: ' + cells.size + ' cells');
   stamp = (stamp + 1) >>> 0 || 1; let used = 0;
   for (const k of cells.keys()) for (let j = 0; j < 8; j++) {
@@ -93,7 +101,7 @@ export function lifeStep(cells) {
        *   can reach 2: the rule never has to break a tie. Neutral cells (-1) never eat, but can be eaten. */
       o = cur; let a = -2, b = -2, own = 0, r = -2, rn = 0; /* the (at most 3) rival neighbours: two of them equal = that rival has 2 */
       for (let j = 0; j < 8; j++) { const v = cells.get(k + NOFF[j]); if (v === undefined) continue; if (v === cur) own++; else if (v >= 0) { if (v === a || v === b) { r = v; rn = 2; } else if (a === -2) a = v; else b = v; } }
-      if (rn >= 2 && rn > own) { o = r; eaten.set(r, (eaten.get(r) || 0) + 1); if (cur >= 0) { lost.set(cur, (lost.get(cur) || 0) + 1); const pk = cur * 4096 + r; pairs.set(pk, (pairs.get(pk) || 0) + 1); } }
+      if (rn >= 2 && rn > own && !(cur >= 0 && allies && (allies.get(Math.min(cur, r) * 4096 + Math.max(cur, r)) || 0) > 0)) { o = r; eaten.set(r, (eaten.get(r) || 0) + 1); if (cur >= 0) { lost.set(cur, (lost.get(cur) || 0) + 1); const pk = cur * 4096 + r; pairs.set(pk, (pairs.get(pk) || 0) + 1); } }
     } else {
       if (c !== 3) continue;
       const x = kx(k), y = ky(k); if (!inside(x, y)) continue;
@@ -152,8 +160,22 @@ export function createWorld(data) {
   const beats = Math.ceil((data.a - data.de + 1) / BEAT_BLOCKS), perBeat = new Map();
   for (const f of data.faits) { const k = beatOf(f.bloc, data.de); if (k < 1 || k > beats) continue; if (!perBeat.has(k)) perBeat.set(k, []); perBeat.get(k).push(f); }
   const players = blocks.map((b) => newPlayer(b));
-  return { data, blocks, players, cells, gen: 0, chainBlock: data.de, perBeat, beats, joins: new Map(), crown: -1, events: [], eventCount: 0, log: [], logCount: 0, hash: worldHash(cells), capped: false, stopped: null };
+  const world0 = { data, blocks, players, cells, gen: 0, chainBlock: data.de, perBeat, beats, joins: new Map(), crown: -1, recv: new Map(), allies: new Map(), wearRef: null, boss: -1, events: [], eventCount: 0, log: [], logCount: 0, hash: worldHash(cells), capped: false, stopped: null };
+  /* BOSS: the largest colony of the season before (data.boss = its address) starts with a glider gun beside its home */
+  if (data.boss) { const bi = blocks.findIndex((b) => b.adr === String(data.boss).toLowerCase()); if (bi >= 0) {
+    const h = blocks[bi].home, d = [h[0] >= 0 ? 1 : -1, h[1] >= 0 ? 1 : -1];
+    if (placeWhole(cells, orient(P.gun, d, 'glider'), [h[0] + d[0] * 10, h[1] + d[1] * 10], bi)) { world0.boss = bi; world0.hash = worldHash(cells); event(world0, { type: 'boss', i: bi }); } } }
+  return world0;
 }
+/* an address that received the tokens of exactly two blocks allies them; a third block makes it a router: the alliance it made ends */
+function noteReceiver(world, v, i) {
+  const r = world.recv.get(v), pk = (a, b) => Math.min(a, b) * 4096 + Math.max(a, b);
+  if (r === undefined) { world.recv.set(v, [i]); return; }
+  if (r === 0 || r.includes(i)) return;
+  if (r.length === 1) { r.push(i); const k = pk(r[0], i); world.allies.set(k, (world.allies.get(k) || 0) + 1); return; }
+  const k = pk(r[0], r[1]), n = (world.allies.get(k) || 0) - 1; if (n > 0) world.allies.set(k, n); else world.allies.delete(k); world.recv.set(v, 0);
+}
+export const allied = (world, a, b) => a >= 0 && b >= 0 && a !== b && (world.allies.get(Math.min(a, b) * 4096 + Math.max(a, b)) || 0) > 0;
 function newPlayer(b) {
   return { brain: etatInitial(b.adr), cum: { achats: 0, ventes: 0, detenteurs: 0 }, prev: null, seen: new Set(), mood: 'NON_LU', vu: null,
     tank: Object.fromEntries(Object.keys(GESTURES).map((g) => [g, tankOf(g)])), counts: Object.fromEntries(Object.keys(GESTURES).map((g) => [g, 0])), births: 0, crownBeats: 0, everAlive: false, eaten: 0, lost: 0, lostBy: new Map(), lastN: 0, last: null };
@@ -163,7 +185,7 @@ function feedBrain(world, i, beatFacts, block) {
   const p = world.players[i], b = world.blocks[i];
   for (const f of beatFacts) {
     if (f.kind === 'achat') p.cum.achats++; else if (f.kind === 'vente') p.cum.ventes++;
-    if (!b.pools.includes(f.vers) && !p.seen.has(f.vers)) { p.seen.add(f.vers); p.cum.detenteurs++; }
+    if (!b.pools.includes(f.vers) && !p.seen.has(f.vers)) { p.seen.add(f.vers); p.cum.detenteurs++; noteReceiver(world, f.vers, i); }
   }
   const prev = p.prev, vie = b.liquiditeUsd > 0 ? b.liquiditeUsd : null;
   const r = pas(p.brain, { vie, vieAvant: vie, achats: p.cum.achats, ventes: p.cum.ventes, detenteurs: p.cum.detenteurs,
@@ -196,7 +218,7 @@ function contactPoint(world, list, i) {
 /** convert the rival cells of the 3x3 patch centred on `at` to `i` (never empty, never neutral, never its own); returns how many */
 function convertPatch(world, at, i) {
   let n = 0;
-  for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) { const k = key(at[0] + dx, at[1] + dy), o = world.cells.get(k); if (o !== undefined && o >= 0 && o !== i) { world.cells.set(k, i); n++; } }
+  for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) { const k = key(at[0] + dx, at[1] + dy), o = world.cells.get(k); if (o !== undefined && o >= 0 && o !== i && !allied(world, o, i)) { world.cells.set(k, i); n++; } }
   if (n) { const p = world.players[i]; p.eaten += n; }
   return n;
 }
@@ -365,13 +387,31 @@ export function revivePlayer(world, b) {
   return i;
 }
 
+function rain(world) {
+  const h = seedBits('rain', String(world.chainBlock));
+  for (let j = 0; j < 3; j++) { const x = (parseInt(h.slice(2 + j * 8, 6 + j * 8), 16) % 61) - 30, y = (parseInt(h.slice(6 + j * 8, 10 + j * 8), 16) % 61) - 30; place(world.cells, P.rpent, [x, y], -1); }
+  event(world, { type: 'rain', i: -1 });
+}
+function wear(world) {
+  if (world.wearRef) { let n = 0; for (const [k, o] of world.wearRef) if (world.cells.get(k) === o && mix(k, world.gen) % WEAR_DIV === 0) { world.cells.delete(k); n++; } world.wornLast = n; }
+  world.wearRef = new Map(world.cells);
+}
+export function catchUp(world) {
+  const n = new Array(world.blocks.length).fill(0); for (const o of world.cells.values()) if (o >= 0) n[o]++;
+  const order = [...n.keys()].sort((a, b) => n[a] - n[b] || a - b).slice(0, 5);
+  for (const i of order) { revivePlayer(world, { adr: world.blocks[i].adr }); event(world, { type: 'bonus', i }); }
+}
+
 /** advance one generation (= one Base block); brains beat at the start of each beat */
 export function stepWorld(world) {
   if (world.stopped || world.chainBlock > world.data.a) return world;
   const J = world.joins.get(world.chainBlock); if (J) { for (const b of [...J].sort((p, q) => (p.adr < q.adr ? -1 : p.adr > q.adr ? 1 : (p.revive ? 1 : 0) - (q.revive ? 1 : 0)))) (b.revive ? revivePlayer : joinPlayer)(world, b); world.joins.delete(world.chainBlock); }
   if ((world.chainBlock - world.data.de) % BEAT_BLOCKS === 0) beat(world);
+  if (world.gen > 0 && world.gen % RAIN_EVERY === 0) rain(world);
+  if (world.gen > 0 && world.gen % WEAR_EVERY === 0) wear(world);
+  if (world.gen === SEASON_BLOCKS / 2) catchUp(world);
   if (world.cells.size > HARD_CAP) { world.stopped = 'the world grew past ' + HARD_CAP + ' cells'; return world; }
-  const { next, births, eaten, lost, pairs, hash } = lifeStep(world.cells);
+  const { next, births, eaten, lost, pairs, hash } = lifeStep(world.cells, world.allies);
   for (const [o, n] of births) world.players[o].births += n;
   for (const [o, n] of eaten) world.players[o].eaten += n;
   for (const [o, n] of lost) world.players[o].lost += n;
@@ -387,6 +427,7 @@ export function serializeWorld(w) {
   const perBeat = []; for (const [k, v] of w.perBeat) if (k * BEAT_BLOCKS + w.data.de >= w.chainBlock - BEAT_BLOCKS) perBeat.push([k, v]);
   return { v: 1, de: w.data.de, a: w.data.a, gen: w.gen, chainBlock: w.chainBlock, crown: w.crown, hash: w.hash, capped: w.capped, stopped: w.stopped,
     eventCount: w.eventCount, logCount: w.logCount, events: w.events.slice(-40), log: w.log.slice(-60), cells, perBeat, joins: [...w.joins],
+    recv: [...w.recv], allies: [...w.allies], wearRef: w.wearRef ? [...w.wearRef].flat() : null, boss: w.boss,
     blocks: w.blocks, players: w.players.map((p) => { const { c, ...brain } = p.brain; return { ...p, brain, seen: [...p.seen], lostBy: [...p.lostBy] }; }) };
 }
 export function deserializeWorld(s) {
@@ -395,10 +436,11 @@ export function deserializeWorld(s) {
   const blocks = s.blocks.map((b) => ({ ...b }));
   const players = s.players.map((p, i) => ({ ...p, brain: { ...p.brain, c: etatInitial(blocks[i].adr).c }, seen: new Set(p.seen), lostBy: new Map(p.lostBy), tank: { ...p.tank }, counts: { ...p.counts }, cum: { ...p.cum } }));
   return { data: { de: s.de, a: s.a, blocks, faits: [] }, blocks, players, cells, gen: s.gen, chainBlock: s.chainBlock, perBeat: new Map(s.perBeat), beats: Math.ceil((s.a - s.de + 1) / BEAT_BLOCKS),
-    joins: new Map(s.joins), crown: s.crown, events: s.events.slice(), eventCount: s.eventCount, log: s.log.slice(), logCount: s.logCount, hash: s.hash, capped: s.capped, stopped: s.stopped };
+    joins: new Map(s.joins), recv: new Map(s.recv || []), allies: new Map(s.allies || []), boss: s.boss === undefined ? -1 : s.boss,
+    wearRef: s.wearRef ? (() => { const m = new Map(); for (let j = 0; j < s.wearRef.length; j += 2) m.set(s.wearRef[j], s.wearRef[j + 1]); return m; })() : null, crown: s.crown, events: s.events.slice(), eventCount: s.eventCount, log: s.log.slice(), logCount: s.logCount, hash: s.hash, capped: s.capped, stopped: s.stopped };
 }
 /** a live world with no fact yet: the season starts at chain block `de` */
-export function createLiveWorld(blocks, de, salt = '') { return createWorld({ blocks, faits: [], de, a: de - 1, salt }); }
+export function createLiveWorld(blocks, de, salt = '', boss = null) { return createWorld({ blocks, faits: [], de, a: de - 1, salt, boss }); }
 
 export function ranking(world) {
   const n = new Array(world.blocks.length).fill(0); let neutral = 0;
@@ -411,10 +453,11 @@ const copyPlayer = (p) => ({ brain: structuredClone(p.brain), cum: { ...p.cum },
   tank: { ...p.tank }, counts: { ...p.counts }, births: p.births, crownBeats: p.crownBeats, everAlive: p.everAlive, eaten: p.eaten, lost: p.lost, lostBy: new Map(p.lostBy), lastN: p.lastN, last: p.last });
 export function snapshot(world) {
   return { gen: world.gen, chainBlock: world.chainBlock, cells: new Map(world.cells), hash: world.hash, capped: world.capped, stopped: world.stopped, logLen: world.log.length, logCount: world.logCount,
+    recv: new Map([...world.recv].map(([k, v]) => [k, Array.isArray(v) ? v.slice() : v])), allies: new Map(world.allies), wearRef: world.wearRef ? new Map(world.wearRef) : null,
     blocksLen: world.blocks.length, joins: [...world.joins].map(([k, v]) => [k, v.slice()]), crown: world.crown, eventsLen: world.events.length, eventCount: world.eventCount, players: world.players.map(copyPlayer) };
 }
 export function restore(world, s) {
   world.gen = s.gen; world.chainBlock = s.chainBlock; world.cells = new Map(s.cells); world.hash = s.hash; world.capped = s.capped; world.stopped = s.stopped;
-  world.log.length = Math.min(world.log.length, s.logLen); world.logCount = s.logCount; world.blocks.length = s.blocksLen; world.joins = new Map(s.joins.map(([k, v]) => [k, v.slice()])); world.crown = s.crown; world.events.length = Math.min(world.events.length, s.eventsLen); world.eventCount = s.eventCount; world.players = s.players.map(copyPlayer);
+  world.log.length = Math.min(world.log.length, s.logLen); world.logCount = s.logCount; world.blocks.length = s.blocksLen; world.recv = new Map([...s.recv].map(([k, v]) => [k, Array.isArray(v) ? v.slice() : v])); world.allies = new Map(s.allies); world.wearRef = s.wearRef ? new Map(s.wearRef) : null; world.joins = new Map(s.joins.map(([k, v]) => [k, v.slice()])); world.crown = s.crown; world.events.length = Math.min(world.events.length, s.eventsLen); world.eventCount = s.eventCount; world.players = s.players.map(copyPlayer);
   return world;
 }

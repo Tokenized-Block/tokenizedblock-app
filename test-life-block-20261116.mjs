@@ -152,6 +152,27 @@ t('C5 the chain clock: one generation = one Base block', r1.w.chainBlock === dat
   const L2 = E.createLiveWorld(data.blocks, data.de, 'x'); E.appendFacts(L2, [], data.de + 49); while (L2.chainBlock <= L2.data.a) E.stepWorld(L2); L2.players[0].tank.glider = 0;
   E.appendFacts(L2, [{ bloc: at, revive: { adr: data.blocks[0].adr } }], at); E.stepWorld(L2);
   t('G4 the same revive on the same block replays to the same world', L2.hash === L.hash); }
+{ /* H. engine v4: alliances, wear, rain, boss, catch-up */
+  const B = data.blocks.slice(0, 4).map((b) => ({ ...b, pools: [] })), V = '0x' + '77'.repeat(20);
+  const w = E.createLiveWorld(B, 1000, 'h');
+  const tr = (bloc, b, vers) => ({ bloc, b, kind: 'transfert', vers, tx: '0x' + bloc.toString(16).padStart(64, '0'), log: b });
+  E.appendFacts(w, [tr(1001, 0, V), tr(1002, 1, V)], 1030); while (w.chainBlock <= w.data.a) E.stepWorld(w);
+  t('H1a one holder of exactly two blocks allies them', E.allied(w, 0, 1) && !E.allied(w, 0, 2));
+  E.appendFacts(w, [tr(1031, 2, V)], 1060); while (w.chainBlock <= w.data.a) E.stepWorld(w);
+  t('H1b the same address receiving a third block is a router: the alliance ends', !E.allied(w, 0, 1) && !E.allied(w, 1, 2));
+  const M = new Map([[E.key(0, 0), 1], [E.key(1, 0), 2], [E.key(0, 1), 2]]);
+  t('H2 allied blocks do not eat each other (B6 with an alliance)', E.lifeStep(M, new Map([[1 * 4096 + 2, 1]])).next.get(E.key(0, 0)) === 1 && E.lifeStep(M, new Map()).next.get(E.key(0, 0)) === 2);
+  /* wear: a still block (2x2) of a lone colony is worn away, one cell in WEAR_DIV per check, only cells that did not change */
+  const L = E.createLiveWorld(B.slice(0, 1), 5000, 'w'); L.cells.clear(); for (let i = 0; i < 40; i++) for (const [x, y] of [[0, 0], [1, 0], [0, 1], [1, 1]]) L.cells.set(E.key(x + i * 6, y), 0);
+  const n0 = L.cells.size; E.appendFacts(L, [], 5000 + 3 * E.WEAR_EVERY); while (L.chainBlock <= L.data.a) E.stepWorld(L);
+  t('H3 wear removes frozen cells at its checks (a field of 160 still cells)', (L.wornLast || 0) > 0, 'worn at the last check: ' + L.wornLast);
+  const Rn = E.createLiveWorld([], 7000, 'r'); E.appendFacts(Rn, [], 7000 + E.RAIN_EVERY); while (Rn.chainBlock <= Rn.data.a) E.stepWorld(Rn);
+  t('H4 every hour of chain, neutral seeds fall (the feed says rain)', Rn.events.some((e) => e.type === 'rain'));
+  const Bo = E.createLiveWorld(data.blocks, data.de, 's', data.blocks[3].adr), No = E.createLiveWorld(data.blocks, data.de, 's');
+  t('H5 the boss (last season\'s largest) starts with a glider gun: more cells, the feed says so', Bo.boss === 3 && Bo.cells.size > No.cells.size && Bo.events.some((e) => e.type === 'boss'));
+  const C = E.createLiveWorld(data.blocks, data.de, 'c'); const sizes = (W) => { const n = new Array(W.blocks.length).fill(0); for (const o of W.cells.values()) if (o >= 0) n[o]++; return n; };
+  const before = sizes(C), small = [...before.keys()].sort((a, b) => before[a] - before[b] || a - b).slice(0, 5); E.catchUp(C);
+  t('H6 catch-up: the 5 smallest colonies get a free revive (bonus in the feed)', small.every((i) => C.events.some((e) => e.type === 'bonus' && e.i === i)) && C.events.filter((e) => e.type === 'bonus').length === 5); }
 const rk = E.ranking(r1.w); t('C8 the ranking adds up to the live cells', rk.rows.reduce((s, r) => s + r.cells, 0) + rk.neutral === r1.w.cells.size);
 console.log('after', GENS, 'generations:', r1.w.cells.size, 'cells,', r1.w.log.length, 'gestures, top:', rk.rows.slice(0, 5).map((r) => r.sym + ' ' + r.cells).join(', '), '| hash', r1.w.hash);
 console.log(ok + '/' + (ok + ko) + (ko ? ' — RED' : ' — green'));
