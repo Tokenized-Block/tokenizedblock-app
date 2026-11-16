@@ -76,6 +76,19 @@
 .tip .tipBtns{display:flex;gap:6px;margin-top:6px}.tip .tipBtns button{padding:5px 10px;font-size:12px}.tip .tipBtns .primary{background:var(--bleu);border-color:var(--bleu);color:#fff}
 .mini{position:fixed;right:12px;bottom:64px;z-index:2;border:1px solid var(--ligne);border-radius:10px;background:rgba(4,9,12,.86);cursor:pointer}
 .loading{position:fixed;inset:0;display:grid;place-items:center;z-index:5;color:var(--doux);font-size:14px;background:var(--fond)}.loading[hidden],.helpBox[hidden],.hud [hidden]{display:none}
+.card.head{position:relative}.corner{position:absolute;top:10px;right:10px;width:28px;height:28px;padding:0;border-radius:50%}
+.lead{color:var(--texte);margin:6px 0 0}.lead a{color:var(--accent);margin-left:4px}
+.pill{display:inline-block;margin:8px 0 0;padding:3px 10px;border:1px solid var(--ligne);border-radius:99px;font-size:12px;color:var(--doux)}.pill b{color:var(--texte);font-weight:600}
+.cta{width:100%;padding:11px;font-size:15px;border-radius:12px}.tools{margin-top:8px}
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:6px}.tile{border:1px solid var(--ligne);border-radius:10px;padding:7px 9px;background:rgba(4,9,12,.5)}
+.tile b{display:block;font-size:19px;font-variant-numeric:tabular-nums;line-height:1.2}.tile span{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--doux)}
+.tiles.sk b{color:transparent;border-radius:6px;background:linear-gradient(90deg,var(--ligne),rgba(53,211,240,.18),var(--ligne));background-size:200% 100%;animation:sk 1.2s linear infinite}
+@keyframes sk{from{background-position:200% 0}to{background-position:-200% 0}}
+.small{font-size:12px}.proof{margin-top:8px}.proof summary{font-weight:600}.hashRow{display:flex;gap:6px;align-items:center;margin-top:6px}.hashRow .hash{flex:1;min-width:0}
+.xsBtn{padding:2px 8px;font-size:11px;border-radius:7px}
+.nav{position:fixed;left:12px;top:50%;transform:translateY(-50%);z-index:3;display:none;flex-direction:column;gap:6px}.nav button{min-width:40px;height:36px;padding:0 8px;background:rgba(4,9,12,.86);font-size:13px}
+.navHint{position:fixed;left:50%;transform:translateX(-50%);top:27%;z-index:3;background:rgba(4,9,12,.9);border:1px solid var(--ligne);border-radius:99px;padding:6px 8px 6px 14px;font-size:12px;color:var(--texte);white-space:nowrap}.navHint[hidden]{display:none}.navHint button{margin-left:8px;padding:0 7px;border-radius:50%}
+@media (max-width:760px){.nav{display:flex}.hashRow .hash{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;word-break:normal}}
 .feed li.flash{box-shadow:0 0 0 1px var(--accent),0 0 16px rgba(53,211,240,.45)}
 @media (max-width:760px){.legend{display:none}.hud{top:62px;bottom:auto;flex-wrap:wrap;justify-content:center;gap:6px;font-size:11px;width:calc(100vw - 24px);box-sizing:border-box}.hud .hl{white-space:normal;text-align:center}
   .tip.locked{left:8px !important;right:8px;width:auto;transform:none;bottom:96px}.mini{display:none}.helpBox{top:130px;bottom:auto}}
@@ -90,17 +103,22 @@
 <body>
 <canvas id="c"></canvas>
 <div class="panel">
-  <div class="card">
+  <div class="card head">
     <a class="back" href="/" title="Back to the TokenizedBlock map">← TokenizedBlock</a>
     <h1>Game of Life <b>Block</b> <span class="liveTag" id="liveTag" hidden>● LIVE</span></h1>
+    <button id="fold" class="corner" title="Hide the panel to see the whole map">‹</button>
+    <p class="lead">Fight for the crown: buys grow your colony.<a href="#" id="howLink" aria-expanded="false">How it works</a></p>
+    <span class="pill" id="seasonPill" hidden></span>
+    <div id="howBox" hidden>
     <p class="sub">A battle map of the tokenized stocks on Base. Each stock is a colony of cells living by Conway's Game of Life. Its Brain AI watches that stock's own trades, block by block: buys push the colony out, sells make it dig in, new holders plant outposts. At the borders, colonies eat each other. The largest one wears the crown 👑.</p>
     <p class="sub" id="goalLine">The goal: wear the crown for the longest time in the season.</p>
     <p class="sub" id="replayLine">Reading the live game…</p>
     <p class="sub" id="modeLine"></p>
+    </div>
   </div>
   <div class="card">
-    <div class="row">
-      <button id="addBlock" class="add" title="Drop a block of your choice into the game">Add your block</button>
+    <button id="addBlock" class="add cta" title="Drop a block of your choice into the game">Add your block</button>
+    <div class="row tools">
       <button id="play" class="on">❚❚ Pause</button>
       <button id="step" title="Add one generation (one Base block)">+1 gen</button>
       <button id="back" title="Back 100 generations">⏪ 100</button>
@@ -110,12 +128,11 @@
         <option value="100">×20</option>
         <option value="2000">Max speed</option>
       </select>
-      <button id="fold" title="Hide the panel to see the whole map">✕ Hide panel</button>
     </div>
     <div class="row" style="margin-top:8px">
-      <input id="find" list="findList" placeholder="Find a block: symbol, name or address" autocomplete="off" style="flex:1 1 100%;min-width:0;padding:8px 10px;border-radius:10px;border:1px solid var(--ligne);background:#04090c;color:#f2fbff;font-size:14px">
+      <input id="find" type="search" list="findList" placeholder="Find / follow a block" title="Symbol, name or address: the map follows it. Clear it to see the whole map." autocomplete="off" style="flex:1 1 100%;min-width:0;padding:8px 10px;border-radius:10px;border:1px solid var(--ligne);background:#04090c;color:#f2fbff;font-size:14px">
       <datalist id="findList"></datalist>
-      <select id="follow" title="Follow a block"><option value="-1">Follow: the whole map</option></select>
+      <select id="follow" title="Follow a block" hidden><option value="-1">Follow: the whole map</option></select>
       <button id="trails" class="on" title="Fading trails behind dying cells (drawing only)">Trails</button>
       <button id="glow" class="on" title="A soft glow under the cells (drawing only)">Glow</button>
       <button id="director" title="An automatic camera that goes where the game turns: a bloom, a wall, the crown changing heads, a feast">🎥 Director</button>
@@ -123,19 +140,20 @@
   </div>
   <div class="card">
     <h2>World</h2>
-    <div class="stat">
-      <span>Generation</span><span id="sGen">0</span>
-      <span>Base block</span><span id="sBlock">–</span>
-      <span>Chain time</span><span id="sTime">–</span>
-      <span>Speed (measured)</span><span id="sRate">–</span>
-      <span>Live cells</span><span id="sCells">–</span>
-      <span>Neutral cells</span><span id="sNeutral">–</span>
+    <div class="tiles sk" id="tiles">
+      <div class="tile"><b id="sGen">0</b><span>Generation</span></div>
+      <div class="tile"><b id="sCells">–</b><span>Live cells</span></div>
+      <div class="tile"><b id="sNeutral">–</b><span>Neutral cells</span></div>
+      <div class="tile"><b id="sRate">–</b><span>Speed</span></div>
     </div>
+    <p class="sub small">Base block <span id="sBlock">–</span> · <span id="sTime">–</span></p>
     <p class="sub" id="capLine"></p>
-    <div style="margin-top:6px">World fingerprint <span class="hash" id="sHash">–</span></div>
+    <details class="proof"><summary>🔒 Proof: rebuild this world yourself</summary>
+    <div class="hashRow"><span class="small">Fingerprint</span><span class="hash" id="sHash">–</span><button id="copyHash" class="xsBtn" title="Copy the full fingerprint">Copy</button></div>
     <div class="row" style="margin-top:8px"><button id="verify">Verify: replay from block 0</button></div>
     <div id="progress"><i></i></div>
     <p class="sub" id="verifyLine">Anyone with the same Base logs rebuilds the same world: same block, same fingerprint.</p>
+    </details>
   </div>
   <div class="card">
     <h2>Territory</h2>
@@ -196,7 +214,7 @@
 <dialog id="addDlg" class="addDlg" aria-labelledby="addTitle">
   <h2 id="addTitle">Add your block</h2>
   <p class="sub">Pick any block of the app: a tokenized stock or a block someone created. It drops into the live season at a spot drawn from its address and the block it enters (never the centre), with its own Brain AI reading its own market.</p>
-  <input id="addQ" type="search" placeholder="Search a block: name, symbol or address" autocomplete="off">
+  <input id="addQ" type="search" placeholder="Search: Tesla, TSLA, apple, 0x… (typos are fine)" autocomplete="off">
   <ul id="addList" class="addList"></ul>
   <div id="addPick" class="addPick" hidden></div>
   <p class="sub" id="addPrice">Enter: $2 of TBLOCK. Revive a block already in the game: $1. At the price the hearts contract keeps on the market, paid from your wallet straight to the holders' vault.</p>
@@ -205,6 +223,8 @@
   <div class="row"><button id="addClose">Close</button></div>
 </dialog>
 <div id="tip" class="tip" hidden></div>
+<div id="nav" class="nav" aria-label="Map navigation"><button data-nav="in" title="Zoom in">+</button><button data-nav="out" title="Zoom out">−</button><button data-nav="fit" title="See the whole map">Recenter</button><button data-nav="crown" title="Go to the colony that wears the crown">👑</button></div>
+<div id="navHint" class="navHint" hidden>drag to move · pinch to zoom<button id="navHintX" title="Got it">×</button></div>
 <ol id="feed" class="feed" aria-live="polite" aria-label="Game events"></ol>
 <div id="hud" class="hud" aria-live="off"><span class="hl" id="hudLine">Reading the live game…</span><span class="gauge" id="hudGauge" hidden><i></i></span><button id="hudBet" class="betBtn" hidden>Bet</button><button id="helpBtn" class="helpBtn" title="How the game works" aria-expanded="false">?</button></div>
 <canvas id="mini" class="mini" width="150" height="150" title="The whole map: click to go there"></canvas>
@@ -248,10 +268,36 @@ function visuals() {
   }
 }
 /* Find a block (Grok's test, 2026-11-16: "OUSD est dans la partie mais hors de la zone visible"): symbol, name or address -> follow it */
+const norm = (t) => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+function oneTypo(a, b) { /* edit distance <= 1 */
+  if (a === b) return true; if (Math.abs(a.length - b.length) > 1) return false;
+  if (a.length === b.length) { const d = [...a].map((ch, k) => ch !== b[k] ? k : -1).filter((k) => k >= 0); if (d.length === 2 && d[1] === d[0] + 1 && a[d[0]] === b[d[1]] && a[d[1]] === b[d[0]]) return true; } /* two letters swapped */
+  let i = 0, j = 0, d = 0;
+  while (i < a.length && j < b.length) { if (a[i] === b[j]) { i++; j++; continue; } if (++d > 1) return false; if (a.length > b.length) i++; else if (b.length > a.length) j++; else { i++; j++; } }
+  return d + (a.length - i) + (b.length - j) <= 1;
+}
+function inOrder(q, t) { let k = 0; for (const ch of t) if (ch === q[k]) k++; return k === q.length; }
+function matchScore(c, raw) {
+  const q = norm(raw); if (!q) return 1;
+  const adr = String(c.adr || '').toLowerCase(), qa = String(raw).trim().toLowerCase();
+  if (/^(0x)?[0-9a-f]{4,}$/.test(qa) && (adr.startsWith(qa) || adr.slice(2).startsWith(qa))) return 95;
+  const sym = norm(c.sym).replace(/ /g, ''), base = c.action && /c$/.test(sym) ? sym.slice(0, -1) : sym, nom = norm(c.nom), words = nom.split(' ').filter(Boolean), qs = q.replace(/ /g, '');
+  if (qs === sym || qs === base) return 100;
+  if (sym.startsWith(qs)) return 85;
+  if (words.some((w) => w.startsWith(qs)) || nom.startsWith(q)) return 75;
+  const toks = q.split(' '); if (toks.length > 1 && toks.every((t) => sym.includes(t) || words.some((w) => w.startsWith(t)))) return 65;
+  if (sym.includes(qs) || nom.includes(q)) return 55;
+  if (qs.length >= 3 && (oneTypo(qs, base) || oneTypo(qs, sym) || words.some((w) => w.length >= 3 && (oneTypo(qs, w) || (w.length > qs.length && oneTypo(qs, w.slice(0, qs.length))))))) return 40;
+  if (qs.length >= 3 && (inOrder(qs, sym) || words.some((w) => inOrder(qs, w)))) return 20;
+  return 0;
+}
+function smartFind(list, raw, max) {
+  return list.map((c, k) => ({ c, k, s: matchScore(c, raw) })).filter((x) => x.s > 0)
+    .sort((a, b) => b.s - a.s || (b.c.inGame ? 1 : 0) - (a.c.inGame ? 1 : 0) || (b.c.trades || 0) - (a.c.trades || 0) || a.k - b.k).slice(0, max).map((x) => x.c);
+}
 function findBlock(q) {
-  const v = String(q || '').trim().toLowerCase(); if (!v) return false;
-  const i = world.blocks.findIndex((b) => b.sym.toLowerCase() === v || b.adr === v) >= 0 ? world.blocks.findIndex((b) => b.sym.toLowerCase() === v || b.adr === v)
-    : world.blocks.findIndex((b) => b.sym.toLowerCase().startsWith(v) || (b.nom || '').toLowerCase().includes(v) || b.adr.startsWith(v));
+  if (!String(q || '').trim()) return false;
+  const best = smartFind(world.blocks.map((b, i) => ({ ...b, i })), q, 1)[0], i = best ? best.i : -1;
   if (i < 0) return false;
   followI = i; lockI = i; $('#follow').value = String(i); view.z = Math.max(view.z, 5);
   const c = cluster(i) || world.blocks[i].home; view.x = c[0]; view.y = c[1];
@@ -288,6 +334,7 @@ function headerLines() {
   if (live) {
     const S = live.season, left = Math.max(0, S.end - world.chainBlock) * 0.2, h = Math.floor(left / 3600), m = Math.floor(left % 3600 / 60);
     $('#liveTag').hidden = false;
+    $('#seasonPill').hidden = false; $('#seasonPill').innerHTML = 'Season · ends in <b></b>'; $('#seasonPill b').textContent = h + ' h ' + String(m).padStart(2, '0') + ' min';
     $('#replayLine').textContent = 'Live season · ' + world.blocks.length + ' blocks · started at Base block ' + S.de.toLocaleString('en-US') + ' · ends in ' + h + ' h ' + String(m).padStart(2, '0') + ' min.';
     $('#modeLine').innerHTML = '<a href="?replay">Watch the 2-hour replay</a> · <a href="/api/life/journal" target="_blank" rel="noopener">public journal</a>' + (S.hashes && S.hashes.length ? ' · last hourly hash <span class="hash">' + S.hashes[S.hashes.length - 1].hash.slice(0, 16) + '</span>' : '');
   } else {
@@ -442,15 +489,21 @@ let centroidCache = { gen: -1, v: [] };
 /* THE TRACKER (Phil 2026-11-16 "le traker a du mal"): the colony's DENSEST cluster — the 16x16 tile holding most of its cells, then the
  *   mean of that tile and its 8 neighbours. Its centre of mass sat in empty space as soon as gliders flew off. Cached per generation. */
 let clusterCache = { gen: -1, v: [] };
+let trail = null; /* the followed colony's path (drawing only) */
 function cluster(i) {
   if (clusterCache.gen !== world.gen) {
-    const tiles = world.blocks.map(() => new Map());
-    for (const [k, o] of world.cells) if (o >= 0) { const t = (Math.floor(E.kx(k) / 16) + 2048) * 4096 + (Math.floor(E.ky(k) / 16) + 2048); const m = tiles[o]; m.set(t, (m.get(t) || 0) + 1); }
-    const best = tiles.map((m) => { let bt = -1, bn = 0; for (const [t, n] of m) if (n > bn || (n === bn && t < bt)) { bt = t; bn = n; } return bt; });
-    const sums = world.blocks.map(() => [0, 0, 0]);
-    for (const [k, o] of world.cells) if (o >= 0 && best[o] >= 0) { const tx = Math.floor(E.kx(k) / 16) + 2048, ty = Math.floor(E.ky(k) / 16) + 2048, bx = Math.floor(best[o] / 4096), by = best[o] % 4096;
-      if (Math.abs(tx - bx) <= 1 && Math.abs(ty - by) <= 1) { const q = sums[o]; q[0] += E.kx(k); q[1] += E.ky(k); q[2]++; } }
-    clusterCache = { gen: world.gen, v: sums.map((q) => (q[2] ? [q[0] / q[2], q[1] / q[2], q[2]] : null)) };
+    const T = 8, key = (x, y) => (x + 4096) * 8192 + (y + 4096), tiles = world.blocks.map(() => new Map());
+    for (const [k, o] of world.cells) if (o >= 0) { const t = key(Math.floor(E.kx(k) / T), Math.floor(E.ky(k) / T)), m = tiles[o]; m.set(t, (m.get(t) || 0) + 1); }
+    /* the densest 3x3 block of 8x8 tiles (24x24 cells) per colony */
+    const best = tiles.map((m) => { let bt = -1, bn = 0; for (const t of m.keys()) { const tx = Math.floor(t / 8192) - 4096, ty = t % 8192 - 4096; let n = 0;
+      for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) n += m.get(key(tx + dx, ty + dy)) || 0;
+      if (n > bn || (n === bn && t < bt)) { bt = t; bn = n; } } return bt; });
+    const sums = world.blocks.map(() => [0, 0, 0]), inWin = (o, x, y) => { const bx = Math.floor(best[o] / 8192) - 4096, by = best[o] % 8192 - 4096; return Math.abs(Math.floor(x / T) - bx) <= 1 && Math.abs(Math.floor(y / T) - by) <= 1; };
+    for (const [k, o] of world.cells) if (o >= 0 && best[o] >= 0 && inWin(o, E.kx(k), E.ky(k))) { const q = sums[o]; q[0] += E.kx(k); q[1] += E.ky(k); q[2]++; }
+    /* snap to the colony's own cell nearest that mean: the centre is always ON a cell, never in a gap */
+    const near = world.blocks.map(() => [0, 0, Infinity]);
+    for (const [k, o] of world.cells) if (o >= 0 && sums[o][2]) { const q = sums[o], x = E.kx(k), y = E.ky(k), d = (x - q[0] / q[2]) ** 2 + (y - q[1] / q[2]) ** 2; if (d < near[o][2]) near[o] = [x, y, d]; }
+    clusterCache = { gen: world.gen, v: sums.map((q, o) => (q[2] ? [near[o][0] + 0.5, near[o][1] + 0.5, q[2]] : null)) };
   }
   return clusterCache.v[i];
 }
@@ -509,7 +562,14 @@ function draw(t) {
     for (const [k, o] of world.cells) if (o === focus) { const x = E.kx(k) * z + ox + s / 2, y = E.ky(k) * z + oy + s / 2; if (x < -r || y < -r || x > W + r || y > H + r) continue; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill(); }
     ctx.restore();
     const b = world.blocks[focus], hx = b.home[0] * z + ox, hy = b.home[1] * z + oy, fs = 30;
-    if (fn) { ctx.strokeStyle = colours[focus]; ctx.globalAlpha = 0.6; ctx.setLineDash([4, 5]); ctx.beginPath(); const cl = cluster(focus); if (cl) { ctx.moveTo(hx, hy); ctx.lineTo(cl[0] * z + ox, cl[1] * z + oy); } ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1; }
+    const cl = cluster(focus);
+    if (cl) { if (!trail || trail.i !== focus) trail = { i: focus, pts: [] }; const lp = trail.pts[trail.pts.length - 1];
+      if (!lp || world.gen - lp[2] >= 20) { trail.pts.push([cl[0], cl[1], world.gen]); if (trail.pts.length > 60) trail.pts.shift(); }
+      const P = trail.pts.concat([[cl[0], cl[1], world.gen]]);
+      ctx.save(); ctx.strokeStyle = colours[focus]; ctx.lineWidth = 2; ctx.lineCap = 'round';
+      for (let n = 1; n < P.length; n++) { ctx.globalAlpha = 0.15 + 0.75 * n / P.length; ctx.beginPath(); ctx.moveTo(P[n - 1][0] * z + ox, P[n - 1][1] * z + oy); ctx.lineTo(P[n][0] * z + ox, P[n][1] * z + oy); ctx.stroke(); }
+      const cx = cl[0] * z + ox, cy = cl[1] * z + oy; ctx.globalAlpha = 1; ctx.shadowColor = colours[focus]; ctx.shadowBlur = 12; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(cx, cy, Math.max(10, z * 6), 0, 7); ctx.stroke();
+      ctx.shadowBlur = 0; ctx.fillStyle = '#f2fbff'; ctx.font = '700 12px system-ui'; ctx.textAlign = 'center'; ctx.fillText(b.sym, cx, cy - Math.max(10, z * 6) - 6); ctx.restore(); }
     if (faces[focus].complete) { ctx.save(); ctx.shadowColor = colours[focus]; ctx.shadowBlur = 18; ctx.drawImage(faces[focus], hx - fs / 2, hy - fs * 0.55, fs, fs * 1.1); ctx.restore(); }
     ctx.fillStyle = '#f2fbff'; ctx.font = '700 12px system-ui'; ctx.textAlign = 'center'; ctx.fillText(b.sym + ' · home', hx, hy + fs * 0.62 + 12);
   }
@@ -544,7 +604,8 @@ function panel() {
   $('#sBlock').textContent = world.chainBlock.toLocaleString('en-US');
   $('#sTime').textContent = when(world.chainBlock).toISOString().slice(11, 19) + ' UTC';
   $('#sCells').textContent = world.cells.size.toLocaleString('en-US');
-  $('#sRate').textContent = playing ? rate.toFixed(0) + ' blocks/s (×' + (rate / 5).toFixed(1) + ')' : 'paused';
+  $('#sRate').textContent = playing ? rate.toFixed(0) + ' / s' : 'paused';
+  if (world.gen > 0) $('#tiles').classList.remove('sk');
   $('#sNeutral').textContent = rk.neutral.toLocaleString('en-US');
   $('#sHash').textContent = world.hash;
   $('#capLine').textContent = world.stopped ? 'Stopped: ' + world.stopped + '.' : world.capped ? 'Past ' + E.CELL_CAP.toLocaleString('en-US') + ' live cells: growth gestures wait, shields go on.' : '';
@@ -578,8 +639,8 @@ async function loadCandidates() {
   return candidates;
 }
 function listCandidates() {
-  const q = $('#addQ').value.trim().toLowerCase(), ul = $('#addList'); ul.textContent = '';
-  const rows = (candidates || []).filter((c) => !q || c.sym.toLowerCase().includes(q) || c.nom.toLowerCase().includes(q) || c.adr.startsWith(q)).slice(0, 40);
+  const q = $('#addQ').value, ul = $('#addList'); ul.textContent = '';
+  const rows = q.trim() ? smartFind(candidates || [], q, 40) : (candidates || []).slice(0, 40);
   if (!rows.length) { const li = document.createElement('li'); li.textContent = candidates === null ? 'Reading the app\'s blocks…' : candidates.length ? 'No block matches.' : 'The app\'s block list is not read yet: try again in a minute.'; ul.append(li); return; }
   for (const c of rows) {
     const li = document.createElement('li'); li.tabIndex = 0;
@@ -713,6 +774,19 @@ $('#follow').addEventListener('change', () => { lockI = followI; });
 $('#follow').onchange = (e) => { followI = Number(e.target.value); if (followI < 0) fitAll(); else view.z = Math.max(view.z, 4); };
 $('#find').addEventListener('change', (e) => { if (!findBlock(e.target.value)) e.target.setCustomValidity('No block with that name in this game'); else e.target.setCustomValidity(''); e.target.reportValidity(); });
 $('#find').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); findBlock(e.target.value); } });
+$('#howLink').onclick = (e) => { e.preventDefault(); const b = $('#howBox'); b.hidden = !b.hidden; $('#howLink').setAttribute('aria-expanded', String(!b.hidden)); $('#howLink').textContent = b.hidden ? 'How it works' : 'Less'; };
+$('#copyHash').onclick = async () => { try { await navigator.clipboard.writeText(world.hash); $('#copyHash').textContent = 'Copied'; } catch (_) { $('#copyHash').textContent = 'Select it'; } setTimeout(() => { $('#copyHash').textContent = 'Copy'; }, 1500); };
+$('#find').addEventListener('input', (e) => { if (!e.target.value) { followI = -1; lockI = -1; $('#follow').value = '-1'; fitAll(); } });
+function zoomBy(k) { view.z = Math.max(0.3, Math.min(40, view.z * k)); }
+$('#nav').addEventListener('click', (e) => { const b = e.target.closest('[data-nav]'); if (!b) return; const a = b.dataset.nav;
+  if (a === 'in') zoomBy(1.5); if (a === 'out') zoomBy(1 / 1.5);
+  if (a === 'fit') { followI = -1; lockI = -1; $('#follow').value = '-1'; fitAll(); }
+  if (a === 'crown' && world.crown >= 0) { followI = world.crown; lockI = -1; $('#follow').value = String(world.crown); view.z = Math.max(view.z, 4); } });
+/* the hint shows once per phone, until the first touch on the map */
+const HINT_KEY = 'lifeNavHint';
+function hintSeen() { try { return localStorage.getItem(HINT_KEY) === '1'; } catch (_) { return false; } }
+function hideHint() { $('#navHint').hidden = true; try { localStorage.setItem(HINT_KEY, '1'); } catch (_) {} }
+if (innerWidth < 760 && !hintSeen()) { $('#navHint').hidden = false; $('#navHintX').onclick = hideHint; cv.addEventListener('pointerdown', hideHint, { once: true }); }
 $('#glow').onclick = () => { glow = !glow; $('#glow').classList.toggle('on', glow); };
 $('#trails').onclick = () => { showTrails = !showTrails; trails.clear(); $('#trails').classList.toggle('on', showTrails); };
 $('#verify').onclick = async () => {
