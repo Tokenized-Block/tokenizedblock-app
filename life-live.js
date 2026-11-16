@@ -65,7 +65,7 @@ export function createLifeLive({ rpc, dir = null, lignes, poolManager, log = () 
       S.history = S.history.slice(0, 60); writeJson('seasons.json', S.history);
       log('[life] season ' + s.id + ' was played with engine ' + (s.engine || 1) + ': closed, a new season starts'); return;
     }
-    S.season = { id: s.id, de: s.de, end: s.end, blocks: s.blocks, hashes: s.hashes || [], rounds: s.rounds || [], engine: s.engine, startedAt: s.startedAt };
+    S.season = { id: s.id, de: s.de, end: s.end, blocks: s.blocks, hashes: s.hashes || [], rounds: s.rounds || [], late: s.late || [], engine: s.engine, startedAt: s.startedAt };
     const readTo = Number(s.readTo) || s.de - 1;
     /* facts written past the saved readTo belong to a window whose readTo never got saved: dropped, that window is read again */
     let faits = [];
@@ -114,8 +114,17 @@ export function createLifeLive({ rpc, dir = null, lignes, poolManager, log = () 
       if (String(l.address).toLowerCase() !== LIFE_ENTRY || !l.topics || l.topics[0] !== ENTERED || l.topics.length < 3) continue;
       const rc = await call('eth_getTransactionReceipt', [l.transactionHash]);
       if (!rc || rc.status !== '0x1' || !(rc.logs || []).some((x) => String(x.address).toLowerCase() === LIFE_ENTRY && x.logIndex === l.logIndex)) continue;
-      out.push({ bloc: parseInt(l.blockNumber, 16), log: parseInt(l.logIndex, 16), tx: l.transactionHash, adr: ('0x' + l.topics[2].slice(26)).toLowerCase(), payer: ('0x' + l.topics[1].slice(26)).toLowerCase() });
+      let bloc = parseInt(l.blockNumber, 16);
+      /* review Grok 2026-11-16 (CrownMarket point 3): an entry paid in the SECOND half of a market round takes effect at the next round's
+       *   first block, so $2 cannot swing a crown that bets were closed on. The journal records the block it takes effect at. */
+      if (CR && bloc >= CR.genesis) { const k = (bloc - CR.genesis) % CR.roundBlocks; if (k >= CR.roundBlocks / 2) bloc += CR.roundBlocks - k; }
+      const rec = { bloc, log: parseInt(l.logIndex, 16), tx: l.transactionHash, adr: ('0x' + l.topics[2].slice(26)).toLowerCase(), payer: ('0x' + l.topics[1].slice(26)).toLowerCase() };
+      if (bloc > to) { S.season.late = (S.season.late || []).concat([rec]); continue; } /* kept in season.json until its block is read */
+      out.push(rec);
     }
+    /* delayed entries whose block is now read */
+    const due = (S.season.late || []).filter((x) => x.bloc >= from && x.bloc <= to); S.season.late = (S.season.late || []).filter((x) => x.bloc > to);
+    out.push(...due);
     out.sort((x, y) => x.bloc - y.bloc || (x.adr < y.adr ? -1 : x.adr > y.adr ? 1 : 0));
     const facts = [];
     for (const e of out) {

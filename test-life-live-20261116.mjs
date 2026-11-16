@@ -113,6 +113,17 @@ const replay = E.createWorld(data); for (let i = 0; i < G; i++) E.stepWorld(repl
   const live2 = createLifeLive({ rpc, lignes, poolManager: '0x0', lifeEntry: LE }); node.tip = data.de - 1 + 3;
   await live2.tick(); await play(live2, node, data.de + 1200); live2.stepFor(1e9);
   t('L7e two servers reading the same chain reach the same world (entries included)', live2._S.world.hash === W.hash, live2._S.world.hash + ' vs ' + W.hash); }
+{ /* L9: with CrownMarket rounds, an entry paid in a round's SECOND half takes effect at the next round's first block */
+  const LE = '0x' + 'e7'.repeat(20), NEW = '0x' + 'cd'.repeat(20), G0 = data.de, RBk = 400, paidAt = G0 + 300; /* round 0 = [de, de+399]: 300 is in its second half */
+  const lg = { address: LE, blockNumber: '0x' + paidAt.toString(16), transactionHash: '0x' + '05'.repeat(32), logIndex: '0x1', topics: [ENTERED, pad('0x' + 'aa'.repeat(20)), pad(NEW)], data: '0x' };
+  const node = { tip: data.de - 1 + 3 };
+  const rpc = async (m, p) => { if (m === 'eth_blockNumber') return '0x' + node.tip.toString(16);
+    if (m === 'eth_getLogs') { const q = p[0], de = parseInt(q.fromBlock, 16), a = parseInt(q.toBlock, 16); if (q.topics && q.topics[0] === ENTERED) return [lg].filter((l) => paidAt >= de && paidAt <= a); const A = new Set(q.address); return LOGS.filter((l) => A.has(l.address) && parseInt(l.blockNumber, 16) >= de && parseInt(l.blockNumber, 16) <= a); }
+    if (m === 'eth_getTransactionReceipt') return { status: '0x1', logs: [lg] }; if (m === 'eth_call') return '0x'; throw new Error(m); };
+  const live = createLifeLive({ rpc, lignes, poolManager: '0x0', lifeEntry: LE, crownRounds: { genesis: G0, roundBlocks: RBk } });
+  await live.tick(); await play(live, node, data.de + 900); live.stepFor(1e9);
+  const nb = live._S.world.blocks.find((b) => b.adr === NEW);
+  t('L9 an entry paid at block 300 of a 400-block round enters at the next round start (block 400)', !!nb && nb.joinedAt === G0 + RBk, nb && nb.joinedAt); }
 
 { /* L8: a season closed for a RULES change keeps its PAID entries: the next season re-adds them, once, as journal facts */
   const dir = mkdtempSync(join(tmpdir(), 'life-carry-'));

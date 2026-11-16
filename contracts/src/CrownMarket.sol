@@ -15,9 +15,13 @@ pragma solidity ^0.8.24;
 ///   - THE RESULT is posted by RESOLVER (the server's gas-only keeper) after the round ends: the winner and the world's fingerprint at the
 ///     round's last block (anyone can replay the public journal with the engine and compare). It can be posted once, and only before
 ///     RESOLVE_DEADLINE blocks after the end; past that, the round is refunded.
-///   - THE CHALLENGE: during CHALLENGE_BLOCKS after a result, anyone may challenge by paying CHALLENGE_BOND_USD_E18 of TBLOCK. A challenged
-///     round is refunded to every bettor in full and the bond goes to the vault. Nobody judges: a challenge does not pick another winner,
-///     it cancels the round (so a wrong result can never be paid, and griefing costs the bond).
+///   - THE CHALLENGE: during CHALLENGE_BLOCKS after a result, anyone may challenge by paying a bond = max(CHALLENGE_BOND_USD_E18 of TBLOCK,
+///     CHALLENGE_BOND_BPS of the pot). A challenged round is refunded to every bettor in full EXCEPT the challenger, whose own stakes go to
+///     the vault with the bond. Nobody judges: a challenge does not pick another winner, it cancels the round (a wrong result is never
+///     paid). Review Grok 2026-11-16: with a flat $5 bond and a refund for everybody, a big loser cancelled every round for $5; now a
+///     challenge costs at least 10 % of the pot plus all the challenger's stakes.
+///   - the bond is priced with the hearts' LAST stored price even if it is old (bounded by the hearts' floor and ceiling): a stale price
+///     must not make a wrong result unchallengeable (review Grok, point 2). Bets still need a fresh price.
 ///   - no owner, no withdraw, no upgrade. RESOLVER is replaced only by DEV/DEV2 after RESOLVER_DELAY, announced (the hearts' pattern), and
 ///     the replacement can be renounced for good.
 interface IERC20M {
@@ -42,6 +46,8 @@ contract CrownMarket {
     uint256 public immutable MIN_BET_USD_E18;
     uint256 public immutable CHALLENGE_BOND_USD_E18;
     uint256 public immutable MAX_PRICE_AGE;
+    uint256 public constant CHALLENGE_BOND_BPS = 1_000;   // 10 % of the pot
+    mapping(uint256 => address) public challengerOf;
     uint256 public constant RESOLVER_DELAY = 2 days;
 
     address public resolver;
@@ -98,6 +104,12 @@ contract CrownMarket {
         return (usdE18 * 1e18 + p - 1) / p;
     }
     function minBet() external view returns (uint256) { return tblockFor(MIN_BET_USD_E18); }
+    /// the challenge bond of round r: max($ bond at the LAST stored price, even old; 10 % of the pot)
+    function bondFor(uint256 r) public view returns (uint256) {
+        uint256 p = IPriceM(LIKES).price(); if (p == 0) revert StalePrice();
+        uint256 usd = (CHALLENGE_BOND_USD_E18 * 1e18 + p - 1) / p; uint256 part = (rounds[r].pot * CHALLENGE_BOND_BPS + BPS - 1) / BPS;
+        return usd > part ? usd : part;
+    }
 
     /* ── betting ── */
     function bet(uint256 r, address blockToken, uint256 amount) external nonReentrant {
@@ -127,9 +139,12 @@ contract CrownMarket {
         Round storage R = rounds[r];
         if (R.state != State.Posted) revert NotPosted();
         if (block.number > R.postedAt + CHALLENGE_BLOCKS) revert ChallengeOver();
-        uint256 bond = tblockFor(CHALLENGE_BOND_USD_E18);
-        R.state = State.Challenged;
+        uint256 bond = bondFor(r);
+        R.state = State.Challenged; challengerOf[r] = msg.sender;
         _pullTo(msg.sender, VAULT, bond);
+        /* the challenger's own stakes are not refunded: they go to the vault now */
+        uint256 own = totalOf[r][msg.sender];
+        if (own > 0) { claimed[r][msg.sender] = true; _send(VAULT, own); }
         emit Challenged(r, msg.sender, bond);
     }
 

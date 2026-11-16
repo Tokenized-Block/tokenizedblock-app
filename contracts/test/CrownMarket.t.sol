@@ -58,13 +58,33 @@ contract CrownMarketTest is Test {
     function test_challenge_refundsEverybody_bondToVault_noFee() public {
         _bet(a, NVDA, 300e22); _bet(c, AAPL, 600e22);
         vm.roll(G + RB); vm.prank(res); m.post(0, NVDA, bytes32(0));
-        uint256 bond = m.tblockFor(5e18);
+        uint256 bond = m.bondFor(0);
+        assertGe(bond, (uint256(900e22) * 1_000 + 9_999) / 10_000); /* at least 10 % of the pot ($5 may be more) */
         vm.prank(b); m.challenge(0);
         assertEq(t.balanceOf(vault), bond);
         uint256 a0 = t.balanceOf(a); uint256 c0 = t.balanceOf(c);
         vm.prank(a); m.claim(0); vm.prank(c); m.claim(0);
         assertEq(t.balanceOf(a) - a0, 300e22); assertEq(t.balanceOf(c) - c0, 600e22); assertEq(t.balanceOf(vault), bond);
         vm.roll(G + RB + 400); vm.prank(b); vm.expectRevert(CrownMarket.NotPosted.selector); m.challenge(0);
+    }
+
+    /// review Grok point 1: a LOSER that challenges loses its own stakes (to the vault) and pays 10 % of the pot; the others are refunded
+    function test_challengeByALoser_costsItsStakes_andTenPercent() public {
+        _bet(a, NVDA, 300e22); _bet(c, AAPL, 600e22);
+        vm.roll(G + RB); vm.prank(res); m.post(0, NVDA, bytes32(0));
+        uint256 c0 = t.balanceOf(c); uint256 bond = m.bondFor(0);
+        vm.prank(c); m.challenge(0);
+        assertEq(c0 - t.balanceOf(c), bond); assertEq(t.balanceOf(vault), bond + 600e22);
+        vm.prank(c); vm.expectRevert(CrownMarket.NothingToClaim.selector); m.claim(0);
+        uint256 a0 = t.balanceOf(a); vm.prank(a); m.claim(0); assertEq(t.balanceOf(a) - a0, 300e22);
+    }
+    /// review Grok point 2: a stale hearts price blocks bets but NOT the challenge
+    function test_stalePrice_stillLetsAWrongResultBeChallenged() public {
+        _bet(a, NVDA, 300e22);
+        vm.roll(G + RB); vm.prank(res); m.post(0, AAPL, bytes32(0));
+        vm.warp(block.timestamp + 7 hours);
+        vm.prank(b); m.challenge(0);
+        (, CrownMarket.State st,,,,) = m.rounds(0); assertEq(uint256(st), uint256(CrownMarket.State.Challenged));
     }
 
     function test_noResultInTime_refunds() public {
