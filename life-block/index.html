@@ -171,7 +171,8 @@
   </div>
   <div class="card">
     <h2>Add your block</h2>
-    <p class="soon" style="margin:0">Planned: drop a block into the live season (one you created in the app, or a tokenized stock) for $2 of TBLOCK, paid to the holders' vault. It lands at a spot drawn from its address and the block it enters, never handed the centre. Nothing to sign here yet.</p>
+    <p class="sub" style="margin:0 0 8px">Drop any block of the app into the live season for $2 of TBLOCK, or give a block already in the game a fresh colony for $1. Paid from your wallet straight to the holders' vault; your wallet signs, nothing is refunded.</p>
+    <div class="row"><button class="add" id="addBlock3">Add your block</button></div>
   </div>
 </div>
 <button id="openPanel" class="floating" hidden>☰ Game of Life Block</button>
@@ -182,7 +183,7 @@
   <input id="addQ" type="search" placeholder="Search a block: name, symbol or address" autocomplete="off">
   <ul id="addList" class="addList"></ul>
   <div id="addPick" class="addPick" hidden></div>
-  <p class="soon" id="addPrice">Entry: $2 of TBLOCK, paid from your wallet to the holders' vault. Planned: the payment step is not open yet, so nothing is signed here.</p>
+  <p class="sub" id="addPrice">Enter: $2 of TBLOCK. Revive a block already in the game: $1. At the price the hearts contract keeps on the market, paid from your wallet straight to the holders' vault.</p>
   <div class="row" id="addPayRow" hidden><button id="addPay" class="add">Pay $2 of TBLOCK and enter</button></div>
   <p class="sub" id="addMsg" aria-live="polite"></p>
   <div class="row"><button id="addClose">Close</button></div>
@@ -552,7 +553,7 @@ const LE = LIFE_ENTRY_DEPLOIEMENT.adresse, LR = LIFE_REVIVE_DEPLOIEMENT.adresse,
 const sel = (sig) => '0x' + keccak256Hex(new TextEncoder().encode(sig)).replace(/^0x/, '').slice(0, 8);
 const w32 = (x) => BigInt(x).toString(16).padStart(64, '0'), wa = (a) => String(a).toLowerCase().replace(/^0x/, '').padStart(64, '0');
 let picked = null;
-if (LE) { $('#addPrice').textContent = 'Entry: $2 of TBLOCK at the price the hearts contract keeps on the market, paid from your wallet straight to the holders\' vault. It is not refunded: your block plays the season.'; }
+
 async function pay() {
   const msg = (t) => { $('#addMsg').textContent = t; };
   if (!picked) return msg('Pick a block first.');
@@ -564,7 +565,7 @@ async function pay() {
     const rpc = (m, p) => eth.request({ method: m, params: p });
     let due;
     const C = picked.inGame ? LR : LE, what = picked.inGame ? 'revive' : 'entry';
-    if (!C) return msg('Not open yet for this block.');
+    if (!C) return msg('This block cannot be paid for here.');
     try { due = BigInt(await rpc('eth_call', [{ to: C, data: sel('entryPrice()') }, 'latest'])); }
     catch (e) { return msg('The TBLOCK price is being refreshed on chain: try again in a few minutes. Nothing was sent.'); }
     const bal = BigInt(await rpc('eth_call', [{ to: TBLOCK_ADR, data: sel('balanceOf(address)') + wa(compte) }, 'latest']));
@@ -593,7 +594,7 @@ function pick(c) {
   box.append(h, p);
 }
 async function openAdd() { if (candidates && !candidates.length) candidates = null; /* an empty list is read again */ $('#addDlg').showModal(); $('#addQ').focus(); listCandidates(); await loadCandidates(); listCandidates(); }
-$('#addBlock').onclick = openAdd; $('#addBlock2').onclick = openAdd;
+$('#addBlock').onclick = openAdd; $('#addBlock2').onclick = openAdd; $('#addBlock3').onclick = openAdd;
 if (CM) { $('#cmBet').onclick = cmBet; $('#cmClaim').onclick = cmClaim; cmRefresh(); setInterval(cmRefresh, 20000); }
 $('#addQ').oninput = listCandidates; $('#addPay').onclick = pay; $('#addClose').onclick = () => $('#addDlg').close();
 $('#speed').onchange = (e) => { perSecond = Number(e.target.value); };
