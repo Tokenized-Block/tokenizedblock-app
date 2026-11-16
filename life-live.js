@@ -41,7 +41,8 @@ export function factFromLog(l, index, blocks) {
   return { bloc: parseInt(l.blockNumber, 16), tx: l.transactionHash, log: parseInt(l.logIndex, 16), b: i, kind: P.includes(from) ? 'achat' : P.includes(to) ? 'vente' : 'transfert', vers: to };
 }
 
-export function createLifeLive({ rpc, dir = null, lignes, poolManager, log = () => {}, seasonBlocks = E.SEASON_BLOCKS, stepBudgetMs = 1200, lifeEntry = null, crownRounds = null }) {
+export function createLifeLive({ rpc, dir = null, lignes, poolManager, log = () => {}, seasonBlocks = E.SEASON_BLOCKS, stepBudgetMs = 1200, lifeEntry = null, crownRounds = null, lifeRevive = null }) {
+  const LIFE_REVIVE = /^0x[0-9a-fA-F]{40}$/.test(String(lifeRevive || '')) ? String(lifeRevive).toLowerCase() : null;
   /* CrownMarket rounds (game433): who wears the crown at each round's LAST block, with the world's fingerprint there. crownRounds =
    *   { genesis, roundBlocks } read from the deployed market. Kept in memory (the last 200 rounds) and in season.json. */
   const CR = crownRounds && Number.isSafeInteger(crownRounds.genesis) && Number.isSafeInteger(crownRounds.roundBlocks) && crownRounds.roundBlocks > 0 ? crownRounds : null;
@@ -65,7 +66,7 @@ export function createLifeLive({ rpc, dir = null, lignes, poolManager, log = () 
       S.history = S.history.slice(0, 60); writeJson('seasons.json', S.history);
       log('[life] season ' + s.id + ' was played with engine ' + (s.engine || 1) + ': closed, a new season starts'); return;
     }
-    S.season = { id: s.id, de: s.de, end: s.end, blocks: s.blocks, hashes: s.hashes || [], rounds: s.rounds || [], late: s.late || [], engine: s.engine, startedAt: s.startedAt };
+    S.season = { id: s.id, de: s.de, end: s.end, blocks: s.blocks, hashes: s.hashes || [], rounds: s.rounds || [], late: s.late || [], engine: s.engine, salt: s.salt || '', startedAt: s.startedAt };
     const readTo = Number(s.readTo) || s.de - 1;
     /* facts written past the saved readTo belong to a window whose readTo never got saved: dropped, that window is read again */
     let faits = [];
@@ -75,7 +76,7 @@ export function createLifeLive({ rpc, dir = null, lignes, poolManager, log = () 
       if (faits.length !== lines.length) writeFileSync(f(journalName(s.id)), faits.map((x) => JSON.stringify(x) + '\n').join(''));
     }
     const cp = readJson('cp-' + s.id + '.json');
-    try { S.world = cp ? E.deserializeWorld(cp) : E.createLiveWorld(s.blocks.filter((b) => !b.joinedAt), s.de); } catch (e) { log('[life] checkpoint refused, replaying the journal: ' + e.message); S.world = E.createLiveWorld(s.blocks.filter((b) => !b.joinedAt), s.de); }
+    try { S.world = cp ? E.deserializeWorld(cp) : E.createLiveWorld(s.blocks.filter((b) => !b.joinedAt), s.de, s.salt || ''); } catch (e) { log('[life] checkpoint refused, replaying the journal: ' + e.message); S.world = E.createLiveWorld(s.blocks.filter((b) => !b.joinedAt), s.de, s.salt || ''); }
     const after = faits.filter((x) => x.bloc > S.world.data.a);
     if (readTo > S.world.data.a) E.appendFacts(S.world, after, readTo);
     S.readTo = readTo; S.recent = faits.filter((x) => x.bloc > readTo - RECENT_BLOCKS);
@@ -95,8 +96,12 @@ export function createLifeLive({ rpc, dir = null, lignes, poolManager, log = () 
       S.history = S.history.slice(0, 60); writeJson('seasons.json', S.history);
     }
     const id = 's' + h;
-    S.season = { id, de: h + 1, end: h + 1 + seasonBlocks, blocks, hashes: [], engine: E.ENGINE_VERSION, startedAt: new Date().toISOString() };
-    S.world = E.createLiveWorld(blocks, h + 1); S.readTo = h; S.recent = [];
+    /* Phil 2026-11-16: "ca refait une partie avec les blocks de la partie precedente qui reviennent ... jouabilite infinie": every block of
+     *   the season that ends (paid entries included) starts the next one, with the stocks of the moment; a new seed (the season id)
+     *   redraws the whole map. */
+    if (S.season && Array.isArray(S.season.blocks)) for (const b of S.season.blocks) if (!blocks.some((x) => x.adr === b.adr)) { const { joinedAt, i, home, ...rest } = b; blocks.push(rest); }
+    S.season = { id, de: h + 1, end: h + 1 + seasonBlocks, blocks, hashes: [], engine: E.ENGINE_VERSION, salt: id, startedAt: new Date().toISOString() };
+    S.world = E.createLiveWorld(blocks, h + 1, id); S.readTo = h; S.recent = [];
     saveSeason(); saveCheckpoint(); log('[life] season ' + id + ' starts at block ' + (h + 1) + ' with ' + blocks.length + ' players');
     return true;
   }
@@ -106,26 +111,32 @@ export function createLifeLive({ rpc, dir = null, lignes, poolManager, log = () 
    *   says status 1 (an event is not a transaction: the receipt is read). A block already in the season is reinforced, never duplicated.
    *   New players are listed in (block, address) order: the engine adds them in that same order, so a fact's index means one block. */
   async function readEntries(from, to) {
-    if (!LIFE_ENTRY) return [];
-    const r = await call('eth_getLogs', [{ fromBlock: '0x' + from.toString(16), toBlock: '0x' + to.toString(16), address: LIFE_ENTRY, topics: [ENTERED] }]);
-    if (!Array.isArray(r)) throw new Error('eth_getLogs (entries) did not answer a list');
+    if (!LIFE_ENTRY && !LIFE_REVIVE) return [];
+    const r = [];
+    for (const [src, kind] of [[LIFE_ENTRY, 'join'], [LIFE_REVIVE, 'revive']]) {
+      if (!src) continue;
+      const x = await call('eth_getLogs', [{ fromBlock: '0x' + from.toString(16), toBlock: '0x' + to.toString(16), address: src, topics: [ENTERED] }]);
+      if (!Array.isArray(x)) throw new Error('eth_getLogs (entries) did not answer a list');
+      for (const l of x) r.push({ l, src, kind });
+    }
     const out = [];
-    for (const l of r) {
-      if (String(l.address).toLowerCase() !== LIFE_ENTRY || !l.topics || l.topics[0] !== ENTERED || l.topics.length < 3) continue;
+    for (const { l: l0, src, kind } of r) {
+      const l = l0;
+      if (String(l.address).toLowerCase() !== src || !l.topics || l.topics[0] !== ENTERED || l.topics.length < 3) continue;
       const rc = await call('eth_getTransactionReceipt', [l.transactionHash]);
-      if (!rc || rc.status !== '0x1' || !(rc.logs || []).some((x) => String(x.address).toLowerCase() === LIFE_ENTRY && x.logIndex === l.logIndex)) continue;
+      if (!rc || rc.status !== '0x1' || !(rc.logs || []).some((x) => String(x.address).toLowerCase() === src && x.logIndex === l.logIndex)) continue;
       let bloc = parseInt(l.blockNumber, 16);
       /* review Grok 2026-11-16 (CrownMarket point 3): an entry paid in the SECOND half of a market round takes effect at the next round's
        *   first block, so $2 cannot swing a crown that bets were closed on. The journal records the block it takes effect at. */
       if (CR && bloc >= CR.genesis) { const k = (bloc - CR.genesis) % CR.roundBlocks; if (k >= CR.roundBlocks / 2) bloc += CR.roundBlocks - k; }
-      const rec = { bloc, log: parseInt(l.logIndex, 16), tx: l.transactionHash, adr: ('0x' + l.topics[2].slice(26)).toLowerCase(), payer: ('0x' + l.topics[1].slice(26)).toLowerCase() };
+      const rec = { kind, bloc, log: parseInt(l.logIndex, 16), tx: l.transactionHash, adr: ('0x' + l.topics[2].slice(26)).toLowerCase(), payer: ('0x' + l.topics[1].slice(26)).toLowerCase() };
       if (bloc > to) { S.season.late = (S.season.late || []).concat([rec]); continue; } /* kept in season.json until its block is read */
       out.push(rec);
     }
     /* delayed entries whose block is now read */
     const due = (S.season.late || []).filter((x) => x.bloc >= from && x.bloc <= to); S.season.late = (S.season.late || []).filter((x) => x.bloc > to);
     out.push(...due);
-    out.sort((x, y) => x.bloc - y.bloc || (x.adr < y.adr ? -1 : x.adr > y.adr ? 1 : 0));
+    out.sort((x, y) => x.bloc - y.bloc || (x.adr < y.adr ? -1 : x.adr > y.adr ? 1 : 0) || (x.kind === 'revive' ? 1 : 0) - (y.kind === 'revive' ? 1 : 0));
     const facts = [];
     for (const e of out) {
       const line = (lignes() || []).find((x) => x && String(x.adr || '').toLowerCase() === e.adr);
@@ -134,7 +145,7 @@ export function createLifeLive({ rpc, dir = null, lignes, poolManager, log = () 
       const b = { adr: e.adr, sym: sym || e.adr.slice(0, 6), nom, action: !!(line && line.emetteur), liquiditeUsd: Math.round(Number(line && line.liquiditeUsd) || 0),
         pools: line ? [...new Set([line.poolAdr, line.routeAction && line.routeAction.pool, line.emetteur ? null : poolManager].filter(Boolean).map((x) => String(x).toLowerCase()))] : [] };
       if (!S.season.blocks.some((x) => x.adr === b.adr)) S.season.blocks.push({ ...b, joinedAt: e.bloc });
-      facts.push({ bloc: e.bloc, join: b, tx: e.tx, payer: e.payer });
+      facts.push(e.kind === 'revive' ? { bloc: e.bloc, revive: b, tx: e.tx, payer: e.payer } : { bloc: e.bloc, join: b, tx: e.tx, payer: e.payer });
     }
     return facts;
   }
@@ -151,7 +162,8 @@ export function createLifeLive({ rpc, dir = null, lignes, poolManager, log = () 
     }
     const faits = logs.map((l) => factFromLog(l, idx, B)).filter((x) => x && x.bloc >= from && x.bloc <= to && (!B[x.b].joinedAt || x.bloc >= B[x.b].joinedAt));
     faits.push(...entries);
-    faits.sort((x, y) => x.bloc - y.bloc || (x.join ? 0 : 1) - (y.join ? 0 : 1) || (x.log || 0) - (y.log || 0) || (x.tx < y.tx ? -1 : 1));
+    const special = (x) => (x.join || x.revive ? 0 : 1);
+    faits.sort((x, y) => x.bloc - y.bloc || special(x) - special(y) || (x.log || 0) - (y.log || 0) || (x.tx < y.tx ? -1 : 1));
     return faits;
   }
 

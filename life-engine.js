@@ -21,7 +21,7 @@ import { keccak256Hex } from './keccak.js';
 
 /* the RULES' version: a season is replayed with the engine of its version only. 2 = the crown margin (2026-11-16). A server that loads
  *   a season of another version closes it and starts a new one (life-live.js), so "Verify" never compares two rule sets. */
-export const ENGINE_VERSION = 2;
+export const ENGINE_VERSION = 3; /* 3 = convert, revive, a seed per season (2026-11-16) */
 export const BEAT_BLOCKS = 10;          /* the brain beats every 10 chain blocks = 2 s */
 export const BLOCKS_PER_HOUR = 18000;   /* 3600 s / 0.2 s */
 export const CELL_CAP = 24000;          /* above this, growth gestures pause (defence still allowed) */
@@ -44,6 +44,10 @@ export const GESTURES = Object.freeze({
   hunt: { mood: 'EXCITE', perHour: 20, grows: true, fromFacts: true, says: 'hunts: a glider aimed at the nearest rival' },
   revenge: { mood: 'any', perHour: 10, grows: true, fromFacts: false, says: 'strikes back at the rival that ate its cells' },
   eater: { mood: 'CURIEUX', perHour: 8, grows: false, fromFacts: false, says: 'lays an eater in a rival path' },
+  /* CONVERT (Phil 2026-11-16: "manger et convertir les cellules ... les bloque"): the ONE gesture that writes over a rival — at most a 3x3
+   *   patch of the nearest rival cells touching the block's own colony, on a beat with 3+ buys. Oscillating borders froze two colonies
+   *   face to face for hours; this lets the market push one of them through. */
+  convert: { mood: 'EXCITE', perHour: 12, grows: false, fromFacts: true, says: 'converts rival cells at its border' },
   /* THE GOAL IS THE CROWN (Phil 2026-11-16: "le but est d'avoir la couronne, donc le plus de territoire possible") */
   /* MACHINES (Phil 2026-11-16: "elles peuvent faire des machines automatisees si les brains le veulent"): a glider gun keeps firing
    *   on its own, one glider every 30 generations, until something breaks it — the block's market built it, Life runs it */
@@ -134,12 +138,13 @@ function seedBits(addr, salt) { return keccak256Hex(new TextEncoder().encode(add
 /** The world at generation 0, from the recorded data { blocks, faits, de, a }. */
 export function createWorld(data) {
   const blocks = data.blocks.map((b, i) => ({ ...b, i }));
-  const order = blocks.map((b) => ({ b, h: seedBits(b.adr, 'place') })).sort((p, q) => (p.h < q.h ? -1 : 1));
+  const salt = data.salt ? ':' + data.salt : ''; /* Phil 2026-11-16: "relancer une seed apres 24h": each live season draws its own map */
+  const order = blocks.map((b) => ({ b, h: seedBits(b.adr, 'place' + salt) })).sort((p, q) => (p.h < q.h ? -1 : 1));
   const golden = Math.PI * (3 - Math.sqrt(5));
   order.forEach(({ b }, r) => { const rad = SPACING * Math.sqrt(r + 0.5), a = r * golden; b.home = [Math.round(Math.cos(a) * rad), Math.round(Math.sin(a) * rad)]; });
   const cells = new Map();
   for (const b of blocks) {
-    const h = seedBits(b.adr, 'soup') + seedBits(b.adr, 'soup2').slice(2);
+    const h = seedBits(b.adr, 'soup' + salt) + seedBits(b.adr, 'soup2' + salt).slice(2);
     for (let y = 0; y < 12; y++) for (let x = 0; x < 6; x++) {
       if (parseInt(h[2 + ((y * 6 + x) % 128)], 16) < 6) { cells.set(key(b.home[0] - 6 + x, b.home[1] - 6 + y), b.i); cells.set(key(b.home[0] + 5 - x, b.home[1] - 6 + y), b.i); }
     }
@@ -183,6 +188,18 @@ function nearestEnemy(cells, from, me, R = 30) {
 export const tankOf = (g) => Math.max(2, Math.ceil(GESTURES[g].perHour / 10));
 function refill(p) { for (const g of Object.keys(GESTURES)) p.tank[g] = Math.min(tankOf(g), p.tank[g] + GESTURES[g].perHour * BEAT_BLOCKS / BLOCKS_PER_HOUR); }
 function canUse(p, g) { return p.tank[g] >= 1; }
+/** the first rival cell touching this block's colony (its cell list order, so the same on every replay), or null */
+function contactPoint(world, list, i) {
+  for (const k of list) for (let j = 0; j < 8; j++) { const o = world.cells.get(k + NOFF[j]); if (o !== undefined && o >= 0 && o !== i) return [kx(k + NOFF[j]), ky(k + NOFF[j])]; }
+  return null;
+}
+/** convert the rival cells of the 3x3 patch centred on `at` to `i` (never empty, never neutral, never its own); returns how many */
+function convertPatch(world, at, i) {
+  let n = 0;
+  for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) { const k = key(at[0] + dx, at[1] + dy), o = world.cells.get(k); if (o !== undefined && o >= 0 && o !== i) { world.cells.set(k, i); n++; } }
+  if (n) { const p = world.players[i]; p.eaten += n; }
+  return n;
+}
 /* a machine only works whole: every cell of its footprint (and a 2-cell margin) must be empty, or nothing is written */
 function placeWhole(cells, pts, at, owner) {
   let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity; for (const [x, y] of pts) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
@@ -261,6 +278,8 @@ function beat(world) {
      *   any mood but asleep + cells eaten since the last beat: revenge, a glider aimed at the block that ate the most. */
     const foeNear = p.mood === 'DORMANT' ? null : nearestEnemy(world.cells, edge, i);
     const toward = (to) => { const dx = to[0] - edge[0], dy = to[1] - edge[1], L = Math.hypot(dx, dy) || 1; return [dx / L, dy / L]; };
+    /* convert: a rival cell within 2 of the edge, 3+ buys: its 3x3 patch turns to this block (rival cells only, never empty or neutral) */
+    if (p.mood === 'EXCITE' && buys >= 3 && p.tank.convert >= 1) { const cp = contactPoint(world, Ti.list, i); if (cp) plan.push(['convert', null, cp]); }
     if (foeNear && p.mood === 'EXCITE') { const d = toward(foeNear); plan.push(['hunt', orient(P.glider, d, 'glider'), out(d, 3)]); }
     /* CHASE: an excited block that does not wear the crown aims one more glider at the leader's nearest cell, if the leader is
      *   within CHASE_REACH cells of its edge — everybody plays for the crown, so the leader is everybody's target */
@@ -281,7 +300,8 @@ function beat(world) {
     for (let j = 0; j < Math.min(2, newHolders); j++) { const d = dirAt(base + (j ? -0.9 : 0.9)); plan.push(['colony', P.beehive, out(d, 9 + j * 5)]); }
     for (const [g, pts, at] of plan) {
       if (!canUse(p, g) || (GESTURES[g].grows && world.capped)) continue;
-      if (!(g === 'gun' ? placeWhole : place)(world.cells, pts, at, i)) continue;
+      if (g === 'convert') { if (!convertPatch(world, at, i)) continue; }
+      else if (!(g === 'gun' ? placeWhole : place)(world.cells, pts, at, i)) continue;
       p.tank[g] -= 1; p.counts[g]++; p.last = { g, block: world.chainBlock, at };
       if (g === 'gun') event(world, { type: 'machine', i, at });
       world.log.push({ block: world.chainBlock, i, g, buys, sells, holders: newHolders, mood: p.mood, at }); world.logCount++; /* the log keeps 400; the count never stops */
@@ -299,6 +319,7 @@ export function appendFacts(world, faits, upTo) {
   for (const f of faits) {
     if (f.bloc <= world.data.a || f.bloc > upTo) throw new Error('appendFacts: fact at block ' + f.bloc + ' outside (' + world.data.a + ', ' + upTo + ']');
     if (f.join) { if (!world.joins.has(f.bloc)) world.joins.set(f.bloc, []); world.joins.get(f.bloc).push(f.join); continue; }
+    if (f.revive) { if (!world.joins.has(f.bloc)) world.joins.set(f.bloc, []); world.joins.get(f.bloc).push({ ...f.revive, revive: true }); continue; }
     const k = beatOf(f.bloc, world.data.de); if (!world.perBeat.has(k)) world.perBeat.set(k, []); world.perBeat.get(k).push(f);
   }
   world.data.a = upTo; world.beats = Math.ceil((upTo - world.data.de + 1) / BEAT_BLOCKS);
@@ -328,10 +349,26 @@ export function joinPlayer(world, b) {
   return i;
 }
 
+/** REVIVE (Phil 2026-11-16: "$1 de TBLOCK pour donner une nouvelle impulsion aux cellules qui stagnent"): a paid fact. The block gets a fresh
+ *  soup of its own cells at a spot drawn from keccak(address + block) within 24 cells of its colony's centre (its home if it has no cell),
+ *  empty cells only, and every gesture tank refilled. A block not in the game is let in (as a join). */
+export function revivePlayer(world, b) {
+  const adr0 = String(b.adr).toLowerCase(), i = world.blocks.findIndex((x) => x.adr === adr0);
+  if (i < 0) { const { revive, ...jb } = b; return joinPlayer(world, jb); }
+  let sx = 0, sy = 0, sn = 0; for (const [k, o] of world.cells) if (o === i) { sx += kx(k); sy += ky(k); sn++; }
+  const c = sn ? [Math.round(sx / sn), Math.round(sy / sn)] : world.blocks[i].home, h = seedBits(adr0, 'revive:' + world.chainBlock);
+  const spot = [c[0] + (parseInt(h.slice(2, 6), 16) % 49) - 24, c[1] + (parseInt(h.slice(6, 10), 16) % 49) - 24];
+  const s = seedBits(adr0, 'soup:revive:' + world.chainBlock) + seedBits(adr0, 'soup2:revive:' + world.chainBlock).slice(2);
+  for (let y = 0; y < 12; y++) for (let x = 0; x < 6; x++) if (parseInt(s[2 + ((y * 6 + x) % 128)], 16) < 6) for (const X of [spot[0] - 6 + x, spot[0] + 5 - x]) { const k = key(X, spot[1] - 6 + y); if (!world.cells.has(k)) world.cells.set(k, i); }
+  const p = world.players[i]; for (const g of Object.keys(GESTURES)) p.tank[g] = tankOf(g);
+  event(world, { type: 'revive', i, at: spot });
+  return i;
+}
+
 /** advance one generation (= one Base block); brains beat at the start of each beat */
 export function stepWorld(world) {
   if (world.stopped || world.chainBlock > world.data.a) return world;
-  const J = world.joins.get(world.chainBlock); if (J) { for (const b of [...J].sort((p, q) => (p.adr < q.adr ? -1 : 1))) joinPlayer(world, b); world.joins.delete(world.chainBlock); }
+  const J = world.joins.get(world.chainBlock); if (J) { for (const b of [...J].sort((p, q) => (p.adr < q.adr ? -1 : p.adr > q.adr ? 1 : (p.revive ? 1 : 0) - (q.revive ? 1 : 0)))) (b.revive ? revivePlayer : joinPlayer)(world, b); world.joins.delete(world.chainBlock); }
   if ((world.chainBlock - world.data.de) % BEAT_BLOCKS === 0) beat(world);
   if (world.cells.size > HARD_CAP) { world.stopped = 'the world grew past ' + HARD_CAP + ' cells'; return world; }
   const { next, births, eaten, lost, pairs, hash } = lifeStep(world.cells);
@@ -361,7 +398,7 @@ export function deserializeWorld(s) {
     joins: new Map(s.joins), crown: s.crown, events: s.events.slice(), eventCount: s.eventCount, log: s.log.slice(), logCount: s.logCount, hash: s.hash, capped: s.capped, stopped: s.stopped };
 }
 /** a live world with no fact yet: the season starts at chain block `de` */
-export function createLiveWorld(blocks, de) { return createWorld({ blocks, faits: [], de, a: de - 1 }); }
+export function createLiveWorld(blocks, de, salt = '') { return createWorld({ blocks, faits: [], de, a: de - 1, salt }); }
 
 export function ranking(world) {
   const n = new Array(world.blocks.length).fill(0); let neutral = 0;

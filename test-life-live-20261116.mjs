@@ -33,7 +33,8 @@ function fakeNode(state) {
 }
 const G = 2000, fin = data.de + G - 1;
 async function play(live, node, upTo) { while (live._S.readTo < upTo) { node.tip = Math.min(upTo + 3, node.tip + 293); /* 293: reads NOT aligned on the 10-block beat */ await live.tick(); if (node.fail === undefined || node.fail <= 0) live.stepFor(1e9); } }
-const replay = E.createWorld(data); for (let i = 0; i < G; i++) E.stepWorld(replay);
+/* the live season draws its map from its id (engine v3): the replay uses the same seed */
+const replay = (() => { const w = E.createWorld({ ...data, salt: 's' + (data.de - 1) }); for (let i = 0; i < G; i++) E.stepWorld(w); return w; })();
 
 { const node = { tip: data.de - 1 + 3 }, live = createLifeLive({ rpc: fakeNode(node), lignes, poolManager: '0x0' });
   await live.tick();
@@ -71,7 +72,7 @@ const replay = E.createWorld(data); for (let i = 0; i < G; i++) E.stepWorld(repl
     t('L4a the joiner entered at its block, once', nb.sym === 'TESTc' && nb.joinedAt === j.at && refused && W.events.some((e) => e.type === 'join'));
     /* anybody: the season's first players + the journal -> the same world */
     const lines = live.journal().split('\n').filter(Boolean).map((x) => JSON.parse(x));
-    const mine = E.createLiveWorld(live._S.season.blocks.filter((b) => !b.joinedAt), live._S.season.de); E.appendFacts(mine, lines, live._S.readTo); while (mine.chainBlock <= mine.data.a) E.stepWorld(mine);
+    const mine = E.createLiveWorld(live._S.season.blocks.filter((b) => !b.joinedAt), live._S.season.de, live._S.season.salt); E.appendFacts(mine, lines, live._S.readTo); while (mine.chainBlock <= mine.data.a) E.stepWorld(mine);
     t('L4 replaying the public journal gives the same hash', mine.hash === W.hash && lines.some((x) => x.join), mine.hash + ' vs ' + W.hash);
     live = createLifeLive({ rpc: fakeNode(node), lignes, poolManager: '0x0', dir }); live.load(); live.stepFor(1e9);
     t('L4b a restart after a join keeps the joiner', live._S.world.hash === W.hash && live._S.world.blocks.length === W.blocks.length, live._S.world.hash);
@@ -79,9 +80,11 @@ const replay = E.createWorld(data); for (let i = 0; i < G; i++) E.stepWorld(repl
 
 { /* L6: the season rolls over */
   const node = { tip: data.de - 1 + 3 }, live = createLifeLive({ rpc: fakeNode(node), lignes, poolManager: '0x0', seasonBlocks: 500 });
-  await live.tick(); await play(live, node, data.de + 499); live.stepFor(1e9);
+  await live.tick(); live._S.season.blocks.push({ adr: '0x' + '0f'.repeat(20), sym: 'PAIDc', nom: 'paid', action: false, liquiditeUsd: 0, pools: [], joinedAt: data.de + 2 }); live._S.pendingJoins = [{ bloc: data.de + 2, join: { adr: '0x' + '0f'.repeat(20), sym: 'PAIDc', nom: 'paid', action: false, liquiditeUsd: 0, pools: [] }, tx: '0x' + '0f'.repeat(32) }];
+  await play(live, node, data.de + 499); live.stepFor(1e9);
   node.tip = data.de + 520; await live.tick();
-  t('L6 a season ends at its block count, the next starts, the winner is recorded', live._S.season.de === data.de + 518 && live._S.history.length === 1 && !!live._S.history[0].winner, JSON.stringify(live._S.history[0])); }
+  t('L6 a season ends at its block count, the next starts, the winner is recorded', live._S.season.de === data.de + 518 && live._S.history.length === 1 && !!live._S.history[0].winner, JSON.stringify(live._S.history[0]));
+  t('L6b every block of the ended season (the paid one included) starts the next, on a new map (its own seed)', live._S.season.blocks.some((b) => b.adr === '0x' + '0f'.repeat(20) && !b.joinedAt) && live._S.season.salt === live._S.season.id); }
 
 { /* L7: "Add your block" — Entered logs of LifeEntry become joins, only from LifeEntry's address and from a status-1 transaction */
   const LE = '0x' + 'e7'.repeat(20), NEW = '0x' + 'cd'.repeat(20), OTHER = '0x' + '99'.repeat(20), at = data.de + 700, at2 = data.de + 900;
@@ -142,11 +145,22 @@ const replay = E.createWorld(data); for (let i = 0; i < G; i++) E.stepWorld(repl
     t('L8a the old season is closed for the rules change and a new one runs', live._S.history[0] && /rules changed/.test(live._S.history[0].closed || '') && live._S.season.id !== sj.id);
     t('L8b the paid block is in the new season, once', W.blocks.filter((b) => b.adr === paid.adr).length === 1 && W.events.some((e) => e.type === 'join'));
     const lines = live.journal().split('\n').filter(Boolean).map((x) => JSON.parse(x));
-    const mine = E.createLiveWorld(live._S.season.blocks.filter((b) => !b.joinedAt), live._S.season.de); E.appendFacts(mine, lines, live._S.readTo); while (mine.chainBlock <= mine.data.a) E.stepWorld(mine);
+    const mine = E.createLiveWorld(live._S.season.blocks.filter((b) => !b.joinedAt), live._S.season.de, live._S.season.salt); E.appendFacts(mine, lines, live._S.readTo); while (mine.chainBlock <= mine.data.a) E.stepWorld(mine);
     t('L8c the new season\'s journal (carried join included) replays to the same hash', mine.hash === W.hash && lines.some((x) => x.join && x.carriedFrom === sj.id), mine.hash + ' vs ' + W.hash);
     live = createLifeLive({ rpc: fakeNode(node), lignes, poolManager: '0x0', dir }); live.load(); await live.tick(); live.stepFor(1e9);
     t('L8d a restart does not carry it twice', live._S.world.blocks.filter((b) => b.adr === paid.adr).length === 1);
   } finally { rmSync(dir, { recursive: true, force: true }); } }
+
+{ /* L10: a paid REVIVE (LifeEntry code at $1, its own address) becomes a revive fact for a block in the game */
+  const LR = '0x' + 'f1'.repeat(20), at = data.de + 333, who = data.blocks[2].adr;
+  const lg = { address: LR, blockNumber: '0x' + at.toString(16), transactionHash: '0x' + '07'.repeat(32), logIndex: '0x0', topics: [ENTERED, pad('0x' + 'aa'.repeat(20)), pad(who)], data: '0x' };
+  const node = { tip: data.de - 1 + 3 };
+  const rpc = async (m, p) => { if (m === 'eth_blockNumber') return '0x' + node.tip.toString(16);
+    if (m === 'eth_getLogs') { const q = p[0], de = parseInt(q.fromBlock, 16), a = parseInt(q.toBlock, 16); if (q.topics && q.topics[0] === ENTERED) return q.address === LR && at >= de && at <= a ? [lg] : []; const A = new Set(q.address); return LOGS.filter((l) => A.has(l.address) && parseInt(l.blockNumber, 16) >= de && parseInt(l.blockNumber, 16) <= a); }
+    if (m === 'eth_getTransactionReceipt') return { status: '0x1', logs: [lg] }; if (m === 'eth_call') return '0x'; throw new Error(m); };
+  const live = createLifeLive({ rpc, lignes, poolManager: '0x0', lifeEntry: '0x' + 'e7'.repeat(20), lifeRevive: LR });
+  await live.tick(); await play(live, node, data.de + 600); live.stepFor(1e9);
+  t('L10 a paid revive revives that block (no new player), the feed says so', live._S.world.events.some((e) => e.type === 'revive' && e.i === 2) && live._S.world.blocks.length === data.blocks.length); }
 
 console.log(ok + '/' + (ok + ko) + (ko ? ' — RED' : ' — green'));
 process.exit(ko ? 1 : 0);

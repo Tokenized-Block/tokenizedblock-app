@@ -84,8 +84,10 @@ t('C5 the chain clock: one generation = one Base block', r1.w.chainBlock === dat
 { const w = E.createWorld(data); for (let i = 0; i < 990; i++) E.stepWorld(w);
   const before = new Map(w.cells); E.stepWorld(w); /* a beat happens at a multiple of 10 from de: gen 990 is one */
   const re = E.lifeStep(before).next; /* without gestures */
-  let stolen = 0; for (const [k, o] of re) { const now = w.cells.get(k); if (now !== undefined && now !== o) stolen++; }
-  t('C6 a gesture never changes the owner of a cell Life produced', stolen === 0, stolen); }
+  const patches = w.log.filter((l) => l.g === 'convert' && l.block === w.chainBlock - 1).map((l) => l.at);
+  const inPatch = (k) => patches.some((a) => Math.abs(E.kx(k) - a[0]) <= 1 && Math.abs(E.ky(k) - a[1]) <= 1);
+  let stolen = 0; for (const [k, o] of re) { const now = w.cells.get(k); if (now !== undefined && now !== o && !inPatch(k)) stolen++; }
+  t('C6 a gesture never changes the owner of a cell Life produced (except inside a convert patch)', stolen === 0, stolen); }
 { const w = E.createWorld(data); for (let i = 0; i < 700; i++) E.stepWorld(w); const s = E.snapshot(w); for (let i = 0; i < 300; i++) E.stepWorld(w); const h1 = w.hash;
   E.restore(w, s); for (let i = 0; i < 300; i++) E.stepWorld(w);
   t('C7 rewind (snapshot, restore) replays to the same hash', w.hash === h1, h1 + ' vs ' + w.hash); }
@@ -133,6 +135,23 @@ t('C5 the chain clock: one generation = one Base block', r1.w.chainBlock === dat
   const guns = []; const w = E.createWorld(data);
   for (let i = 0; i < 9000; i++) { const n0 = w.logCount; E.stepWorld(w); for (const l of w.log.slice(w.log.length - (w.logCount - n0))) if (l.g === 'gun') guns.push(l); }
   t('F2 a brain builds a gun only on a burst of ' + E.GUN_BUYS + '+ buys, and the feed says so', guns.length > 0 && guns.every((l) => l.buys >= E.GUN_BUYS) && w.events.some((e) => e.type === 'machine') || guns.length > 0 && guns.every((l) => l.buys >= E.GUN_BUYS), guns.length + ' guns'); }
+{ /* G. engine v3: a seed per season, convert, revive */
+  const a = E.createLiveWorld(data.blocks, data.de, 's1'), b = E.createLiveWorld(data.blocks, data.de, 's2'), c0 = E.createLiveWorld(data.blocks, data.de);
+  const r0 = E.createWorld({ ...data, faits: [], a: data.de - 1 });
+  t('G1 a season seed redraws the map (two seeds differ), and no seed is the recorded map', a.hash !== b.hash && JSON.stringify(a.blocks.map((x) => x.home)) !== JSON.stringify(b.blocks.map((x) => x.home)) && c0.hash === r0.hash);
+  const w = E.createWorld(data); const conv = [];
+  for (let i = 0; i < 9000; i++) { const n0 = w.logCount; E.stepWorld(w); for (const l of w.log.slice(w.log.length - (w.logCount - n0))) if (l.g === 'convert') conv.push(l); }
+  t('G2 convert fires on 3+ buys at a real contact point', conv.length > 0 && conv.every((l) => l.buys >= 3), conv.length + ' converts');
+  /* revive: a paid fact for block 0 */
+  const L = E.createLiveWorld(data.blocks, data.de, 'x'); const at = data.de + 50;
+  E.appendFacts(L, [], data.de + 49); while (L.chainBlock <= L.data.a) E.stepWorld(L);
+  const before = [...L.cells.values()].filter((o) => o === 0).length; L.players[0].tank.glider = 0;
+  E.appendFacts(L, [{ bloc: at, revive: { adr: data.blocks[0].adr } }], at); E.stepWorld(L);
+  const ev = L.events.find((e) => e.type === 'revive');
+  t('G3 a revive adds the block\'s own cells near its colony, refills its tanks, and says so', !!ev && ev.i === 0 && L.players[0].tank.glider === E.tankOf('glider') && [...L.cells.values()].filter((o) => o === 0).length > before - 40);
+  const L2 = E.createLiveWorld(data.blocks, data.de, 'x'); E.appendFacts(L2, [], data.de + 49); while (L2.chainBlock <= L2.data.a) E.stepWorld(L2); L2.players[0].tank.glider = 0;
+  E.appendFacts(L2, [{ bloc: at, revive: { adr: data.blocks[0].adr } }], at); E.stepWorld(L2);
+  t('G4 the same revive on the same block replays to the same world', L2.hash === L.hash); }
 const rk = E.ranking(r1.w); t('C8 the ranking adds up to the live cells', rk.rows.reduce((s, r) => s + r.cells, 0) + rk.neutral === r1.w.cells.size);
 console.log('after', GENS, 'generations:', r1.w.cells.size, 'cells,', r1.w.log.length, 'gestures, top:', rk.rows.slice(0, 5).map((r) => r.sym + ' ' + r.cells).join(', '), '| hash', r1.w.hash);
 console.log(ok + '/' + (ok + ko) + (ko ? ' — RED' : ' — green'));
